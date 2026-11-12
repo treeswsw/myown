@@ -146,26 +146,30 @@ ui.append(chat.el, chat.button);                     // 둘 다 position:fixed. 
 서버 → 방 전체(관전자·보낸 사람 포함, `room` 없이 event만): `{k:'pemote', id, data}`, `{k:'sndAdd', sid, by, name, data}`, `{k:'snd', id, sid}`. 입장·재접속 시 `room` 다음에 chatLog, 그다음(소리가 있을 때만) `{k:'sndList', items:[{sid,by,name,data}]}`. 같은 sid를 같은 사람이 다시 올리면 조용히 무시(재전송 없음), 다른 사람이 쓰던 sid면 error. 아이디당 8개 초과 시 그 사람의 가장 오래된 것, 방 24개 초과 시 가장 오래된 것이 삭제되며 삭제 알림은 없다(없는 sid 재생은 error "없는 소리입니다."). 제한 초과 error: "사진 이모티콘을 너무 빨리 보내고 있습니다" / "소리를 너무 빨리 올리고 있습니다" / "소리를 너무 빨리 재생하고 있습니다".
 
 ## [이모티콘/사운드] 모듈 사용법
-`client/src/ui/emotePanel.js` (+ `emotePanel.css`, `client/src/media.js`). 네트워크를 모르는 DOM 모듈. 데모: `client/emote-demo.html?state=emote|sound|photo|playing&t=<ms>`.
+`client/src/ui/emotePanel.js` (+ `emotePanel.css`, `client/src/media.js`). 네트워크를 모르는 DOM 모듈. 데모: `client/emote-demo.html?state=emote|sound|sound-edit|photo|playing&t=<ms>` (`&host`, `&fail`=서버가 응답하지 않는 경우).
 ```js
 import { createEmotePanel } from './ui/emotePanel.js';
 const ep = createEmotePanel({
   onEmote: (i) => send({ t: 'emote', e: i }),
-  onPhoto: (data) => send({ t: 'pemote', data }),               // JPEG 데이터 URL <= 40000자, <= 256x256
-  onSoundAdd: ({ sid, name, data }) => send(JSON.stringify({ t: 'sndAdd', sid, name, data })), // t가 반드시 첫 키(서버가 70KB 초과 프레임은 접두어로 판별). 데이터 URL <= 200000자
-  onSound: (sid) => send({ t: 'snd', sid }),                     // 'builtin:clap' | 내 사운드 sid
-  getAnchor: (id) => pins.anchor(id),                            // 핀 위쪽 화면 px {x,y} | null (chat과 동일)
-  getSelf: () => state.me.id,                                    // 선택: "다른 사람 사운드 끄기"가 내 소리는 제외하게
-  onClose: () => closePanel(),                                   // 선택: 이모티콘/사진을 보낸 뒤 호출(사운드는 연타 가능하게 호출 안 함)
+  onPhoto: (data) => send({ t: 'pemote', data }),                // JPEG 데이터 URL <= 40000자, <= 256x256
+  onSoundAdd: ({ sid, name, data }) => send(JSON.stringify({ t: 'sndAdd', sid, name, data })), // t가 반드시 첫 키(서버가 70KB 초과 프레임을 접두어로 판별), 데이터 URL <= 200000자
+  onSound: (sid) => send({ t: 'snd', sid }),                      // 'builtin:clap' | 방 사운드 sid
+  onSoundDelete: (sid) => send({ t: 'sndDel', sid }),
+  onSoundRename: (sid, name) => send({ t: 'sndRename', sid, name }),
+  getAnchor: (id) => pins.anchor(id),                             // 핀 위쪽 화면 px {x,y} | null (chat과 동일)
+  getSelf: () => state.me.id,                                     // 내 id (내 사운드 수정 권한, "다른 사람 사운드 끄기"가 내 소리 제외)
+  getName: (id) => name,                                          // 버튼에 작게 표시할 추가한 사람 이름
+  isHost: () => room.hostId === state.me.id,                      // 방장은 남의 사운드도 이름 변경/삭제 가능
+  onClose: () => closePanel(),                                    // 선택: 이모티콘/사진을 보낸 뒤 호출(사운드는 호출 안 함)
 });
 ```
-- `ep.el`: 탭 두 개가 있는 패널 내용. 기존 `.hpanel` 안에 `h('div','hpanel', ep.el)`로 넣으면 된다(hud.js의 `open('emote', grid)` 자리). `.hpanel`은 `scale(var(--k))`이므로 44px 터치 영역은 `calc(44px / var(--k))`로 잡혀 있다. 패널을 닫을 때 `ep.el`을 떼어도 상태(탭·입력 중인 이름)는 유지되고, 다시 붙이면 된다. 한 번만 만들어 재사용.
-- 서버 메시지 연결: `{k:'pemote', id, data}` → `ep.showPhoto(id, data)`; `{k:'snd', id, sid}` → `ep.playSound(id, sid)`; `{k:'sndAdd', sid, by, name, data}` → `ep.addRoomSound({sid, by, name, data})`; `{k:'sndList', items}` → `ep.setRoomSounds(items)`; 방을 나가거나 방 상태가 null이 되면 `ep.clearRoom()`(방의 사운드 목록과 떠 있는 사진/라벨을 지움 → 다음 방에서 내 사운드를 다시 올림).
-- 매 프레임(또는 핀 위치가 바뀔 때) `ep.update()`로 떠 있는 사진·스피커 라벨 위치를 갱신. 떠 있는 요소는 `document.body`의 `.ep-layer`(pointer-events:none, z-index 35)에 따로 붙는다.
-- 음소거: 상단 소리 버튼(`audio.js`의 `isMuted()`)은 media.js가 직접 확인하므로 따로 할 일 없음. `ep.setMuted(bool)`은 추가로 막고 싶을 때만.
-- 사진/사운드는 연출 대기열을 거치지 않고 도착 즉시 `showPhoto/playSound` 호출. 동시 재생은 3개까지.
-- 내 사운드를 처음 누르면 `onSoundAdd`만 호출하고, 서버의 `{k:'sndAdd', sid}` 이벤트가 `addRoomSound`로 들어오면(3초 안) 그때 `onSound(sid)`를 호출한다. 안 오면 버튼에 "잠시 후 다시 눌러 주세요"를 띄우고 다시 누를 수 있다. 서버 `error` 문구는 `ep.handleError(text)`로 넘기면 패널에 표시되고 대기 중인 업로드는 즉시 실패 처리된다(패널이 닫혀 있어도 호출해도 안전).
-- 한계값은 서버(40*1024, 200*1024)보다 약간 작은 40000/200000자. 재생은 최대 5초에서 끊고 동시 3개까지.
+- `ep.el`: 탭 두 개가 있는 패널 내용. `h('div','hpanel', ep.el)`로 기존 이모티콘 격자 자리에 넣는다(`.hpanel`은 `scale(var(--k))`이라 44px 터치 영역은 `calc(44px / var(--k))`). 한 번만 만들어 재사용(떼었다 다시 붙여도 상태 유지).
+- 서버 메시지: `{k:'pemote',id,data}` → `ep.showPhoto(id,data)`; `{k:'snd',id,sid}` → `ep.playSound(id,sid)`; `{k:'sndAdd',sid,by,name,data}` → `ep.addRoomSound({sid,by,name,data})`; `{k:'sndList',items}` → `ep.setRoomSounds(items)`; `{k:'sndDel',sid}` → `ep.removeRoomSound(sid)`; `{k:'sndRename',sid,name}` → `ep.renameRoomSound(sid,name)`; 서버 `error` 문구 → `ep.handleError(msg)`; 방을 나가면(room null) `ep.clearRoom()`.
+- **사운드는 방 공유**: 방의 모든 사운드가 "방 사운드" 버튼(추가한 사람 이름 작게)으로 보이고 누구나 `onSound(sid)`. 사운드를 추가하면 즉시 `onSoundAdd`; 서버 `sndAdd` 이벤트가 오면 버튼이 생기고, 그 전에는 "올리는 중…", 5초 안에 안 오거나 `handleError`가 불리면 "다시 시도"(누르면 재업로드).
+- **방에 들어간 뒤 `await ep.syncMine()`** (`setRoomSounds` 처리 뒤): 내 기기(IndexedDB)에 저장된 내 사운드 중 방에 없는 것을 10.5초 간격으로 차례로 올린다(서버 10초 제한). 최대 8개.
+- **편집**: 사운드 탭 "편집" 버튼 → 각 방 사운드에 미리듣기(나만 들림) / 이름(≤8자) / 삭제(확인). 이름·삭제는 추가한 사람과 방장만(`getSelf`/`isHost`), 나머지는 미리듣기만. 서버가 `sndDel`/`sndRename`을 보내면 그때 반영(낙관적 갱신 없음); 내 사운드가 삭제되면 IndexedDB에서도 지우고, 이름이 바뀌면 IndexedDB도 갱신. 기본 효과음은 편집 불가. 길게 눌러 삭제는 없음.
+- 매 프레임(또는 핀 위치가 바뀔 때) `ep.update()`. 떠 있는 요소는 `document.body`의 `.ep-layer`(pointer-events:none). 음소거는 `audio.js`의 `isMuted()`를 media.js가 직접 확인. 사진/사운드는 도착 즉시 표시·재생, 재생은 최대 5초/동시 3개.
+- 한계값은 서버(40*1024, 200*1024)보다 약간 작은 40000/200000자.
 
 ## [서버] 사운드 편집
 `{t:'sndDel', sid}` → 방 전체에 `{k:'sndDel', sid}`; `{t:'sndRename', sid, name}` → `{k:'sndRename', sid, name}` (이름 1~8자, 공백 정리). 올린 사람 또는 방장만 가능, 아니면 error "이 사운드를 수정할 권한이 없습니다."; 없는 sid는 "없는 소리입니다."; 아이디당 1초에 2번(초과 시 "소리를 너무 빨리 수정하고 있습니다"). `snd`(재생)는 누구나 저장된 sid를 재생 가능(그대로). `sndList`는 수정·삭제가 반영된 최신 목록이고, 삭제하면 올린 사람의 8개 제한 칸이 비어 다음 업로드 때 오래된 것이 밀려나지 않는다.

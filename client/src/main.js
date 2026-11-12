@@ -36,6 +36,10 @@ const emotePanel = createEmotePanel({
   onPhoto: (data) => send({ t: 'pemote', data }),
   onSoundAdd: (s) => send({ t: 'sndAdd', ...s }),
   onSound: (sid) => send({ t: 'snd', sid }),
+  onSoundDelete: (sid) => send({ t: 'sndDel', sid }),
+  onSoundRename: (sid, name) => send({ t: 'sndRename', sid, name }),
+  getName: (id) => state.room?.players.find((p) => p.id === id)?.name ?? '',
+  isHost: () => state.room?.hostId === state.room?.you,
   getAnchor: (id) => pins.anchor(id),
   getSelf: () => state.me?.id ?? null,
   onClose: () => hud.closePanel(),
@@ -146,7 +150,9 @@ function handle(msg) {
       else if (msg.e.k === 'pemote') emotePanel.showPhoto(msg.e.id, msg.e.data);
       else if (msg.e.k === 'snd') emotePanel.playSound(msg.e.id, msg.e.sid);
       else if (msg.e.k === 'sndAdd') emotePanel.addRoomSound(msg.e);
-      else if (msg.e.k === 'sndList') emotePanel.setRoomSounds(msg.e.items);
+      else if (msg.e.k === 'sndList') { emotePanel.setRoomSounds(msg.e.items); emotePanel.syncMine(); }
+      else if (msg.e.k === 'sndDel') emotePanel.removeRoomSound(msg.e.sid);
+      else if (msg.e.k === 'sndRename') emotePanel.renameRoomSound(msg.e.sid, msg.e.name);
       else if (msg.e.k === 'chat') chat.push(msg.e, { mine: msg.e.id === state.room?.you });
       else if (msg.e.k === 'chatLog') chat.setLog(msg.e.items, state.room?.you);
       else { wheel.update(null, null, false); animator.push(msg.e); }
