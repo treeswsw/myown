@@ -18,7 +18,7 @@ export function svg(inner, viewBox = '0 0 24 24') {
 
 const JPEG = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
 
-export function avatar(player, cls = 'pav') {
+export function avatar(player, cls = 'av') {
   const box = h('div', cls);
   if (player.avatar && JPEG.test(player.avatar)) {
     const img = h('img');

@@ -12,7 +12,7 @@ export async function playWin({ ui, table, pins, getRoom }, e) {
   const who = (w) => room.players.find((p) => p.id === w.id) ?? { name: w.id };
   const showCards = top.cards?.length > 0;
 
-  const wins = winners.map((w) => h('div', 'w', avatar(who(w)), h('span', 'ko', who(w).name), h('span', 'num', `+${fmt(w.amount)}`)));
+  const wins = winners.map((w) => h('div', 'w', avatar(who(w), 'pav'), h('span', 'ko', who(w).name), h('span', 'num', `+${fmt(w.amount)}`)));
   const overlay = h('div', `win ${winners.length > 1 ? 'small' : ''}`,
     showCards ? [h('div', 'ko wt', top.handName ?? ''), h('div', 'crow', top.cards.map((c) => cardEl(c)))] : h('div', 'ko wt', '팟 획득'),
     h('div', 'ws', wins));

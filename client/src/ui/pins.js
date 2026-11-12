@@ -51,7 +51,7 @@ export function createPins(ui, stage, table) {
       const photoKey = `${p.avatar ?? ''}|${p.name}`;
       if (e.photo !== photoKey) {
         e.photo = photoKey;
-        e.av = avatar(p);
+        e.av = avatar(p, 'pav');
         e.wrap.replaceChildren(e.av, e.ring);
       }
       const out = holdem ? p.folded : p.alive === false;
