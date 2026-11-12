@@ -12,6 +12,7 @@
 - 5회차: 11·12(종료 코드 4001, 재연결 안 함)·14·15·17(빈 팟은 생존자에게 + 타이머 guard)·20 해결 확인. 퍼즈 2만 판 이상 없음. 단위+e2e 80개 중 79 통과, 남은 1개도 직후 수정 확인. 10(`npm test`)은 아직 열림.
 - 6회차: [서버] 완료 확인. package.json test 수정, render.yaml·README 확인. 7·10 해결.
 - 7~8회차: 채팅 범위 추가 후 보류(코드 없음). 화면 21·22 반영 확인.
+- 9회차(최종): [서버]·[화면] 완료 후 전체 확인. `npm test` 80/80 통과, `npm run build` 성공(번들 680KB 한 덩어리). 누출 재확인: 남의 홀 카드는 쇼다운 공개분만, 덱·탄 위치·남의 블러핑 손패는 어떤 상태·이벤트에도 없음. 차단·중요 미해결 0건.
 
 ## 발견 사항
 
@@ -34,9 +35,9 @@
 | 15 | 권장 | client/src/anim/events.js:207 | 이모티콘이 연출 큐에 들어가 수 초 지연, busy()로 room 갱신도 막음 | 화면 | 해결됨 |
 | 16 | 질문 | client/src/anim/events.js:147 | `deal` 이벤트가 소리만 냄. SPEC 9 카드 배분 연출 구현 위치 | 화면 | 해결됨(table.sync에서 dealerSpot 기준 배분) |
 | 17 | 차단 | shared/holdem.js:166-190, 226-229; server/rooms.js:219 | 유일한 생존자가 팟에 0을 낸 상태(블라인드들이 forceFold)에서 모든 팟 eligible=[] → 칩 증발 + winners=[] → endHand에서 TypeError, 타이머 콜백이라 서버 프로세스 전체 종료. 엔진 퍼즈로 재현 | 서버 | 해결됨 |
-| 18 | 중요 | test/e2e/bluff.test.js:38 | reveal 대기 중 turn=null을 실패로 판정(서버 동작이 맞음) | QA | 전달됨 |
-| 19 | 권장 | test/e2e/holdem.test.js:55-68 | leave 후 400ms 고정 대기 → 부하 시 칩 보존 오탐 | QA | 전달됨 |
+| 18 | 중요 | test/e2e/bluff.test.js:38 | reveal 대기 중 turn=null을 실패로 판정(서버 동작이 맞음) | QA | 해결됨(e2e 24/24 통과) |
+| 19 | 권장 | test/e2e/holdem.test.js:55-68 | leave 후 400ms 고정 대기 → 부하 시 칩 보존 오탐 | QA | 해결됨(e2e 24/24 통과) |
 | 20 | 권장 | server/protocol.js:20-23 | 아바타 base64 길이·JPEG 시그니처 미검사 | 서버 | 해결됨 |
 | 21 | 권장 | client/src/ui/pins.js:85 | 차례 링이 서버 시각 turnEndsAt과 기기 Date.now()를 직접 비교 → 기기 시계 오차만큼 틀림 | 화면 | 해결됨(처음 본 시점 기준, 아래 23 참고) |
 | 22 | 권장 | client/src/anim/events.js(allin) vs server/rooms.js endHand 대기 | 올인 2회+런아웃+승리 연출 ≈13초 > 서버 대기 ≈9.6초 → 다음 판 휠이 몇 초 늦게 뜸 | 화면 | 해결됨(한 판의 두 번째 올인부터 칩만 밀기) |
-| 23 | 권장 | client/src/ui/pins.js:45 | 링 기준 시각을 room 적용 시점에 잡음 → 연출 중 보류된 만큼 남은 시간을 길게 표시(서버가 먼저 자동 폴드). 수신 시각 기준으로 | 화면 | 전달됨 |
+| 23 | 권장 | client/src/ui/pins.js:45 | 링 기준 시각을 room 적용 시점에 잡음 → 연출 중 보류된 만큼 남은 시간을 길게 표시(서버가 먼저 자동 폴드). 수신 시각 기준으로 | 화면 | 해결됨(수신 시 noteTurn) |

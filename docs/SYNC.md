@@ -76,3 +76,9 @@ fx.update(dt);   // 매 프레임(초 단위)   fx.dispose();
 - `node --test test/e2e/*.test.js` 24개 전부 통과 (홀덤 2/3/6명 50판, 블러핑 2/4명 20판, 누출, 남용, 접속). `scripts/soak.js`로 부하 확인 가능.
 - 참고(버그 아님): 올인은 레이즈도 콜도 불가능할 때(체크만 가능, 상대 전원 올인) 오류를 돌려준다. 승자 `win.winners[].amount` 합은 `pot`보다 작을 수 있다(돌려받은 미콜 베팅 제외). 70KB 초과 프레임은 연결을 끊는다.
 - 테스트용 타이머 환경 변수: TURN_MS, RESULT_MS, BUST_EXTRA_MS, STREET_MS, REVEAL_MS, GRACE_MS, ROOM_GC_MS.
+
+## [화면] 완료
+클라이언트 구현 완료(`npm run build` 통과). 목업 상태 8종과 실제 서버(홀덤 2인 여러 판, 블러핑 라운드 진행)로 확인. 이벤트는 큐에서 재생하고 재생 중에는 room을 보류했다가 끝나면 반영한다(자세한 내용 docs/CLIENT-NOTES.md). 몸 연출은 `anim/special/`, 로비는 `ui/lobby.js`를 통합.
+
+## [검토] 최종 검토 결과
+양쪽 완료 후 전체 확인. `npm test` 80/80, `npm run build` 성공. 검토 중 나온 차단 4건(npm test 스크립트, 자동 로그인 키 불일치, 같은 아이디 두 탭 무한 쫓아내기, 빈 적격자 팟으로 서버 종료·칩 증발)과 중요 사항 모두 해결 확인. 기록은 docs/REVIEW.md.

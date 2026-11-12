@@ -71,7 +71,7 @@ export function createPins(ui, stage, table) {
       e.top.replaceChildren(...(amount ? [h('div', 'num', amount)] : []), ...(kind ? [pinIcon(kind)] : []));
 
       const sub = holdem ? fmtShort(stacks.get(p.id) ?? p.stack ?? 0) : playing ? `${p.handCount ?? 0}장` : '';
-      e.nm.replaceChildren(h('i', 'nmt', p.name), sub ? h('span', '', sub) : null);
+      e.nm.replaceChildren(h('i', 'nmt', p.name), ...(sub ? [h('span', '', sub)] : []));
       e.rv.textContent = holdem ? '' : `${p.shots ?? 0} / 6`;
       e.rv.style.display = holdem || !playing ? 'none' : '';
     }
