@@ -1,5 +1,6 @@
 import './chat.css';
 import { h, svg, view } from './dom.js';
+import { chatSize } from './chatSize.js';
 
 // createChat({ onSend(text), getAnchor(playerId) -> {x, y} | null })
 //   -> { el, button, push(msg, {mine}), setLog(items, myId?), open(), close(), toggle(), setMode('game'|'lobby'), setEnabled(bool), update() }
@@ -12,11 +13,10 @@ const BIG_HOLD_MS = 5000; // and the 89% mark of chat-big (5600ms)
 const GLYPH = '<path d="M5 4.5h14a2.5 2.5 0 0 1 2.5 2.5v7.5a2.5 2.5 0 0 1-2.5 2.5h-6.5L8 21v-4H5A2.5 2.5 0 0 1 2.5 14.5V7A2.5 2.5 0 0 1 5 4.5z"/>';
 const SEND = '<path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/>';
 const touch = matchMedia('(pointer:coarse)');
-// A leading '#' means emphasis: strip exactly one '#' and the spaces after it; a lone '#' stays an ordinary message.
+// Size marks (chatSize.js): '#'/'**' = 2 (big), '*' = 1, '***' = 3. A mark with no text after it stays an ordinary message.
 const norm = (m, mine) => {
-  const t = String(m.text).trim();
-  const rest = t.startsWith('#') ? t.slice(1).trimStart() : '';
-  return { ...m, text: rest || t, big: Boolean(rest), mine };
+  const { size, text } = chatSize(m.text);
+  return { ...m, text, size, big: size >= 2, mine };
 };
 const hhmm = (ts) => new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 
@@ -62,6 +62,15 @@ export function createChat({ onSend, getAnchor }) {
 
   const unread = (v) => { dot.hidden = !v; };
 
+  // Liar game: the room locks the input during some phases (GDD 4-4). The note replaces the placeholder.
+  const PLACEHOLDER = input.placeholder;
+  function setLock(locked, note) {
+    locked = Boolean(locked);
+    input.disabled = locked;
+    input.placeholder = locked ? (note || '지금은 채팅할 수 없어요') : PLACEHOLDER;
+    if (locked) send.disabled = true; else sync();
+  }
+
   // Speech bubbles
   function place(id, slot) {
     const a = getAnchor(id);
@@ -86,8 +95,9 @@ export function createChat({ onSend, getAnchor }) {
     }
     const old = slot.live;
     if (old && performance.now() - old.t0 < old.hold) old.firstChild.classList.add('old');
-    const b = h('div', `chat-b ${msg.big ? 'big' : ''}`, h('span', '', msg.text));
-    const w = h('div', `chat-w ${msg.big ? 'big' : ''}`, b);
+    const sz = msg.size === 1 ? 's1' : msg.size === 3 ? 's3' : '';
+    const b = h('div', `chat-b ${msg.big ? 'big' : ''} ${sz}`, h('span', '', msg.text));
+    const w = h('div', `chat-w ${msg.big ? 'big' : ''} ${sz}`, b);
     w.t0 = performance.now();
     w.hold = msg.big ? BIG_HOLD_MS : HOLD_MS;
     slot.el.style.zIndex = msg.big ? 2 : 1;
@@ -229,7 +239,7 @@ export function createChat({ onSend, getAnchor }) {
       log = items.slice(-LOG_MAX).map((m) => norm(m, myId != null && m.id === myId));
       renderLogs();
     },
-    open, close, toggle,
+    open, close, toggle, setLock,
     setMode(m) {
       const same = m === mode;
       mode = m;
