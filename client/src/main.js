@@ -18,6 +18,8 @@ import { state, saved } from './state.js';
 import { sfx } from './audio.js';
 import { TY } from './scene/room.js';
 
+document.body.append(h('div', 'buildtag', `v${__BUILD__}`));
+
 const ui = document.getElementById('ui');
 updateScale();
 addEventListener('resize', updateScale);

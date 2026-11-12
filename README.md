@@ -22,9 +22,15 @@ npm start          # http://localhost:8080 (PORT 환경 변수로 변경)
 
 ## 테스트
 
-```sh
-node --test test/*.test.js
-```
+| 스크립트 | 내용 |
+| --- | --- |
+| `npm run test:unit` | 단위 테스트 (`test/*.test.js`, CSS 검사 포함) |
+| `npm run test:e2e` | 서버 e2e 테스트 (`test/e2e/*.test.js`) |
+| `npm run test:ui` | 화면 스모크 테스트 (`test/ui/smoke.mjs`) |
+| `npm run check` | 빌드 → 단위 → UI 스모크 순서로 실행, 처음 실패에서 중단. **머지 게이트** |
+| `npm test` | 전체 스위트(단위 + e2e, 약 3분). main 배포 전에 실행 |
+
+화면 오른쪽 아래의 작은 `v커밋` 글자는 빌드된 커밋(Render의 `RENDER_GIT_COMMIT`, 없으면 git, 그것도 없으면 `dev`)이다.
 
 ### 화면 클릭 테스트 (`npm test`에 포함되지 않음)
 
