@@ -12,7 +12,6 @@ function rigged(stacks, hole, board, dealer = 0) {
   st.deck = [...newDeck().filter((c) => !used.has(c)), ...[...board].reverse()];
   return { st, events };
 }
-const total = (st) => st.seats.reduce((s, x) => s + x.stack + x.total - x.total, 0);
 const ok = (r) => { assert.ok(r.ok, r.error); return r; };
 
 test('heads-up: dealer is small blind and acts first preflop, big blind first after', () => {
@@ -70,14 +69,15 @@ test('short all-in raise does not reopen raising for players who already acted',
   assert.equal(st.street, 1);
 });
 
-test('short all-in raise below min is allowed when it is all the chips', () => {
-  const { st } = rigged([5000, 250], { p0: ['As', 'Ad'], p1: ['2c', '3d'] }, ['7h', '8c', '9s', 'Jd', '3c'], 1);
-  // p1 dealer/SB with 250: raise to 250 (+150 < 100? increment is 150 >= 100, full). Use p0 flow instead.
-  assert.equal(st.seats[st.turn].id, 'p1');
+test('a raise below the minimum is allowed only as an all-in', () => {
+  const { st } = rigged([5000, 220], { p0: ['As', 'Ad'], p1: ['2c', '3d'] }, ['7h', '8c', '9s', 'Jd', '3c'], 0);
+  ok(H.act(st, 'p0', 'raise', 200));
   const o = H.options(st, 'p1');
-  assert.equal(o.maxRaiseTo, 250);
-  ok(H.act(st, 'p1', 'raise', 250));
-  assert.equal(st.curBet, 250);
+  assert.equal(o.minRaiseTo, 220); // capped at the stack
+  assert.equal(H.act(st, 'p1', 'raise', 210).ok, false);
+  ok(H.act(st, 'p1', 'raise', 220));
+  assert.equal(H.options(st, 'p0').canRaise, false);
+  assert.equal(H.options(st, 'p0').toCall, 20);
 });
 
 test('exact side pots, uncalled bet refunded, ranked by hand', () => {
@@ -100,7 +100,7 @@ test('buildPots merges equal eligibility and drops nothing', () => {
     { id: 'c', total: 300, folded: false }, { id: 'd', total: 50, folded: false },
   ];
   const { pots, refund } = H.buildPots(seats);
-  assert.deepEqual(pots, [{ amount: 200, eligible: ['b', 'c', 'd'] }, { amount: 450, eligible: ['b', 'c'] }]);
+  assert.deepEqual(pots, [{ amount: 200, eligible: ['b', 'c', 'd'] }, { amount: 550, eligible: ['b', 'c'] }]);
   assert.equal(refund, null);
   assert.equal(pots.reduce((s, p) => s + p.amount, 0), 750);
 });
@@ -150,7 +150,7 @@ test('last player standing wins without showing cards', () => {
   assert.equal(st.phase, 'done');
   assert.ok(!r.events.some((e) => e.k === 'showdown'));
   assert.deepEqual(st.result.shown, {});
-  assert.deepEqual(st.result.winners, [{ id: 'p0', amount: 150, handName: null, cards: [] }]);
+  assert.deepEqual(st.result.winners, [{ id: 'p0', amount: 250, handName: null, cards: [] }]);
   assert.equal(st.board.length, 0);
 });
 

@@ -105,8 +105,9 @@ export function act(st, id, a, amount) {
     if (o.canRaise) {
       raiseTo(st, seat, o.maxRaiseTo);
       kind = 'raise';
-    } else if (seat.bet + seat.stack <= st.curBet) {
-      pay(seat, seat.stack);
+    } else if (o.toCall > 0) {
+      // Nothing more can be raised, so all-in means calling as much as possible.
+      pay(seat, o.toCall);
       kind = 'call';
     } else {
       return fail('지금은 올인할 수 없습니다.');
