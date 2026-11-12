@@ -1,4 +1,4 @@
-// Dev-only: ?mock=holdem|bluff&state=preflop|default|peek|board|raise|win|allin|bust|shot|shotsafe|flood (flood: bluff only)
+// Dev-only: ?mock=holdem|bluff&state=preflop|default|peek|board|raise|win|allin|wintie|winfold|bust|shot|shotsafe|flood (flood: bluff only)
 // Add &fx=full to keep the full effects even on a slow machine.
 // Feeds canned messages through the same handler the WebSocket uses.
 const PEOPLE = [
@@ -37,7 +37,7 @@ function holdemRoom(st) {
       player(4, { stack: 15700, bet: 350, folded: false, allin: false, isDealer: false, cards: null }),
     ],
     turn: 'me', turnEndsAt: null,
-    board: preflop ? [] : ['Ks', '9h', '4d', '9c'], pot: 2450, pots: [{ amount: 2450, eligible: ['me', 'seoyeon', 'taeho', 'harin'] }],
+    board: preflop ? [] : st === 'win' || st === 'wintie' || st === 'winfold' ? ['Ks', '9h', '4d', '9c', '2d'] : ['Ks', '9h', '4d', '9c'], pot: 2450, pots: [{ amount: 2450, eligible: ['me', 'seoyeon', 'taeho', 'harin'] }],
     street: preflop ? 0 : 2, toCall: 350, minRaiseTo: 1050, maxRaiseTo: 10000,
     myCards: ['Kh', '9s'], myBest: preflop ? null : '트리플', result: null,
   };
@@ -72,14 +72,17 @@ export function startMock(handle, { mode, state }) {
   if (state === 'board') later(1500, () => document.querySelector('.comm').click());
   if (state === 'raise') later(1500, () => document.querySelector('.act .wseg:nth-of-type(2)').dispatchEvent(new MouseEvent('click', { bubbles: true })));
   if (bluff && state === 'default') later(1500, () => document.querySelectorAll('.bhand .pc').forEach((c, i) => { if (i === 1 || i === 2) c.click(); }));
-  if (state === 'win') {
+  if (state === 'win' || state === 'wintie' || state === 'winfold') {
     later(1500, () => {
-      const winners = [{ id: 'seoyeon', amount: 4900, handName: '풀하우스', cards: ['9h', '9c', '9s', 'Kh', 'Ks'] }];
-      const shown = { me: ['Kh', '9s'], seoyeon: ['Qd', 'Jd'] };
-      event({ k: 'showdown', shown });
+      const best = ['9h', '9c', '9s', 'Kh', 'Ks'];
+      const winners = state === 'winfold' ? [{ id: 'me', amount: 2450, handName: null, cards: [] }]
+        : state === 'wintie' ? [{ id: 'me', amount: 2450, handName: '풀하우스', cards: best }, { id: 'seoyeon', amount: 2450, handName: '풀하우스', cards: ['Kd', 'Kc', 'Ks', '9h', '9c'] }]
+          : [{ id: 'me', amount: 4900, handName: '풀하우스', cards: best }];
+      if (state !== 'winfold') event({ k: 'showdown', shown: { me: ['Kh', '9s'], seoyeon: ['Kd', 'Kc'], harin: ['Ad', '2c'] } });
       event({ k: 'win', winners, pot: 4900 });
-      send({ t: 'room', state: { ...room, phase: 'result', turn: null, pot: 0, result: { winners, shown, busted: [] },
-        players: room.players.map((p) => (p.id === 'seoyeon' ? { ...p, stack: p.stack + 4900 } : { ...p, bet: 0 })) } });
+      const total = winners.reduce((t, w) => t + w.amount, 0);
+      send({ t: 'room', state: { ...room, phase: 'result', turn: null, pot: 0, board: ['Ks', '9h', '4d', '9c', '2d'], street: 3, result: { winners, shown: state === 'winfold' ? {} : { me: ['Kh', '9s'], seoyeon: ['Kd', 'Kc'], harin: ['Ad', '2c'] }, busted: [] },
+        players: room.players.map((p) => (winners.some((w) => w.id === p.id) ? { ...p, stack: p.stack + total / winners.length } : { ...p, bet: 0 })) } });
     });
   }
   if (state === 'allin') later(1500, () => { event({ k: 'allin', id: 'harin' }); send({ t: 'room', state: { ...room, players: room.players.map((p) => (p.id === 'harin' ? { ...p, stack: 0, bet: 16050, allin: true } : p)) } }); });

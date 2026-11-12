@@ -27,7 +27,8 @@ await Promise.all(['700 30px "Libre Baskerville"', '30px Bangers', '30px "Black 
 const stage = createStage(document.getElementById('cv'));
 const table = createTable(stage);
 table.reset();
-ui.append(h('div', 'vig'));
+const scenedim = h('div', 'scenedim');
+ui.append(h('div', 'vig'), scenedim);
 const pins = createPins(ui, stage, table);
 const hud = createHud(ui, { send, getMe: () => state.me });
 const cluster = createCluster(ui);
@@ -87,7 +88,7 @@ function applyRoom(room) {
   const live = room.phase === 'playing';
   const holdem = room.mode === 'holdem';
   const myTurn = live && room.turn === room.you && Boolean(me) && !me.spectating;
-  if (!room.result && emphasized) { emphasized = false; pins.emphasize(null); table.highlight(null); cluster.highlight(null); }
+  if (!room.result && emphasized) { emphasized = false; pins.emphasize(null); pins.clearHands(); table.highlight(null); cluster.highlight(null); }
   if (room.result) emphasized = true;
   const inLobby = room.phase === 'lobby';
   chat.setEnabled(true);
@@ -109,6 +110,7 @@ const animator = createAnimator({
   ui, stage, table, pins, cluster, special,
   getRoom: () => state.room ?? shown,
   setHandAway: (on) => bluff.setAway(on),
+  setDim: (on) => scenedim.classList.toggle('on', on),
   applyPartial: (fn) => { if (shown) applyRoom(fn(shown)); },
   onIdle: () => applyRoom(state.room),
 });

@@ -10,11 +10,11 @@ import { CARD_TIMING } from '../scene/timing.js';
 // holds back the next room state, so the screen never jumps ahead of the choreography.
 // Nominal length of each event's choreography. The lag guard allows 1.6x this plus a slack before it
 // decides the device cannot keep up and lets the screen jump to the latest server state.
-const BUDGET_MS = { street: 1500, showdown: 900, win: 6000, allin: 2600, bust: 3200, shot: 3200, liar: 800, reveal: 2400, bluffWin: 3000, champion: 3500 };
+const BUDGET_MS = { street: 1500, showdown: 3500, win: 12000, allin: 2600, bust: 3200, shot: 3200, liar: 800, reveal: 2400, bluffWin: 3000, champion: 3500 };
 const SLACK_MS = 2500;
 const MAX_BACKLOG_MS = 30000;
 
-export function createAnimator({ ui, stage, table, pins, cluster, special, getRoom, applyPartial, onIdle, setHandAway }) {
+export function createAnimator({ ui, stage, table, pins, cluster, special, getRoom, applyPartial, onIdle, setHandAway, setDim }) {
   const queue = [];
   let current = null; // the event being played: { at, deadline, budget }
   let backlog = 0; // nominal ms of everything queued or running
@@ -33,7 +33,7 @@ export function createAnimator({ ui, stage, table, pins, cluster, special, getRo
   async function handle(e) {
     const room = getRoom();
     switch (e.k) {
-      case 'deal': allinShown = false; pins.emphasize(null); table.highlight(null); cluster.highlight(null); pins.clearActs(); pins.clearDead(); sfx.card(); break;
+      case 'deal': allinShown = false; pins.clearHands(); pins.emphasize(null); table.highlight(null); cluster.highlight(null); pins.clearActs(); pins.clearDead(); sfx.card(); break;
       case 'blinds': sfx.chip(); break;
       case 'action':
         if (e.a !== 'fold') { pins.setAct(e.id, e.a); sfx.chip(); }
@@ -52,11 +52,21 @@ export function createAnimator({ ui, stage, table, pins, cluster, special, getRo
         pins.clearActs();
         await sleep(Math.max(0, e.cards.length - 1) * CARD_TIMING.boardGap + CARD_TIMING.board + 300);
         break;
-      case 'showdown':
+      case 'showdown': {
         applyPartial((r) => ({ ...r, result: { ...(r.result ?? {}), shown: e.shown } }));
-        await sleep(900);
+        // Everyone's remaining hand pops up above their photo, one player after another from the dealer's left.
+        const seats = [...room.players].sort((a, b) => a.seat - b.seat);
+        const d = Math.max(0, seats.findIndex((p) => p.isDealer));
+        for (const p of [...seats.slice(d + 1), ...seats.slice(0, d + 1)]) {
+          if (!e.shown[p.id]) continue;
+          pins.showHand(p.id, e.shown[p.id]);
+          sfx.card();
+          await sleep(600);
+        }
+        await sleep(600);
         break;
-      case 'win': await playWin({ ui, stage, table, pins, cluster, special, getRoom }, e); break;
+      }
+      case 'win': await playWin({ ui, stage, table, pins, cluster, special, getRoom, setDim }, e); break;
       case 'bust': {
         const winner = e.by ?? room?.result?.winners?.[0]?.id;
         const hit = () => { pins.setDead(e.id, true); coinFlip(pins.get(e.id)?.av); };
@@ -120,7 +130,7 @@ export function createAnimator({ ui, stage, table, pins, cluster, special, getRo
       current = queue.shift();
       const { e } = current;
       const aborted = new Promise((r) => { abort = r; });
-      try { await Promise.race([handle(e), aborted, new Promise((r) => setTimeout(r, 10000))]); } catch (err) { console.error('animation failed', err); }
+      try { await Promise.race([handle(e), aborted, new Promise((r) => setTimeout(r, 25000))]); } catch (err) { console.error('animation failed', err); }
       backlog -= current.budget;
       current = null;
     }
@@ -140,6 +150,9 @@ export function createAnimator({ ui, stage, table, pins, cluster, special, getRo
     table.releaseAll();
     pins.clearStacks();
     pins.emphasize(null);
+    pins.clearHands();
+    setDim(false);
+    stage.pushIn(null, 0, 400);
     table.highlight(null);
     cluster.highlight(null);
     setHandAway(false);
@@ -147,7 +160,8 @@ export function createAnimator({ ui, stage, table, pins, cluster, special, getRo
   }
   setInterval(() => {
     const late = (ev) => ev && Date.now() > ev.deadline;
-    if (backlog > MAX_BACKLOG_MS || late(current) || late(queue[0])) flush();
+    // Only events that wait too long in the queue count; a long sequence that is playing is fine.
+    if (backlog > MAX_BACKLOG_MS || late(queue[0])) flush();
   }, 500);
 
   return {
