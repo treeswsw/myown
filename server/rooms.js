@@ -91,6 +91,17 @@ class Room {
     return null;
   }
 
+  // Only the uploader or the host may edit a shared sound.
+  editSound(session, sid, change) {
+    const sound = this.sounds.find((x) => x.sid === sid);
+    if (!sound) return '없는 소리입니다.';
+    if (sound.by !== session.id && this.hostId !== session.id) return '이 사운드를 수정할 권한이 없습니다.';
+    if (change.name === undefined) this.sounds.splice(this.sounds.indexOf(sound), 1);
+    else sound.name = change.name;
+    this.sendEvents([change.name === undefined ? { k: 'sndDel', sid } : { k: 'sndRename', sid, name: change.name }]);
+    return null;
+  }
+
   playSound(session, sid) {
     if (!sid.startsWith('builtin:') && !this.sounds.some((x) => x.sid === sid)) return '없는 소리입니다.';
     this.sendEvents([{ k: 'snd', id: session.id, sid }]);
@@ -559,7 +570,7 @@ async function login(hub, conn, msg) {
   let session = hub.sessions.get(msg.key);
   if (!session) {
     const user = await hub.store.getOrCreate(msg.key, msg.name);
-    session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [], lastSent: {} };
+    session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [], editTimes: [], lastSent: {} };
     hub.sessions.set(msg.key, session);
   }
   const old = session.conn;
@@ -629,6 +640,16 @@ async function dispatch(hub, conn, msg) {
     case 'sndAdd':
       if (tooSoon(hub, session, 'sndAdd', 10_000)) return '소리를 너무 빨리 올리고 있습니다';
       return room.addSound(session, msg.sid, msg.name, msg.data);
+    case 'sndDel':
+    case 'sndRename': {
+      // 2 edits per second per account
+      const t = hub.now();
+      const recent = session.editTimes.filter((x) => t - x < 1000);
+      if (recent.length >= 2) return '소리를 너무 빨리 수정하고 있습니다';
+      recent.push(t);
+      session.editTimes = recent;
+      return room.editSound(session, msg.sid, msg.t === 'sndRename' ? { name: msg.name } : {});
+    }
     case 'snd':
       if (tooSoon(hub, session, 'snd', 2000)) return '소리를 너무 빨리 재생하고 있습니다';
       return room.playSound(session, msg.sid);

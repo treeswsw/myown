@@ -152,7 +152,7 @@ import { createEmotePanel } from './ui/emotePanel.js';
 const ep = createEmotePanel({
   onEmote: (i) => send({ t: 'emote', e: i }),
   onPhoto: (data) => send({ t: 'pemote', data }),               // JPEG 데이터 URL <= 40000자, <= 256x256
-  onSoundAdd: ({ sid, name, data }) => send({ t: 'sndAdd', sid, name, data }), // audio 데이터 URL <= 200000자
+  onSoundAdd: ({ sid, name, data }) => send(JSON.stringify({ t: 'sndAdd', sid, name, data })), // t가 반드시 첫 키(서버가 70KB 초과 프레임은 접두어로 판별). 데이터 URL <= 200000자
   onSound: (sid) => send({ t: 'snd', sid }),                     // 'builtin:clap' | 내 사운드 sid
   getAnchor: (id) => pins.anchor(id),                            // 핀 위쪽 화면 px {x,y} | null (chat과 동일)
   getSelf: () => state.me.id,                                    // 선택: "다른 사람 사운드 끄기"가 내 소리는 제외하게
@@ -164,4 +164,8 @@ const ep = createEmotePanel({
 - 매 프레임(또는 핀 위치가 바뀔 때) `ep.update()`로 떠 있는 사진·스피커 라벨 위치를 갱신. 떠 있는 요소는 `document.body`의 `.ep-layer`(pointer-events:none, z-index 35)에 따로 붙는다.
 - 음소거: 상단 소리 버튼(`audio.js`의 `isMuted()`)은 media.js가 직접 확인하므로 따로 할 일 없음. `ep.setMuted(bool)`은 추가로 막고 싶을 때만.
 - 사진/사운드는 연출 대기열을 거치지 않고 도착 즉시 `showPhoto/playSound` 호출. 동시 재생은 3개까지.
-- 알려진 한계: 내 사운드를 처음 누를 때 `sndAdd` 후 곧바로 `snd`를 보낸다. 서버가 sndAdd를 속도 제한(10초)으로 거절하면 그 방에서는 소리가 나지 않는다(클라이언트는 올렸다고 가정).
+- 내 사운드를 처음 누르면 `onSoundAdd`만 호출하고, 서버의 `{k:'sndAdd', sid}` 이벤트가 `addRoomSound`로 들어오면(3초 안) 그때 `onSound(sid)`를 호출한다. 안 오면 버튼에 "잠시 후 다시 눌러 주세요"를 띄우고 다시 누를 수 있다. 서버 `error` 문구는 `ep.handleError(text)`로 넘기면 패널에 표시되고 대기 중인 업로드는 즉시 실패 처리된다(패널이 닫혀 있어도 호출해도 안전).
+- 한계값은 서버(40*1024, 200*1024)보다 약간 작은 40000/200000자. 재생은 최대 5초에서 끊고 동시 3개까지.
+
+## [서버] 사운드 편집
+`{t:'sndDel', sid}` → 방 전체에 `{k:'sndDel', sid}`; `{t:'sndRename', sid, name}` → `{k:'sndRename', sid, name}` (이름 1~8자, 공백 정리). 올린 사람 또는 방장만 가능, 아니면 error "이 사운드를 수정할 권한이 없습니다."; 없는 sid는 "없는 소리입니다."; 아이디당 1초에 2번(초과 시 "소리를 너무 빨리 수정하고 있습니다"). `snd`(재생)는 누구나 저장된 sid를 재생 가능(그대로). `sndList`는 수정·삭제가 반영된 최신 목록이고, 삭제하면 올린 사람의 8개 제한 칸이 비어 다음 업로드 때 오래된 것이 밀려나지 않는다.

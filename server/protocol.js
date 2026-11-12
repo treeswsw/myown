@@ -112,6 +112,13 @@ export function parseMessage(raw) {
       if (!validAudioData(m.data)) return bad('소리가 너무 크거나 형식이 올바르지 않습니다.');
       return good({ t: 'sndAdd', sid: m.sid, name, data: m.data });
     }
+    case 'sndDel':
+      return typeof m.sid === 'string' && SID_RE.test(m.sid) ? good({ t: 'sndDel', sid: m.sid }) : bad('소리 번호가 올바르지 않습니다.');
+    case 'sndRename': {
+      const name = cleanText(m.name);
+      if (typeof m.sid !== 'string' || !SID_RE.test(m.sid)) return bad('소리 번호가 올바르지 않습니다.');
+      return name && [...name].length <= 8 ? good({ t: 'sndRename', sid: m.sid, name }) : bad('소리 이름은 1~8자여야 합니다.');
+    }
     case 'snd':
       return typeof m.sid === 'string' && (SID_RE.test(m.sid) || BUILTIN_RE.test(m.sid))
         ? good({ t: 'snd', sid: m.sid }) : bad('소리 번호가 올바르지 않습니다.');

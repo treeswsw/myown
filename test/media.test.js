@@ -165,3 +165,70 @@ test('allowed in every phase incl. spectators without touching the game', async 
   assert.equal(events(cs[1], 'snd').length, 1);
   assert.equal(JSON.stringify(cs[0].state), before);
 });
+
+test('sound edit: owner and host may rename/delete, others may not; anyone may play', async () => {
+  const { hub, clock, cs } = await setup(['host1', 'owner1', 'other1']);
+  await cs[1].send({ t: 'sndAdd', sid: 'abc123', name: '박수', data: AUDIO });
+  await cs[2].send({ t: 'snd', sid: 'abc123' });
+  assert.equal(events(cs[0], 'snd').length, 1, 'any member can play any stored sound');
+  await cs[2].send({ t: 'sndRename', sid: 'abc123', name: '남의것' });
+  assert.equal(cs[2].sock.last('error').msg, '이 사운드를 수정할 권한이 없습니다.');
+  clock.advance(1000);
+  await cs[2].send({ t: 'sndDel', sid: 'abc123' });
+  assert.equal(cs[2].sock.last('error').msg, '이 사운드를 수정할 권한이 없습니다.');
+  assert.equal(events(cs[0], 'sndRename').length + events(cs[0], 'sndDel').length, 0);
+  clock.advance(1000);
+  await cs[1].send({ t: 'sndRename', sid: 'abc123', name: ' 새이름 ' });
+  for (const c of cs) assert.deepEqual(events(c, 'sndRename'), [{ k: 'sndRename', sid: 'abc123', name: '새이름' }]);
+  clock.advance(1000);
+  await cs[0].send({ t: 'sndRename', sid: 'abc123', name: '방장' });
+  assert.equal(events(cs[2], 'sndRename').at(-1).name, '방장');
+  // sndList reflects the rename
+  const late = client(hub);
+  await late.send({ t: 'login', id: 'late1' });
+  await late.send({ t: 'join', code: cs[0].state.code });
+  assert.equal(events(late, 'sndList')[0].items[0].name, '방장');
+  clock.advance(1000);
+  await cs[0].send({ t: 'sndDel', sid: 'abc123' });
+  for (const c of cs) assert.deepEqual(events(c, 'sndDel'), [{ k: 'sndDel', sid: 'abc123' }]);
+  const back = client(hub);
+  await back.send({ t: 'login', id: 'owner1' });
+  assert.equal(events(back, 'sndList').length, 0, 'deleted sound is gone from sndList');
+  clock.advance(1000);
+  await cs[0].send({ t: 'sndDel', sid: 'abc123' });
+  assert.equal(cs[0].sock.last('error').msg, '없는 소리입니다.');
+  await cs[2].send({ t: 'snd', sid: 'abc123' });
+  assert.equal(cs[2].sock.last('error').msg, '없는 소리입니다.');
+});
+
+test('sound edit: validation, 2 per second per account (survives takeover), eviction still correct', async () => {
+  assert.equal(parse({ t: 'sndRename', sid: 'abc123', name: 'x' }).ok, true);
+  for (const bad of [{ name: '' }, { name: '​' }, { name: '123456789' }, { sid: 'builtin:x' }, { sid: 'AB' }]) {
+    assert.equal(parse({ t: 'sndRename', sid: 'abc123', name: 'x', ...bad }).ok, false, JSON.stringify(bad));
+  }
+  assert.equal(parse({ t: 'sndDel', sid: 'builtin:clap' }).ok, false, 'built-ins cannot be deleted');
+  assert.equal(parse({ t: 'sndDel', sid: 'abc123' }).ok, true);
+
+  const { hub, clock, cs } = await setup(['ann1', 'bob1']);
+  const room = hub.rooms.values().next().value;
+  for (let i = 0; i < 9; i++) {
+    clock.advance(10_000);
+    await cs[0].send({ t: 'sndAdd', sid: 's0000' + i, name: 'n' + i, data: AUDIO });
+  }
+  assert.deepEqual(room.sounds.map((x) => x.sid), Array.from({ length: 8 }, (_, i) => 's0000' + (i + 1)), 'oldest evicted');
+  clock.advance(5000);
+  await cs[0].send({ t: 'sndRename', sid: 's00001', name: 'a' });
+  await cs[0].send({ t: 'sndRename', sid: 's00002', name: 'b' });
+  const again = client(hub);
+  await again.send({ t: 'login', id: 'ann1' });
+  await again.send({ t: 'sndRename', sid: 's00003', name: 'c' });
+  assert.equal(again.sock.last('error').msg, '소리를 너무 빨리 수정하고 있습니다');
+  clock.advance(1000);
+  await again.send({ t: 'sndDel', sid: 's00003' });
+  assert.equal(room.sounds.length, 7);
+  // deleting frees a slot of the per-account cap: the next upload evicts nothing
+  clock.advance(10_000);
+  await again.send({ t: 'sndAdd', sid: 'new0001', name: 'new', data: AUDIO });
+  assert.equal(room.sounds.length, 8);
+  assert.ok(room.sounds.some((x) => x.sid === 's00001' && x.name === 'a'));
+});

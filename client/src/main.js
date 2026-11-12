@@ -152,6 +152,7 @@ function handle(msg) {
       else { wheel.update(null, null, false); animator.push(msg.e); }
       break;
     case 'error':
+      emotePanel.handleError(msg.msg);
       if (msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
       break;
     default: break;

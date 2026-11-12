@@ -6,8 +6,9 @@ import { saved } from '../state.js';
 import { BUILTINS, mySounds, playBuiltin, playDataUrl, prepareSound, setMediaMuted, shrinkImage, unlockAudio } from '../media.js';
 
 // createEmotePanel({ onEmote(i), onPhoto(dataUrl), onSoundAdd({sid, name, data}), onSound(sid), getAnchor(id) -> {x, y} | null,
-//                    getSelf?() -> my player id (so "다른 사람 사운드 끄기" spares mine), onClose?() after an emote or photo is sent })
-//   -> { el, showPhoto(id, dataUrl), playSound(id, sid), addRoomSound(item), setRoomSounds(items), handleError(text), clearRoom(), setMuted(bool), update() }
+//                    getSelf?() -> my id, getName?(id) -> name, isHost?() -> bool, onSoundDelete(sid), onSoundRename(sid, name),
+//                    onClose?() after an emote or photo is sent })
+//   -> { el, showPhoto(id, dataUrl), playSound(id, sid), addRoomSound(item), setRoomSounds(items), removeRoomSound(sid), renameRoomSound(sid, name), syncMine(), handleError(text), clearRoom(), setMuted(bool), update() }
 // `el` is meant to sit inside the scaled .hpanel; photo/sound labels float in their own layer on document.body.
 
 const ICON = {
@@ -22,12 +23,13 @@ const cut = (s) => [...String(s ?? '').trim()].slice(0, NAME_LEN).join('');
 const icon = (path) => svg(ICON[path]);
 const sid = () => `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
-export function createEmotePanel({ onEmote, onPhoto, onSoundAdd, onSound, getAnchor, getSelf = () => null, onClose = () => {} }) {
+export function createEmotePanel({ onEmote, onPhoto, onSoundAdd, onSound, getAnchor, getSelf = () => null, getName = () => '', isHost = () => false, onSoundDelete, onSoundRename, onClose = () => {} }) {
   unlockAudio();
   let tab = 'emote';
   let mine = [];
-  let adding = null; // File waiting for a name
-  let deleting = null; // sid awaiting delete confirmation
+  let adding = null; // { file, name } waiting for a name
+  let editMode = false;
+  let editing = null; // { sid, kind: 'rename' | 'delete', value? }
   let busy = false;
   let othersOff = saved.get('gk.ep.others') === '1';
   let recent = [];
@@ -79,99 +81,155 @@ export function createEmotePanel({ onEmote, onPhoto, onSoundAdd, onSound, getAnc
     })),
     photoBtn, photoIn, recentLabel, recentRow);
 
-  // ---- sound tab
-  // A custom sound counts as "in the room" only once the server's sndAdd event comes back through addRoomSound.
-  const pending = new Map(); // sid -> { timer, b }
-  const flash = (b, text) => {
-    const label = b.querySelector('span');
-    const old = label.textContent;
-    label.textContent = text;
-    setTimeout(() => { label.textContent = old; }, 2500);
-  };
-  const failPending = (sidKey) => {
-    const p = pending.get(sidKey);
-    if (!p) return;
-    clearTimeout(p.timer);
-    pending.delete(sidKey);
-    flash(p.b, '잠시 후 다시 눌러 주세요');
-  };
-  const press = (item, b) => {
-    if (roomSounds.has(item.sid)) { onSound(item.sid); return; }
-    if (pending.has(item.sid)) return;
-    pending.set(item.sid, { b, timer: setTimeout(() => failPending(item.sid), 3000) });
+  // ---- sound tab: built-ins, then every sound of the room ("방 사운드"), shared by everyone
+  const UPLOAD_MS = 5000;
+  const GAP_MS = 10500; // the server accepts one sndAdd per 10 s per account
+  const uploads = new Map(); // my sid -> { state: 'pending' | 'error', timer }
+  let lastUp = 0;
+  let queue = [];
+  let queueTimer = 0;
+  let mineReady = Promise.resolve();
+  const upload = (item) => {
+    clearTimeout(uploads.get(item.sid)?.timer);
+    uploads.set(item.sid, { state: 'pending', timer: setTimeout(() => failUpload(item.sid), UPLOAD_MS) });
+    lastUp = Date.now();
     onSoundAdd({ sid: item.sid, name: item.name, data: item.data });
+    renderSounds();
   };
-  function soundButton(label, onPress, item) {
-    const b = btn('ep-btn snd', svg(TOP.sound), h('span', '', label));
-    let timer = 0;
-    let longed = false;
-    let from = null;
-    const stop = () => { clearTimeout(timer); from = null; };
-    if (item) {
-      const ask = () => { longed = true; deleting = item.sid; renderSounds(); };
-      b.onpointerdown = (e) => { longed = false; stop(); from = [e.clientX, e.clientY]; timer = setTimeout(ask, 500); };
-      b.onpointermove = (e) => { if (from && Math.hypot(e.clientX - from[0], e.clientY - from[1]) > 10) stop(); };
-      b.onpointerup = b.onpointerleave = b.onpointercancel = stop;
-      b.oncontextmenu = (e) => { e.preventDefault(); stop(); ask(); };
-    }
-    b.onclick = () => { if (!longed) onPress(b); longed = false; };
-    return b;
+  function failUpload(s) {
+    const u = uploads.get(s);
+    if (!u) return;
+    clearTimeout(u.timer);
+    uploads.set(s, { state: 'error' });
+    renderSounds();
   }
-  const builtinGrid = h('div', 'ep-grid g2', BUILTINS.map((s) => soundButton(s.label, () => onSound(`builtin:${s.id}`))));
-  const mineGrid = h('div', 'ep-grid g2');
-  const mineLabel = h('div', 'ep-sub');
-  const soundIn = fileInput('audio/*', (file) => { say(); adding = file; renderSounds(); });
+  const drain = () => {
+    clearTimeout(queueTimer);
+    if (!queue.length) return;
+    queueTimer = setTimeout(() => {
+      const item = queue.shift();
+      if (item && mine.includes(item) && !roomSounds.has(item.sid)) upload(item);
+      drain();
+    }, Math.max(800, lastUp + GAP_MS - Date.now()));
+  };
+  const canEdit = (it) => !!it.by && (it.by === getSelf() || isHost());
+  const builtinGrid = h('div', 'ep-grid g2', BUILTINS.map((s) => {
+    const b = btn('ep-btn snd', svg(TOP.sound), h('div', 'ep-nm', h('span', '', s.label)));
+    b.onclick = () => onSound(`builtin:${s.id}`);
+    return b;
+  }));
+  const roomGrid = h('div');
+  const editBtn = btn('ep-edit', '편집');
+  editBtn.onclick = () => { editing = null; editMode = !editMode; renderSounds(); };
+  const roomLabel = h('div', 'ep-sub', h('span', '', '방 사운드'), editBtn);
+  const soundIn = fileInput('audio/*', (file) => { say(); adding = { file, name: cut(file.name.replace(/\.[^.]*$/, '')) }; renderSounds(); });
   const addBtn = btn('ep-btn add wide', icon('plus'), '추가');
   addBtn.onclick = () => soundIn.click();
-  const slot = h('div'); // inline name form or delete confirmation
+  const slot = h('div'); // inline name form for a new sound
   const sw = btn('ep-switch', h('span', '', '다른 사람 사운드 끄기'), h('i'));
   sw.setAttribute('role', 'switch');
   const paintSwitch = () => sw.setAttribute('aria-checked', String(othersOff));
   sw.onclick = () => { othersOff = !othersOff; saved.set('gk.ep.others', othersOff ? '1' : '0'); paintSwitch(); };
   paintSwitch();
 
+  const label = (name, by) => h('div', 'ep-nm', h('span', '', name), by ? h('small', '', by) : null);
+  // one entry per sound: the room's, plus my own that are still uploading or failed
+  const entries = () => [
+    ...[...roomSounds].map(([s, v]) => ({ sid: s, ...v, inRoom: true })),
+    ...mine.filter((m) => !roomSounds.has(m.sid)).map((m) => ({ sid: m.sid, by: getSelf(), name: m.name, data: m.data, inRoom: false })),
+  ];
+  function inlineForm(value, ok, cancel, onInput) {
+    const input = h('input');
+    input.maxLength = NAME_LEN; input.placeholder = '이름 (8자 이내)'; input.setAttribute('aria-label', '사운드 이름');
+    input.value = value;
+    input.oninput = () => onInput(input.value);
+    const yes = btn('ok', '확인');
+    const no = btn('', '취소');
+    yes.onclick = () => ok(input.value, yes);
+    no.onclick = cancel;
+    input.onkeydown = (e) => { if (e.key === 'Enter') yes.click(); };
+    return h('div', 'ep-form', input, yes, no);
+  }
+  function editRow(it) {
+    const who = it.by ? (getName(it.by) || '') : '';
+    const row = h('div', 'ep-row', label(it.name, who));
+    const e = editing?.sid === it.sid ? editing : null;
+    if (e?.kind === 'rename') {
+      row.append(inlineForm(e.value, (v) => {
+        const name = cut(v);
+        if (!name) return;
+        editing = null;
+        onSoundRename(it.sid, name);
+        renderSounds();
+      }, () => { editing = null; renderSounds(); }, (v) => { e.value = v; }));
+    } else if (e?.kind === 'delete') {
+      const yes = btn('danger', '삭제');
+      const no = btn('', '취소');
+      yes.onclick = () => { editing = null; it.inRoom ? onSoundDelete(it.sid) : dropMine(it.sid); renderSounds(); };
+      no.onclick = () => { editing = null; renderSounds(); };
+      row.append(h('div', 'ep-del', h('p', '', `"${it.name}" 삭제할까요?`), yes, no));
+    } else {
+      const play = btn('', '미리듣기');
+      play.onclick = () => playDataUrl(it.data);
+      const ctl = h('div', 'ep-ctl', play);
+      if (!it.inRoom || canEdit(it)) {
+        const ren = btn('', '이름');
+        const del = btn('', '삭제');
+        ren.onclick = () => { editing = { sid: it.sid, kind: 'rename', value: it.name }; renderSounds(); };
+        del.onclick = () => { editing = { sid: it.sid, kind: 'delete' }; renderSounds(); };
+        if (it.inRoom) ctl.append(ren);
+        ctl.append(del);
+      }
+      row.append(ctl);
+    }
+    return row;
+  }
+  function playRow(it) {
+    const up = uploads.get(it.sid);
+    const state = it.inRoom ? '' : up?.state === 'error' ? '다시 시도' : '올리는 중…';
+    const b = btn(`ep-btn snd${it.inRoom ? '' : ' wait'}`, svg(TOP.sound), label(it.name, state || (it.by ? getName(it.by) : '')));
+    b.onclick = () => {
+      if (it.inRoom) onSound(it.sid);
+      else if (up?.state === 'error') upload(mine.find((m) => m.sid === it.sid));
+    };
+    return b;
+  }
   function renderSounds() {
-    mineLabel.replaceChildren(h('span', '', '내 사운드'), h('span', '', mine.length ? '길게 눌러 삭제' : ''));
-    mineGrid.replaceChildren(...mine.map((m) => soundButton(m.name, (b) => press(m, b), m)));
+    const list = entries();
+    roomLabel.hidden = !list.length;
+    editBtn.textContent = editMode ? '완료' : '편집';
+    roomGrid.className = editMode ? 'ep-rows' : 'ep-grid g2';
+    roomGrid.replaceChildren(...list.map((it) => (editMode ? editRow(it) : playRow(it))));
     addBtn.hidden = !!adding || mine.length >= MAX_MINE;
     slot.replaceChildren();
     if (adding) slot.append(nameForm());
-    else if (deleting) slot.append(deleteBox(mine.find((m) => m.sid === deleting)));
   }
   function nameForm() {
-    const input = h('input');
-    input.maxLength = NAME_LEN; input.placeholder = '이름 (8자 이내)'; input.setAttribute('aria-label', '사운드 이름');
-    input.value = cut(adding.name.replace(/\.[^.]*$/, ''));
-    const ok = btn('ok', '확인');
-    const no = btn('', '취소');
-    no.onclick = () => { adding = null; renderSounds(); };
-    const submit = async () => {
-      const name = cut(input.value);
+    return inlineForm(adding.name, async (v, ok) => {
+      const name = cut(v);
       if (!name || busy) return;
       busy = true; ok.disabled = true; say();
       try {
-        const { data } = await prepareSound(adding);
+        const { data } = await prepareSound(adding.file);
         const item = { sid: sid(), name, data, ts: Date.now() };
         mine.push(item);
         mySounds.put(item);
         adding = null;
+        upload(item);
       } catch (e) { say(e.message); }
       busy = false;
       renderSounds();
-    };
-    ok.onclick = submit;
-    input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
-    return h('div', 'ep-form', input, ok, no);
+    }, () => { adding = null; renderSounds(); }, (v) => { adding.name = v; });
   }
-  function deleteBox(item) {
-    if (!item) { deleting = null; return h('div'); }
-    const yes = btn('danger', '삭제');
-    const no = btn('', '취소');
-    yes.onclick = () => { mine = mine.filter((m) => m !== item); mySounds.del(item.sid); deleting = null; renderSounds(); };
-    no.onclick = () => { deleting = null; renderSounds(); };
-    return h('div', 'ep-del', h('p', '', `"${item.name}" 삭제할까요?`), yes, no);
+  function dropMine(s) {
+    const m = mine.find((x) => x.sid === s);
+    if (!m) return;
+    mine = mine.filter((x) => x !== m);
+    mySounds.del(s);
+    clearTimeout(uploads.get(s)?.timer);
+    uploads.delete(s);
   }
-  const soundPane = h('div', '', builtinGrid, mineLabel, mineGrid, slot, addBtn, soundIn, sw);
+  const soundPane = h('div', '', builtinGrid, roomLabel, roomGrid, slot, addBtn, soundIn, sw);
 
   // ---- tabs
   const tabs = h('div', 'ep-tabs');
@@ -190,7 +248,7 @@ export function createEmotePanel({ onEmote, onPhoto, onSoundAdd, onSound, getAnc
   show(tab);
   renderRecent();
   renderSounds();
-  mySounds.list().then((list) => { mine = list.slice(0, MAX_MINE); renderSounds(); });
+  mineReady = mySounds.list().then((list) => { mine = list.slice(0, MAX_MINE); renderSounds(); });
 
   // ---- floating photo / sound label above a pin
   const layer = h('div', 'ep-layer');
@@ -219,6 +277,14 @@ export function createEmotePanel({ onEmote, onPhoto, onSoundAdd, onSound, getAnc
   function drop(f) { f.el.remove(); floats.delete(f); }
   addEventListener('resize', () => { for (const f of floats) f.measure(); });
 
+  function put({ sid: s, by, name, data }) {
+    if (typeof s !== 'string' || !AUDIO.test(data)) return false;
+    roomSounds.set(s, { by, name: cut(name), data });
+    clearTimeout(uploads.get(s)?.timer);
+    uploads.delete(s);
+    return true;
+  }
+
   const api = {
     el,
     showPhoto(id, url) {
@@ -231,32 +297,54 @@ export function createEmotePanel({ onEmote, onPhoto, onSoundAdd, onSound, getAnc
     },
     playSound(id, s) {
       const b = s.startsWith('builtin:') ? BUILTINS.find((x) => `builtin:${x.id}` === s) : null;
-      const item = b ? null : roomSounds.get(s) ?? mine.find((m) => m.sid === s);
+      const item = b ? null : roomSounds.get(s);
       const name = b?.label ?? item?.name;
       if (!name) return;
       if (!(othersOff && id !== getSelf())) {
         if (b) playBuiltin(b.id);
-        else if (item.data) playDataUrl(item.data);
+        else playDataUrl(item.data);
       }
       float(id, 'sound', h('div', 'ep-snd', svg(TOP.sound), h('span', '', name)));
     },
-    addRoomSound({ sid: s, by, name, data }) {
-      if (typeof s !== 'string' || !AUDIO.test(data)) return;
-      roomSounds.set(s, { by, name: cut(name), data });
-      const p = pending.get(s);
-      if (p) { clearTimeout(p.timer); pending.delete(s); onSound(s); }
+    addRoomSound(item) {
+      if (put(item)) renderSounds();
     },
     setRoomSounds(items) {
       roomSounds.clear();
-      for (const it of items ?? []) api.addRoomSound(it);
+      for (const it of items ?? []) put(it);
+      renderSounds();
     },
-    handleError(text) { // server error text, e.g. a rejected sndAdd
+    removeRoomSound(s) { // server sndDel
+      roomSounds.delete(s);
+      dropMine(s);
+      if (editing?.sid === s) editing = null;
+      renderSounds();
+    },
+    renameRoomSound(s, name) { // server sndRename
+      const it = roomSounds.get(s);
+      const m = mine.find((x) => x.sid === s);
+      if (it) it.name = cut(name);
+      if (m) { m.name = cut(name); mySounds.put(m); }
+      renderSounds();
+    },
+    // Call after joining a room (and after setRoomSounds): re-uploads my saved sounds the room does not have yet, 10.5 s apart.
+    async syncMine() {
+      await mineReady;
+      queue = mine.filter((m) => !roomSounds.has(m.sid) && uploads.get(m.sid)?.state !== 'pending');
+      drain();
+    },
+    handleError(text) { // server error text, e.g. a rejected sndAdd/sndDel/sndRename
       say(text);
-      for (const k of [...pending.keys()]) failPending(k);
+      for (const k of uploads.keys()) failUpload(k);
     },
     clearRoom() {
       roomSounds.clear();
-      for (const k of [...pending.keys()]) { clearTimeout(pending.get(k).timer); pending.delete(k); }
+      for (const u of uploads.values()) clearTimeout(u.timer);
+      uploads.clear();
+      clearTimeout(queueTimer);
+      queue = [];
+      editing = null;
+      renderSounds();
       for (const f of [...floats]) drop(f);
     },
     setMuted: setMediaMuted,
