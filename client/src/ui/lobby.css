@@ -70,14 +70,21 @@
 .lb-p-name{flex:1;min-width:0;font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lb-tags{font-size:13px;color:var(--ink2);white-space:nowrap}
 
-.lb-seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:2px;border-radius:12px;background:var(--fill);--i:0}
-.lb-seg-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);border-radius:10px;background:var(--accent);
+.lb-seg{position:relative;display:grid;grid-template-columns:repeat(var(--n,2),1fr);padding:2px;border-radius:12px;background:var(--fill);--i:0;--n:2}
+.lb-seg-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px)/var(--n,2));border-radius:10px;background:var(--accent);
   transform:translateX(calc(var(--i)*100%));transition:transform .3s var(--ease);box-shadow:0 1px 3px rgba(0,0,0,.3)}
-.lb-seg-item{position:relative;height:36px;border:0;background:none;font-size:15px;font-weight:600;color:var(--ink2);cursor:pointer;transition:color .2s}
+.lb-seg-item{position:relative;min-width:0;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:36px;border:0;background:none;font-size:15px;font-weight:600;color:var(--ink2);cursor:pointer;transition:color .2s}
 .lb-seg-item[aria-checked=true]{color:var(--on-accent)}
 .lb-seg-item:disabled{cursor:default}
 .lb-seg-item:disabled:not([aria-checked=true]){opacity:.6}
 
+.lb-rank-sheet{width:min(360px,calc(100vw - 32px));max-height:calc(100dvh - 24px);display:flex;flex-direction:column}
+.lb-rank-list{border-radius:0;flex:1 1 auto;min-height:0;overscroll-behavior:contain}
+.lb-rank-row{min-height:34px;padding-top:2px;padding-bottom:2px}
+.lb-rank-n{width:2em;text-align:right;color:var(--ink2);font-size:15px;font-weight:600}
+.lb-rank-s{font-size:15px;font-weight:700;color:var(--accent)}
+.lb-rank-mine{margin:0;padding:10px 16px;text-align:center;font-size:15px;font-weight:600;flex:none;box-shadow:inset 0 1px 0 var(--hair)}
+.lb-sheet-btns.lb-one{grid-template-columns:1fr;flex:none}
 
 .lb-rooms{flex:1 1 auto;min-height:132px;overscroll-behavior:contain;scrollbar-width:thin}
 .lb-room-row{width:100%;color:inherit;border:0;background:none;text-align:left;cursor:pointer;min-height:52px;transition:background-color .15s}
