@@ -2,6 +2,7 @@ import { secureRng } from '../shared/cards.js';
 import { describe } from '../shared/handeval.js';
 import * as holdem from '../shared/holdem.js';
 import * as bluff from '../shared/bluff.js';
+import { createLiarRoom } from './liar/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 
 export const DEFAULT_TIMING = {
@@ -16,7 +17,8 @@ export const DEFAULT_TIMING = {
   roomList: 500, // open-room list broadcasts are coalesced to one per this interval
   reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
-const MAX_PLAYERS = { holdem: 6, bluff: 4 };
+const MAX_PLAYERS = { holdem: 6, bluff: 4, liar: 8 };
+const MEDIA = new Set(['emote', 'pemote', 'snd', 'sndAdd']);
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
 export const REPLACED_CODE = 4001;
@@ -449,7 +451,7 @@ class Room {
 }
 
 export function createHub({
-  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {},
+  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off',
 }) {
   const hub = {
     store, rng, now, timers, timing: { ...DEFAULT_TIMING, ...timing },
@@ -463,6 +465,8 @@ export function createHub({
       }
     },
     roomsTimer: null,
+    liar, // 'off' | 'test' | 'on'
+    pendingSaves: new Set(),
     epoch: 0, // bumped by a reset: user objects from an older epoch are never saved again
     userEpoch: new WeakMap(),
     conns: new Set(),
@@ -475,7 +479,7 @@ export function createHub({
       session.conn?.send(obj);
     },
     sendMe(...sessions) {
-      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user) });
+      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar });
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
@@ -500,7 +504,9 @@ export function createHub({
     },
     persist(user) {
       if (hub.userEpoch.get(user) !== hub.epoch) return;
-      store.save(user).catch((err) => console.error('save failed:', err.message));
+      const p = store.save(user).catch((err) => console.error('save failed:', err.message));
+      hub.pendingSaves.add(p);
+      p.then(() => hub.pendingSaves.delete(p));
     },
     connect(sock) {
       return createConn(hub, sock);
@@ -523,13 +529,24 @@ export function createHub({
       hub.epoch++;
       for (const c of hub.conns) c.send({ t: 'resetDone' });
     },
+    // Resolves once pending saves finished. Rooms get one flush() first (liar scores -> totals), but not on a reset (it wipes everything).
     close() {
       if (hub.roomsTimer !== null) timers.clearTimeout(hub.roomsTimer);
       hub.roomsTimer = null;
+      if (!hub.resetting) {
+        for (const room of hub.rooms.values()) {
+          try {
+            room.flush?.();
+          } catch (err) {
+            console.error('flush failed:', err.stack);
+          }
+        }
+      }
       for (const room of hub.rooms.values()) {
         for (const name of Object.keys(room.timers)) room.clearTimer(name);
         for (const m of room.members) if (m.grace !== null) timers.clearTimeout(m.grace);
       }
+      return Promise.allSettled([...hub.pendingSaves]);
     },
   };
   return hub;
@@ -655,16 +672,37 @@ async function dispatch(hub, conn, msg) {
   const session = conn.session;
   if (!session) return '먼저 로그인하세요.';
   const room = session.room;
+  // Overall liar ranking: answered by the hub itself, in the lobby or in a room (never passed to the room).
+  if (msg.t === 'lg' && msg.a === 'rank') {
+    if (hub.liar === 'off') return '라이어게임은 아직 열리지 않았습니다.';
+    try {
+      const [top, mine] = await Promise.all([hub.store.topLiar(20), hub.store.liarRank(session.id)]);
+      hub.send(session, { t: 'lgRank', top, mine });
+    } catch (err) {
+      console.error('liar rank failed:', err.message);
+      return '랭킹을 불러오지 못했습니다.';
+    }
+    return null;
+  }
   switch (msg.t) {
     case 'avatar':
       session.user.avatar = msg.data;
       hub.persist(session.user);
       hub.sendMe(session);
-      room?.push();
+      if (room) {
+        if (room.faceChanged) room.faceChanged(session);
+        else room.push();
+      }
       return null;
     case 'create': {
       if (room) return '이미 방에 있습니다.';
       if (msg.mode === 'holdem' && session.user.bank <= 0) return '칩이 없습니다. 새 아이디로 다시 시작하세요';
+      if (msg.mode === 'liar') {
+        if (hub.liar === 'off') return '라이어게임은 아직 열리지 않았습니다.';
+        const lr = createLiarRoom(hub, newCode(hub));
+        hub.rooms.set(lr.code, lr);
+        return lr.join(session);
+      }
       const r = new Room(hub, newCode(hub), msg.mode);
       hub.rooms.set(r.code, r);
       return r.join(session);
@@ -677,13 +715,25 @@ async function dispatch(hub, conn, msg) {
     default:
   }
   if (!room) return '방에 들어가 있지 않습니다.';
+  // A room may refuse emotes/photos/sounds for now (liar room: during the unmask animation etc.).
+  if (MEDIA.has(msg.t)) {
+    const why = room.mediaBlocked?.(session, msg.t);
+    if (why) return why;
+  }
   switch (msg.t) {
     case 'leave': room.leave(session.id); return null;
-    case 'mode': return room.setMode(session.id, msg.mode);
+    case 'lg': return room.lg ? room.lg(session, msg) : '알 수 없는 요청입니다.';
     case 'start': return room.start(session.id);
-    case 'act': return room.act(session.id, msg.a, msg.amount);
-    case 'play': return room.play(session.id, msg.cards);
-    case 'liar': return room.liar(session.id);
+    case 'mode':
+    case 'act':
+    case 'play':
+    case 'liar':
+      // Poker/bluff requests. A liar room has its own methods of the same names (play), so test the mode, not the method.
+      if (room.mode === 'liar') return '지금은 할 수 없습니다.';
+      if (msg.t === 'mode') return msg.mode === 'liar' ? '라이어게임은 방을 새로 만들어 주세요.' : room.setMode(session.id, msg.mode);
+      if (msg.t === 'act') return room.act(session.id, msg.a, msg.amount);
+      if (msg.t === 'play') return room.play(session.id, msg.cards);
+      return room.liar(session.id);
     case 'emote': room.emote(session.id, msg.e); return null;
     case 'pemote':
       if (tooSoon(hub, session, 'pemote', 3000)) return '사진 이모티콘을 너무 빨리 보내고 있습니다';
@@ -713,8 +763,7 @@ async function dispatch(hub, conn, msg) {
       if (times.length >= 5 || (last !== undefined && t - last < 1000)) return '채팅을 너무 빨리 보내고 있습니다';
       times.push(t);
       session.chatTimes = times;
-      room.chat(session, msg.text);
-      return null;
+      return room.chat(session, msg.text) ?? null;
     }
     default: return '알 수 없는 요청입니다.';
   }
