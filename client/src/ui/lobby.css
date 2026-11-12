@@ -102,6 +102,7 @@
 .lb-sheet-btn{min-height:48px;border:0;background:none;font-size:17px;cursor:pointer;color:var(--ink);transition:background-color .15s}
 .lb-sheet-btn+.lb-sheet-btn{box-shadow:inset 1px 0 0 var(--hair);font-weight:600}
 .lb-sheet-btn.lb-danger{color:var(--red)}
+.lb-sheet-btn:focus-visible{outline-offset:-4px;border-radius:12px}
 .lb-sheet-btn:active{background:rgba(255,255,255,.1)}
 @keyframes lb-fade{from{opacity:0}}
 @media (max-width:640px) and (min-height:481px){
