@@ -53,6 +53,7 @@ async function runContext(browser, server, name, cfg) {
   const gone = (sel) => page.waitForSelector(sel, { state: 'hidden', timeout: T });
 
   // Occlusion: every visible button / [role=button] / .hit / wheel segment must be the topmost thing at its centre.
+  // While a modal dialog is open only its own buttons count. A button scrolled out of its scroll box is skipped (reachable by scrolling).
   const occlusion = async (state) => {
     await page.evaluate(() => Promise.race([
       Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))),
@@ -61,7 +62,16 @@ async function runContext(browser, server, name, cfg) {
     const bad = await page.evaluate(() => {
       const out = [];
       const desc = (e) => `${e.tagName.toLowerCase()}${e.className && typeof e.className === 'string' ? `.${e.className.trim().split(/\s+/).slice(0, 2).join('.')}` : ''}`;
-      for (const el of document.querySelectorAll('button, [role=button], .hit, .wseg')) {
+      const modal = [...document.querySelectorAll('[aria-modal="true"]')].find((d) => !d.closest('[hidden]') && d.getClientRects().length);
+      const clipped = (el, x, y) => {
+        for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+          if (!/(auto|scroll|hidden)/.test(getComputedStyle(p).overflowY)) continue;
+          const b = p.getBoundingClientRect();
+          if (x < b.left || x >= b.right || y < b.top || y >= b.bottom) return true;
+        }
+        return false;
+      };
+      for (const el of (modal ?? document).querySelectorAll('button, [role=button], .hit, .wseg')) {
         if (el.closest('[hidden]')) continue;
         let op = 1;
         for (let p = el; p && p.nodeType === 1; p = p.parentElement) op *= Number(getComputedStyle(p).opacity);
@@ -70,7 +80,7 @@ async function runContext(browser, server, name, cfg) {
         if (cs.visibility === 'hidden' || cs.display === 'none' || op < 0.1 || r.width < 2 || r.height < 2) continue;
         const cx = r.left + r.width / 2;
         const cy = r.top + r.height / 2;
-        if (cx < 0 || cy < 0 || cx >= innerWidth || cy >= innerHeight) continue;
+        if (cx < 0 || cy < 0 || cx >= innerWidth || cy >= innerHeight || clipped(el, cx, cy)) continue;
         const top = document.elementFromPoint(cx, cy);
         if (top && (top === el || el.contains(top))) continue;
         const label = (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 14);
@@ -353,6 +363,7 @@ async function runContext(browser, server, name, cfg) {
       await page.locator('.lg-st-player').nth(2).waitFor({ state: 'visible', timeout: T });
     });
     await barOnTop('liar room (waiting)');
+    await occlusion('liar room (waiting, settings)');
     await step('liar: lobby is hidden inside the liar room, poker HUD absent', async () => {
       const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root') && !document.querySelector('.lb-root').hidden, cluster: !!document.querySelector('.cluster') && getComputedStyle(document.querySelector('.cluster')).display !== 'none' && document.querySelector('.cluster').offsetParent !== null }));
       if (r.lobby) throw new Error('lobby is visible in the liar room');
@@ -370,6 +381,7 @@ async function runContext(browser, server, name, cfg) {
       await visible('[class*="lg-role-"]');
     });
     await barOnTop('liar role reveal');
+    await occlusion('liar role reveal');
     await step('liar: first explanations: chat locked with a note on others\' turns, my own turn types in the chat box', async () => {
       let sawLock = false;
       let said = false;
@@ -410,6 +422,7 @@ async function runContext(browser, server, name, cfg) {
     await step('liar: lobby 라이어 랭킹 button → window → close', async () => {
       await press('.lb-rank-btn');
       await visible('[aria-label="라이어 랭킹"]');
+      await occlusion('liar ranking window');
       await press('[aria-label="라이어 랭킹"] button:has-text("닫기")');
       await gone('[aria-label="라이어 랭킹"]');
     });

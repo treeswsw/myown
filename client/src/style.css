@@ -248,7 +248,10 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .lgbar-btn { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); font-weight: 700; }
 .lgbar-btn.main { background: #ea3a3d; }
 .lgbar-btn[hidden] { display: none; }
-/* 라이어 "이 판 끝내기"를 상단 줄 아래로 내려 가려지지 않게 한다. 클래스를 두 파일에 정의하지 않는 규칙 때문에 속성 선택자로 쓴다(hud.css 는 고치지 않음) */
-#ui [class~="lg-hud-endbox"] { top: calc(env(safe-area-inset-top, 0px) + 54px); }
+/* 라이어 화면 자리 맞춤(진행자 쪽). client/src/liar 는 gamemine 과 같게 두므로 여기서 덮는다(test/css.test.js CROSS_FILE_ALLOW).
+   "이 판 끝내기"는 상단 줄(54px) 아래, 방 대기 설정 창은 상단 줄과 조작 줄("전체 랭킹" 40px)·붙은 채팅(--chat-docked-h, chat.css) 사이 */
+.lg-root .lg-hud-endbox { top: calc(env(safe-area-inset-top, 0px) + 54px + max(6px, calc(12px * var(--lg-k, 1)))); }
+.lg-root .lg-action { bottom: calc(12px * var(--lg-k, 1) + var(--chat-docked-h, 0px)); }
+.lg-root .lg-lobbybox { top: max(calc(48px * var(--lg-k, 1)), calc(env(safe-area-inset-top, 0px) + 60px)); bottom: calc(20px * var(--lg-k, 1) + 40px + var(--chat-docked-h, 0px)); }
 /* 라이어 방에서 여는 이모티콘 창: 라이어 화면 층(이름표 등) 위, 상단 줄 아래 */
 .hpanel.lgpanel { z-index: 35; top: calc(56px * var(--k)); }

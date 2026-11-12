@@ -97,6 +97,8 @@
 .chat-docked .lobby{padding-bottom:calc(var(--chat-dock) + 12px)}
 .chat-docked .lobby .panel:not(.narrow){max-height:calc(100dvh - 24px - var(--chat-dock) - 12px);min-height:min(440px,calc(100dvh - 24px - var(--chat-dock) - 12px))}
 :root{--chat-dock:114px}
+/* 아래에 붙은 채팅이 차지하는 높이(다른 화면이 그 위로 비켜 앉도록 읽는다. 붙어 있지 않으면 정의되지 않음) */
+html.chat-docked{--chat-docked-h:calc(var(--chat-dock) + 12px)}
 @media (max-height:480px){
   .chat-w.big{--bf:2.4}
   .chat-w.s3{--bf:3.84}

@@ -74,6 +74,14 @@ async function occlusion(w, state, skip = '') {
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       if (cx < 0 || cy < 0 || cx >= innerWidth || cy >= innerHeight) continue;
+      // scrolled out of its scroll box (e.g. the settings panel): reachable by scrolling, not covered
+      let clipped = false;
+      for (let p = el.parentElement; p && p !== document.body && !clipped; p = p.parentElement) {
+        if (!/(auto|scroll|hidden)/.test(getComputedStyle(p).overflowY)) continue;
+        const b = p.getBoundingClientRect();
+        clipped = cx < b.left || cx >= b.right || cy < b.top || cy >= b.bottom;
+      }
+      if (clipped) continue;
       const top = document.elementFromPoint(cx, cy);
       if (top && (top === el || el.contains(top))) continue;
       const label = (el.getAttribute('aria-label') || el.textContent || el.placeholder || '').trim().slice(0, 14);

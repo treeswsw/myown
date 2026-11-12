@@ -134,9 +134,12 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     store, hubOptions: { timing, liar: ['test', 'on'].includes(process.env.LIAR) ? process.env.LIAR : 'off' },
   });
   console.log(`listening on ${app.port}`);
+  // Render kills the process about 30 s after SIGTERM: wait for the last saves (liar scores) at most 10 s.
   const shutdown = async () => {
-    await app.close();
-    await store.close();
+    const giveUp = new Promise((resolve) => setTimeout(resolve, 10_000).unref());
+    const finish = (async () => { await app.close(); await store.close(); })()
+      .catch((err) => console.error('shutdown failed:', err.message));
+    await Promise.race([finish, giveUp]);
     process.exit(0);
   };
   process.on('SIGTERM', shutdown);
