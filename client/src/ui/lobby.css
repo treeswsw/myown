@@ -27,6 +27,9 @@ hr{border:0;height:1px;background:var(--hair);margin:0;flex:none}
 .brand.small{font-size:17px;color:var(--ink2);font-weight:700}
 h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2;flex:none}
 .name{font-size:22px;font-weight:700;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.notice{display:flex;flex-direction:column;gap:4px;padding:12px 16px;border-radius:14px;background:var(--fill)}
+.notice p{margin:0;font-size:15px}
+.btn.text.accent{color:var(--accent);font-weight:600;padding:0}
 .sub,.cap{margin:0;font-size:13px;color:var(--ink2)}
 .cap.center{text-align:center;min-height:1.3em}
 .cap:empty{display:none}
@@ -106,6 +109,9 @@ h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2
   .row{min-height:34px;padding-top:2px;padding-bottom:2px}
   .players .row{min-height:40px}
   .seg-box .cap{display:none}
+  .notice{padding:8px 12px;gap:0}.notice p{font-size:13px}
+  .btn.text.accent{min-height:32px;font-size:14px;padding:0}
+  .brand.small{display:none}
   .rooms{min-height:96px}
   .row.room-row{min-height:48px}
   .actions{flex-direction:row-reverse;align-items:center;justify-content:space-between}

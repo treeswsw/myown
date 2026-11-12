@@ -99,21 +99,20 @@ export class Bot {
   close() { this.closed = true; try { this.ws.close(); } catch {} }
   terminate() { this.closed = true; try { this.ws.terminate(); } catch {} }
 
+  // turnEndsAt is always null (no turn limit), so state keys cannot tell turns apart. Instead the bot acts once per
+  // turn: after sending, it waits until a state shows someone else on turn (or the phase changed) before acting again.
   _maybeAct() {
     const s = this.state;
-    if (!s || s.phase !== 'playing' || !s.turn || s.turn !== s.you) return;
-    // turnEndsAt is always null (no turn limit), so key on fields that really change between my turns
-    const key = [s.mode, s.round, s.street, (s.board || []).length, s.toCall, s.pot, s.lastPlay ? s.lastPlay.count : '', (s.myHand || []).length,
-      s.players.map((p) => `${p.bet}/${p.stack}/${p.handCount}/${p.shots}`).join(','), (s.myCards || []).join('')].join('|');
-    if (key === this.lastTurnKey) return;
-    this.lastTurnKey = key;
+    if (!s || s.phase !== 'playing' || s.turn !== s.you) { this._acted = false; return; }
+    if (this._acted) return;
+    this._acted = true;
     const [lo, hi] = this.opts.thinkMs;
     setTimeout(() => {
       if (this.closed) return;
       const cur = this.state;
       if (!cur || cur.phase !== 'playing' || cur.turn !== cur.you) return;
       const act = cur.mode === 'holdem' ? this.chooseHoldem(cur) : this.chooseBluff(cur);
-      if (act) { this.actionsSent++; this.send(act); }
+      if (act) { this.actionsSent++; this.send(act); } else this._acted = false;
     }, ri(lo, hi));
   }
 

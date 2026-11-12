@@ -14,7 +14,7 @@
 <div id="bar"></div>
 <script type="module">
 // Stand-alone check for client/src/anim/special: the mock's table and camera, fake seats, no game code.
-// ?seq=allin|bust|revolver-click|revolver-shot  &seat=0..5  &target=0..5 (bust)  &t=<seconds> freezes that frame.
+// ?seq=stand|allin|bust|revolver-click|revolver-shot  &seat=0..5  &target=0..5 (bust)  &t=<seconds> freezes that frame.
 import * as THREE from 'three';
 import { createSpecialFX } from './src/anim/special/index.js';
 
@@ -85,6 +85,7 @@ const fx = createSpecialFX({
 
 function play(seq, seat, target) {
   const s = seats[seat];
+  if (seq === 'stand') return fx.playStand(seat, { onUp: (dy) => { s.disc.position.y += dy; }, onDown: () => { s.disc.position.copy(s.head); } });
   if (seq === 'allin') return fx.playAllIn(seat, { onPush: () => s.stack.position.lerp(center, 0.35).setY(TY + 0.05) });
   if (seq === 'bust') return fx.playBust(seat, target, { onHit: () => seats[target].disc.material.color.set(0x555555) });
   return fx.playRevolver(seat, { dead: seq === 'revolver-shot', shots: 3, onResult: (dead) => dead && s.disc.material.color.set(0x555555) });

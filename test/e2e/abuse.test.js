@@ -96,7 +96,7 @@ test('abuse: room commands with bad args', async () => {
     b.send(msg);
     await sleep(40);
     const resp = b.messages.slice(n);
-    assert.ok(resp.every((m) => m.t === 'error' || (m.t === 'room' && m.state === null)), `unexpected response to ${JSON.stringify(msg)}: ${JSON.stringify(resp)}`);
+    assert.ok(resp.every((m) => m.t === 'error' || m.t === 'rooms' || (m.t === 'room' && m.state === null)), `unexpected response to ${JSON.stringify(msg)}: ${JSON.stringify(resp)}`);
     assert.ok(!b.state, `no room should exist after ${JSON.stringify(msg)}`);
   }
   b.close();

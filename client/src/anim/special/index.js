@@ -54,7 +54,7 @@ export function createSpecialFX({ scene, camera, getSeat, shake: hostShake, sfx:
     const dirToLocal = (worldDir) => toLocal(neck.clone().add(worldDir)).sub(origin).normalize();
     // Local y for a point `clearance` (in body units) above the felt, so hands and guns stay visible over the rail.
     const aboveFelt = (clearance) => (seat.feltY - neck.y) / scale + clearance;
-    return { seat, rig, scale, head, toLocal, dirToLocal, aboveFelt, headLocal: toLocal(head), apply: rig.userData.apply };
+    return { seat, rig, scale, head, neck, feet, toLocal, dirToLocal, aboveFelt, headLocal: toLocal(head), apply: rig.userData.apply };
   }
 
   const basePose = (t, T) => ({
@@ -272,6 +272,58 @@ export function createSpecialFX({ scene, camera, getSeat, shake: hostShake, sfx:
     };
   }
 
+  // Winner of a hand: rises from a hunched, hands-on-the-table pose to full height and throws both fists up.
+  // The neck anchor itself lifts by `rise`; the host may lift the photo with it (onUp / onDown).
+  function stand(playerId, { onUp, onDown } = {}) {
+    const actor = spawnActor(playerId);
+    const { rig, scale, neck, feet } = actor;
+    const rise = 0.13 * scale;
+    const feetY = feet ? feet.map((f) => f.y) : null;
+    const press = (side) => v(side * 0.2, actor.aboveFelt(0.03), 0.34);
+    const high = (side) => v(side * 0.47, 0.3, 0.02);
+    const T = 2.6, UP_AT = 0.62, DOWN_AT = 2.02;
+
+    return {
+      T,
+      events: [
+        { at: 0, fn: () => sfx('whoosh') },
+        { at: UP_AT, fn: () => { onUp?.(rise); sfx('thud'); } },
+        { at: 1.02, fn: () => sfx('whoosh') },
+        { at: DOWN_AT, fn: () => onDown?.() },
+      ],
+      frame(t) {
+        const pose = basePose(t, T);
+        const lean = easeOut(seg(t, 0.1, 0.5));
+        const up = easeBack(seg(t, UP_AT, 1.0));
+        const arms = easeBack(seg(t, 0.92, 1.3));
+        const down = easeInOut(seg(t, DOWN_AT, 2.3));
+        const lift = rise * clamp(up, 0, 1.15) * (1 - down);
+        rig.position.y = neck.y + lift;
+        if (feet) feet.forEach((f, i) => { f.y = feetY[i] - lift / scale; });
+        const sway = Math.sin((t - 1.3) * 7) * 0.012 * seg(t, 1.3, 1.5) * (1 - down);
+        pose.lean += 0.4 * lean * (1 - up) - 0.1 * clamp(arms, 0, 1) * (1 - down);
+        pose.roll = sway;
+        pose.shrug = 0.03 * lean * (1 - up) - 0.045 * clamp(arms, 0, 1) * (1 - down);
+        pose.stretch = 1.12;
+        for (const [key, side] of [['R', -1], ['L', 1]]) {
+          const p = pose[key];
+          p.pos.lerp(press(side), lean).lerp(high(side), arms);
+          p.pos.y += sway * side * 1.5 + ring(t, 1.3, 26, 7) * 0.02;
+          p.pos.lerp(REST[key], down);
+          p.pole.lerp(v(side, -0.2, -0.6), lean).lerp(v(side, -0.5, -0.35), clamp(arms, 0, 1)).lerp(v(side * 0.6, 0, -1), down);
+          if (down < 0.9) {
+            p.dir = v(0, 0.25, 1).normalize().lerp(v(side * 0.25, 1, 0).normalize(), clamp(arms, 0, 1)).normalize();
+            p.normal = arms > 0.3 ? v(0, 0, 1) : UP.clone().negate();
+          }
+          p.curl = 0.12 + (1.0 - 0.12) * clamp(arms, 0, 1) * (1 - down) + 0.2 * down;
+          p.spread = lean * (1 - clamp(arms, 0, 1));
+        }
+        actor.apply(pose);
+      },
+      end() { scene.remove(actor.rig); },
+    };
+  }
+
   // prefers-reduced-motion: no figure, only the gameplay-relevant callback and sound.
   const minimal = (sound, callback) => ({
     T: 0.3, frame() {}, end() {},
@@ -308,6 +360,9 @@ export function createSpecialFX({ scene, camera, getSeat, shake: hostShake, sfx:
     playRevolver: (id, opts = {}) => run(reduced
       ? minimal(opts.dead ? 'shot' : 'click', () => opts.onResult?.(!!opts.dead, opts.shots))
       : revolver(id, opts)),
+    playStand: (id, opts = {}) => run(reduced
+      ? { T: 0.3, frame() {}, end() {}, events: [{ at: 0.05, fn: () => opts.onUp?.(0) }, { at: 0.25, fn: () => opts.onDown?.() }] }
+      : stand(id, opts)),
     update(dt) {
       for (const seq of [...active]) {
         seq.t += dt;

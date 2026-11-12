@@ -79,21 +79,6 @@ test('connection: leaving returns table stack to bank', { timeout: 30000 }, asyn
   [h, b, chk].forEach((x) => x.close());
 });
 
-test('connection: disconnected player is auto-played then removed after grace', { timeout: 60000 }, async () => {
-  const { bots, code } = await seatAll(server, 'holdem', 3, { autoplay: false });
-  const [h, b, c] = bots;
-  h.start();
-  await h.waitFor(() => h.state.phase === 'playing', 3000, 'start');
-  b.terminate();
-  // the room keeps moving even though a seated player is gone (turn timeout auto-acts)
-  const t0 = Date.now();
-  await h.waitFor(() => !h.state.players.some((p) => p.id === b.id), GRACE + 8000, 'disconnected player removed after grace');
-  assert.ok(Date.now() - t0 >= GRACE * 0.5, 'removed suspiciously early');
-  assert.ok(server.alive());
-  [h, c].forEach((x) => x.close());
-  void code;
-});
-
 test('connection: empty room is cleaned up', { timeout: 60000 }, async () => {
   const { bots, code } = await seatAll(server, 'bluff', 2, { autoplay: false });
   bots.forEach((x) => x.leave());

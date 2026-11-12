@@ -31,7 +31,7 @@ const lobby = createLobby({
 document.body.append(lobby.el);
 
 const user = (name, avatar = null) => ({ id: name.toLowerCase(), name, bank: 12400, avatar,
-  stats: { hands: 128, wins: 54, biggestWin: 8600, refills: 1, bluffGames: 12, bluffWins: 5 } });
+  stats: { hands: 128, wins: 54, biggestWin: 8600, refills: 0, bluffGames: 12, bluffWins: 5 } });
 const names = ['민수', 'Jiyoung_k', '열두글자이름이에요오오', 'Tom', 'ace77', '철수'];
 const room = (mode, n, you = 0, host = 0) => ({
   code: 'KMPT', mode, hostId: names[host], phase: 'lobby', you: names[you],
@@ -49,7 +49,7 @@ if (state === 'crop') {
   x.fillRect(180, 280, 240, 120);
   c.toBlob(async (b) => log('crop result', (await openAvatarCrop(b))?.length), 'image/png');
 } else if (state !== 'out') {
-  lobby.setUser(user('민수'));
+  lobby.setUser(state === 'in-broke' ? { ...user('민수'), bank: 0 } : user('민수'));
   lobby.setRooms(state === 'in-empty' ? [] : [
     { code: 'KMPT', mode: 'holdem', hostName: 'Jiyoung_k', count: 3, max: 6, phase: 'lobby' },
     { code: 'BQRX', mode: 'bluff', hostName: '철수', count: 4, max: 4, phase: 'lobby' },

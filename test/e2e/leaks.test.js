@@ -2,6 +2,8 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, walk, CARD_RE } from './helpers.js';
 import { runHoldem, runBluff, stopAll } from './play.js';
+import { makeBots } from './helpers.js';
+import { sleep } from './bot.js';
 
 let server;
 before(async () => { server = await startServer(); });
@@ -127,4 +129,36 @@ test('leaks: bluff never exposes other hands or bullet positions', { timeout: 24
       assert.deepEqual(Object.keys(m.e).filter((k) => !['k', 'id', 'dead', 'shots'].includes(k)), [], 'shot event carries extra fields');
     }
   }
+});
+
+test('leaks: rooms lists carry only public fields, never game data; outsiders see no room state', { timeout: 120000 }, async () => {
+  const obs = (await makeBots(server, 1, { autoplay: false }))[0];
+  const h = await runHoldem(server, 3, 8);
+  const b = await runBluff(server, 3, 3);
+  await sleep(700);
+  const lists = obs.messages.filter((m) => m.t === 'rooms');
+  assert.ok(lists.length >= 2, 'observer got room list updates');
+  const nonPublic = obs.messages.filter((m) => !['me', 'rooms', 'room', 'error'].includes(m.t));
+  assert.deepEqual(nonPublic, [], 'outsider received events/chat/etc');
+  for (const m of obs.messages.filter((x) => x.t === 'room')) assert.equal(m.state, null, 'outsider received a room state');
+  for (const m of lists) {
+    assert.deepEqual(Object.keys(m).sort(), ['list', 't']);
+    for (const r of m.list) {
+      assert.deepEqual(Object.keys(r).sort(), ['code', 'count', 'hostName', 'max', 'mode', 'phase']);
+      assert.ok(r.count >= 1 && r.count <= r.max);
+    }
+    for (const [p, v] of walk(m)) {
+      assert.ok(!(typeof v === 'string' && CARD_RE.test(v)), `card-like value in rooms message at ${p}`);
+    }
+  }
+  checkKeys(obs);
+  // players inside rooms never get lists
+  for (const bot of [...h.bots, ...b.bots]) {
+    let inRoom = false;
+    for (const m of bot.messages) {
+      if (m.t === 'room') inRoom = m.state !== null;
+      else if (m.t === 'rooms') assert.equal(inRoom, false, 'rooms list sent to a player inside a room');
+    }
+  }
+  await stopAll([...h.bots, ...b.bots, obs]);
 });

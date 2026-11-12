@@ -117,3 +117,6 @@ ui.append(chat.el, chat.button);                     // 둘 다 position:fixed. 
 - 새 메서드 `lobby.setRooms(list)`, `list = [{code, mode:'holdem'|'bluff', hostName, count, max, phase}]`. 서버 `{t:'rooms', list}`를 받을 때마다 그대로 넘기면 됨(code로 비교해 갱신, 스크롤 유지). 빈 배열이면 빈 상태 문구 표시.
 - 방 행을 누르면 `onJoin(code)` 호출(시그니처 동일). `count >= max`인 행은 "가득 참"으로 비활성. 입장 실패는 `setError(msg)`가 목록 아래에 표시.
 - 방 코드 입력칸, 대기실의 큰 코드·복사 버튼은 제거. 대기실 제목은 "방장이름의 방". `onMode/onStart/onLeave` 동작 동일.
+
+## [로비] 칩 0 처리 (리필 없음)
+- 칩은 `user.chips ?? user.bank`로 읽는다. 0이면 프로필 아래에 "칩을 모두 잃었습니다…" 안내와 "새 아이디로 시작"(→ `onLogout()`)이 보이고, 홀덤 선택 시 방 만들기가 비활성(사유 표시). 홀덤 방 행은 chevron 대신 "관전" 표시(누르면 그대로 `onJoin(code)`). 블러핑은 그대로 사용 가능. "리필" 통계 행 제거.
