@@ -27,7 +27,7 @@ updateScale();
 const TOPS = { 지우: [243, 106], 서연: [507, 28], 태호: [729, 8], 하린: [1152, 254], 민수: [448, 515], 중앙: [640, 360] };
 const away = new Set(q.get('away')?.split(',') ?? []);
 const getAnchor = (id) => (TOPS[id] && !away.has(id) ? { x: TOPS[id][0] / 1280 * innerWidth, y: TOPS[id][1] / 720 * innerHeight } : null);
-const chat = createChat({ onSend: (text) => { console.log('send', text); chat.push({ id: '민수', name: '민수', text, ts: Date.now() }, { mine: true }); }, getAnchor });
+const chat = window.chat = createChat({ onSend: (text) => { console.log('send', text); chat.push({ id: '민수', name: '민수', text, ts: Date.now() }, { mine: true }); }, getAnchor });
 const ui = document.getElementById('ui');
 ui.append(chat.el, chat.button);
 addEventListener('resize', () => { updateScale(); chat.update(); });

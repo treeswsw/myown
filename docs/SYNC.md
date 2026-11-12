@@ -100,3 +100,11 @@ ui.append(chat.el, chat.button);                     // 둘 다 position:fixed. 
 - 입력 중 키 입력은 stopPropagation 하므로 호스트의 전역 단축키는 입력 중에 동작하지 않는다. 호스트가 window 캡처 단계에서 키를 가로채지 않게 할 것. Enter(입력 포커스·버튼 포커스·아바타 크롭 중이 아닐 때)가 입력창을 연다.
 - 대기 모드: 하단 중앙 막대(최근 3줄 + 입력). 로비 패널과 겹치지 않도록 `chat.css`가 `html.chat-docked .lobby`(padding-bottom)와 `.panel`(max-height)를 조정한다(lobby.css는 건드리지 않음; 짧은 화면에서는 패널이 약 45px 낮아져 내부 스크롤). 게임 시작 시 반드시 `setMode('game')`을 불러야 이 보정이 풀린다.
 - 확인용: `client/chat-demo.html?state=bubbles|replace|input|history|toast|lobby&t=<ms>`(t는 말풍선·토스트 애니메이션을 그 시점에서 정지).
+
+## [채팅] 추가: setEnabled(bool)
+- `chat.setEnabled(false)`: 방이 없을 때(`room:null`) 호출. 아이콘·입력창·기록·대기 막대를 숨기고, 말풍선·토스트·안 읽은 점을 지우고, `html.chat-docked` 로비 축소를 해제하며, 전역 Enter와 `open()/toggle()`을 무시하고 `push()`도 무시한다. `setEnabled(true)`는 방에 들어갈 때(현재 mode 그대로 복원). 기본값은 true.
+- `setLog([])`는 기록과 대기 막대를 완전히 비운다. 모드가 바뀌면(`setMode`) 남은 토스트와 말풍선을 지우고 대기 모드에서는 입력창 열림 상태도 닫는다.
+- `update()`는 매 프레임 불러도 레이아웃을 읽지 않는다(말풍선 크기는 생성·리사이즈 때만 측정, 값이 안 바뀌면 transform도 쓰지 않음). 120자 제한은 코드 포인트 기준(서버와 동일).
+
+## [서버] 채팅 보완
+속도 제한은 이제 아이디(세션) 단위라 같은 아이디 새 접속으로 초기화되지 않는다. 너비 0 공백·방향 표시 등 서식 문자는 지우고(이모지용 U+200D만 유지) 보이는 글자가 없으면 거절한다(error "채팅은 1~120자여야 합니다.").

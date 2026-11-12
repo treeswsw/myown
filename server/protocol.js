@@ -69,9 +69,11 @@ export function parseMessage(raw) {
     }
     case 'chat': {
       if (typeof m.text !== 'string') return bad('채팅 내용이 올바르지 않습니다.');
-      // Control characters (incl. newlines) are removed, not rejected, so pasted text still goes through.
-      const text = m.text.replace(/\p{Cc}/gu, '').trim();
-      return text.length >= 1 && [...text].length <= MAX_CHAT ? good({ t: 'chat', text }) : bad('채팅은 1~120자여야 합니다.');
+      // Control and invisible format characters (zero-width, bidi marks, ...) are removed, not rejected,
+      // so pasted text still goes through. U+200D stays: emoji sequences need it.
+      const text = m.text.replace(/[\p{Cc}\p{Cf}]/gu, (c) => (c === '\u200d' ? c : '')).trim();
+      const visible = /[^\s\u200d\ufe0f]/u.test(text);
+      return visible && [...text].length <= MAX_CHAT ? good({ t: 'chat', text }) : bad('채팅은 1~120자여야 합니다.');
     }
     case 'emote':
       return Number.isInteger(m.e) && m.e >= 0 && m.e <= 5 ? good({ t: 'emote', e: m.e }) : bad('잘못된 이모티콘입니다.');

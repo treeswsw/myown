@@ -20,7 +20,7 @@ const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
 export const REPLACED_CODE = 4001;
 const RATE_LIMIT = 20;
-const CHAT_LOG = 30; // messages per second per connection
+const CHAT_LOG = 30; // messages remembered per room
 
 const publicUser = (u) => ({ id: u.id, name: u.name, bank: u.bank, avatar: u.avatar, stats: { ...u.stats } });
 
@@ -482,7 +482,6 @@ function newCode(hub) {
 function createConn(hub, sock) {
   const conn = {
     session: null,
-    chatTimes: [],
     queue: Promise.resolve(),
     windowStart: 0,
     count: 0,
@@ -533,7 +532,7 @@ async function login(hub, conn, msg) {
   let session = hub.sessions.get(msg.key);
   if (!session) {
     const user = await hub.store.getOrCreate(msg.key, msg.name);
-    session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null };
+    session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [] };
     hub.sessions.set(msg.key, session);
   }
   const old = session.conn;
@@ -587,10 +586,12 @@ async function dispatch(hub, conn, msg) {
     case 'emote': room.emote(session.id, msg.e); return null;
     case 'chat': {
       const t = hub.now();
-      conn.chatTimes = conn.chatTimes.filter((x) => t - x < 10_000);
-      const last = conn.chatTimes.at(-1);
-      if (conn.chatTimes.length >= 5 || (last !== undefined && t - last < 1000)) return '채팅을 너무 빨리 보내고 있습니다';
-      conn.chatTimes.push(t);
+      // Kept on the account, not the socket, so reconnecting or taking over does not reset it.
+      const times = session.chatTimes.filter((x) => t - x < 10_000);
+      const last = times.at(-1);
+      if (times.length >= 5 || (last !== undefined && t - last < 1000)) return '채팅을 너무 빨리 보내고 있습니다';
+      times.push(t);
+      session.chatTimes = times;
       room.chat(session, msg.text);
       return null;
     }

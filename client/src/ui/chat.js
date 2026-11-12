@@ -2,7 +2,7 @@ import './chat.css';
 import { h, svg, view } from './dom.js';
 
 // createChat({ onSend(text), getAnchor(playerId) -> {x, y} | null })
-//   -> { el, button, push(msg, {mine}), setLog(items, myId?), open(), close(), toggle(), setMode('game'|'lobby'), update() }
+//   -> { el, button, push(msg, {mine}), setLog(items, myId?), open(), close(), toggle(), setMode('game'|'lobby'), setEnabled(bool), update() }
 // Pure DOM: the host mounts `el` and `button` (both position:fixed) and wires the network.
 
 const MAX_LEN = 120;
@@ -26,7 +26,6 @@ export function createChat({ onSend, getAnchor }) {
   const toasts = h('div');
   const input = h('input', 'chat-in');
   input.type = 'text';
-  input.maxLength = MAX_LEN;
   input.placeholder = '메시지 입력';
   input.autocomplete = 'off';
   input.enterKeyHint = 'send';
@@ -57,6 +56,7 @@ export function createChat({ onSend, getAnchor }) {
   const slots = new Map(); // playerId -> { el, live }
   let log = [];
   let mode = 'game';
+  let enabled = true;
   let isOpen = false;
   let sheetOpen = false;
 
@@ -65,20 +65,22 @@ export function createChat({ onSend, getAnchor }) {
   // Speech bubbles
   function place(id, slot) {
     const a = getAnchor(id);
-    slot.el.style.visibility = a ? '' : 'hidden';
+    if (!a !== slot.hidden) slot.el.style.visibility = (slot.hidden = !a) ? 'hidden' : '';
     if (!a) return;
-    const w = slot.live?.offsetWidth ?? 0;
-    const half = w / 2;
+    const half = slot.w / 2;
     const x = Math.min(Math.max(a.x, half + 8), Math.max(half + 8, innerWidth - half - 8));
-    const top = (slot.live?.offsetHeight ?? 0) + 8 * view.k + 6;
-    const y = Math.max(a.y - 8 * view.k, top);
-    slot.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    const y = Math.max(a.y - 8 * view.k, slot.h + 8 * view.k + 6);
+    const t = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    if (t !== slot.t) slot.el.style.transform = slot.t = t;
   }
+
+  // Bubble sizes are measured when created and on resize, never per frame (update() only writes).
+  const measure = (slot) => { slot.w = slot.live?.offsetWidth ?? slot.w; slot.h = slot.live?.offsetHeight ?? slot.h; };
 
   function bubble(msg) {
     let slot = slots.get(msg.id);
     if (!slot) {
-      slot = { el: h('div', 'chat-slot'), live: null };
+      slot = { el: h('div', 'chat-slot'), live: null, w: 0, h: 0, hidden: false, t: '' };
       slots.set(msg.id, slot);
       layer.append(slot.el);
     }
@@ -96,6 +98,7 @@ export function createChat({ onSend, getAnchor }) {
     });
     slot.el.append(w);
     slot.live = w;
+    measure(slot);
     place(msg.id, slot);
   }
 
@@ -126,10 +129,13 @@ export function createChat({ onSend, getAnchor }) {
   // Open / close
   function layout() {
     const lobby = mode === 'lobby';
-    document.documentElement.classList.toggle('chat-docked', lobby);
+    el.hidden = !enabled;
+    document.documentElement.classList.toggle('chat-docked', lobby && enabled);
+    toasts.replaceChildren();
+    if (lobby) { isOpen = false; setSheet(false); layer.replaceChildren(); slots.clear(); }
     dock.hidden = !lobby;
     col.hidden = lobby;
-    button.hidden = lobby;
+    button.hidden = lobby || !enabled;
     (lobby ? dock : col).insertBefore(bar, lobby ? null : sheet);
     logBtn.hidden = lobby;
     bar.hidden = lobby ? false : !isOpen;
@@ -137,6 +143,7 @@ export function createChat({ onSend, getAnchor }) {
   }
 
   function open() {
+    if (!enabled) return;
     if (mode === 'lobby') { input.focus({ preventScroll: true }); return; }
     isOpen = true;
     bar.hidden = false;
@@ -163,14 +170,17 @@ export function createChat({ onSend, getAnchor }) {
     if (touch.matches) close();
   }
   function sync() {
-    const n = input.value.length;
+    const n = [...input.value].length;
     count.textContent = `${n}/${MAX_LEN}`;
     count.hidden = n <= 100;
     count.classList.toggle('full', n >= MAX_LEN);
     send.disabled = !input.value.trim() || /^#\s*$/.test(input.value);
   }
 
-  input.addEventListener('input', sync);
+  input.addEventListener('input', (e) => {
+    if (!e.isComposing && [...input.value].length > MAX_LEN) input.value = [...input.value].slice(0, MAX_LEN).join('');
+    sync();
+  });
   input.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.isComposing || e.keyCode === 229) return;
@@ -180,7 +190,7 @@ export function createChat({ onSend, getAnchor }) {
   logBtn.addEventListener('click', () => setSheet(!sheetOpen));
   button.addEventListener('click', toggle);
   document.addEventListener('keydown', (e) => {
-    if (e.isComposing || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!enabled || e.isComposing || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'Escape' && isOpen) close();
     else if (e.key === 'Enter' && !/^(INPUT|TEXTAREA|BUTTON|SELECT|A)$/.test(document.activeElement?.tagName ?? '') && !document.querySelector('.crop-overlay')) {
       e.preventDefault();
@@ -191,6 +201,7 @@ export function createChat({ onSend, getAnchor }) {
     if (isOpen && !col.contains(e.target) && !button.contains(e.target)) close();
   }, true);
 
+  addEventListener('resize', () => { for (const s of slots.values()) measure(s); });
   sync();
   setSheet(false);
   bar.hidden = true;
@@ -200,6 +211,7 @@ export function createChat({ onSend, getAnchor }) {
     el,
     button,
     push(msg, { mine = false } = {}) {
+      if (!enabled) return;
       log.push(norm(msg, mine));
       if (log.length > LOG_MAX) log.shift();
       renderLogs();
@@ -216,6 +228,16 @@ export function createChat({ onSend, getAnchor }) {
     },
     open, close, toggle,
     setMode(m) { mode = m; layout(); },
+    setEnabled(v) {
+      enabled = Boolean(v);
+      if (!enabled) {
+        close();
+        layer.replaceChildren();
+        slots.clear();
+        unread(false);
+      }
+      layout();
+    },
     update() {
       for (const [id, s] of slots) place(id, s);
     },

@@ -76,7 +76,7 @@ let wasMyTurn = false;
 function applyRoom(room) {
   shown = room;
   if (!room) {
-    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null); chat.close(); chat.button.hidden = true;
+    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null); chat.close(); chat.setEnabled(false); chat.button.hidden = true;
     cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
     lobby.setRoom(null); lobby.show();
     return;
@@ -87,6 +87,7 @@ function applyRoom(room) {
   const holdem = room.mode === 'holdem';
   const myTurn = live && room.turn === room.you && Boolean(me) && !me.spectating;
   const inLobby = room.phase === 'lobby';
+  chat.setEnabled(true);
   chat.button.hidden = false;
   chat.setMode(inLobby ? 'lobby' : 'game');
   table.sync(room);
@@ -118,6 +119,8 @@ function handle(msg) {
       pendingAvatar = null;
       break;
     case 'room':
+      // One room's chat log must never show in another (the server resends chatLog on join).
+      if (msg.state?.code !== state.room?.code) chat.setLog([]);
       if (msg.state?.turnEndsAt !== state.room?.turnEndsAt) pins.noteTurn();
       state.room = msg.state;
       if (!animator.busy()) applyRoom(msg.state);

@@ -30,6 +30,16 @@ test('validation: trims, strips control characters, 1-120 chars', () => {
   assert.equal(parseMessage(JSON.stringify({ t: 'chat', text: '<b>hi</b>' })).msg.text, '<b>hi</b>');
 });
 
+test('validation: invisible format characters are stripped, invisible-only text rejected, emoji counted by code point', () => {
+  const ok = (text) => parseMessage(JSON.stringify({ t: 'chat', text }));
+  assert.equal(ok('a\u200bb\u202ec').msg.text, 'abc');
+  for (const text of ['\u200b', '\u202e\u200b ', '\u200d', '\ufe0f', ' \u2060 ']) assert.equal(ok(text).ok, false, JSON.stringify(text));
+  assert.equal(ok('#\u200b').msg.text, '#');
+  assert.equal(ok('👨\u200d👩\u200d👧').msg.text, '👨\u200d👩\u200d👧');
+  assert.equal(ok('😀'.repeat(120)).ok, true);
+  assert.equal(ok('😀'.repeat(121)).ok, false);
+});
+
 test('chat needs a room and a login', async () => {
   const { hub, cs } = await setup();
   await cs[0].send({ t: 'leave' });
@@ -60,11 +70,14 @@ test('chat does not reset the turn timer or change the game', async () => {
   await cs[0].send({ t: 'start' });
   const before = cs[0].state;
   clock.advance(10000);
+  const rooms = cs[0].sock.msgs.filter((m) => m.t === 'room').length;
   await cs[1].send({ t: 'chat', text: 'gl' });
-  clock.advance(19999);
+  assert.equal(cs[0].state.turnEndsAt, before.turnEndsAt);
   assert.equal(cs[0].state.turn, before.turn);
+  assert.equal(cs[0].sock.msgs.filter((m) => m.t === 'room').length, rooms);
+  clock.advance(19999);
+  assert.equal(cs[0].state.phase, 'playing');
   clock.advance(1);
-  assert.notEqual(cs[0].state.phase === 'playing' && cs[0].state.turnEndsAt, before.turnEndsAt);
   assert.equal(cs[0].state.phase, 'result', 'timeout fired at the original deadline');
 });
 
@@ -119,6 +132,61 @@ test('chatLog is sent once on join and on reconnect; log keeps the last 30', asy
   assert.equal(re.length, 1);
   assert.equal(re[0].items.length, 30);
   assert.equal(events(cs[0], 'chatLog').length, 1, 'others do not get the log again');
+});
+
+test('rate limit survives a same-ID takeover', async () => {
+  const { hub, clock, cs } = await setup();
+  await cs[0].send({ t: 'chat', text: 'one' });
+  const again = client(hub);
+  await again.send({ t: 'login', id: 'ann1' });
+  await again.send({ t: 'chat', text: 'two' });
+  assert.equal(again.sock.last('error').msg, '채팅을 너무 빨리 보내고 있습니다');
+  assert.equal(events(cs[1], 'chat').length, 1);
+  for (let i = 0; i < 4; i++) {
+    clock.advance(1000);
+    const c = client(hub);
+    await c.send({ t: 'login', id: 'ann1' });
+    await c.send({ t: 'chat', text: 'x' + i });
+  }
+  assert.equal(events(cs[1], 'chat').length, 5);
+  clock.advance(1000);
+  const c = client(hub);
+  await c.send({ t: 'login', id: 'ann1' });
+  await c.send({ t: 'chat', text: 'six' });
+  assert.equal(events(cs[1], 'chat').length, 5, '6th within 10s is refused even on a fresh socket');
+});
+
+test('chat works in result and reveal phases', async () => {
+  const { clock, cs } = await setup();
+  await cs[0].send({ t: 'start' });
+  clock.advance(30000); // turn timeout ends the hand
+  assert.equal(cs[0].state.phase, 'result');
+  await cs[0].send({ t: 'chat', text: 'result' });
+  const b = await setup('bluff', ['dd11', 'ee11', 'ff11']);
+  await b.cs[0].send({ t: 'start' });
+  const g = b.hub.rooms.values().next().value.game.g;
+  g.players.forEach((p) => { p.bullet = 5; });
+  g.tableRank = 'K';
+  g.turn = 0;
+  g.players[0].hand = ['Q', 'Q', 'Q', 'Q', 'Q'];
+  await b.cs[0].send({ t: 'play', cards: [0] });
+  await b.cs[1].send({ t: 'liar' });
+  assert.equal(b.cs[0].state.turn, null);
+  await b.cs[2].send({ t: 'chat', text: 'reveal' });
+  assert.deepEqual(events(b.cs[0], 'chat').map((e) => e.text), ['reveal']);
+  assert.equal(events(cs[1], 'chat').at(-1).text, 'result');
+});
+
+test('chat and chatLog never reach another room', async () => {
+  const { hub, cs } = await setup();
+  await cs[0].send({ t: 'chat', text: 'secret' });
+  const other = client(hub);
+  await other.send({ t: 'login', id: 'zed1' });
+  await other.send({ t: 'create', mode: 'bluff' });
+  assert.deepEqual(events(other, 'chatLog'), [{ k: 'chatLog', items: [] }]);
+  await other.send({ t: 'chat', text: 'other room' });
+  assert.deepEqual(events(cs[0], 'chat').map((e) => e.text), ['secret']);
+  assert.deepEqual(events(other, 'chat').map((e) => e.text), ['other room']);
 });
 
 test('chat is allowed in every phase', async () => {
