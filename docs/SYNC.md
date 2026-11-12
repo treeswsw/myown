@@ -144,3 +144,24 @@ ui.append(chat.el, chat.button);                     // 둘 다 position:fixed. 
 ## [서버] 사진 이모티콘/사운드
 클라이언트 → 서버: `{t:'pemote', data}`(JPEG 데이터 URL ≤40KB, 아이디당 3초 1개), `{t:'sndAdd', sid, name, data}`(sid `[a-z0-9]{6,16}`, name 1~8자, data `data:audio/...;base64,...` ≤200KB 문자열, 아이디당 10초 1개), `{t:'snd', sid}`(sid는 방에 올라간 소리 또는 `builtin:<a-z 1~16자>`, 아이디당 2초 1개). 큰 메시지(sndAdd)는 JSON에서 `t`가 **첫 번째 키**여야 한다(`JSON.stringify({t:'sndAdd', ...})`처럼); 프레임 한도는 300KB, 나머지 메시지는 70KB.
 서버 → 방 전체(관전자·보낸 사람 포함, `room` 없이 event만): `{k:'pemote', id, data}`, `{k:'sndAdd', sid, by, name, data}`, `{k:'snd', id, sid}`. 입장·재접속 시 `room` 다음에 chatLog, 그다음(소리가 있을 때만) `{k:'sndList', items:[{sid,by,name,data}]}`. 같은 sid를 같은 사람이 다시 올리면 조용히 무시(재전송 없음), 다른 사람이 쓰던 sid면 error. 아이디당 8개 초과 시 그 사람의 가장 오래된 것, 방 24개 초과 시 가장 오래된 것이 삭제되며 삭제 알림은 없다(없는 sid 재생은 error "없는 소리입니다."). 제한 초과 error: "사진 이모티콘을 너무 빨리 보내고 있습니다" / "소리를 너무 빨리 올리고 있습니다" / "소리를 너무 빨리 재생하고 있습니다".
+
+## [이모티콘/사운드] 모듈 사용법
+`client/src/ui/emotePanel.js` (+ `emotePanel.css`, `client/src/media.js`). 네트워크를 모르는 DOM 모듈. 데모: `client/emote-demo.html?state=emote|sound|photo|playing&t=<ms>`.
+```js
+import { createEmotePanel } from './ui/emotePanel.js';
+const ep = createEmotePanel({
+  onEmote: (i) => send({ t: 'emote', e: i }),
+  onPhoto: (data) => send({ t: 'pemote', data }),               // JPEG 데이터 URL <= 40000자, <= 256x256
+  onSoundAdd: ({ sid, name, data }) => send({ t: 'sndAdd', sid, name, data }), // audio 데이터 URL <= 200000자
+  onSound: (sid) => send({ t: 'snd', sid }),                     // 'builtin:clap' | 내 사운드 sid
+  getAnchor: (id) => pins.anchor(id),                            // 핀 위쪽 화면 px {x,y} | null (chat과 동일)
+  getSelf: () => state.me.id,                                    // 선택: "다른 사람 사운드 끄기"가 내 소리는 제외하게
+  onClose: () => closePanel(),                                   // 선택: 이모티콘/사진을 보낸 뒤 호출(사운드는 연타 가능하게 호출 안 함)
+});
+```
+- `ep.el`: 탭 두 개가 있는 패널 내용. 기존 `.hpanel` 안에 `h('div','hpanel', ep.el)`로 넣으면 된다(hud.js의 `open('emote', grid)` 자리). `.hpanel`은 `scale(var(--k))`이므로 44px 터치 영역은 `calc(44px / var(--k))`로 잡혀 있다. 패널을 닫을 때 `ep.el`을 떼어도 상태(탭·입력 중인 이름)는 유지되고, 다시 붙이면 된다. 한 번만 만들어 재사용.
+- 서버 메시지 연결: `{k:'pemote', id, data}` → `ep.showPhoto(id, data)`; `{k:'snd', id, sid}` → `ep.playSound(id, sid)`; `{k:'sndAdd', sid, by, name, data}` → `ep.addRoomSound({sid, by, name, data})`; `{k:'sndList', items}` → `ep.setRoomSounds(items)`; 방을 나가거나 방 상태가 null이 되면 `ep.clearRoom()`(방의 사운드 목록과 떠 있는 사진/라벨을 지움 → 다음 방에서 내 사운드를 다시 올림).
+- 매 프레임(또는 핀 위치가 바뀔 때) `ep.update()`로 떠 있는 사진·스피커 라벨 위치를 갱신. 떠 있는 요소는 `document.body`의 `.ep-layer`(pointer-events:none, z-index 35)에 따로 붙는다.
+- 음소거: 상단 소리 버튼(`audio.js`의 `isMuted()`)은 media.js가 직접 확인하므로 따로 할 일 없음. `ep.setMuted(bool)`은 추가로 막고 싶을 때만.
+- 사진/사운드는 연출 대기열을 거치지 않고 도착 즉시 `showPhoto/playSound` 호출. 동시 재생은 3개까지.
+- 알려진 한계: 내 사운드를 처음 누를 때 `sndAdd` 후 곧바로 `snd`를 보낸다. 서버가 sndAdd를 속도 제한(10초)으로 거절하면 그 방에서는 소리가 나지 않는다(클라이언트는 올렸다고 가정).

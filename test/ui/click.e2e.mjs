@@ -154,8 +154,8 @@ async function runContext(browser, server, name, cfg) {
   // emote above my pin
   await reachable('emote icon', '.hud-tl .ic[aria-label="이모티콘"]');
   await press('.hud-tl .ic[aria-label="이모티콘"]');
-  await reachable('first emote button', '.hpanel .emotes button');
-  await press('.hpanel .emotes button:nth-child(2)');
+  await reachable('first emote button', '.hpanel .ep-grid.g3 button');
+  await press('.hpanel .ep-grid.g3 button:nth-child(2)');
   const emote = await page.waitForFunction(() => {
     const pin = [...document.querySelectorAll('.pl')].find((n) => n.querySelector('.emote.show'));
     if (!pin) return null;

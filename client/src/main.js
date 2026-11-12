@@ -9,6 +9,7 @@ import { createWheel } from './ui/wheel.js';
 import { createBluff } from './ui/bluff.js';
 import { createLobby } from './ui/lobby.js';
 import { createChat } from './ui/chat.js';
+import { createEmotePanel } from './ui/emotePanel.js';
 import { h, updateScale, view } from './ui/dom.js';
 import { createAnimator } from './anim/events.js';
 import { createSpecialFX } from './anim/special/index.js';
@@ -30,7 +31,16 @@ table.reset();
 const scenedim = h('div', 'scenedim');
 ui.append(h('div', 'vig'), scenedim);
 const pins = createPins(ui, stage, table);
-const hud = createHud(ui, { send, getMe: () => state.me });
+const emotePanel = createEmotePanel({
+  onEmote: (i) => send({ t: 'emote', e: i }),
+  onPhoto: (data) => send({ t: 'pemote', data }),
+  onSoundAdd: (s) => send({ t: 'sndAdd', ...s }),
+  onSound: (sid) => send({ t: 'snd', sid }),
+  getAnchor: (id) => pins.anchor(id),
+  getSelf: () => state.me?.id ?? null,
+  onClose: () => hud.closePanel(),
+});
+const hud = createHud(ui, { send, getMe: () => state.me, emotePanel });
 const cluster = createCluster(ui);
 const wheel = createWheel(ui, send);
 const bluff = createBluff(ui, send);
@@ -78,7 +88,7 @@ let emphasized = false; // showdown emphasis is on screen
 function applyRoom(room) {
   shown = room;
   if (!room) {
-    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null); chat.close(); chat.setEnabled(false); chat.button.hidden = true;
+    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null); emotePanel.clearRoom(); chat.close(); chat.setEnabled(false); chat.button.hidden = true;
     cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
     lobby.setRoom(null); lobby.show();
     return;
@@ -125,7 +135,7 @@ function handle(msg) {
       break;
     case 'room':
       // One room's chat log must never show in another (the server resends chatLog on join).
-      if (msg.state?.code !== state.room?.code) chat.setLog([]);
+      if (msg.state?.code !== state.room?.code) { chat.setLog([]); emotePanel.clearRoom(); }
       state.room = msg.state;
       if (!animator.busy()) applyRoom(msg.state);
       break;
@@ -133,6 +143,10 @@ function handle(msg) {
     case 'event':
       // Emotes and chat are not choreography: they bypass the queue so animations never delay them.
       if (msg.e.k === 'emote') pins.emote(msg.e.id, msg.e.e);
+      else if (msg.e.k === 'pemote') emotePanel.showPhoto(msg.e.id, msg.e.data);
+      else if (msg.e.k === 'snd') emotePanel.playSound(msg.e.id, msg.e.sid);
+      else if (msg.e.k === 'sndAdd') emotePanel.addRoomSound(msg.e);
+      else if (msg.e.k === 'sndList') emotePanel.setRoomSounds(msg.e.items);
       else if (msg.e.k === 'chat') chat.push(msg.e, { mine: msg.e.id === state.room?.you });
       else if (msg.e.k === 'chatLog') chat.setLog(msg.e.items, state.room?.you);
       else { wheel.update(null, null, false); animator.push(msg.e); }
@@ -145,7 +159,7 @@ function handle(msg) {
 }
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { animator.flush(); applyRoom(state.room); } });
-stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); });
+stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); emotePanel.update(); });
 
 const mock = new URLSearchParams(location.search).get('mock');
 if (mock) {

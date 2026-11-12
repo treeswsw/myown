@@ -1,6 +1,5 @@
 import { h, svg, fmt } from './dom.js';
 import { TOP } from './icons.js';
-import { emoteGlyphs } from './pins.js';
 import { isMuted, setMuted } from '../audio.js';
 
 const RANKS = [
@@ -18,7 +17,7 @@ const circle = (icon, label, big = false) => {
 };
 
 // Top-left icon row (menu, emote, hand ranks, stats, sound) and the room info at the top right.
-export function createHud(ui, { send, getMe }) {
+export function createHud(ui, { send, getMe, emotePanel }) {
   const row = h('div', 'hud-tl');
   const info = h('div', 'hud-tr');
   const msg = h('span');
@@ -47,14 +46,7 @@ export function createHud(ui, { send, getMe }) {
     open('menu', h('h3', '', '메뉴'), leave);
   };
   const emote = circle(TOP.emote, '이모티콘');
-  emote.onclick = () => {
-    const grid = h('div', 'emotes', emoteGlyphs.map((g, i) => {
-      const b = h('button', '', g);
-      b.onclick = () => { send({ t: 'emote', e: i }); closePanel(); };
-      return b;
-    }));
-    open('emote', grid);
-  };
+  emote.onclick = () => open('emote', emotePanel.el);
   const ranks = circle(TOP.ranks, '족보표');
   ranks.onclick = () => open('ranks', h('h3', '', '족보표'), h('div', 'hr', RANKS.flatMap(([a, b]) => [h('b', '', a), h('span', '', b)])));
   const stats = circle(TOP.stats, '전적');
@@ -75,6 +67,7 @@ export function createHud(ui, { send, getMe }) {
   document.addEventListener('pointerdown', (e) => { if (panel && !panel.contains(e.target) && !row.contains(e.target)) closePanel(); });
 
   return {
+    closePanel,
     update(r) {
       room = r;
       row.style.display = info.style.display = r ? '' : 'none';
