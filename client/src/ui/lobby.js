@@ -4,7 +4,8 @@ import { h, svg, avatar, fmt } from './dom.js';
 
 // createLobby({onLogin(id, avatarDataUrl|null), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
-// -> { el, setUser(user|null), setRoom(roomState|null), setError(msg|null), show(), hide() }
+// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), show(), hide() }
+//    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
 
 const MODES = {
   holdem: { name: '텍사스 홀덤', desc: '2~6명 · 블라인드 50/100', max: 6 },
@@ -55,38 +56,9 @@ function segmented(onPick) {
   };
 }
 
-// Four single-letter cells with auto-advance, paste and backspace handling.
-function codeCells(onChange, onEnter) {
-  const el = h('div', 'cells');
-  const cells = [0, 1, 2, 3].map((i) => {
-    const c = h('input', 'cell');
-    c.setAttribute('aria-label', `방 코드 ${i + 1}번째 글자`);
-    c.autocomplete = 'off';
-    c.autocapitalize = 'characters';
-    c.spellcheck = false;
-    c.addEventListener('focus', () => c.select());
-    c.addEventListener('input', () => {
-      const letters = c.value.replace(/[^a-zA-Z]/g, '').toUpperCase();
-      for (let k = 0; k < letters.length && i + k < 4; k++) cells[i + k].value = letters[k];
-      if (!letters) c.value = '';
-      else cells[Math.min(i + letters.length, 3)].focus();
-      onChange();
-    });
-    c.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') onEnter();
-      else if (e.key === 'Backspace' && !c.value && i > 0) { cells[i - 1].value = ''; cells[i - 1].focus(); e.preventDefault(); onChange(); }
-      else if (e.key === 'ArrowLeft' && i > 0) cells[i - 1].focus();
-      else if (e.key === 'ArrowRight' && i < 3) cells[i + 1].focus();
-    });
-    return c;
-  });
-  el.append(...cells);
-  return { el, get: () => cells.map((c) => c.value).join(''), focus: () => cells[Math.min(cells.filter((c) => c.value).length, 3)].focus() };
-}
-
 export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout }) {
   const el = h('div', 'lobby');
-  let user = null, room = null, pendingAvatar = null, copyTimer = 0;
+  let user = null, room = null, pendingAvatar = null;
 
   const fileInput = h('input');
   fileInput.type = 'file';
@@ -159,27 +131,50 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   const homeSeg = segmented((m) => { pickedMode = m; homeSeg.set(m); });
   homeSeg.set(pickedMode);
   const homeErr = err();
-  function submitJoin() {
-    if (joinCode.get().length !== 4) { homeErr.textContent = '방 코드는 영문 4글자입니다.'; joinCode.focus(); return; }
-    homeErr.textContent = '';
-    onJoin(joinCode.get());
-  }
-  const joinCode = codeCells(() => { homeErr.textContent = ''; }, submitJoin);
-  play.append(h('h2', null, '새 게임'), h('div', 'stack', homeSeg.el, homeSeg.caption),
+  const roomList = h('div', 'group rooms');
+  const emptyNote = h('p', 'empty', '열린 방이 없습니다. 새 게임을 만들어 보세요.');
+  const rows = new Map();
+  play.append(h('h2', null, '새 게임'), h('div', 'stack seg-box', homeSeg.el, homeSeg.caption),
     button('방 만들기', 'primary', () => { homeErr.textContent = ''; onCreate(pickedMode); }),
-    h('hr'), h('h2', null, '방 코드로 입장'),
-    h('div', 'join', joinCode.el, button('입장', 'tint', submitJoin)), homeErr);
+    h('hr'), h('h2', null, '열린 방'), roomList, emptyNote, homeErr);
+
+  function roomRow(code) {
+    const b = h('button', 'row room-row');
+    b.type = 'button';
+    b.addEventListener('click', () => { homeErr.textContent = ''; onJoin(code); });
+    const parts = { title: h('b'), host: h('span', 'sub'), count: h('span', 'count'), state: h('span', 'tags') };
+    b.append(h('span', 'rr-main', parts.title, parts.host), parts.count, parts.state, svg('<path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'));
+    b.lastChild.setAttribute('class', 'chev');
+    return { b, ...parts };
+  }
+  function renderRooms(list) {
+    const seen = new Set();
+    let ref = roomList.firstChild;
+    for (const r of list) {
+      seen.add(r.code);
+      let row = rows.get(r.code);
+      if (!row) rows.set(r.code, row = roomRow(r.code));
+      const full = r.count >= r.max;
+      row.title.textContent = MODES[r.mode]?.name ?? r.mode;
+      row.host.textContent = `${r.hostName}의 방`;
+      row.count.textContent = `${r.count}/${r.max}`;
+      row.state.textContent = full ? '가득 참' : r.phase === 'lobby' ? '대기 중' : '게임 중';
+      row.b.disabled = full;
+      if (row.b === ref) ref = ref.nextSibling;
+      else roomList.insertBefore(row.b, ref);
+    }
+    for (const [code, row] of rows) if (!seen.has(code)) { row.b.remove(); rows.delete(code); }
+    roomList.hidden = list.length === 0;
+    emptyNote.hidden = list.length > 0;
+  }
   home.append(profile, play);
 
   // ---------- 3. room (waiting) ----------
   const roomView = h('div', 'pair');
   const info = h('section', 'panel');
-  const codeEl = h('div', 'room-code');
-  const copyBtn = button('복사', 'text', copyCode);
-  copyBtn.setAttribute('aria-live', 'polite');
+  const roomTitle = h('h2');
   const roomSeg = segmented((m) => onMode(m));
-  info.append(h('h2', null, '방 코드'), h('div', 'code-row', codeEl, copyBtn),
-    h('div', 'stack', roomSeg.el, roomSeg.caption));
+  info.append(roomTitle, h('div', 'stack', roomSeg.el, roomSeg.caption));
 
   const people = h('section', 'panel');
   const count = h('h2');
@@ -192,26 +187,10 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   people.append(count, list, roomMsg, roomErr, actions);
   roomView.append(info, people);
 
-  async function copyCode() {
-    let ok = false;
-    try { await navigator.clipboard.writeText(room.code); ok = true; } catch {
-      const t = h('textarea');
-      t.value = room.code;
-      t.style.cssText = 'position:fixed;opacity:0';
-      document.body.append(t);
-      t.select();
-      try { ok = document.execCommand('copy'); } catch { /* ignore */ }
-      t.remove();
-    }
-    copyBtn.textContent = ok ? '복사했습니다' : '복사하지 못했습니다';
-    clearTimeout(copyTimer);
-    copyTimer = setTimeout(() => { copyBtn.textContent = '복사'; }, 2000);
-  }
-
   function renderRoom() {
     const max = MODES[room.mode].max;
     const isHost = room.hostId === room.you;
-    codeEl.textContent = room.code;
+    roomTitle.textContent = `${room.players.find((p) => p.id === room.hostId)?.name ?? ''}의 방`;
     roomSeg.set(room.mode, isHost);
     count.textContent = `참가자 ${room.players.length}/${max}`;
     list.replaceChildren(...room.players.map((p) => {
@@ -249,6 +228,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     el,
     setUser(u) { user = u; if (!u) room = null; render(); },
     setRoom(r) { room = r; render(); },
+    setRooms(list) { renderRooms(list); },
     setError(msg) { (!user ? outErr : room ? roomErr : homeErr).textContent = msg || ''; },
     show() { el.hidden = false; },
     hide() { el.hidden = true; },

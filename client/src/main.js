@@ -121,7 +121,6 @@ function handle(msg) {
     case 'room':
       // One room's chat log must never show in another (the server resends chatLog on join).
       if (msg.state?.code !== state.room?.code) chat.setLog([]);
-      if (msg.state?.turnEndsAt !== state.room?.turnEndsAt) pins.noteTurn();
       state.room = msg.state;
       if (!animator.busy()) applyRoom(msg.state);
       break;

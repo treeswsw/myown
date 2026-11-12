@@ -3,7 +3,6 @@ import { PIN } from './icons.js';
 
 const EMOTES = ['👍', '😂', '😮', '😡', '😭', '🔥'];
 export const emoteGlyphs = EMOTES;
-const TURN_MS = 30000;
 
 // DOM pins above each seat: photo with timer ring, action pin, amount, name and stack.
 export function createPins(ui, stage, table) {
@@ -17,8 +16,6 @@ export function createPins(ui, stage, table) {
   const dead = new Set();
   let room = null;
   let hidden = false;
-  // The server clock may differ from this device's, so the ring counts from when the turn message arrived.
-  let turnSeenAt = 0;
 
   const pinIcon = (kind) => {
     const e = h('div', `pin ${kind === 'turn' ? 't' : ''}`);
@@ -33,8 +30,7 @@ export function createPins(ui, stage, table) {
     const nm = h('div', 'nm ko');
     const rv = h('div', 'rv');
     const emote = h('div', 'emote');
-    const ring = h('div', 'ring');
-    const entry = { el, top, wrap, nm, rv, emote, ring, av: null, photo: null, id: p.id };
+    const entry = { el, top, wrap, nm, rv, emote, av: null, photo: null, id: p.id };
     el.append(top, wrap, nm, rv, emote);
     layer.append(el);
     return entry;
@@ -51,7 +47,7 @@ export function createPins(ui, stage, table) {
       if (e.photo !== photoKey) {
         e.photo = photoKey;
         e.av = avatar(p, 'pav');
-        e.wrap.replaceChildren(e.av, e.ring);
+        e.wrap.replaceChildren(e.av);
       }
       const playing = r.phase !== 'lobby';
       const out = playing && (holdem ? p.folded : p.alive === false);
@@ -70,6 +66,7 @@ export function createPins(ui, stage, table) {
       } else if (r.turn === p.id) kind = 'turn';
       else if (r.lastPlay?.by === p.id) { kind = 'play'; amount = `${r.tableRank} ${r.lastPlay.count}장`; }
       e.top.replaceChildren(...(amount ? [h('div', 'num', amount)] : []), ...(kind ? [pinIcon(kind)] : []));
+      e.el.classList.toggle('has-top', Boolean(amount || kind));
 
       const sub = holdem ? fmtShort(stacks.get(p.id) ?? p.stack ?? 0) : playing ? `${p.handCount ?? 0}장` : '';
       e.nm.replaceChildren(h('i', 'nmt', p.name), ...(sub ? [h('span', '', sub)] : []));
@@ -88,7 +85,6 @@ export function createPins(ui, stage, table) {
       if (!head) continue;
       const [x, y] = stage.project(head);
       e.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${view.k})`;
-      if (room.turn === id && room.turnEndsAt) e.ring.style.setProperty('--p', Math.max(0, 100 - (Date.now() - turnSeenAt) / TURN_MS * 100).toFixed(1));
     }
     const showPot = room.mode === 'holdem' && room.pot > 0;
     potLabel.style.display = showPot ? '' : 'none';
@@ -113,7 +109,6 @@ export function createPins(ui, stage, table) {
       if (x < 0 || y < 0 || x > stage.size.w || y > stage.size.h) return null;
       return { x, y: y - (e.top.childElementCount ? 98 : 44) * view.k };
     },
-    noteTurn() { turnSeenAt = Date.now(); },
     get: (id) => pins.get(id),
     setAct(id, kind) { acts.set(id, kind); if (room) render(room); },
     clearActs() { acts.clear(); if (room) render(room); },
@@ -125,7 +120,7 @@ export function createPins(ui, stage, table) {
       if (!e) return;
       e.textContent = EMOTES[i] ?? '';
       e.classList.remove('show');
-      void e.offsetWidth;
+      void e.offsetWidth; // restart the animation for back-to-back emotes
       e.classList.add('show');
     },
   };

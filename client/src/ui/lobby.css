@@ -5,7 +5,7 @@
   font-size:17px;line-height:1.3;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 .lobby *{box-sizing:border-box}
 .lobby [hidden]{display:none!important}
-.lobby button,.lobby input{font:inherit;color:inherit}
+.lobby button,.lobby input{font:inherit;color:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .lobby :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pair{display:flex;gap:16px;align-items:stretch;justify-content:center;padding:12px}
 .panel{background:rgba(28,28,30,.62);-webkit-backdrop-filter:blur(40px) saturate(180%);backdrop-filter:blur(40px) saturate(180%);
@@ -52,7 +52,7 @@ h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2
 .btn:disabled{opacity:.35;cursor:default}
 .btn.primary{background:#fff;color:#000}
 .btn.tint{background:var(--fill)}
-.btn.text{height:auto;padding:6px 0;font-weight:500;font-size:15px;color:var(--ink2);align-self:flex-start}
+.btn.text{height:auto;min-height:44px;padding:6px 0;font-weight:500;font-size:15px;color:var(--ink2);align-self:flex-start}
 .btn.text.danger{color:var(--red);align-self:center}
 .panel .btn.text:not(.danger):hover{color:var(--ink)}
 
@@ -75,12 +75,18 @@ h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2
 .seg-item:disabled{cursor:default}
 .seg-item:disabled:not([aria-checked=true]){opacity:.6}
 
-.cells{display:flex;gap:8px;flex:1;min-width:0}
-.cell{flex:1;min-width:0;height:56px;border:0;border-radius:14px;background:var(--fill);text-align:center;text-transform:uppercase;font-size:26px;font-weight:600;padding:0;caret-color:var(--accent)}
-.join{display:flex;flex-direction:column;gap:12px}
 
-.code-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.room-code{font-size:56px;font-weight:700;letter-spacing:.14em;line-height:1.1;margin-right:-.14em;user-select:all}
+.rooms{flex:1 1 auto;min-height:132px;overscroll-behavior:contain;scrollbar-width:thin}
+.room-row{width:100%;color:inherit;border:0;background:none;text-align:left;cursor:pointer;min-height:52px;transition:background-color .15s}
+.room-row:active:not(:disabled){background:rgba(255,255,255,.1)}
+.room-row:disabled{opacity:.4;cursor:default}
+.rr-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rr-main b{font-size:15px;font-weight:600}
+.rr-main .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.count{font-size:15px;font-weight:600}
+.room-row .tags{min-width:3.6em;text-align:right}
+.chev{width:16px;height:16px;color:var(--ink3);flex:none}
+.empty{margin:0;font-size:15px;color:var(--ink2);padding:16px;background:var(--fill);border-radius:14px}
 .actions{display:flex;flex-direction:column;gap:4px;flex:none;margin-top:auto}
 
 @media (max-width:640px) and (min-height:481px){
@@ -98,10 +104,9 @@ h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2
   .field{height:42px}
   .btn{height:42px}
   .row{min-height:34px;padding-top:2px;padding-bottom:2px}
-  .cell{height:44px;font-size:22px}
-  .join{flex-direction:row}.join .btn{padding:0 16px}
-  .room-code{font-size:44px}
   .players .row{min-height:40px}
+  .seg-box .cap{display:none}
+  .rooms{min-height:96px}
   .actions{flex-direction:row-reverse;align-items:center;justify-content:space-between}
   .btn.text.danger{align-self:center}
 }

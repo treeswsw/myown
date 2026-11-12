@@ -22,7 +22,7 @@ const lobby = createLobby({
   onLogin: (id, av) => { log('login', id, !!av); lobby.setUser(user(id, av)); },
   onAvatar: (d) => { log('avatar', d.length); lobby.setUser({ ...user('민수'), avatar: d }); },
   onCreate: (m) => { log('create', m); lobby.setRoom(room(m, 1)); },
-  onJoin: (c) => { log('join', c); lobby.setError('없는 방입니다.'); },
+  onJoin: (c) => { log('join', c); lobby.setRoom(room('holdem', 2, 1, 0)); },
   onMode: (m) => { log('mode', m); lobby.setRoom(room(m, 3)); },
   onStart: () => log('start'),
   onLeave: () => { log('leave'); lobby.setRoom(null); },
@@ -50,6 +50,13 @@ if (state === 'crop') {
   c.toBlob(async (b) => log('crop result', (await openAvatarCrop(b))?.length), 'image/png');
 } else if (state !== 'out') {
   lobby.setUser(user('민수'));
+  lobby.setRooms(state === 'in-empty' ? [] : [
+    { code: 'KMPT', mode: 'holdem', hostName: 'Jiyoung_k', count: 3, max: 6, phase: 'lobby' },
+    { code: 'BQRX', mode: 'bluff', hostName: '철수', count: 4, max: 4, phase: 'lobby' },
+    { code: 'ZZAD', mode: 'holdem', hostName: '열두글자이름이에요오오', count: 5, max: 6, phase: 'playing' },
+    { code: 'HLNE', mode: 'bluff', hostName: 'Tom', count: 2, max: 4, phase: 'playing' },
+    { code: 'WPCS', mode: 'holdem', hostName: 'ace77', count: 1, max: 6, phase: 'lobby' },
+  ]);
   if (state === 'room-host') lobby.setRoom(room('holdem', 3));
   if (state === 'room-guest') lobby.setRoom(room('bluff', 4, 1, 0));
 }

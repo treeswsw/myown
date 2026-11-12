@@ -37,11 +37,9 @@ export function createHud(ui, { send, getMe }) {
 
   const logo = circle(TOP.logo, '메뉴', true);
   logo.onclick = () => {
-    const copy = h('button', 'item', '방 코드 복사');
-    copy.onclick = () => { navigator.clipboard?.writeText(room.code).catch(() => {}); copy.textContent = '복사했어요'; };
     const leave = h('button', 'item', '나가기');
     leave.onclick = () => { closePanel(); send({ t: 'leave' }); };
-    open('menu', h('h3', '', `방 ${room.code}`), copy, leave);
+    open('menu', h('h3', '', '메뉴'), leave);
   };
   const emote = circle(TOP.emote, '이모티콘');
   emote.onclick = () => {
@@ -79,7 +77,7 @@ export function createHud(ui, { send, getMe }) {
       const sub = r.mode === 'holdem' ? '텍사스 홀덤 · 블라인드 50/100'
         : r.phase === 'lobby' ? '블러핑 카드 · 대기 중'
         : `블러핑 카드 · ${r.round ?? 0}라운드 · ${r.players.filter((p) => p.alive !== false).length}명 생존`;
-      info.replaceChildren(h('b', '', r.code), h('br'), sub);
+      info.replaceChildren(sub);
     },
   };
 }

@@ -36,7 +36,7 @@ function holdemRoom(st) {
       player(3, { stack: 5100, bet: 0, folded: false, allin: false, isDealer: false, cards: null }),
       player(4, { stack: 15700, bet: 350, folded: false, allin: false, isDealer: false, cards: null }),
     ],
-    turn: 'me', turnEndsAt: Date.now() + 22000,
+    turn: 'me', turnEndsAt: null,
     board: preflop ? [] : ['Ks', '9h', '4d', '9c'], pot: 2450, pots: [{ amount: 2450, eligible: ['me', 'seoyeon', 'taeho', 'harin'] }],
     street: preflop ? 0 : 2, toCall: 350, minRaiseTo: 1050, maxRaiseTo: 10000,
     myCards: ['Kh', '9s'], myBest: preflop ? null : '트리플', result: null,
@@ -49,7 +49,7 @@ function bluffRoom() {
   return {
     code: 'RQWX', mode: 'bluff', hostId: 'seoyeon', phase: 'playing', you: 'seoyeon',
     players: [me, other(0, 3, 1), other(4, 2, 0), other(1, 4, 0)],
-    turn: 'seoyeon', turnEndsAt: Date.now() + 22000,
+    turn: 'seoyeon', turnEndsAt: null,
     tableRank: 'K', round: 3, myHand: ['A', 'K', 'K', 'Q', 'J'], lastPlay: { by: 'harin', count: 2 }, reveal: null, winnerId: null,
   };
 }

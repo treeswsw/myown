@@ -5,8 +5,7 @@ import * as bluff from '../shared/bluff.js';
 import { parseMessage } from './protocol.js';
 
 export const DEFAULT_TIMING = {
-  turn: 30_000, // per-turn limit
-  grace: 60_000, // disconnected seat is kept this long
+  grace: 60_000, // a disconnected player is auto-played (if on turn) and removed after this
   roomGc: 60_000, // empty room is deleted after this
   result: 6_000, // result display before the next hand / back to lobby
   bustExtra: 3_000, // extra display time when someone busted
@@ -37,9 +36,7 @@ class Room {
     this.result = null;
     this.lastDealer = null;
     this.chatLog = [];
-    this.turnEndsAt = null;
-    this.armedFor = null;
-    this.timers = { turn: null, next: null, gc: null };
+    this.timers = { next: null, gc: null };
   }
 
   member(id) {
@@ -86,8 +83,14 @@ class Room {
     if (!m) return;
     m.connected = connected;
     if (m.grace !== null) this.hub.timers.clearTimeout(m.grace);
-    m.grace = connected ? null : this.hub.timers.setTimeout(this.hub.guard(() => this.leave(id)), this.hub.timing.grace);
+    m.grace = connected ? null : this.hub.timers.setTimeout(this.hub.guard(() => this.graceExpired(id)), this.hub.timing.grace);
     this.push();
+  }
+
+  // The only time limit in the game: a disconnected player on turn is auto-played, then removed.
+  graceExpired(id) {
+    if (this.turnId() === id) this.autoAct();
+    this.leave(id);
   }
 
   leave(id) {
@@ -116,9 +119,8 @@ class Room {
       this.setTimer('gc', this.hub.timing.roomGc, () => this.hub.rooms.delete(this.code));
       return;
     }
-    // A departure must not give the player on turn a fresh clock.
-    if (this.hand && this.phase === 'playing') this.afterHoldem(events, false);
-    else if (this.game && this.phase === 'playing') this.afterBluff(events, false);
+    if (this.hand && this.phase === 'playing') this.afterHoldem(events);
+    else if (this.game && this.phase === 'playing') this.afterBluff(events);
     else this.push(events);
   }
 
@@ -190,7 +192,6 @@ class Room {
     }
     this.phase = 'playing';
     this.result = null;
-    this.armedFor = null;
     this.afterHoldem(events);
   }
 
@@ -202,18 +203,14 @@ class Room {
     return null;
   }
 
-  afterHoldem(events, reset = true) {
-    const { st } = this.hand;
-    if (st.phase === 'done') this.endHand(events);
-    else this.armTurn(reset);
+  afterHoldem(events) {
+    if (this.hand.st.phase === 'done') this.endHand(events);
     this.push(events);
   }
 
   endHand(events) {
     const { st, users } = this.hand;
     const res = st.result;
-    this.clearTimer('turn');
-    this.turnEndsAt = null;
     for (const seat of st.seats) {
       const m = this.member(seat.id);
       const user = users.get(seat.id);
@@ -249,7 +246,6 @@ class Room {
     for (const m of this.members) m.inHand = players.includes(m);
     this.phase = 'playing';
     this.result = null;
-    this.armedFor = null;
     this.afterBluff(events);
   }
 
@@ -269,16 +265,11 @@ class Room {
     return null;
   }
 
-  afterBluff(events, reset = true) {
+  afterBluff(events) {
     const { g, users } = this.game;
     if (g.phase === 'reveal') {
-      this.clearTimer('turn');
-      this.turnEndsAt = null;
-      this.armedFor = null;
       this.setTimer('next', this.hub.timing.reveal, () => this.afterBluff(bluff.nextRound(g).events));
     } else if (g.phase === 'done') {
-      this.clearTimer('turn');
-      this.turnEndsAt = null;
       for (const [id, user] of users) {
         user.stats.bluffGames++;
         if (id === g.winner) user.stats.bluffWins++;
@@ -288,16 +279,12 @@ class Room {
       }
       this.phase = 'result';
       this.setTimer('next', this.hub.timing.result, () => this.toLobby());
-    } else {
-      this.armTurn(reset);
     }
     this.push(events);
   }
 
   toLobby() {
     this.clearTimer('next');
-    this.clearTimer('turn');
-    this.turnEndsAt = null;
     this.phase = 'lobby';
     this.hand = null;
     this.game = null;
@@ -306,7 +293,7 @@ class Room {
     this.push();
   }
 
-  // ---- turn timer ----
+  // ---- turns: no time limit for connected players; only a disconnected one is auto-played ----
 
   turnId() {
     if (this.phase !== 'playing') return null;
@@ -318,20 +305,8 @@ class Room {
     return g.phase === 'playing' ? g.players[g.turn].id : null;
   }
 
-  armTurn(reset) {
-    const id = this.turnId();
-    if (!reset && id === this.armedFor && this.timers.turn !== null) return;
-    this.clearTimer('turn');
-    this.armedFor = id;
-    if (id === null) {
-      this.turnEndsAt = null;
-      return;
-    }
-    this.turnEndsAt = this.hub.now() + this.hub.timing.turn;
-    this.setTimer('turn', this.hub.timing.turn, () => this.onTimeout());
-  }
-
-  onTimeout() {
+  // Check (or fold) / the bluff default for the player on turn.
+  autoAct() {
     const id = this.turnId();
     if (id === null) return;
     if (this.hand) {
@@ -361,7 +336,7 @@ class Room {
     const spectating = (m) => this.phase !== 'lobby' && !m.inHand;
     const base = {
       code: this.code, mode: this.mode, hostId: this.hostId, phase: this.phase, you: viewerId,
-      turn: this.turnId(), turnEndsAt: this.turnEndsAt,
+      turn: this.turnId(), turnEndsAt: null,
     };
     const common = (m, i) => ({
       id: m.id, name: m.session.user.name, avatar: m.session.user.avatar, seat: i,
