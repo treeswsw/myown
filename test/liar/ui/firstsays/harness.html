@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>firstsays harness</title>
+<link rel="stylesheet" href="/client/src/liar/ui/firstsays.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #070608; color: #efe6d8; overflow: hidden; font-family: sans-serif; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+  #action { position: fixed; left: 16px; right: 16px; bottom: 8px; display: flex; gap: 8px; justify-content: center; pointer-events: none; z-index: 30; }
+</style>
+</head>
+<body>
+<div id="ui"></div>
+<div id="action"></div>
+<script type="module">
+import { createFirstSays } from '/client/src/liar/ui/firstsays.js';
+import { fixture } from './fixtures.js';
+
+const h = { sent: [], clock: 1_000_000, state: null, fixture };
+const ctx = {
+  root: document.getElementById('ui'), action: document.getElementById('action'),
+  send: (m) => h.sent.push(m), now: () => h.clock, toast() {}, nogl: true,
+  anchor: () => null, faceOf: () => null, limits: { say: 80, chat: 80, guess: 30 },
+};
+h.mod = createFirstSays(ctx);
+h.set = (name, n = 8, over = {}) => {
+  h.state = name === null ? null : fixture(name, n, over);
+  h.mod.update(h.state);
+};
+h.setState = (s) => { h.state = s; h.mod.update(s); };
+let last = performance.now();
+const loop = (t) => { h.mod.frame((t - last) / 1000); last = t; requestAnimationFrame(loop); };
+requestAnimationFrame(loop);
+window.h = h;
+</script>
+</body>
+</html>

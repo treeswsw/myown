@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hud harness</title>
+<link rel="stylesheet" href="/client/src/liar/ui/hud.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #070608; overflow: hidden; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+  #action { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+<div id="ui"><div id="action"></div></div>
+<script type="module">
+import { createHud } from '/client/src/liar/ui/hud.js';
+import { stateFor } from '/test/liar/ui/hud/fixtures.js';
+
+const h = { sent: [], clock: 1_000_000, mod: null, last: null };
+const ctx = {
+  root: document.getElementById('ui'), action: document.getElementById('action'),
+  send: (m) => h.sent.push(m), now: () => h.clock,
+  anchor: () => null, faceOf: () => null, toast: () => {}, nogl: true, limits: { say: 80, chat: 80, guess: 30 },
+};
+h.mod = createHud(ctx);
+// set('speak') / set('discuss', { you: 'u2' }, 3)
+h.set = (phase, extra, n) => { h.last = stateFor(phase, extra, n); h.mod.update(h.last); return h.last; };
+h.apply = (state) => { h.last = state; h.mod.update(state); };
+h.frame = (dt = 0.1) => h.mod.frame(dt);
+h.stateFor = stateFor;
+window.h = h;
+window.__ready = true;
+</script>
+</body>
+</html>

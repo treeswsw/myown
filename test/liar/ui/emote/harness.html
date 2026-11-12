@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>emote harness</title>
+<link rel="stylesheet" href="/client/src/liar/ui/emote.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #070608; color: #efe6d8; overflow: hidden; font-family: sans-serif; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+  #under { position: fixed; left: 300px; top: 150px; width: 120px; height: 60px; z-index: 5; }
+</style>
+</head>
+<body>
+<button id="under" data-lg="under">아래 버튼</button>
+<div id="ui"></div>
+<script type="module">
+import { createEmote } from '/client/src/liar/ui/emote.js';
+import { fixture } from './fixtures.js';
+
+const h = { sent: [], clock: 1_000_000, pos: {}, clicks: 0, fixture };
+const ctx = {
+  root: document.getElementById('ui'), action: document.body,
+  send: (m) => h.sent.push(m), now: () => h.clock, toast() {}, nogl: true,
+  anchor: (id) => (id in h.pos ? h.pos[id] : null),
+  faceOf: () => null, limits: { say: 80, chat: 80, guess: 30 },
+};
+h.mod = createEmote(ctx);
+document.getElementById('under').addEventListener('click', () => h.clicks++);
+h.set = (name, n = 8) => { h.mod.update(fixture(name, n)); };
+window.h = h;
+</script>
+</body>
+</html>

@@ -130,6 +130,24 @@ design/   시안
 
 `event.e` 종류: `deal`, `blinds`, `action{id,a,amount}`, `street{street,cards}`, `allin{id}`, `showdown`, `win{...}`, `bust{id, by}`, `bluffDeal`, `bluffPlay{id,count}`, `liar{caller,by}`, `reveal{...}`, `shot{id,dead,shots}`, `bluffWin{id}`, `emote{id,e}`. 클라이언트는 이벤트로 연출을 재생하고, 화면의 진짜 상태는 항상 `room.state`를 따른다.
 
+### 7-1. 라이어게임 (추가)
+
+화면 → 서버
+- `{t:'create', mode:'liar'}` — 라이어 방 만들기. `LIAR=off`면 `'라이어게임은 아직 열리지 않았습니다.'`
+- `{t:'lg', a: 글자 1~20자, ...}` — 라이어 전용 요청 전부. 봉투만 protocol.js 가 보고 속은 방(`shared/liar/protocol.js`)이 검사한다.
+  포커 방에서 보내면 `'알 수 없는 요청입니다.'`
+- `{t:'lg', a:'rank'}` — 방 안팎 어디서나. 서버(hub)가 직접 `lgRank`로 답하고 방에 넘기지 않는다. `LIAR=off`면 거절.
+- 라이어 방에서 `mode`·`act`·`play`·`liar`(블러핑) → `'지금은 할 수 없습니다.'` (오류로 죽지 않는다)
+- 포커 방에서 `{t:'mode', mode:'liar'}` → `'라이어게임은 방을 새로 만들어 주세요.'`
+
+서버 → 화면
+- `{t:'me', user, liar:'off'|'test'|'on'}` — **`me`에 `liar` 칸 하나 추가**(새 메시지 종류 없음). 버튼 보이기 판단에 쓴다.
+- `{t:'lgRank', top:[{name, score, games}], mine:{rank|null, score}}` — 누적 1점 이상 상위 20명. 사진 없음.
+- `{t:'rooms', list}`의 항목에 `mode:'liar'`, `max:8`.
+- `{t:'room', state}`에서 `state.mode==='liar'`이면 모양은 GDD 9-3(사진 없음). 알림 `event.e`는 GDD 9-4(`faces` 등).
+
+버튼 보이기(화면): `보임 = liar==='on' || (liar==='test' && 주소에 ?liar=1)`. `test`는 "숨김"이지 "잠금"이 아니다(주소를 아는 사람은 만들 수 있다).
+
 ## 8. 화면
 
 시안 대응: `design/lobby.jpg`, `holdem-preflop.jpg`, `holdem-default.jpg`, `holdem-peek.jpg`, `holdem-board-zoom.jpg`, `holdem-raise-dial.jpg`, `holdem-win.jpg`, `bluff.jpg`.

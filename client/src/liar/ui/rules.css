@@ -1,0 +1,49 @@
+/* 규칙 안내 창 (.lg-rule-) */
+.lg-rule-root[hidden], .lg-rule-panel[hidden] { display: none !important; }
+.lg-rule-root { position: absolute; inset: 0; z-index: 45; pointer-events: none; }
+
+.lg-rule-btn {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + max(4px, calc(12px * var(--lg-k, 1))));
+  right: calc(50% + max(104px, calc(150px * var(--lg-k, 1))));
+  min-height: max(44px, calc(46px * var(--lg-k, 1))); min-width: 44px; padding: 0 max(10px, calc(14px * var(--lg-k, 1)));
+  display: inline-flex; align-items: center; gap: 0.45em; cursor: pointer; touch-action: manipulation; pointer-events: auto;
+  border: 1px solid color-mix(in srgb, var(--lg-gold, #d9b26a) 55%, transparent); border-radius: 999px;
+  background: var(--lg-panel-solid, #141012); color: var(--lg-ink, #efe6d8); font: inherit; font-weight: 700; white-space: nowrap;
+  font-size: max(12px, calc(14px * var(--lg-k, 1)));
+}
+.lg-rule-btn[aria-expanded="true"] { background: var(--lg-gold, #d9b26a); color: #120d0c; border-color: var(--lg-gold, #d9b26a); }
+.lg-rule-btn:focus-visible, .lg-rule-close:focus-visible { outline: 2px solid var(--lg-ink, #efe6d8); outline-offset: 2px; }
+
+.lg-rule-panel {
+  position: absolute; left: 50%; transform: translateX(-50%); pointer-events: auto;
+  top: calc(env(safe-area-inset-top, 0px) + max(4px, calc(12px * var(--lg-k, 1))) + max(44px, calc(46px * var(--lg-k, 1))) + 6px);
+  width: min(calc(100% - 24px), max(360px, calc(640px * var(--lg-k, 1))));
+  max-height: calc(100% - env(safe-area-inset-top, 0px) - max(4px, calc(12px * var(--lg-k, 1))) - max(44px, calc(46px * var(--lg-k, 1))) - 6px - 8px); display: flex; flex-direction: column; box-sizing: border-box;
+  border: 1px solid var(--lg-line, rgba(239, 230, 216, .16)); border-top: 2px solid var(--lg-gold, #d9b26a);
+  border-radius: 10px; background: var(--lg-panel-solid, #141012); box-shadow: 0 18px 60px rgba(0, 0, 0, 0.75);
+}
+.lg-rule-head { display: flex; align-items: center; justify-content: space-between; padding: 0 0 0 max(12px, calc(16px * var(--lg-k, 1))); border-bottom: 1px solid var(--lg-line, rgba(239, 230, 216, .16)); flex: none; }
+.lg-rule-head h2 { margin: 0; font-family: var(--lg-serif, serif); font-weight: 900; font-size: max(14px, calc(18px * var(--lg-k, 1))); letter-spacing: 0.04em; }
+.lg-rule-close { flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--lg-ink-dim, #a39a8f); font-size: 24px; cursor: pointer; touch-action: manipulation; }
+
+.lg-rule-body {
+  overflow-y: auto; padding: max(8px, calc(10px * var(--lg-k, 1))) max(12px, calc(16px * var(--lg-k, 1))); display: grid; gap: max(8px, calc(10px * var(--lg-k, 1)));
+  font-size: max(12px, calc(13px * var(--lg-k, 1))); line-height: 1.4;
+}
+.lg-rule-title { margin: 0 0 3px; font-family: var(--lg-serif, serif); font-size: max(13px, calc(15px * var(--lg-k, 1))); color: var(--lg-gold, #d9b26a); }
+.lg-rule-steps { margin: 0; padding-left: 1.5em; }
+.lg-rule-modes { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.lg-rule-mode { padding: 4px 8px; border-radius: 8px; border: 1px solid transparent; }
+.lg-rule-mode[aria-current="true"] { border-color: var(--lg-gold, #d9b26a); background: rgba(217, 178, 106, .1); }
+.lg-rule-mhead { margin-right: 0.5em; }
+.lg-rule-here { margin-right: 0.5em; padding: 0 6px; border-radius: 999px; background: var(--lg-gold, #d9b26a); color: #120d0c; font-weight: 700; font-size: max(12px, calc(12px * var(--lg-k, 1))); }
+.lg-rule-mtext { color: var(--lg-ink-dim, #a39a8f); }
+.lg-rule-grp { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 4px; }
+.lg-rule-who { flex: none; min-width: 2.6em; }
+.lg-rule-lscores { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.lg-rule-cell { white-space: nowrap; }
+.lg-rule-pt { margin-left: 0.4em; color: var(--lg-gold, #d9b26a); font-variant-numeric: tabular-nums; }
+.lg-rule-tbl { border-collapse: collapse; }
+.lg-rule-tbl th, .lg-rule-tbl td { padding: 1px 10px 1px 0; text-align: left; font-weight: 400; }
+.lg-rule-tbl td { font-weight: 700; }
+.lg-rule-note { margin: 2px 0 0; color: var(--lg-ink-dim, #a39a8f); }

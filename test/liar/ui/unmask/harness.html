@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>unmask harness</title>
+<link rel="stylesheet" href="/client/src/liar/anim/unmask.css">
+<style>
+  :root { --lg-k: 1; }
+  html, body { margin: 0; height: 100%; background: #070608; color: #efe6d8; font-family: "Noto Sans KR", system-ui, sans-serif; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+  .lg-root { position: absolute; inset: 0; pointer-events: none; }
+  #behind { position: absolute; left: 20px; top: 20px; width: 160px; height: 60px; pointer-events: auto; z-index: 5; }
+</style>
+</head>
+<body>
+<div id="ui"><div class="lg-root" id="root"><button id="behind" type="button">뒤의 버튼</button></div></div>
+<script type="module">
+import { createUnmask } from '/client/src/liar/anim/unmask.js';
+import { make } from './fixtures.js';
+const h = { clock: 1_000_000, errors: [], stages: [], ticks: [], clicks: 0 };
+window.addEventListener('error', (e) => h.errors.push(String(e.message)));
+document.getElementById('behind').addEventListener('click', () => h.clicks++);
+const ctx = {
+  root: document.getElementById('root'), action: document.createElement('div'),
+  send: () => {}, now: () => h.clock, anchor: () => null, faceOf: () => null,
+  toast: () => {}, nogl: true, limits: { say: 80, chat: 80, guess: 30 },
+};
+h.mod = createUnmask(ctx, { onStage: (s, i) => h.stages.push([s, i && i.id]), onTick: (b) => h.ticks.push(b) });
+h.make = make;
+let seq = 0;
+h.set = (kind, opts = {}) => { h.state = make(kind, { round: ++seq, ...opts }); h.clock = h.state.now; h.mod.update(h.state); };
+h.raw = (state) => { h.state = state; h.mod.update(state); };
+/** 시계를 ms 만큼 앞으로 보내고 frame 을 부른다 */
+h.tick = (ms) => { h.clock += ms; h.mod.frame(ms / 1000); };
+window.h = h;
+</script>
+</body>
+</html>

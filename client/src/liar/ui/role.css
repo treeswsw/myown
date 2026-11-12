@@ -1,0 +1,65 @@
+/* 역할 카드 (.lg-role-). 시안 design/mockup-table.html 의 #role 을 옮김 */
+.lg-role-wrap { position: absolute; inset: 0; z-index: 50; pointer-events: none; }
+.lg-role-root {
+  position: absolute; inset: 0; pointer-events: none;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 16px 16px calc(56px * var(--lg-k, 1));
+  background: radial-gradient(ellipse at 50% 45%, rgba(7, 6, 8, 0.72) 0%, rgba(7, 6, 8, 0.95) 75%);
+  color: var(--lg-ink, #efe6d8); font-family: var(--lg-sans, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif);
+  animation: lg-role-fade 0.5s ease both;
+}
+.lg-role-root[hidden], .lg-role-corner[hidden], .lg-role-bubble[hidden] { display: none; }
+.lg-role-card {
+  pointer-events: auto; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  touch-action: none; outline: none; box-sizing: border-box;
+  width: min(100%, calc(560px * var(--lg-k, 1))); padding: calc(12px * var(--lg-k, 1)) 8px;
+}
+.lg-role-card:focus-visible { box-shadow: 0 0 0 2px var(--lg-gold, #d9b26a); border-radius: 8px; }
+.lg-role-round {
+  font-family: var(--lg-serif, "Noto Serif KR", "Apple SD Gothic Neo", serif); font-weight: 900;
+  font-size: max(34px, calc(76px * var(--lg-k, 1))); letter-spacing: 0.04em; line-height: 1.1;
+}
+.lg-role-rule {
+  width: max(48px, calc(72px * var(--lg-k, 1))); height: 2px; margin: max(10px, calc(22px * var(--lg-k, 1))) auto;
+  background: var(--lg-gold, #d9b26a);
+}
+.lg-role-dl { margin: 0; display: flex; justify-content: center; gap: max(24px, calc(64px * var(--lg-k, 1))); }
+.lg-role-item { flex: 1 1 0; min-width: 0; }
+.lg-role-item dt {
+  font-size: max(10px, calc(13px * var(--lg-k, 1))); letter-spacing: 0.32em; text-indent: 0.32em; color: var(--lg-gold, #d9b26a);
+}
+.lg-role-item dd {
+  margin: 0.1em 0 0; font-family: var(--lg-serif, "Noto Serif KR", "Apple SD Gothic Neo", serif); font-weight: 600;
+  font-size: max(22px, calc(40px * var(--lg-k, 1))); line-height: 1.25;
+  height: 2.5em; overflow: hidden; overflow-wrap: anywhere; display: flex; align-items: center; justify-content: center;
+}
+/* 가려진 동안은 자리만 보여 준다(글자는 DOM 에 없다). 크기는 열렸을 때와 같다 */
+.lg-role-word::before { content: "● ● ●"; letter-spacing: 0.1em; color: var(--lg-ink-dim, #a39a8f); font-size: 0.6em; }
+.lg-role-word.lg-role-open::before { content: none; }
+.lg-role-hint {
+  margin-top: max(8px, calc(16px * var(--lg-k, 1))); font-size: max(12px, calc(15px * var(--lg-k, 1)));
+  color: var(--lg-ink-dim, #a39a8f); min-height: 2.6em;
+}
+
+/* 판 중 구석 버튼 */
+.lg-role-corner {
+  /* 진행자 상단 줄(방 코드·나가기, 높이 약 48px) 아래. 옮길 때 myown 상단 줄에 맞춰 다시 본다 */
+  position: absolute; left: calc(12px * var(--lg-k, 1)); top: calc(env(safe-area-inset-top, 0px) + 54px);
+  pointer-events: none;
+}
+.lg-role-btn {
+  pointer-events: auto; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none;
+  font: inherit; font-size: max(11px, calc(13px * var(--lg-k, 1))); color: var(--lg-ink, #efe6d8);
+  background: var(--lg-panel, rgba(13, 10, 11, 0.8)); border: 1px solid var(--lg-line, rgba(239, 230, 216, 0.16));
+  border-radius: 999px; padding: calc(8px * var(--lg-k, 1)) calc(14px * var(--lg-k, 1)); min-height: 36px;
+}
+.lg-role-btn:focus-visible { outline: 2px solid var(--lg-gold, #d9b26a); }
+.lg-role-bubble {
+  position: absolute; left: 0; top: calc(100% + 6px * var(--lg-k, 1)); min-width: max-content; max-width: 60vw;
+  padding: calc(8px * var(--lg-k, 1)) calc(14px * var(--lg-k, 1)); border-radius: 10px; text-align: left;
+  background: var(--lg-panel-solid, #141012); border: 1px solid var(--lg-line, rgba(239, 230, 216, 0.16));
+  color: var(--lg-ink, #efe6d8); font-family: var(--lg-serif, "Noto Serif KR", "Apple SD Gothic Neo", serif);
+}
+.lg-role-btopic { font-size: max(10px, calc(12px * var(--lg-k, 1))); color: var(--lg-gold, #d9b26a); letter-spacing: 0.2em; }
+.lg-role-btext { font-weight: 600; font-size: max(16px, calc(24px * var(--lg-k, 1))); overflow-wrap: anywhere; }
+@keyframes lg-role-fade { from { opacity: 0; } to { opacity: 1; } }

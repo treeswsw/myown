@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rank harness</title>
+<link rel="stylesheet" href="/client/src/liar/ui/rank.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #070608; color: #efe6d8; overflow: hidden; font-family: sans-serif; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+  #action { position: fixed; left: 0; right: 0; bottom: 12px; display: flex; justify-content: center; gap: 8px; z-index: 30; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="ui"></div>
+<div id="action"></div>
+<script type="module">
+import { createRank } from '/client/src/liar/ui/rank.js';
+
+const h = { sent: [], clock: 1_000_000 };
+const ctx = {
+  root: document.getElementById('ui'), action: document.getElementById('action'),
+  send: (m) => h.sent.push(m), now: () => h.clock, toast() {}, nogl: true,
+  anchor: () => null, faceOf: () => null, limits: { say: 80, chat: 80, guess: 30 },
+};
+h.mod = createRank(ctx);
+h.set = (phase) => h.mod.update(phase === null ? null : { phase, you: 'u0', players: [] });
+window.h = h;
+</script>
+</body>
+</html>

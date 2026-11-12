@@ -1,0 +1,88 @@
+/* 첫 발언 모음과 늦은 첫 설명 (.lg-fs-). 모양은 design/mockup-table.html 의 .fs-*·.late */
+.lg-fs-root[hidden], .lg-fs-panel[hidden], .lg-fs-empty[hidden], .lg-fs-late[hidden] { display: none !important; }
+
+.lg-fs-root { position: absolute; inset: 0; z-index: 40; pointer-events: none; }
+
+.lg-fs-btn {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + max(4px, calc(12px * var(--lg-k, 1))));
+  left: calc(50% + max(104px, calc(150px * var(--lg-k, 1))));
+  min-height: max(44px, calc(46px * var(--lg-k, 1))); min-width: 44px; padding: 0 max(10px, calc(14px * var(--lg-k, 1)));
+  display: inline-flex; align-items: center; gap: 0.45em; cursor: pointer; touch-action: manipulation; pointer-events: auto;
+  border: 1px solid color-mix(in srgb, var(--lg-gold, #d9b26a) 55%, transparent); border-radius: 999px;
+  background: var(--lg-panel-solid, #141012); color: var(--lg-ink, #efe6d8); font: inherit; font-weight: 700; white-space: nowrap;
+  font-size: max(12px, calc(14px * var(--lg-k, 1)));
+}
+.lg-fs-count { font-family: var(--lg-serif, serif); color: var(--lg-gold, #d9b26a); font-variant-numeric: tabular-nums; }
+.lg-fs-btn[aria-expanded="true"] { background: var(--lg-gold, #d9b26a); color: #120d0c; border-color: var(--lg-gold, #d9b26a); }
+.lg-fs-btn[aria-expanded="true"] .lg-fs-count { color: #120d0c; }
+.lg-fs-btn:focus-visible, .lg-fs-close:focus-visible { outline: 2px solid var(--lg-ink, #efe6d8); outline-offset: 2px; }
+
+.lg-fs-panel {
+  position: absolute; left: 50%; transform: translateX(-50%); pointer-events: auto;
+  top: calc(env(safe-area-inset-top, 0px) + max(4px, calc(12px * var(--lg-k, 1))) + max(44px, calc(46px * var(--lg-k, 1))) + 6px);
+  width: min(calc(100% - 32px), max(320px, calc(520px * var(--lg-k, 1))));
+  max-height: calc(100% - env(safe-area-inset-top, 0px) - max(4px, calc(12px * var(--lg-k, 1))) - max(44px, calc(46px * var(--lg-k, 1))) - 6px - 76px);
+  display: flex; flex-direction: column; box-sizing: border-box;
+  border: 1px solid var(--lg-line, rgba(239, 230, 216, .16)); border-top: 2px solid var(--lg-gold, #d9b26a);
+  border-radius: 10px; background: var(--lg-panel-solid, #141012); box-shadow: 0 18px 60px rgba(0, 0, 0, 0.75);
+  animation: lg-fs-in 0.18s ease both;
+}
+@keyframes lg-fs-in { from { opacity: 0; margin-top: -6px; } to { opacity: 1; margin-top: 0; } }
+.lg-fs-head {
+  display: flex; align-items: center; gap: 10px; padding: 0 0 0 max(12px, calc(16px * var(--lg-k, 1)));
+  border-bottom: 1px solid var(--lg-line, rgba(239, 230, 216, .16)); flex: none;
+}
+.lg-fs-head h2 {
+  margin: 0; font-family: var(--lg-serif, serif); font-weight: 900; font-size: max(14px, calc(18px * var(--lg-k, 1))); letter-spacing: 0.04em;
+}
+.lg-fs-sub { flex: 1; min-width: 0; color: var(--lg-ink-dim, #a39a8f); font-size: max(11px, calc(13px * var(--lg-k, 1))); }
+.lg-fs-close {
+  flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--lg-ink-dim, #a39a8f);
+  font-size: 22px; line-height: 1; cursor: pointer; touch-action: manipulation;
+}
+.lg-fs-list {
+  margin: 0; padding: max(4px, calc(6px * var(--lg-k, 1))) 0; list-style: none; overflow-y: auto;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+}
+.lg-fs-row {
+  display: grid; grid-template-columns: 1.6em auto 1fr; column-gap: 0.6em; align-items: start;
+  padding: max(5px, calc(7px * var(--lg-k, 1))) max(12px, calc(16px * var(--lg-k, 1)));
+  font-size: max(13px, calc(15px * var(--lg-k, 1)));
+}
+.lg-fs-row + .lg-fs-row { border-top: 1px solid rgba(239, 230, 216, 0.07); }
+.lg-fs-no { color: var(--lg-ink-dim, #a39a8f); font-family: var(--lg-serif, serif); font-variant-numeric: tabular-nums; text-align: right; padding-top: 0.25em; }
+.lg-fs-av {
+  width: max(26px, calc(32px * var(--lg-k, 1))); height: max(26px, calc(32px * var(--lg-k, 1)));
+  border-radius: 50%; border: 2px solid var(--c, #efe6d8); background: #0c0909; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+}
+.lg-fs-av.lg-fs-initial { background: var(--c, #efe6d8); color: #120d0c; font-weight: 700; font-size: 0.85em; }
+.lg-fs-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lg-fs-name { font-weight: 700; color: var(--c, #efe6d8); }
+.lg-fs-latemark {
+  margin-left: 0.5em; padding: 0 0.45em; border-radius: 3px; font-size: 0.82em; font-weight: 500;
+  color: var(--lg-gold, #d9b26a); border: 1px solid var(--lg-gold, #d9b26a); white-space: nowrap;
+}
+.lg-fs-text { margin: 0; color: var(--lg-ink, #efe6d8); word-break: keep-all; overflow-wrap: anywhere; }
+.lg-fs-text.lg-fs-none { color: var(--lg-ink-dim, #a39a8f); }
+.lg-fs-empty { margin: 0; padding: max(12px, calc(18px * var(--lg-k, 1))) max(12px, calc(16px * var(--lg-k, 1))); color: var(--lg-ink-dim, #a39a8f); }
+
+/* 늦은 첫 설명: 조작 줄에 붙는 한 줄 */
+.lg-fs-late {
+  display: flex; align-items: stretch; gap: 6px; padding: 4px 4px 4px max(10px, calc(14px * var(--lg-k, 1)));
+  width: min(calc(100vw - 32px), max(300px, calc(620px * var(--lg-k, 1)))); box-sizing: border-box; pointer-events: auto;
+  border: 1px solid var(--lg-gold, #d9b26a); border-radius: 8px; background: var(--lg-panel-solid, #141012);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+}
+.lg-fs-late-label { flex: none; align-self: center; color: var(--lg-gold, #d9b26a); font-weight: 700; white-space: nowrap; font-size: max(12px, calc(15px * var(--lg-k, 1))); }
+.lg-fs-late-input {
+  flex: 1; min-width: 0; min-height: 44px; padding: 0 8px; border: 0; border-radius: 6px; outline: none; box-sizing: border-box;
+  background: rgba(239, 230, 216, 0.07); color: var(--lg-ink, #efe6d8); font: inherit; font-size: 16px;
+}
+.lg-fs-late-input::placeholder { color: var(--lg-ink-dim, #a39a8f); opacity: 1; }
+.lg-fs-late-input:focus-visible { box-shadow: inset 0 0 0 1px var(--lg-ink, #efe6d8); }
+.lg-fs-late-send {
+  min-height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--lg-gold, #d9b26a); border-radius: 6px;
+  background: var(--lg-gold, #d9b26a); color: #120d0c; font: inherit; font-weight: 700; cursor: pointer; touch-action: manipulation;
+}
+.lg-fs-late-send:disabled, .lg-fs-late-input:disabled { opacity: 0.55; cursor: default; }

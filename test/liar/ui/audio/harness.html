@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>audio harness</title>
+<style>body{background:#070608;color:#efe6d8;font-family:sans-serif;padding:16px}button{margin:4px;padding:10px 14px;font-size:16px}</style>
+</head>
+<body>
+<p>버튼을 눌러 들어 본다(사람 확인용).</p>
+<button id="unlock">unlock</button> <button id="mute">끔 전환</button> <button id="dispose">dispose</button>
+<div>
+  <button class="snd" data-n="phase">phase</button>
+  <button class="snd" data-n="myTurn">myTurn</button>
+  <button class="snd" data-n="turn">turn</button>
+  <button class="snd" data-n="vote">vote</button>
+  <button class="snd" data-n="accused">accused</button>
+  <button class="snd" data-n="judge">judge</button>
+  <button class="snd" data-n="executed">executed</button>
+  <button class="snd" data-n="spared">spared</button>
+  <button class="snd" data-n="tick">tick</button>
+  <button class="snd" data-n="tickBig">tickBig</button>
+  <button class="snd" data-n="liar">liar</button>
+  <button class="snd" data-n="guessOk">guessOk</button>
+  <button class="snd" data-n="guessNo">guessNo</button>
+  <button class="snd" data-n="win">win</button>
+  <button class="snd" data-n="champion">champion</button>
+</div>
+<script type="module">
+import { createAudio, SOUND_NAMES } from '/client/src/liar/audio.js';
+const a = createAudio();
+window.h = { a, SOUND_NAMES };
+document.getElementById('unlock').onclick = () => a.unlock();
+document.getElementById('mute').onclick = () => a.setMuted(!a.muted);
+document.getElementById('dispose').onclick = () => a.dispose();
+document.querySelectorAll('.snd').forEach((b) => { b.onclick = () => { a.unlock(); a.play(b.dataset.n); }; });
+</script>
+</body>
+</html>

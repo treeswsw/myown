@@ -92,6 +92,8 @@ const PREFIX_RULES = [
       'lobby', 'panel', 'narrow',
       // TODO(chat.css owner): unprefixed state modifiers (`.chat-b.big`, `.old`, `.meta`, `.full`, `.mine`); rename to `chat-big` etc. and drop these.
       'big', 'old', 'meta', 'full', 'mine',
+      // size markers for lines starting with `*` / `***` (chatSize.js)
+      's1', 's3',
     ]),
     hint: 'must be "chat" or start with "chat-"' },
   {
@@ -130,4 +132,13 @@ test('a class is not defined in two CSS files', () => {
     if (fs.length > 1 && !CROSS_FILE_ALLOW.has(c)) bad.push(`class ".${c}" appears in selectors of: ${fs.join(', ')}`);
   }
   assert.deepEqual(bad, [], `duplicate class definitions across CSS files (add to CROSS_FILE_ALLOW with a reason if intended):\n  ${bad.join('\n  ')}`);
+});
+
+// Liar module (client/src/liar/): every class starts with lg-.
+test('every class in client/src/liar css starts with lg-', () => {
+  const liar = files.filter((f) => f.rel.startsWith('client/src/liar/'));
+  assert.ok(liar.some((f) => f.rel === 'client/src/liar/liar.css'), 'client/src/liar/liar.css missing');
+  const bad = [];
+  for (const f of liar) for (const c of f.classes) if (!c.startsWith('lg-')) bad.push(`${f.rel}: ".${c}"`);
+  assert.deepEqual(bad, [], `classes must start with "lg-":\n  ${bad.join('\n  ')}`);
 });

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>index harness</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070608; overflow: hidden; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="ui"></div>
+<script type="module">
+import { mountLiar } from '/client/src/liar/index.js';
+import { make } from '/test/liar/ui/index/fixtures.js';
+
+// 소리 호출을 세는 가짜 AudioContext(어떤 소리가 몇 번 났는지만 본다)
+const plays = [];
+const chain = () => new Proxy(function () {}, {
+  get: (t, k) => { if (k === 'then') return undefined; if (typeof k === 'string' && /^create/.test(k)) return (...a) => { plays.push(k); return chain(); }; return chain(); },
+  set: () => true,
+  apply: () => chain(),
+});
+window.AudioContext = function () { return chain(); };
+window.webkitAudioContext = window.AudioContext;
+
+const h = { sent: [], locks: [], plays, make, errors: [] };
+const calls = [];
+const fakeScene = () => ({ scene: {}, camera: {}, calls, setPlayers() {}, setFace() {}, setView() {}, resize() {}, frame() {}, dispose() {}, screenPos: () => null,
+  setVotes: (v) => calls.push(['votes', v]), setJudge: (j) => calls.push(['judge', j]) });
+const stage = { nogl: true, use() {} };
+const chat = { setLock: (l, hint) => h.locks.push([l, hint]) };
+h.liar = mountLiar({ ui: document.getElementById('ui'), stage, send: (m) => h.sent.push(m), getMe: () => null, chat, toast: () => {}, emotePanel: null, sceneFactory: new URLSearchParams(location.search).has('fake') ? fakeScene : undefined });
+h.calls = calls;
+h.apply = (s) => h.liar.applyRoom(s);
+window.h = h;
+window.__ready = true;
+</script>
+</body>
+</html>
