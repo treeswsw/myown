@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>로비 데모</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Black+Han+Sans&family=Noto+Sans+KR:wght@500;700;900&display=swap">
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#1a0a0a}
+.bg{position:fixed;inset:-40px;background:radial-gradient(ellipse at 50% 60%,#8e1313 0,#4a0a0a 35%,#150808 70%);filter:blur(18px) brightness(.6)}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<script type="module">
+import { createLobby } from './src/ui/lobby.js';
+import { openAvatarCrop } from './src/ui/avatarCrop.js';
+
+const q = new URLSearchParams(location.search);
+const state = q.get('state') || 'out';
+const log = (...a) => console.log('[lobby]', ...a);
+const lobby = createLobby({
+  onLogin: (id, av) => { log('login', id, !!av); lobby.setUser(user(id, av)); },
+  onAvatar: (d) => { log('avatar', d.length); lobby.setUser({ ...user('민수'), avatar: d }); },
+  onCreate: (m) => { log('create', m); lobby.setRoom(room(m, 1)); },
+  onJoin: (c) => { log('join', c); lobby.setError('없는 방입니다.'); },
+  onMode: (m) => { log('mode', m); lobby.setRoom(room(m, 3)); },
+  onStart: () => log('start'),
+  onLeave: () => { log('leave'); lobby.setRoom(null); },
+  onLogout: () => { log('logout'); lobby.setUser(null); },
+});
+document.body.append(lobby.el);
+
+const user = (name, avatar = null) => ({ id: name.toLowerCase(), name, bank: 12400, avatar,
+  stats: { hands: 128, wins: 54, biggestWin: 8600, refills: 1, bluffGames: 12, bluffWins: 5 } });
+const names = ['민수', 'Jiyoung_k', '열두글자이름이에요오오', 'Tom', 'ace77', '철수'];
+const room = (mode, n, you = 0, host = 0) => ({
+  code: 'KMPT', mode, hostId: names[host], phase: 'lobby', you: names[you],
+  players: names.slice(0, n).map((name, i) => ({ id: name, name, avatar: null, seat: i, connected: i !== 2 })),
+});
+
+if (state === 'crop') {
+  const c = document.createElement('canvas');
+  c.width = 600; c.height = 400;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 600, 400);
+  g.addColorStop(0, '#f6b73c'); g.addColorStop(1, '#3a5ba0');
+  x.fillStyle = g; x.fillRect(0, 0, 600, 400);
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(300, 170, 90, 0, 7); x.fill();
+  x.fillRect(180, 280, 240, 120);
+  c.toBlob(async (b) => log('crop result', (await openAvatarCrop(b))?.length), 'image/png');
+} else if (state !== 'out') {
+  lobby.setUser(user('민수'));
+  if (state === 'room-host') lobby.setRoom(room('holdem', 3));
+  if (state === 'room-guest') lobby.setRoom(room('bluff', 4, 1, 0));
+}
+</script>
+</body>
+</html>

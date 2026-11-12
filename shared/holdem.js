@@ -36,7 +36,7 @@ export function startHand(players, dealer, rng = secureRng) {
     seats, dealer, deck: shuffle(newDeck(), rng), board: [], street: 0,
     curBet: 0, minRaise: BB, turn: -1, phase: 'betting', result: null,
   };
-  const events = [{ e: 'deal', dealer: seats[dealer].id }];
+  const events = [{ k: 'deal', dealer: seats[dealer].id }];
   for (let r = 0; r < 2; r++) {
     for (let k = 1; k <= n; k++) seats[(dealer + k) % n].cards.push(st.deck.pop());
   }
@@ -46,11 +46,11 @@ export function startHand(players, dealer, rng = secureRng) {
   const bbPaid = pay(seats[bb], BB);
   st.curBet = Math.max(sbPaid, bbPaid);
   events.push({
-    e: 'blinds',
+    k: 'blinds',
     sb: { id: seats[sb].id, amount: sbPaid },
     bb: { id: seats[bb].id, amount: bbPaid },
   });
-  for (const i of [sb, bb]) if (seats[i].allin) events.push({ e: 'allin', id: seats[i].id });
+  for (const i of [sb, bb]) if (seats[i].allin) events.push({ k: 'allin', id: seats[i].id });
   advance(st, bb, events);
   return { st, events };
 }
@@ -117,8 +117,8 @@ export function act(st, id, a, amount) {
     return fail('알 수 없는 행동입니다.');
   }
   seat.acted = true;
-  const events = [{ e: 'action', id, a: kind, amount: seat.bet }];
-  if (seat.allin) events.push({ e: 'allin', id });
+  const events = [{ k: 'action', id, a: kind, amount: seat.bet }];
+  if (seat.allin) events.push({ k: 'allin', id });
   advance(st, st.turn, events);
   return { ok: true, events };
 }
@@ -128,7 +128,7 @@ export function forceFold(st, id) {
   const idx = st.seats.findIndex((s) => s.id === id);
   if (st.phase !== 'betting' || idx < 0 || st.seats[idx].folded) return { ok: true, events: [] };
   st.seats[idx].folded = true;
-  const events = [{ e: 'action', id, a: 'fold', amount: st.seats[idx].bet }];
+  const events = [{ k: 'action', id, a: 'fold', amount: st.seats[idx].bet }];
   const n = st.seats.length;
   advance(st, (st.turn - 1 + n) % n, events);
   return { ok: true, events };
@@ -158,7 +158,7 @@ function advance(st, from, events) {
     const cards = [];
     for (let i = st.street === 1 ? 3 : 1; i > 0; i--) cards.push(st.deck.pop());
     st.board.push(...cards);
-    events.push({ e: 'street', street: st.street, cards });
+    events.push({ k: 'street', street: st.street, cards });
     from = st.dealer;
   }
 }
@@ -209,7 +209,7 @@ function finish(st, events, showdown) {
       shown[s.id] = [...s.cards];
       evals.set(s.id, evaluate([...s.cards, ...st.board]));
     }
-    events.push({ e: 'showdown', shown });
+    events.push({ k: 'showdown', shown });
   }
 
   const n = st.seats.length;

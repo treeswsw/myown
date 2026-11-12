@@ -9,9 +9,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 // Timer overrides the server honors for tests (names agreed in docs/SYNC.md).
 export const FAST_TIMERS = {
   TURN_MS: '2500',
-  NEXT_HAND_MS: '60',
-  BUST_NEXT_HAND_MS: '60',
-  BLUFF_RESULT_MS: '100',
+  RESULT_MS: '60',
+  BUST_EXTRA_MS: '0',
   GRACE_MS: '1500',
   ROOM_GC_MS: '1500',
 };

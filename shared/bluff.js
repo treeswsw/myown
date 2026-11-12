@@ -29,7 +29,7 @@ function dealRound(game, starter, rng) {
   game.round++;
   game.pile = null;
   game.turn = starter;
-  return { e: 'bluffDeal', round: game.round, tableRank: game.tableRank, turn: game.players[starter].id };
+  return { k: 'bluffDeal', round: game.round, tableRank: game.tableRank, turn: game.players[starter].id };
 }
 
 // ids: 2..4 player ids in seat order. Each player's bullet chamber is chosen here and never leaves the server.
@@ -79,7 +79,7 @@ export function play(game, id, indices) {
   game.pile = { by: id, cards };
   game.reveal = null;
   passTurn(game, game.turn);
-  return { ok: true, events: [{ e: 'bluffPlay', id, count: cards.length }] };
+  return { ok: true, events: [{ k: 'bluffPlay', id, count: cards.length }] };
 }
 
 export function liar(game, id) {
@@ -99,9 +99,9 @@ export function liar(game, id) {
   }
   game.reveal = { by, caller: id, cards: [...cards], lie, loser: loser.id, dead, shots: loser.shots };
   const events = [
-    { e: 'liar', caller: id, by },
-    { e: 'reveal', ...game.reveal },
-    { e: 'shot', id: loser.id, dead, shots: loser.shots },
+    { k: 'liar', caller: id, by },
+    { k: 'reveal', ...game.reveal },
+    { k: 'shot', id: loser.id, dead, shots: loser.shots },
   ];
   settle(game, loserIdx, events);
   return { ok: true, events };
@@ -114,7 +114,7 @@ function settle(game, fromIdx, events) {
     game.phase = 'done';
     game.winner = alive[0].id;
     game.pile = null;
-    events.push({ e: 'bluffWin', id: alive[0].id });
+    events.push({ k: 'bluffWin', id: alive[0].id });
     return;
   }
   const starter = game.players[fromIdx].alive ? fromIdx : nextAlive(game, fromIdx);
