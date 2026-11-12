@@ -31,8 +31,10 @@
 | 13 | 중요 | client/src/anim/special/index.js (sfx('…') 호출) vs client/src/main.js:63 | special은 sfx를 함수로 호출, 호스트는 객체를 넘김 → TypeError로 onHit/onResult/shake 미실행(탈락·리볼버 결과 표시 안 됨), 프레임 렌더 건너뜀 | 화면·연출 | 해결됨(연출 쪽 방어 + main.js 어댑터) |
 | 14 | 중요 | client/src/anim/events.js:212-219, main.js:84,108 | 백그라운드 탭에서 rAF 정지 → special 약속이 안 끝나 큐 정체, room 갱신 보류, 복귀 시 밀린 연출 재생 중 차례 시간 초과 | 화면·연출 | 해결됨 |
 | 15 | 권장 | client/src/anim/events.js:207 | 이모티콘이 연출 큐에 들어가 수 초 지연, busy()로 room 갱신도 막음 | 화면 | 해결됨 |
-| 16 | 질문 | client/src/anim/events.js:147 | `deal` 이벤트가 소리만 냄. SPEC 9 카드 배분 연출 구현 위치 | 화면 | 전달됨 |
+| 16 | 질문 | client/src/anim/events.js:147 | `deal` 이벤트가 소리만 냄. SPEC 9 카드 배분 연출 구현 위치 | 화면 | 해결됨(table.sync에서 dealerSpot 기준 배분) |
 | 17 | 차단 | shared/holdem.js:166-190, 226-229; server/rooms.js:219 | 유일한 생존자가 팟에 0을 낸 상태(블라인드들이 forceFold)에서 모든 팟 eligible=[] → 칩 증발 + winners=[] → endHand에서 TypeError, 타이머 콜백이라 서버 프로세스 전체 종료. 엔진 퍼즈로 재현 | 서버 | 해결됨 |
 | 18 | 중요 | test/e2e/bluff.test.js:38 | reveal 대기 중 turn=null을 실패로 판정(서버 동작이 맞음) | QA | 전달됨 |
 | 19 | 권장 | test/e2e/holdem.test.js:55-68 | leave 후 400ms 고정 대기 → 부하 시 칩 보존 오탐 | QA | 전달됨 |
 | 20 | 권장 | server/protocol.js:20-23 | 아바타 base64 길이·JPEG 시그니처 미검사 | 서버 | 해결됨 |
+| 21 | 권장 | client/src/ui/pins.js:85 | 차례 링이 서버 시각 turnEndsAt과 기기 Date.now()를 직접 비교 → 기기 시계 오차만큼 틀림 | 화면 | 전달됨 |
+| 22 | 권장 | client/src/anim/events.js(allin) vs server/rooms.js endHand 대기 | 올인 2회+런아웃+승리 연출 ≈13초 > 서버 대기 ≈9.6초 → 다음 판 휠이 몇 초 늦게 뜸 | 화면 | 전달됨 |

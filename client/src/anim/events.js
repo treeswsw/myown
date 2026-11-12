@@ -10,18 +10,20 @@ import { sfx } from '../audio.js';
 export function createAnimator({ ui, stage, table, pins, special, getRoom, applyPartial, onIdle }) {
   const queue = [];
   let running = false;
+  let allinShown = false; // later all-ins of one hand only slide chips, keeping the batch short
   const pos = (id) => stage.project(table.head(id));
 
   async function handle(e) {
     const room = getRoom();
     switch (e.k) {
-      case 'deal': pins.clearActs(); pins.clearDead(); sfx.card(); break;
+      case 'deal': allinShown = false; pins.clearActs(); pins.clearDead(); sfx.card(); break;
       case 'blinds': sfx.chip(); break;
       case 'action':
         if (e.a !== 'fold') { pins.setAct(e.id, e.a); sfx.chip(); }
         break;
       case 'allin':
-        await special.playAllIn(e.id, { onPush: () => table.shove(e.id) });
+        if (allinShown) await table.shove(e.id);
+        else { allinShown = true; await special.playAllIn(e.id, { onPush: () => table.shove(e.id) }); }
         table.release(e.id);
         break;
       case 'street':

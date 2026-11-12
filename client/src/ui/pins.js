@@ -16,6 +16,9 @@ export function createPins(ui, stage, table) {
   const stacks = new Map(); // id -> displayed stack override while the win animation runs
   const dead = new Set();
   let room = null;
+  // The server clock may differ from this device's, so the ring counts from when the turn was first seen.
+  let seenEnd = null;
+  let turnSeenAt = 0;
 
   const pinIcon = (kind) => {
     const e = h('div', `pin ${kind === 'turn' ? 't' : ''}`);
@@ -39,6 +42,7 @@ export function createPins(ui, stage, table) {
 
   function render(r) {
     room = r;
+    if (r.turnEndsAt !== seenEnd) { seenEnd = r.turnEndsAt; turnSeenAt = Date.now(); }
     const live = new Set(r.players.map((p) => p.id));
     for (const [id, e] of pins) if (!live.has(id)) { e.el.remove(); pins.delete(id); }
     const holdem = r.mode === 'holdem';
@@ -82,7 +86,7 @@ export function createPins(ui, stage, table) {
       if (!head) continue;
       const [x, y] = stage.project(head);
       e.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${view.k})`;
-      if (room.turn === id && room.turnEndsAt) e.ring.style.setProperty('--p', Math.max(0, Math.min(100, (room.turnEndsAt - Date.now()) / TURN_MS * 100)).toFixed(1));
+      if (room.turn === id && room.turnEndsAt) e.ring.style.setProperty('--p', Math.max(0, 100 - (Date.now() - turnSeenAt) / TURN_MS * 100).toFixed(1));
     }
     const showPot = room.mode === 'holdem' && room.pot > 0;
     potLabel.style.display = showPot ? '' : 'none';

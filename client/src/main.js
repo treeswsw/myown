@@ -78,8 +78,9 @@ function applyRoom(room) {
   }
   const me = room.players.find((p) => p.id === room.you);
   const playing = room.phase !== 'lobby';
+  const live = room.phase === 'playing';
   const holdem = room.mode === 'holdem';
-  const myTurn = playing && room.turn === room.you && Boolean(me) && !me.spectating;
+  const myTurn = live && room.turn === room.you && Boolean(me) && !me.spectating;
   table.sync(room);
   pins.render(room);
   hud.update(room);
@@ -111,7 +112,7 @@ function handle(msg) {
       if (!animator.busy()) applyRoom(msg.state);
       break;
     case 'event':
-      if (msg.e.k === 'emote') pins.emote(msg.e.id, msg.e.e); else animator.push(msg.e);
+      if (msg.e.k === 'emote') pins.emote(msg.e.id, msg.e.e); else { wheel.update(null, null, false); animator.push(msg.e); }
       break;
     case 'error':
       if (!state.room || state.room.phase === 'lobby') lobby.setError(msg.msg); else toast(msg.msg);

@@ -36,7 +36,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes pinpop { from { transform: rotate(-45deg) scale(.2); opacity: 0; } }
 .pl .nm { position: absolute; left: 0; top: 44px; transform: translateX(-50%); white-space: nowrap; font-size: 14px; display: flex; gap: 4px; align-items: baseline; }
 .pl .nm span { font-family: "Bangers"; color: var(--gold); letter-spacing: .5px; font-size: 13px; -webkit-text-stroke: 0; }
-.pl .rv { position: absolute; left: 22px; top: -44px; font-family: "Bangers"; font-size: 13px; letter-spacing: 1px; padding: 1px 7px; border-radius: 999px; background: rgba(18, 16, 14, .9); border: 1.5px solid #cfc9bd; }
+.pl .rv { position: absolute; left: 22px; top: -44px; font-family: "Bangers"; font-size: 13px; letter-spacing: 1px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; background: rgba(18, 16, 14, .9); border: 1.5px solid #cfc9bd; }
 .pl .emote { position: absolute; left: 44px; top: -30px; font-size: 34px; opacity: 0; filter: drop-shadow(0 2px 4px #000); }
 .pl .emote.show { animation: emote 2.2s ease-out; }
 @keyframes emote { 0% { opacity: 0; transform: scale(.2); } 12% { opacity: 1; transform: scale(1.25); } 22% { transform: scale(1); } 85% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
@@ -105,7 +105,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .ov .r { font-size: 30px; }
 .ov .x { font: 500 13px -apple-system, "Helvetica Neue", "Noto Sans KR", sans-serif; color: rgba(255, 255, 255, .6); }
 @keyframes fade { from { opacity: 0; } }
-.win { position: fixed; inset: 0; zoom: var(--k); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, .55), rgba(0, 0, 0, .15) 70%); animation: fade .3s; transition: opacity .4s; }
+.win { position: fixed; inset: 0; zoom: var(--k); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, .7), rgba(0, 0, 0, .5) 80%); animation: fade .3s; transition: opacity .4s; }
 .win.out { opacity: 0; }
 .win .wt { font-size: 72px; color: #fff; -webkit-text-stroke: 7px #14100c; letter-spacing: 2px; animation: pop .5s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes pop { from { transform: scale(.3); opacity: 0; } }

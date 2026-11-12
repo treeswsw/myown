@@ -50,8 +50,16 @@ export class Bot {
     for (const w of [...this.waiters]) w();
   }
 
+  // The server drops anything above 20 msgs/s per connection, silently. Autoplay bots therefore
+  // space their sends (>= 55ms apart); manual/abuse bots (autoplay:false) send immediately.
   send(obj) {
-    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(typeof obj === 'string' ? obj : JSON.stringify(obj));
+    const data = typeof obj === 'string' ? obj : JSON.stringify(obj);
+    const go = () => { if (this.ws.readyState === WebSocket.OPEN) this.ws.send(data); };
+    if (!this.opts.autoplay) return go();
+    const now = Date.now();
+    this._slot = Math.max(now, (this._slot || 0) + 55);
+    const wait = this._slot - now;
+    if (wait <= 0) go(); else setTimeout(go, wait);
   }
 
   /** Resolve when pred(bot) is truthy; reject on timeout. */

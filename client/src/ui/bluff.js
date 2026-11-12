@@ -22,9 +22,9 @@ export function createBluff(ui, send) {
   const refresh = () => {
     const n = selected.size;
     const my = room.players.find((p) => p.id === room.you);
-    tip.replaceChildren(...(mine
-      ? ['이번 카드 ', h('b', '', room.tableRank), n ? [' · ', h('b', '', `${n}장`), ' 선택'] : ' · 낼 카드를 고르세요']
-      : [`이번 카드 `, h('b', '', room.tableRank), ' · 상대 차례']));
+    tip.replaceChildren('이번 카드 ', h('b', '', room.tableRank), ...(mine
+      ? (n ? [' · ', h('b', '', `${n}장`), ' 선택'] : [' · 낼 카드를 고르세요'])
+      : [' · 상대 차례']));
     play.replaceChildren('PLAY', n ? h('i', '', n) : null);
     play.disabled = !mine || n === 0;
     liar.disabled = !mine || !room.lastPlay;

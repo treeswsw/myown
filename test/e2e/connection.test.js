@@ -60,7 +60,7 @@ test('connection: host leaving passes host to earliest joiner', { timeout: 30000
   h.start();
   b.start();
   await b.waitFor(() => b.state.phase === 'playing', 3000, 'new host starts');
-  assert.ok(h.errors.length >= 1);
+  await h.waitFor(() => h.errors.length >= 1, 3000, 'old host start rejected');
   [h, b, c].forEach((x) => x.close());
 });
 
