@@ -26,6 +26,17 @@ npm start          # http://localhost:8080 (PORT 환경 변수로 변경)
 node --test test/*.test.js
 ```
 
+### 화면 클릭 테스트 (`npm test`에 포함되지 않음)
+
+실제 서버와 헤드리스 브라우저로 진짜 클릭/탭을 눌러 휠·다이얼·보드 확대·이모티콘·채팅·메뉴 나가기·블러핑 PLAY/LIAR를 확인한다.
+소프트웨어 렌더링이라 느리다(컨텍스트당 수 분). Playwright가 필요하다.
+
+```sh
+npm run build
+PLAYWRIGHT_MODULE=/경로/playwright node test/ui/click.e2e.mjs          # desktop, phone(844x390 터치), tablet(1024x768 터치) 전부
+PLAYWRIGHT_MODULE=/경로/playwright node test/ui/click.e2e.mjs phone    # 하나만
+```
+
 ## 환경 변수
 
 | 이름 | 설명 |

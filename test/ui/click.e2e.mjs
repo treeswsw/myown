@@ -123,7 +123,7 @@ async function runContext(browser, server, name, cfg) {
   await press('.dialbox .ar button:nth-child(1)');
   const a2 = await amount();
   check('left arrow lowered it by 100', a2 === a1 - 100, `${a1} -> ${a2}`);
-  const box = await page.locator('.dialbox svg').boundingBox();
+  const box = await page.locator('.dialbox > svg').boundingBox();
   const s = box.width / 190;
   const c = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   await dragPath([{ x: c.x - 58 * s, y: c.y + 58 * s }, { x: c.x - 80 * s, y: c.y }, { x: c.x, y: c.y - 82 * s }, { x: c.x + 60 * s, y: c.y - 55 * s }]);
@@ -184,7 +184,7 @@ async function runContext(browser, server, name, cfg) {
   await press('.hud-tl .ic.big');
   await reachable('menu leave item', '.hpanel button.item');
   await press('.hpanel button.item');
-  await page.waitForSelector('.lobby button.primary', { state: 'visible', timeout: 20000 })
+  await page.waitForSelector('.lobby button:has-text("방 만들기")', { state: 'visible', timeout: 20000 })
     .then(() => check('menu 나가기 returned to the lobby', true), () => check('menu 나가기 returned to the lobby', false));
   await bot.waitFor((b) => b.state?.players.length === 1, 10000, 'server removed me').then(
     () => check('server sees me gone from the room', true), () => check('server sees me gone from the room', false));

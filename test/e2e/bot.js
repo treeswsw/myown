@@ -102,7 +102,9 @@ export class Bot {
   _maybeAct() {
     const s = this.state;
     if (!s || s.phase !== 'playing' || !s.turn || s.turn !== s.you) return;
-    const key = `${s.mode}:${s.turnEndsAt}:${s.round}:${s.street}:${s.toCall}:${s.lastPlay ? s.lastPlay.count : ''}:${(s.myHand || []).length}:${s.pot}`;
+    // turnEndsAt is always null (no turn limit), so key on fields that really change between my turns
+    const key = [s.mode, s.round, s.street, (s.board || []).length, s.toCall, s.pot, s.lastPlay ? s.lastPlay.count : '', (s.myHand || []).length,
+      s.players.map((p) => `${p.bet}/${p.stack}/${p.handCount}/${p.shots}`).join(','), (s.myCards || []).join('')].join('|');
     if (key === this.lastTurnKey) return;
     this.lastTurnKey = key;
     const [lo, hi] = this.opts.thinkMs;
