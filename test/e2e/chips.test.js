@@ -114,8 +114,7 @@ test('chips: leaving mid-hand folds; chips already in stay in the pot', { timeou
   A.leave();
   await A.waitFor(() => A.state === null, 3000, 'A left');
   await A.waitFor(() => A.me.bank === 10000 - raiseTo, 3000, `A bank back to ${10000 - raiseTo}`);
-  const folds = ev(rest[0], 'action').filter((e) => e.id === aId && e.a === 'fold');
-  assert.ok(folds.length >= 1, 'A is folded');
+  await rest[0].waitFor(() => ev(rest[0], 'action').some((e) => e.id === aId && e.a === 'fold'), 3000, 'A is folded');
   // the others finish the hand
   rest.forEach((b) => b.autoplayOn());
   await rest[0].waitFor(() => rest[0].state.phase === 'result', 20000, 'hand ends');
@@ -194,18 +193,18 @@ test('chips: explicit leave while all-in is a fold (forfeits the chips, cannot w
   await X.waitFor(() => X.state === null, 3000, 'X left');
   await Y.waitFor(() => !Y.state.players.some((p) => p.id === xId) || Y.state.players.find((p) => p.id === xId).folded, 3000, 'X folded/removed');
   Z.send({ t: 'act', a: 'fold' });
-  await h.waitFor(() => h.state.phase === 'result' || (h === X && false), 5000, 'result').catch(() => {});
-  const obs = h === X ? Y : h;
-  await obs.waitFor(() => obs.state.phase === 'result', 5000, 'result');
-  const res = obs.state.result;
+  const obs = Y;
+  const n0 = obs.stateHistory.length;
+  await obs.waitFor(() => obs.stateHistory.slice(n0).some((st) => st.phase === 'result'), 5000, 'result');
+  const resState = obs.stateHistory.slice(n0).find((st) => st.phase === 'result');
+  const res = resState.result;
   assert.ok(!res.winners.some((w) => w.id === xId), 'a player who explicitly left while all-in must not win');
   assert.equal(res.winners.length, 1);
   assert.equal(res.winners[0].id, Y.state.you);
   assert.ok(!(res.shown && res.shown[xId]), 'left player must not be shown down');
   const acc = await readAccounts(server, bots.map((b) => b.id));
   assert.equal(acc[X.id].bank, 0, 'forfeited chips are gone from the leaver');
-  assert.equal(bots.reduce((a, b) => a + acc[b.id].bank, 0) + obs.state.players.reduce((a, p) => a + p.stack, 0) * 0, bots.reduce((a, b) => a + acc[b.id].bank, 0));
-  const stacks = obs.state.players.reduce((a, p) => a + p.stack, 0);
+  const stacks = resState.players.filter((p) => p.id !== xId).reduce((a, p) => a + p.stack, 0);
   assert.equal(stacks + acc[X.id].bank, 30000, 'chips conserved');
   bots.forEach((b) => b.close());
 });
@@ -213,19 +212,21 @@ test('chips: explicit leave while all-in is a fold (forfeits the chips, cannot w
 test('chips: disconnect while all-in keeps the player in the hand; chips are credited to the account', { timeout: 60000 }, async () => {
   const { bots, h, X, Y, Z } = await pendingAllIns(server);
   const xId = X.state.you;
-  const obs = [h, Y, Z].find((b) => b !== X);
+  const obs = Y;
   X.terminate();
   await obs.waitFor(() => obs.state.players.find((p) => p.id === xId)?.connected === false, 3000, 'X disconnected');
   Z.send({ t: 'act', a: 'fold' });
-  await obs.waitFor(() => obs.state.phase === 'result', 5000, 'result');
-  const res = obs.state.result;
+  const n0 = obs.stateHistory.length;
+  await obs.waitFor(() => obs.stateHistory.slice(n0).some((st) => st.phase === 'result'), 5000, 'result');
+  const resState = obs.stateHistory.slice(n0).find((st) => st.phase === 'result');
+  const res = resState.result;
   assert.ok(res.shown && res.shown[xId] && res.shown[Y.state.you], 'both all-in players are shown down (disconnected X stayed in)');
-  const xFinal = obs.state.players.find((p) => p.id === xId).stack;
+  const xFinal = resState.players.find((p) => p.id === xId).stack;
   // after the grace the seat is removed and the stack is credited to the account
   await obs.waitFor(() => !obs.state.players.some((p) => p.id === xId), 6000, 'X removed after grace');
   const acc = await readAccounts(server, bots.map((b) => b.id));
   assert.equal(acc[xId].bank, xFinal, 'disconnected all-in player gets their result credited');
-  const total = bots.reduce((a, b) => a + acc[b.id].bank, 0) + obs.state.players.reduce((a, p) => a + p.stack, 0);
+  const total = acc[xId].bank + resState.players.filter((p) => p.id !== xId).reduce((a, p) => a + p.stack, 0);
   assert.equal(total, 30000, 'chips conserved');
   bots.forEach((b) => b.close());
 });
