@@ -96,7 +96,7 @@
 .chat-docked .lobby .panel:not(.narrow){max-height:calc(100dvh - 24px - var(--chat-dock) - 12px);min-height:min(440px,calc(100dvh - 24px - var(--chat-dock) - 12px))}
 :root{--chat-dock:114px}
 @media (max-height:480px){
-  .chat-w.big{--bf:2}
+  .chat-w.big{--bf:2.4}
   :root{--chat-dock:44px}
   .chat-dock{width:min(640px,calc(100vw - 24px));height:44px;flex-direction:row;align-items:flex-end;gap:8px}
   .chat-msgs{flex:1;min-width:0;padding:0;font-size:11.5px;line-height:1.25;gap:1px;height:44px;overflow:hidden}
