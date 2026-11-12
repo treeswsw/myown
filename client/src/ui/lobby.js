@@ -58,7 +58,7 @@ function segmented(onPick) {
 }
 
 export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm }) {
-  const el = h('div', 'lobby');
+  const el = h('div', 'lb-root lobby');
   let user = null, room = null, pendingAvatar = null;
 
   const fileInput = h('input');
@@ -80,7 +80,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   outPhoto.type = 'button';
   outPhoto.setAttribute('aria-label', '프로필 사진 고르기');
   function renderOutPhoto() {
-    outPhoto.replaceChildren(pendingAvatar ? avatar({ avatar: pendingAvatar }, 'av') : h('span', null, '사진'));
+    outPhoto.replaceChildren(pendingAvatar ? avatar({ avatar: pendingAvatar }, 'lb-av') : h('span', null, '사진'));
   }
   outPhoto.addEventListener('click', () => choosePhoto((d) => { pendingAvatar = d; renderOutPhoto(); }));
   const idInput = h('input', 'lb-field');
@@ -266,7 +266,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     home.hidden = !user || !!room;
     roomView.hidden = !user || !room;
     if (user) {
-      meAv.replaceChildren(avatar(user, 'av lb-big'));
+      meAv.replaceChildren(avatar(user, 'lb-av lb-big'));
       meName.textContent = user.name;
       const chips = user.chips ?? user.bank ?? 0;
       meBank.textContent = `${fmt(chips)} 칩`;

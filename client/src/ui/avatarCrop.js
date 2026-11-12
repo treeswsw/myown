@@ -19,24 +19,24 @@ export async function openAvatarCrop(file) {
   const base = Math.max(V / bmp.width, V / bmp.height);
   let zoom = 1, cx = bmp.width / 2, cy = bmp.height / 2; // cx,cy: image point at viewport center
 
-  const overlay = h('div', 'crop-overlay');
+  const overlay = h('div', 'lb-crop-overlay crop-overlay');
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-label', '프로필 사진 자르기');
-  const view = h('canvas', 'crop-view');
+  const view = h('canvas', 'lb-crop-view');
   view.width = view.height = V;
   view.tabIndex = 0;
   view.setAttribute('aria-label', '사진 위치 조절. 화살표 키로 이동, +/- 키로 확대');
-  const slider = h('input', 'crop-zoom');
+  const slider = h('input', 'lb-crop-zoom');
   slider.type = 'range'; slider.min = '1'; slider.max = '4'; slider.step = '0.01'; slider.value = '1';
   slider.setAttribute('aria-label', '확대');
-  const ok = h('button', 'ok', '확인');
+  const ok = h('button', 'lb-ok', '확인');
   const cancel = h('button', null, '취소');
   ok.type = cancel.type = 'button';
-  const hint = h('p', 'crop-hint', '끌어서 옮기고, 슬라이더로 확대합니다');
-  overlay.append(h('div', 'crop-box',
-    h('div', 'crop-bar', cancel, h('b', null, '사진 자르기'), ok),
-    h('div', 'crop-body', view, h('div', 'crop-side', slider, hint))));
+  const hint = h('p', 'lb-crop-hint', '끌어서 옮기고, 슬라이더로 확대합니다');
+  overlay.append(h('div', 'lb-crop-box',
+    h('div', 'lb-crop-bar', cancel, h('b', null, '사진 자르기'), ok),
+    h('div', 'lb-crop-body', view, h('div', 'lb-crop-side', slider, hint))));
 
   const ctx = view.getContext('2d');
   function draw() {
