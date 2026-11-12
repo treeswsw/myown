@@ -14,6 +14,7 @@ const CONTEXTS = {
   desktop: { viewport: { width: 1280, height: 720 }, touch: false },
   phone: { viewport: { width: 844, height: 390 }, touch: true },
   tablet: { viewport: { width: 1024, height: 768 }, touch: true },
+  tabletL: { viewport: { width: 1180, height: 820 }, touch: true },
 };
 const only = process.argv[2];
 const results = [];
@@ -179,6 +180,24 @@ async function runContext(browser, server, name, cfg) {
   await bot.waitFor((b) => b.stateHistory.slice(foldHist).some((st) => st.players.find((p) => p.id === myId())?.folded || st.result), 20000, 'fold seen')
     .then(() => check('fold click folded me on the server', true), () => check('fold click folded me on the server', false));
 
+  // play on (always check/call) until a showdown happens, then look for the winner emphasis
+  let showdown = null;
+  for (let i = 0; i < 150 && !showdown; i++) {
+    showdown = await page.evaluate(() => {
+      const row = document.querySelector('.win .show');
+      if (!row) return null;
+      return { valid: row.querySelectorAll('.pc.valid').length, invalid: row.querySelectorAll('.pc.invalid').length, champ: document.querySelectorAll('.pl.champ').length, oneRow: new Set([...row.querySelectorAll('.pc')].map((c) => Math.round(c.getBoundingClientRect().top / 40))).size === 1 };
+    });
+    if (showdown) break;
+    if (await page.evaluate(() => document.querySelectorAll('.act .wseg').length === 3 && !document.querySelector('.dialbox'))) await press('.act .wseg:nth-of-type(1)').catch(() => {});
+    await sleep(800);
+  }
+  if (showdown) {
+    check('showdown: five winning cards highlighted, two dimmed', showdown.valid === 5 && showdown.invalid === 2, JSON.stringify(showdown));
+    check('showdown: winner profile emphasised on the table', showdown.champ >= 1);
+    check('showdown: the 7-card row stays on one line inside the viewport', showdown.oneRow);
+  } else check('showdown reached within the time limit (not exercised if this fails)', false);
+
   // menu -> leave
   await reachable('menu (logo) icon', '.hud-tl .ic.big');
   await press('.hud-tl .ic.big');
@@ -238,6 +257,12 @@ async function runContext(browser, server, name, cfg) {
     } catch (e) { await sleep(1000); }
   }
   check('LIAR click produced a reveal on the server', liarSent);
+  const css = await page.evaluate(() => ({
+    zoom: [...document.styleSheets].some((sh) => [...sh.cssRules].some((r) => /(^|[;{\s])zoom\s*:/.test(r.cssText))),
+    wraps: [...document.querySelectorAll('.comm, .bhand, .win .show, .keys')].filter((n) => getComputedStyle(n).flexWrap !== 'nowrap').length,
+  }));
+  check('no stylesheet rule uses the non-standard zoom property', !css.zoom);
+  check('card/button rows are flex-wrap: nowrap', css.wraps === 0);
   check('no console/page errors in the page', errors.length === 0, errors.slice(0, 2).join(' | '));
   await ctx.close();
   bot.close();

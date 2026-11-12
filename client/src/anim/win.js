@@ -45,9 +45,9 @@ export async function playWin({ ui, stage, table, pins, cluster, special, getRoo
       const lift = (to, ms) => { const from = cur; cur = to; return tween(ms, (k) => pins.setLift(w.id, from + (to - from) * k), ease.out); };
       const standing = fancy ? (special.skipAll(), special.playStand(w.id, { onUp: (dy) => lift(dy, 400), onDown: () => lift(0, 300) })) : Promise.resolve();
       if (i === 0) await sleep(1200); // the close-up comes first
-      const overlay = h('div', `win ${winners.length > 1 ? 'small' : ''}`,
+      const overlay = h('div', `win ${winners.length > 1 ? 'small' : ''}`, h('div', 'sc',
         h('div', 'ko wt', w.handName ?? ''), handRow(w, who(w), room),
-        h('div', 'ws', h('div', 'w', h('span', 'ko', who(w).name), h('span', 'num', 'WINS'), h('span', 'num', `+${fmt(w.amount)}`))));
+        h('div', 'ws', h('div', 'w', h('span', 'ko', who(w).name), h('span', 'num', 'WINS'), h('span', 'num', `+${fmt(w.amount)}`)))));
       ui.append(overlay);
       await sleep(winners.length > 1 ? TIE_HOLD_MS : HOLD_MS);
       overlay.classList.add('out');
@@ -56,7 +56,7 @@ export async function playWin({ ui, stage, table, pins, cluster, special, getRoo
       pins.setLift(w.id, 0);
     }
   } else {
-    const overlay = h('div', 'win small', h('div', 'ws', winners.map((w) => h('div', 'w', h('span', 'ko', who(w).name), h('span', 'num', 'WINS'), h('span', 'num', `+${fmt(w.amount)}`)))));
+    const overlay = h('div', 'win small', h('div', 'sc', h('div', 'ws', winners.map((w) => h('div', 'w', h('span', 'ko', who(w).name), h('span', 'num', 'WINS'), h('span', 'num', `+${fmt(w.amount)}`))))));
     ui.append(overlay);
     await sleep(1800);
     overlay.classList.add('out');

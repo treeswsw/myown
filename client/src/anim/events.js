@@ -86,8 +86,8 @@ export function createAnimator({ ui, stage, table, pins, cluster, special, getRo
         const cards = h('div', 'crow', e.cards.map((r, i) => cardEl(handCode(r, i))));
         const verdict = e.lie ? '거짓말이었다!' : '진짜였다!';
         const who = (id) => room?.players.find((p) => p.id === id)?.name ?? id;
-        const ov = h('div', 'ov reveal', h('div', 't', `${who(e.by)}의 카드 · 이번 카드 ${room?.tableRank ?? ''}`), cards,
-          h('div', 'ko reveal-t', verdict), h('div', 'x', `${who(e.loser)} 벌칙`));
+        const ov = h('div', 'ov reveal', h('div', 'sc', h('div', 't', `${who(e.by)}의 카드 · 이번 카드 ${room?.tableRank ?? ''}`), cards,
+          h('div', 'ko reveal-t', verdict), h('div', 'x', `${who(e.loser)} 벌칙`)));
         ui.append(ov);
         await sleep(2200);
         ov.remove();
