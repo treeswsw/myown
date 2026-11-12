@@ -62,6 +62,8 @@ export async function runBluff(server, n, games, { timeout = 120000 } = {}) {
       })(),
       wd.promise,
     ]);
+    // bluffWin is an event; the matching `room` (phase 'result') follows it as a separate message
+    await host.waitFor(() => host.stateHistory.filter((st) => st.phase === 'result').length >= games, 5000, 'final result state');
   } finally { wd.stop(); }
   return { bots, code, games: wins() };
 }
