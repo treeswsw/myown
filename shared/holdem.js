@@ -164,8 +164,10 @@ function advance(st, from, events) {
   }
 }
 
-// Exact side pots from total contributions. A level only one seat reached is an
-// uncalled bet and is returned as `refund` instead of becoming a pot.
+// Exact side pots from total contributions. A level only one live seat reached is an uncalled
+// bet and is returned as `refund`. Chips of folded seats (including players who left) are never
+// refunded: a level without a live contender is merged into the pot below it, so every
+// committed chip goes to the remaining contenders.
 export function buildPots(seats) {
   const levels = [...new Set(seats.map((s) => s.total).filter((t) => t > 0))].sort((a, b) => a - b);
   const pots = [];
@@ -175,7 +177,7 @@ export function buildPots(seats) {
     const contributors = seats.filter((s) => s.total >= level);
     const amount = seats.reduce((sum, s) => sum + Math.min(s.total, level) - Math.min(s.total, prev), 0);
     prev = level;
-    if (contributors.length === 1) {
+    if (contributors.length === 1 && !contributors[0].folded) {
       refund = { id: contributors[0].id, amount };
       continue;
     }

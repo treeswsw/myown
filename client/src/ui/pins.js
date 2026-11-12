@@ -111,6 +111,10 @@ export function createPins(ui, stage, table) {
       if (!e) return;
       hands.get(id)?.remove();
       const box = h('div', 'handup', codes.map(() => cardBack()));
+      // Seats near the top edge have no room above the photo, so their cards pop up beside it.
+      const head = table.head(id);
+      const [x, y] = head ? stage.project(head) : [0, 999];
+      if (y < 210 * view.k) box.classList.add('side', x < stage.size.w / 2 ? 'r' : 'l');
       e.el.append(box);
       hands.set(id, box);
       setTimeout(() => box.replaceChildren(...codes.map((c) => cardEl(c, 'flip'))), 380);

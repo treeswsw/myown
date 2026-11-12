@@ -199,11 +199,14 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .ov.reveal .pc { animation: cardflip .7s ease-out backwards; }
 
 .pl .handup { position: absolute; left: 0; bottom: 56px; transform: translateX(-50%); display: flex; gap: 4px; z-index: 3; animation: handpop .5s cubic-bezier(.3, 1.5, .5, 1); }
+.pl .handup.side { bottom: auto; top: -48px; transform: none; }
+.pl .handup.side.r { left: 50px; }
+.pl .handup.side.l { left: -50px; transform: translateX(-100%); }
 .pl.has-top .handup { bottom: 112px; }
 .pl .handup .pc { --h: 86px; box-shadow: 0 6px 14px rgba(0, 0, 0, .6); }
 .pl .handup .pc:nth-child(1) { transform: rotate(-5deg); }
 .pl .handup .pc:nth-child(2) { transform: rotate(5deg); }
-@keyframes handpop { from { transform: translateX(-50%) scale(.3); opacity: 0; } }
+@keyframes handpop { from { scale: .3; opacity: 0; } }
 .scenedim { position: fixed; inset: 0; background: rgba(0, 0, 0, .62); opacity: 0; transition: opacity .8s; }
 .scenedim.on { opacity: 1; }
 .win .show { display: flex; align-items: center; gap: 22px; }

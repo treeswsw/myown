@@ -219,3 +219,59 @@ test('chips are conserved over thousands of random hands', () => {
   assert.ok(hands > 2000, `ran ${hands} hands`);
   assert.ok(showdowns > 300);
 });
+
+test('a leaver\'s uncalled raise stays in the pot and goes to the remaining contender (no chips vanish)', () => {
+  const { st } = rigged([10000, 10000, 10000], { p0: ['As', 'Ad'], p1: ['2c', '3d'], p2: ['4c', '5d'] }, ['7h', '8c', '9s', 'Jd', '3c'], 0);
+  ok(H.act(st, 'p0', 'raise', 200));
+  H.forceFold(st, 'p0'); // dealer leaves
+  assert.equal(st.phase, 'betting');
+  ok(H.act(st, 'p1', 'fold'));
+  assert.equal(st.phase, 'done');
+  assert.deepEqual(st.result.winners.map((w) => [w.id, w.amount]), [['p2', 350]]);
+  assert.equal(st.seats.reduce((n, s) => n + s.stack, 0), 30000);
+  assert.deepEqual(st.seats.map((s) => s.stack), [9800, 9950, 10250]);
+});
+
+test('folded contributors above the live level, and a live all-in below, are all distributed', () => {
+  const { st } = rigged([100, 1000, 1000, 1000], {
+    p0: ['As', 'Ad'], p1: ['2c', '3d'], p2: ['4c', '5d'], p3: ['6c', '8d'],
+  }, ['7h', '9c', 'Ts', 'Jd', '3c'], 0);
+  ok(H.act(st, 'p3', 'raise', 400)); // UTG p3 raises
+  ok(H.act(st, 'p0', 'allin')); // p0 all-in for 100 (short)
+  H.forceFold(st, 'p3'); // raiser leaves
+  H.forceFold(st, 'p1');
+  H.forceFold(st, 'p2');
+  assert.equal(st.phase, 'done');
+  assert.equal(st.seats.reduce((n, s) => n + s.stack, 0), 3100);
+  assert.deepEqual(st.result.winners.map((w) => w.id), ['p0']);
+  assert.equal(st.seats[0].stack, 650, '100 own + 50 + 100 + 400 from the folded seats');
+});
+
+test('chips are conserved when raises mix with mid-hand leaves', () => {
+  const rng = seeded(4242);
+  for (let g = 0; g < 1500; g++) {
+    const n = 2 + Math.floor(rng() * 5);
+    const players = Array.from({ length: n }, (_, i) => ({ id: 'p' + i, stack: 1 + Math.floor(rng() * rng() * 3000) }));
+    const sum = players.reduce((s, p) => s + p.stack, 0);
+    const { st } = H.startHand(players.map((p) => ({ ...p })), Math.floor(rng() * n), rng);
+    let guard = 0;
+    while (st.phase === 'betting') {
+      assert.ok(++guard < 300);
+      if (rng() < 0.12) {
+        H.forceFold(st, st.seats[Math.floor(rng() * n)].id);
+        continue;
+      }
+      const id = st.seats[st.turn].id;
+      const o = H.options(st, id);
+      const roll = rng();
+      let r;
+      if (roll < 0.1) r = H.act(st, id, 'fold');
+      else if (roll < 0.45 && o.canRaise) r = H.act(st, id, 'raise', o.minRaiseTo + Math.floor(rng() * (o.maxRaiseTo - o.minRaiseTo + 1)));
+      else r = H.act(st, id, o.canCheck ? 'check' : 'call');
+      assert.ok(r.ok, r.error);
+    }
+    assert.equal(st.seats.reduce((s, x) => s + x.stack, 0), sum);
+    assert.ok(st.result.winners.length > 0);
+    assert.ok(st.result.winners.every((w) => !st.seats.find((s) => s.id === w.id).folded));
+  }
+});

@@ -144,16 +144,17 @@ test('chips: leaving during an all-in run-out', { timeout: 60000 }, async () => 
     await second.waitFor(() => second.state.turn === second.state.you, 3000, 'turn');
     second.send({ t: 'act', a: 'allin' });
     await h.waitFor(() => ev(h, 'allin').length >= 2, 3000, 'both all-in');
-    // run-out is in progress (street pauses): the first all-in player walks out
-    assert.notEqual(h.state.phase, 'result', 'run-out should still be running');
+    // the server resolves the all-in hand immediately and only paces the display (result phase + street pauses);
+    // the first all-in player walks out during that window
+    await h.waitFor(() => h.state.phase === 'result', 5000, 'result state');
+    const settled = h.state.players.map((p) => [p.id, p.stack]);
     first.leave();
     await first.waitFor(() => first.state === null, 3000, 'left');
-    await second.waitFor(() => second.state && second.state.phase !== 'playing', 15000, 'hand completes for the remaining player');
+    await sleep(500);
     assert.ok(srv.alive(), 'server crashed:\n' + srv.log());
-    await second.waitFor(() => second.me.bank === 20000, 5000, `remaining player holds all 20000 (bank=${second.me.bank}, state=${JSON.stringify(second.state && second.state.players)})`);
-    await first.waitFor(() => first.me.bank === 0, 3000, 'leaver has 0 (all-in chips stayed in the pot)');
     const acc = await readAccounts(srv, bots.map((b) => b.id));
-    assert.equal(acc[first.id].bank + acc[second.id].bank, 20000);
+    assert.equal(acc[first.id].bank + acc[second.id].bank, 20000, 'chips must be conserved when leaving during the run-out');
+    for (const [id, stack] of settled) assert.equal(acc[id].bank, stack, `account ${id} must equal its displayed result stack`);
     bots.forEach((b) => b.close());
   } finally { await srv.stop(); }
 });
