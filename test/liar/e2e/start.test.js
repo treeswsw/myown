@@ -3,15 +3,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WebSocket } from 'ws';
-import { startServer } from '../../../host/server/index.js';
-import { createStore } from '../../../host/server/store.js';
+import { startServer } from '../../../server/index.js';
+import { createStore } from '../../../server/store.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 test('진짜 서버: 3명 접속 → 시작 → reveal, 역할 비공개, 단어 2종', async (t) => {
   const store = createStore();
   await store.init?.();
-  const app = await startServer({ port: 0, store });
+  const app = await startServer({ port: 0, store, hubOptions: { liar: 'on' } });
   const cs = [];
   t.after(async () => { for (const c of cs) c.ws.close(); await app.close(); await store.close?.(); });
   for (const id of ['alpha', 'bravo', 'charl']) {

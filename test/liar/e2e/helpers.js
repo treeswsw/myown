@@ -1,4 +1,4 @@
-// e2e 도우미 (T1a). 진짜 진행자 서버(host/server) + ws 접속으로 한 판을 몇 초에 돌린다.
+// e2e 도우미 (T1a). 진짜 서버(server/) + ws 접속으로 한 판을 몇 초에 돌린다.
 // 실제 코드를 고치지 않고 "빠른 시계"만 hubOptions 로 넣는다:
 //   now()           = t0 + (Date.now() - t0) * k
 //   timers.setTimeout(fn, ms) = setTimeout(fn, ms / k)
@@ -6,8 +6,8 @@
 // 이 파일은 T1b·T1c 도 읽어서 쓴다. 이름과 모양을 바꾸지 않는다.
 import assert from 'node:assert/strict';
 import { WebSocket } from 'ws';
-import { startServer } from '../../../host/server/index.js';
-import { createStore } from '../../../host/server/store.js';
+import { startServer } from '../../../server/index.js';
+import { createStore } from '../../../server/store.js';
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -27,7 +27,7 @@ export async function startFast({ k = 20, timing = {} } = {}) {
   const timers = { setTimeout: (fn, ms) => setTimeout(fn, ms / k).unref(), clearTimeout };
   const store = createStore();
   await store.init?.();
-  const app = await startServer({ port: 0, store, hubOptions: { now, timers, timing } });
+  const app = await startServer({ port: 0, store, hubOptions: { now, timers, timing, liar: 'on' } });
   return {
     app, store, k, now,
     async close() {
