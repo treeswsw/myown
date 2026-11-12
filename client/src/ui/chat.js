@@ -8,9 +8,16 @@ import { h, svg, view } from './dom.js';
 const MAX_LEN = 120;
 const LOG_MAX = 30;
 const HOLD_MS = 4000; // matches the 87% mark of chat-life (4600ms)
+const BIG_HOLD_MS = 5000; // and the 89% mark of chat-big (5600ms)
 const GLYPH = '<path d="M5 4.5h14a2.5 2.5 0 0 1 2.5 2.5v7.5a2.5 2.5 0 0 1-2.5 2.5h-6.5L8 21v-4H5A2.5 2.5 0 0 1 2.5 14.5V7A2.5 2.5 0 0 1 5 4.5z"/>';
 const SEND = '<path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/>';
 const touch = matchMedia('(pointer:coarse)');
+// A leading '#' means emphasis: strip exactly one '#' and the spaces after it; a lone '#' stays an ordinary message.
+const norm = (m, mine) => {
+  const t = String(m.text).trim();
+  const rest = t.startsWith('#') ? t.slice(1).trimStart() : '';
+  return { ...m, text: rest || t, big: Boolean(rest), mine };
+};
 const hhmm = (ts) => new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 
 export function createChat({ onSend, getAnchor }) {
@@ -78,10 +85,12 @@ export function createChat({ onSend, getAnchor }) {
       layer.append(slot.el);
     }
     const old = slot.live;
-    if (old && performance.now() - old.t0 < HOLD_MS) old.firstChild.classList.add('old');
-    const b = h('div', 'chat-b', h('span', '', msg.text));
-    const w = h('div', 'chat-w', b);
+    if (old && performance.now() - old.t0 < old.hold) old.firstChild.classList.add('old');
+    const b = h('div', `chat-b ${msg.big ? 'big' : ''}`, h('span', '', msg.text));
+    const w = h('div', `chat-w ${msg.big ? 'big' : ''}`, b);
     w.t0 = performance.now();
+    w.hold = msg.big ? BIG_HOLD_MS : HOLD_MS;
+    slot.el.style.zIndex = msg.big ? 2 : 1;
     b.addEventListener('animationend', () => {
       w.remove();
       if (slot.live === w) slot.live = null;
@@ -93,20 +102,20 @@ export function createChat({ onSend, getAnchor }) {
   }
 
   function toast(msg) {
-    const t = h('div', 'chat-toast', h('b', '', msg.name), `: ${msg.text}`);
+    const t = h('div', `chat-toast ${msg.big ? 'big' : ''}`, h('b', '', msg.name), `: ${msg.text}`);
     t.addEventListener('animationend', () => t.remove());
     toasts.append(t);
     while (toasts.children.length > 3) toasts.firstChild.remove();
   }
 
   // History sheet and the lobby strip
-  const row = (m) => h('div', `chat-row ${m.mine ? 'mine' : ''}`, h('div', 'meta', h('b', '', m.name), hhmm(m.ts)), m.text);
+  const row = (m) => h('div', `chat-row ${m.mine ? 'mine' : ''} ${m.big ? 'big' : ''}`, h('div', 'meta', h('b', '', m.name), hhmm(m.ts)), m.text);
   function renderSheet() {
     const stick = sheet.scrollHeight - sheet.scrollTop - sheet.clientHeight < 40 || !sheet.childElementCount;
     sheet.replaceChildren(...(log.length ? log.map(row) : [h('div', 'chat-empty', '아직 메시지가 없어요')]));
     if (stick) sheet.scrollTop = sheet.scrollHeight;
   }
-  const renderDock = () => msgs.replaceChildren(...log.slice(-3).map((m) => h('div', `chat-msg ${m.mine ? 'mine' : ''}`, h('b', '', m.name), m.text)));
+  const renderDock = () => msgs.replaceChildren(...log.slice(-3).map((m) => h('div', `chat-msg ${m.mine ? 'mine' : ''} ${m.big ? 'big' : ''}`, h('b', '', m.name), m.text)));
   const renderLogs = () => { if (sheetOpen) renderSheet(); if (mode === 'lobby') renderDock(); };
 
   function setSheet(v) {
@@ -149,7 +158,7 @@ export function createChat({ onSend, getAnchor }) {
 
   function submit() {
     const text = input.value.trim();
-    if (!text) return;
+    if (!text || /^#\s*$/.test(text)) return;
     onSend(text);
     input.value = '';
     sync();
@@ -160,7 +169,7 @@ export function createChat({ onSend, getAnchor }) {
     count.textContent = `${n}/${MAX_LEN}`;
     count.hidden = n <= 100;
     count.classList.toggle('full', n >= MAX_LEN);
-    send.disabled = !input.value.trim();
+    send.disabled = !input.value.trim() || /^#\s*$/.test(input.value);
   }
 
   input.addEventListener('input', sync);
@@ -193,17 +202,18 @@ export function createChat({ onSend, getAnchor }) {
     el,
     button,
     push(msg, { mine = false } = {}) {
-      log.push({ ...msg, mine });
+      log.push(norm(msg, mine));
       if (log.length > LOG_MAX) log.shift();
       renderLogs();
       if (mode === 'lobby') return;
       if (!isOpen && !mine) unread(true);
-      if (getAnchor(msg.id)) bubble(msg);
-      else toast(msg);
+      const m = log[log.length - 1];
+      if (getAnchor(m.id)) bubble(m);
+      else toast(m);
     },
     // Optional myId marks that player's entries as own.
     setLog(items, myId) {
-      log = items.slice(-LOG_MAX).map((m) => ({ ...m, mine: myId != null && m.id === myId }));
+      log = items.slice(-LOG_MAX).map((m) => norm(m, myId != null && m.id === myId));
       renderLogs();
     },
     open, close, toggle,

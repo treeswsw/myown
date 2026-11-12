@@ -58,6 +58,17 @@ if (state === 'lobby') {
   chat.push(M('하린', 'ㅎㅇ'));
   chat.push(M('지우', '콜'));
   freeze();
+} else if (state === 'big') {
+  chat.push(M('서연', '#올인 간다!!'));
+  chat.push(M('태호', '#이 메시지는 아주 길어서 두 줄까지만 보이고 나머지는 말줄임표로 잘려야 합니다 정말 끝 끝 끝'));
+  chat.push(M('민수', '#  콜 받아라'), { mine: true });
+  chat.push(M('하린', '평범한 말풍선'));
+  chat.push(M('지우', '#'));
+  freeze();
+} else if (state === 'bigreplace') {
+  chat.push(M('서연', '#첫 번째 강조'));
+  chat.push(M('민수', '#또 강조'), { mine: true });
+  setTimeout(() => { chat.push(M('서연', '#두 번째 강조 메시지')); chat.push(M('민수', '그냥 일반 메시지')); freeze(); }, 1200);
 } else if (state === 'replace') {
   chat.push(M('서연', '첫 번째 메시지'));
   chat.push(M('민수', '아직 내 차례 아님?'), { mine: true });
