@@ -56,6 +56,8 @@ export function cardEl(code, cls = '') {
   const red = joker || 'hd'.includes(code[1]);
   const ix = h('span', 'ix', rank, joker ? null : h('small', '', SUITS[code[1]]));
   const mid = h('em', '', joker ? ['★', h('u', '', 'JOKER')] : SUITS[code[1]]);
-  return h('div', `pc ${red ? 'red' : ''} ${cls}`, ix, mid);
+  const el = h('div', `pc ${red ? 'red' : ''} ${cls}`, ix, mid);
+  el.dataset.code = code;
+  return el;
 }
 export const cardBack = (cls = '') => h('div', `pc back ${cls}`, h('i'));

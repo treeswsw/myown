@@ -73,6 +73,7 @@ const special = createSpecialFX({ scene: stage.scene, camera: stage.camera, getS
 /* applying server state to the screen */
 let shown = null; // what the screen currently reflects
 let wasMyTurn = false;
+let emphasized = false; // showdown emphasis is on screen
 function applyRoom(room) {
   shown = room;
   if (!room) {
@@ -86,6 +87,8 @@ function applyRoom(room) {
   const live = room.phase === 'playing';
   const holdem = room.mode === 'holdem';
   const myTurn = live && room.turn === room.you && Boolean(me) && !me.spectating;
+  if (!room.result && emphasized) { emphasized = false; pins.emphasize(null); table.highlight(null); cluster.highlight(null); }
+  if (room.result) emphasized = true;
   const inLobby = room.phase === 'lobby';
   chat.setEnabled(true);
   chat.button.hidden = false;
@@ -103,7 +106,7 @@ function applyRoom(room) {
 }
 
 const animator = createAnimator({
-  ui, stage, table, pins, special,
+  ui, stage, table, pins, cluster, special,
   getRoom: () => state.room ?? shown,
   setHandAway: (on) => bluff.setAway(on),
   applyPartial: (fn) => { if (shown) applyRoom(fn(shown)); },

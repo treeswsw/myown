@@ -4,6 +4,7 @@ import { cardMesh, setFace, dealerButton, plaqueMaterials, plaqueGeo, CR } from 
 import { stackGroup, pileGroup } from './chips.js';
 import { tween, ease } from '../anim/tween.js';
 import { sfx } from '../audio.js';
+import { CARD_TIMING as CT } from './timing.js';
 
 // Seat slots: x across the table, s = side (-1 far, +1 near). Slot 4 / 3 is "me".
 const SLOTS = {
@@ -49,6 +50,28 @@ export function createTable(stage) {
   let layout = new Map();
   let mode = null;
   let potDelay = 0;
+
+  // Showdown emphasis: cards in a winner's best five get a gold frame, every other face-up card is dimmed.
+  let hl = null;
+  const frameGeo = new THREE.BoxGeometry(0.162, 0.0008, 0.222);
+  const frameMat = new THREE.MeshBasicMaterial({ color: 0xffc62a });
+  const dimGeo = new THREE.PlaneGeometry(0.15, 0.21).rotateX(-Math.PI / 2);
+  const dimMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false });
+  function mark(card, kind) {
+    if (card.userData.mark === kind) return;
+    card.userData.markMesh?.removeFromParent();
+    card.userData.mark = kind;
+    card.userData.markMesh = null;
+    if (!kind) return;
+    const m = kind === 'hl' ? new THREE.Mesh(frameGeo, frameMat) : new THREE.Mesh(dimGeo, dimMat);
+    m.position.y = kind === 'hl' ? -0.0007 : 0.0017;
+    card.add(m);
+    card.userData.markMesh = m;
+  }
+  function applyHighlight() {
+    const cards = [...board, ...[...seats.values()].flatMap((s) => s.cards)];
+    for (const c of cards) mark(c, hl && c.userData.code ? (hl.has(c.userData.code) ? 'hl' : 'dim') : null);
+  }
 
   const put = (obj, parent = root) => { parent.add(obj); return obj; };
   const drop = (obj, to) => {
@@ -113,11 +136,11 @@ export function createTable(stage) {
       seat.cards.push(c);
       put(c);
       const k = seat.cards.length;
-      tween(380, (e) => {
+      tween(CT.deal, (e) => {
         c.visible = true;
         c.position.set(from.x + (t.x - from.x) * e, from.y + (t.y - from.y) * e + Math.sin(e * Math.PI) * 0.12, from.z + (t.z - from.z) * e);
         c.rotation.y = t.ry * e;
-      }, ease.out, k * 140 + [...layout.keys()].indexOf(p.id) * 90).then(() => sfx.card());
+      }, ease.out, k * CT.dealRound + [...layout.keys()].indexOf(p.id) * CT.dealGap).then(() => sfx.card());
     }
     seat.cards.forEach((c, i) => {
       const t = pose.cards(slot, i, n);
@@ -134,7 +157,8 @@ export function createTable(stage) {
       seat.faceUp = key;
       seat.cards.forEach((c, i) => {
         setFace(c, up?.[i] ?? null);
-        tween(450, (e) => { c.rotation.x = up ? Math.PI * (1 - e) : Math.PI * e; c.position.y = TY + 0.003 + i * 0.0035 + Math.sin(e * Math.PI) * 0.06; }, ease.inOut, i * 120);
+        c.userData.code = up?.[i] ?? null;
+        tween(CT.flip, (e) => { c.rotation.x = up ? Math.PI * (1 - e) : Math.PI * e; c.position.y = TY + 0.003 + i * 0.0035 + Math.sin(e * Math.PI) * 0.06; }, ease.inOut, i * CT.flipGap);
       });
     }
   }
@@ -178,15 +202,16 @@ export function createTable(stage) {
     room.board.forEach((code, i) => {
       if (board[i]) return;
       const c = cardMesh(code);
+      c.userData.code = code;
       c.scale.set(1.35, 1, 1.35);
       c.position.set(BOARD_X(i), TY + 0.003, -0.02);
       c.rotation.x = Math.PI;
       board[i] = put(c);
-      tween(520, (e) => {
+      tween(CT.board, (e) => {
         c.rotation.x = Math.PI * (1 - e);
         c.position.y = TY + 0.003 + Math.sin(e * Math.PI) * 0.18;
         c.position.z = -0.02 + (1 - e) * -0.35;
-      }, ease.inOut, 150 * (i - first)).then(() => sfx.card());
+      }, ease.out, CT.boardGap * (i - first)).then(() => sfx.card());
     });
   }
 
@@ -236,11 +261,11 @@ export function createTable(stage) {
       const ry = Math.random() * 6;
       pile.group.add(c);
       const from = slot ? new THREE.Vector3(slot.x - pile.group.position.x, 0.06, slot.s * (R - 0.36) - pile.group.position.z) : to;
-      tween(420, (e) => {
+      tween(CT.pile, (e) => {
         c.position.lerpVectors(from, to, e);
         c.position.y += Math.sin(e * Math.PI) * 0.1;
         c.rotation.y = ry * e;
-      }, ease.out, i * 90).then(() => sfx.card());
+      }, ease.out, i * CT.pileGap).then(() => sfx.card());
     }
   }
   function clearPile() { pile.group.clear(); pile.n = 0; }
@@ -262,6 +287,7 @@ export function createTable(stage) {
     syncPot(room);
     syncDealer(room);
     syncBluff(room);
+    applyHighlight();
   }
 
   /* hooks for animations */
@@ -311,7 +337,8 @@ export function createTable(stage) {
   }
 
   return {
-    sync, shove, payout, release, addToPile, clearPile,
+    sync, shove, payout,
+    highlight(codes) { hl = codes ? new Set(codes) : null; applyHighlight(); }, release, addToPile, clearPile,
     reset: () => setMode('holdem'),
     releaseAll: () => holds.clear(),
     slot: slotOf,

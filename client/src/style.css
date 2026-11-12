@@ -76,7 +76,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .pc.back { background: #f3ecd8; padding: calc(var(--h) * .055); }
 .pc.back i { display: block; width: 100%; height: 100%; border-radius: calc(var(--h) * .035); background: repeating-linear-gradient(45deg, #243a86 0 6px, #2f4aa8 6px 12px); border: 2px solid #e6c15a; box-sizing: border-box; }
 .slot { border-radius: 6px; border: 1.5px dashed rgba(255, 255, 255, .4); box-sizing: border-box; }
-.pc.flip { animation: cardflip .5s ease-out; }
+.pc.flip { animation: cardflip .7s ease-out backwards; }
 @keyframes cardflip { from { transform: rotateY(90deg) scale(.9); } }
 
 /* bottom-left cluster */
@@ -108,7 +108,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .ov .r { font-size: 30px; }
 .ov .x { font: 500 13px -apple-system, "Helvetica Neue", "Noto Sans KR", sans-serif; color: rgba(255, 255, 255, .6); }
 @keyframes fade { from { opacity: 0; } }
-.win { position: fixed; inset: 0; zoom: var(--k); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, .7), rgba(0, 0, 0, .5) 80%); animation: fade .3s; transition: opacity .4s; }
+.win { position: fixed; inset: 0; zoom: var(--k); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, .5), rgba(0, 0, 0, .2) 85%); animation: fade .3s; transition: opacity .4s; }
 .win.out { opacity: 0; }
 .win .wt { font-size: 72px; color: #fff; -webkit-text-stroke: 7px #14100c; letter-spacing: 2px; animation: pop .5s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes pop { from { transform: scale(.3); opacity: 0; } }
@@ -123,7 +123,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .win .ws { display: flex; gap: 26px; align-items: center; animation: pop .5s .9s cubic-bezier(.3, 1.6, .5, 1) backwards; }
 .win .w { display: flex; gap: 12px; align-items: center; }
 .win .w .pav { width: 56px; height: 56px; flex: none; }
-.win .w .ko { font-size: 30px; }
+.win .w .ko { font-size: 34px; }
 .win .w .num { font-size: 64px; -webkit-text-stroke: 7px #17110a; }
 .win.small .w .num { font-size: 44px; }
 
@@ -187,9 +187,21 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .lobby[hidden] { display: none; }
 
 .hpanel button.item { min-height: 44px; }
-.leave-pill { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); zoom: var(--k); min-height: 44px; padding: 0 22px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .3); background: rgba(20, 18, 16, .85); font-size: 15px; font-weight: 700; pointer-events: auto; }
 .act .wseg { -webkit-tap-highlight-color: transparent; }
 .act .wseg .bg { fill: rgba(22, 20, 18, .94); stroke: #0a0806; stroke-width: 3.5; }
 .act .wseg.hl .bg { fill: rgba(40, 36, 30, .97); }
 .act .wseg .arc { display: none; fill: none; stroke: #ffc62a; stroke-width: 5; stroke-linecap: round; }
 .act .wseg.hl .arc { display: inline; }
+
+.pl.champ .av-wrap { transform: scale(1.35); transition: transform .5s cubic-bezier(.3, 1.5, .5, 1); }
+.pl.champ .pav { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(255, 198, 42, .4), 0 0 26px rgba(255, 198, 42, .9); filter: none; }
+.pl.champ .nm { top: 62px; font-size: 18px; }
+.pl.dim .nm, .pl.dim .top { opacity: .6; }
+.pl .top .out { font-size: 18px; color: #ddd; }
+.pc.hl { box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(255, 198, 42, .8); }
+.pc.dimmed { filter: brightness(.45); }
+.notice { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); zoom: var(--k); display: flex; gap: 12px; align-items: center; padding: 6px 8px 6px 18px; border-radius: 999px; background: rgba(20, 18, 16, .88); border: 1px solid rgba(255, 255, 255, .3); font-size: 14px; font-weight: 700; pointer-events: auto; white-space: nowrap; }
+.notice button { min-height: 44px; padding: 0 18px; border-radius: 999px; border: 0; background: #fff; color: #111; font-weight: 700; font-size: 14px; }
+.notice.solo { padding: 0; background: none; border: 0; }
+
+.ov.reveal .pc { animation: cardflip .7s ease-out backwards; }

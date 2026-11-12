@@ -26,7 +26,7 @@ async function runContext(browser, server, name, cfg) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
-  page.setDefaultTimeout(180000);
+  page.setDefaultTimeout(60000);
   const check = (what, ok, detail = '') => {
     results.push({ ctx: name, what, ok: Boolean(ok), detail });
     console.log(`${ok ? 'PASS' : 'FAIL'} [${name}] ${what}${detail ? ` - ${detail}` : ''}`);
@@ -73,7 +73,7 @@ async function runContext(browser, server, name, cfg) {
 
   /* ---------- hold'em ---------- */
   const code = await bot.create('holdem');
-  const roomBtn = page.locator('.lobby .rooms button:not([disabled])').first();
+  const roomBtn = page.locator(`.lobby .rooms button:not([disabled]):has-text("${bot.me.name}")`).first();
   await roomBtn.waitFor({ state: 'visible' });
   await reachable('room list row', '.lobby .rooms button');
   if (cfg.touch) await roomBtn.tap(); else await roomBtn.click();
@@ -193,7 +193,7 @@ async function runContext(browser, server, name, cfg) {
   bot.leave();
   await sleep(500);
   const code2 = await bot.create('bluff');
-  const row2 = page.locator('.lobby .rooms button:not([disabled])').first();
+  const row2 = page.locator(`.lobby .rooms button:not([disabled]):has-text("${bot.me.name}")`).first();
   await row2.waitFor({ state: 'visible' });
   if (cfg.touch) await row2.tap(); else await row2.click();
   await bot.waitFor((b) => b.state?.players.length === 2 && b.state.code === code2, 20000, 'bluff join');
@@ -221,17 +221,21 @@ async function runContext(browser, server, name, cfg) {
     .then(() => check('PLAY sent two cards (server lastPlay.count = 2)', true), () => check('PLAY sent two cards (server lastPlay.count = 2)', false));
   // the next time it is my turn with a play on the table, call LIAR
   let liarSent = false;
-  for (let i = 0; i < 6 && !liarSent; i++) {
+  const quiet = () => page.waitForSelector('.ov', { state: 'detached', timeout: 15000 }).catch(() => {});
+  for (let i = 0; i < 8 && !liarSent; i++) {
     if (!(await waitBluffTurn())) break;
-    const enabled = await page.evaluate(() => !document.querySelector('.btns .s').disabled);
-    if (enabled) {
-      const lh = bot.stateHistory.length;
-      await press('.btns .s');
-      liarSent = await bot.waitFor((b) => b.stateHistory.slice(lh).some((st) => st.reveal), 20000, 'reveal').then(() => true, () => false);
-    } else {
-      await press('.bhand .pc:nth-child(1)');
-      await press('.btns .p');
-    }
+    await quiet();
+    try {
+      const enabled = await page.evaluate(() => !document.querySelector('.btns .s').disabled);
+      if (enabled) {
+        const lh = bot.stateHistory.length;
+        await press('.btns .s');
+        liarSent = await bot.waitFor((b) => b.stateHistory.slice(lh).some((st) => st.reveal), 20000, 'reveal').then(() => true, () => false);
+      } else {
+        await press('.bhand .pc:nth-child(1)');
+        await press('.btns .p');
+      }
+    } catch (e) { await sleep(1000); }
   }
   check('LIAR click produced a reveal on the server', liarSent);
   check('no console/page errors in the page', errors.length === 0, errors.slice(0, 2).join(' | '));

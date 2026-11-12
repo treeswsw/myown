@@ -42,7 +42,12 @@ export class Bot {
       this.state = m.state;
       if (m.state) this.stateHistory.push(m.state);
       if (this.opts.autoplay) this._maybeAct();
-    } else if (m.t === 'error') this.errors.push(m);
+    } else if (m.t === 'event') {
+      // my own action echoed back (events precede the resulting room state) -> allow acting on the next turn
+      const e = m.e || {};
+      const me = this.state && this.state.you;
+      if (me && ((['action', 'bluffPlay'].includes(e.k) && e.id === me) || (e.k === 'liar' && e.caller === me))) this._acted = false;
+    } else if (m.t === 'error') { this.errors.push(m); this._acted = false; }
     this._wake();
   }
 
@@ -99,8 +104,9 @@ export class Bot {
   close() { this.closed = true; try { this.ws.close(); } catch {} }
   terminate() { this.closed = true; try { this.ws.terminate(); } catch {} }
 
-  // turnEndsAt is always null (no turn limit), so state keys cannot tell turns apart. Instead the bot acts once per
-  // turn: after sending, it waits until a state shows someone else on turn (or the phase changed) before acting again.
+  // turnEndsAt is always null (no turn limit), so state keys cannot tell turns apart (and the same player can be
+  // on turn twice in a row, e.g. heads-up after a street ends). The bot acts once per turn: after sending it waits
+  // until the server echoes its own action event (or an error / a state without its turn) before acting again.
   _maybeAct() {
     const s = this.state;
     if (!s || s.phase !== 'playing' || s.turn !== s.you) { this._acted = false; return; }

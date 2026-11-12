@@ -1,3 +1,4 @@
+import { CARD_TIMING } from '../scene/timing.js';
 import { h, cardEl, cardBack, fmtShort, fmt } from './dom.js';
 
 const STREETS = ['프리플랍', '플랍', '턴', '리버'];
@@ -15,6 +16,11 @@ export function createCluster(ui) {
   let room = null;
   let shown = 0; // community cards already mirrored, so only new ones flip in
   let peeking = false;
+  let best = null; // Set of card codes in the winners' best five at showdown
+  const paint = () => root.querySelectorAll('.pc[data-code]').forEach((c) => {
+    c.classList.toggle('hl', Boolean(best?.has(c.dataset.code)));
+    c.classList.toggle('dimmed', Boolean(best && !best.has(c.dataset.code)));
+  });
 
   const renderHole = () => {
     const me = room.players.find((p) => p.id === room.you);
@@ -23,6 +29,7 @@ export function createCluster(ui) {
     hole.classList.toggle('peek', peeking);
     hole.replaceChildren(...(cards ? cards.map((c) => (peeking ? cardEl(c) : cardBack())) : []));
     hint.replaceChildren(...(peeking && room.myBest ? [room.myBest] : []));
+    paint();
     return me;
   };
 
@@ -45,6 +52,7 @@ export function createCluster(ui) {
   comm.addEventListener('click', zoom);
 
   return {
+    highlight(codes) { best = codes ? new Set(codes) : null; paint(); },
     update(r, visible) {
       room = r;
       root.style.display = visible ? '' : 'none';
@@ -55,9 +63,12 @@ export function createCluster(ui) {
       const old = shown;
       comm.replaceChildren(...Array.from({ length: 5 }, (_, i) => {
         if (!r.board[i]) return h('div', 'slot');
-        return cardEl(r.board[i], i >= old ? 'flip' : '');
+        const c = cardEl(r.board[i], i >= old ? 'flip' : '');
+        if (i >= old) c.style.animationDelay = `${(i - old) * CARD_TIMING.boardGap}ms`;
+        return c;
       }));
       shown = r.board.length;
+      paint();
     },
   };
 }

@@ -14,6 +14,8 @@ export function createPins(ui, stage, table) {
   const acts = new Map(); // id -> last action kind, from events
   const stacks = new Map(); // id -> displayed stack override while the win animation runs
   const dead = new Set();
+  const lifts = new Map(); // id -> world-space height added to the photo (the winner standing up)
+  let winners = null; // Set of ids emphasised at showdown, null otherwise
   let room = null;
   let hidden = false;
 
@@ -51,10 +53,12 @@ export function createPins(ui, stage, table) {
       }
       const playing = r.phase !== 'lobby';
       const out = playing && (holdem ? p.folded : p.alive === false);
-      e.el.classList.toggle('dim', Boolean(out) || dead.has(p.id));
+      const gone = Boolean(p.eliminated);
+      e.el.classList.toggle('dim', Boolean(out) || dead.has(p.id) || gone || Boolean(winners && !winners.has(p.id)));
+      e.el.classList.toggle('champ', Boolean(winners?.has(p.id)));
       e.el.classList.toggle('turn', r.turn === p.id);
       e.el.classList.toggle('away', !p.connected);
-      e.av.classList.toggle('dead', dead.has(p.id) || (playing && !holdem && p.alive === false));
+      e.av.classList.toggle('dead', dead.has(p.id) || gone || (playing && !holdem && p.alive === false));
 
       let kind = null;
       let amount = '';
@@ -65,7 +69,8 @@ export function createPins(ui, stage, table) {
         amount = p.allin ? 'ALL IN' : p.bet > 0 ? fmt(p.bet) : '';
       } else if (r.turn === p.id) kind = 'turn';
       else if (r.lastPlay?.by === p.id) { kind = 'play'; amount = `${r.tableRank} ${r.lastPlay.count}장`; }
-      e.top.replaceChildren(...(amount ? [h('div', 'num', amount)] : []), ...(kind ? [pinIcon(kind)] : []));
+      if (gone) { amount = '탈락'; kind = null; }
+      e.top.replaceChildren(...(amount ? [h('div', gone ? 'ko out' : 'num', amount)] : []), ...(kind ? [pinIcon(kind)] : []));
       e.el.classList.toggle('has-top', Boolean(amount || kind));
 
       const sub = holdem ? fmtShort(stacks.get(p.id) ?? p.stack ?? 0) : playing ? `${p.handCount ?? 0}장` : '';
@@ -80,7 +85,8 @@ export function createPins(ui, stage, table) {
     potLabel.style.display = 'none';
     if (hidden) return;
     for (const [id, e] of pins) {
-      const head = table.head(id);
+      const head = table.head(id)?.clone();
+      if (head) head.y += lifts.get(id) ?? 0;
       e.el.style.display = head ? '' : 'none';
       if (!head) continue;
       const [x, y] = stage.project(head);
@@ -98,12 +104,15 @@ export function createPins(ui, stage, table) {
 
   return {
     render, frame,
+    emphasize(ids) { winners = ids ? new Set(ids) : null; if (room) render(room); },
+    setLift(id, v) { if (v) lifts.set(id, v); else lifts.delete(id); },
     clearStacks() { stacks.clear(); if (room) render(room); },
     setVisible(v) { layer.style.display = v ? '' : 'none'; hidden = !v; },
     // Top of the pin (above the action pin / amount when shown), for chat bubbles; null when off screen.
     anchor(id) {
       const e = pins.get(id);
-      const head = table.head(id);
+      const head = table.head(id)?.clone();
+      if (head) head.y += lifts.get(id) ?? 0;
       if (!e || !head || hidden) return null;
       const [x, y] = stage.project(head);
       if (x < 0 || y < 0 || x > stage.size.w || y > stage.size.h) return null;

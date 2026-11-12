@@ -21,10 +21,12 @@ const circle = (icon, label, big = false) => {
 export function createHud(ui, { send, getMe }) {
   const row = h('div', 'hud-tl');
   const info = h('div', 'hud-tr');
-  const pill = h('button', 'leave-pill', '나가기');
-  pill.type = 'button';
-  pill.onclick = () => send({ t: 'leave' });
-  ui.append(row, info, pill);
+  const msg = h('span');
+  const leaveBtn = h('button', '', '나가기');
+  leaveBtn.type = 'button';
+  leaveBtn.onclick = () => send({ t: 'leave' });
+  const notice = h('div', 'notice', msg, leaveBtn);
+  ui.append(row, info, notice);
   let panel = null;
   let room = null;
 
@@ -78,7 +80,11 @@ export function createHud(ui, { send, getMe }) {
       row.style.display = info.style.display = r ? '' : 'none';
       const me = r?.players.find((p) => p.id === r.you);
       // The menu is always there, but spectators and the result screen get a plain leave button too.
-      pill.style.display = r && (me?.spectating || r.phase === 'result') ? '' : 'none';
+      const out = me?.eliminated;
+      const text = out ? '탈락했습니다. 관전 중' : me?.spectating && r.phase === 'playing' ? '다음 판부터 참가합니다' : '';
+      msg.textContent = text;
+      notice.style.display = r && (text || me?.spectating || r.phase === 'result') ? '' : 'none';
+      notice.classList.toggle('solo', !text);
       if (!r) { closePanel(); return; }
       const sub = r.mode === 'holdem' ? '텍사스 홀덤 · 블라인드 50/100'
         : r.phase === 'lobby' ? '블러핑 카드 · 대기 중'

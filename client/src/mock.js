@@ -75,13 +75,20 @@ export function startMock(handle, { mode, state }) {
   if (state === 'win') {
     later(1500, () => {
       const winners = [{ id: 'seoyeon', amount: 4900, handName: '풀하우스', cards: ['9h', '9c', '9s', 'Kh', 'Ks'] }];
+      const shown = { me: ['Kh', '9s'], seoyeon: ['Qd', 'Jd'] };
+      event({ k: 'showdown', shown });
       event({ k: 'win', winners, pot: 4900 });
-      send({ t: 'room', state: { ...room, phase: 'result', turn: null, pot: 0, result: { winners, shown: {}, busted: [] },
+      send({ t: 'room', state: { ...room, phase: 'result', turn: null, pot: 0, result: { winners, shown, busted: [] },
         players: room.players.map((p) => (p.id === 'seoyeon' ? { ...p, stack: p.stack + 4900 } : { ...p, bet: 0 })) } });
     });
   }
   if (state === 'allin') later(1500, () => { event({ k: 'allin', id: 'harin' }); send({ t: 'room', state: { ...room, players: room.players.map((p) => (p.id === 'harin' ? { ...p, stack: 0, bet: 16050, allin: true } : p)) } }); });
-  if (state === 'bust') later(1500, () => event({ k: 'bust', id: 'jiwoo', by: 'seoyeon' }));
+  if (state === 'bust') {
+    later(1500, () => {
+      event({ k: 'bust', id: 'jiwoo', by: 'seoyeon' });
+      send({ t: 'room', state: { ...room, phase: 'result', result: { winners: [], shown: {}, busted: ['jiwoo'] }, players: room.players.map((p) => (p.id === 'jiwoo' ? { ...p, stack: 0, eliminated: true, spectating: true } : p)) } });
+    });
+  }
   if (state === 'shot' || state === 'shotsafe') later(1500, () => event({ k: 'shot', id: 'seoyeon', dead: state === 'shot', shots: 3 }));
   if (state === 'flood') {
     later(1500, () => {
