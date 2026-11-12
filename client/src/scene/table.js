@@ -215,7 +215,8 @@ export function createTable(stage) {
 
   function syncBluff(room) {
     if (room.mode !== 'bluff') return;
-    if (plaque && plaque.userData.rank !== room.tableRank) {
+    if (plaque) plaque.visible = room.phase !== 'lobby' && Boolean(room.tableRank);
+    if (plaque && room.tableRank && plaque.userData.rank !== room.tableRank) {
       plaque.material = plaqueMaterials(room.tableRank);
       plaque.userData.rank = room.tableRank;
     }

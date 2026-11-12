@@ -16,8 +16,7 @@ export function createPins(ui, stage, table) {
   const stacks = new Map(); // id -> displayed stack override while the win animation runs
   const dead = new Set();
   let room = null;
-  // The server clock may differ from this device's, so the ring counts from when the turn was first seen.
-  let seenEnd = null;
+  // The server clock may differ from this device's, so the ring counts from when the turn message arrived.
   let turnSeenAt = 0;
 
   const pinIcon = (kind) => {
@@ -42,7 +41,6 @@ export function createPins(ui, stage, table) {
 
   function render(r) {
     room = r;
-    if (r.turnEndsAt !== seenEnd) { seenEnd = r.turnEndsAt; turnSeenAt = Date.now(); }
     const live = new Set(r.players.map((p) => p.id));
     for (const [id, e] of pins) if (!live.has(id)) { e.el.remove(); pins.delete(id); }
     const holdem = r.mode === 'holdem';
@@ -54,11 +52,12 @@ export function createPins(ui, stage, table) {
         e.av = avatar(p, 'pav');
         e.wrap.replaceChildren(e.av, e.ring);
       }
-      const out = holdem ? p.folded : p.alive === false;
+      const playing = r.phase !== 'lobby';
+      const out = playing && (holdem ? p.folded : p.alive === false);
       e.el.classList.toggle('dim', Boolean(out) || dead.has(p.id));
       e.el.classList.toggle('turn', r.turn === p.id);
       e.el.classList.toggle('away', !p.connected);
-      e.av.classList.toggle('dead', dead.has(p.id) || (!holdem && p.alive === false));
+      e.av.classList.toggle('dead', dead.has(p.id) || (playing && !holdem && p.alive === false));
 
       let kind = null;
       let amount = '';
@@ -71,10 +70,10 @@ export function createPins(ui, stage, table) {
       else if (r.lastPlay?.by === p.id) { kind = 'play'; amount = `${r.tableRank} ${r.lastPlay.count}장`; }
       e.top.replaceChildren(...(amount ? [h('div', 'num', amount)] : []), ...(kind ? [pinIcon(kind)] : []));
 
-      const sub = holdem ? fmtShort(stacks.get(p.id) ?? p.stack ?? 0) : `${p.handCount ?? 0}장`;
-      e.nm.replaceChildren(p.name, h('span', '', sub));
+      const sub = holdem ? fmtShort(stacks.get(p.id) ?? p.stack ?? 0) : playing ? `${p.handCount ?? 0}장` : '';
+      e.nm.replaceChildren(h('i', 'nmt', p.name), sub ? h('span', '', sub) : null);
       e.rv.textContent = holdem ? '' : `${p.shots ?? 0} / 6`;
-      e.rv.style.display = holdem ? 'none' : '';
+      e.rv.style.display = holdem || !playing ? 'none' : '';
     }
   }
 
@@ -100,6 +99,7 @@ export function createPins(ui, stage, table) {
 
   return {
     render, frame,
+    noteTurn() { turnSeenAt = Date.now(); },
     get: (id) => pins.get(id),
     setAct(id, kind) { acts.set(id, kind); if (room) render(room); },
     clearActs() { acts.clear(); if (room) render(room); },

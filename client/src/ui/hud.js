@@ -77,6 +77,7 @@ export function createHud(ui, { send, getMe }) {
       row.style.display = info.style.display = r ? '' : 'none';
       if (!r) { closePanel(); return; }
       const sub = r.mode === 'holdem' ? '텍사스 홀덤 · 블라인드 50/100'
+        : r.phase === 'lobby' ? '블러핑 카드 · 대기 중'
         : `블러핑 카드 · ${r.round ?? 0}라운드 · ${r.players.filter((p) => p.alive !== false).length}명 생존`;
       info.replaceChildren(h('b', '', r.code), h('br'), sub);
     },

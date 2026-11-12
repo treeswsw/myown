@@ -108,6 +108,7 @@ function handle(msg) {
       pendingAvatar = null;
       break;
     case 'room':
+      if (msg.state?.turnEndsAt !== state.room?.turnEndsAt) pins.noteTurn();
       state.room = msg.state;
       if (!animator.busy()) applyRoom(msg.state);
       break;

@@ -35,6 +35,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .pin.t { border-color: #e9a53a; background: rgba(46, 30, 8, .95); }
 @keyframes pinpop { from { transform: rotate(-45deg) scale(.2); opacity: 0; } }
 .pl .nm { position: absolute; left: 0; top: 44px; transform: translateX(-50%); white-space: nowrap; font-size: 14px; display: flex; gap: 4px; align-items: baseline; }
+.pl .nm .nmt { font-style: normal; max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
 .pl .nm span { font-family: "Bangers"; color: var(--gold); letter-spacing: .5px; font-size: 13px; -webkit-text-stroke: 0; }
 .pl .rv { position: absolute; left: 22px; top: -44px; font-family: "Bangers"; font-size: 13px; letter-spacing: 1px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; background: rgba(18, 16, 14, .9); border: 1.5px solid #cfc9bd; }
 .pl .emote { position: absolute; left: 44px; top: -30px; font-size: 34px; opacity: 0; filter: drop-shadow(0 2px 4px #000); }
