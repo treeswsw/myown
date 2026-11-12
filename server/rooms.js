@@ -589,7 +589,7 @@ async function dispatch(hub, conn, msg) {
       const t = hub.now();
       conn.chatTimes = conn.chatTimes.filter((x) => t - x < 10_000);
       const last = conn.chatTimes.at(-1);
-      if (conn.chatTimes.length >= 5 || (last !== undefined && t - last < 1000)) return '채팅을 너무 빨리 보내고 있습니다.';
+      if (conn.chatTimes.length >= 5 || (last !== undefined && t - last < 1000)) return '채팅을 너무 빨리 보내고 있습니다';
       conn.chatTimes.push(t);
       room.chat(session, msg.text);
       return null;
