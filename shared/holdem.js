@@ -218,8 +218,10 @@ function finish(st, events, showdown) {
   for (let k = 1; k <= n; k++) fromDealerLeft.push(st.seats[(st.dealer + k) % n].id);
 
   const won = new Map();
+  const liveIds = st.seats.filter((s) => !s.folded).map((s) => s.id);
   for (const pot of pots) {
-    let winners = pot.eligible;
+    // A level only folded players reached (they left or folded) goes to whoever is still in.
+    let winners = pot.eligible.length ? pot.eligible : liveIds;
     if (showdown && winners.length > 1) {
       const top = winners.reduce((b, id) => (compareScores(evals.get(id).score, evals.get(b).score) > 0 ? id : b));
       winners = winners.filter((id) => compareScores(evals.get(id).score, evals.get(top).score) === 0);

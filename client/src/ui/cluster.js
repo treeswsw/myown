@@ -27,7 +27,9 @@ export function createCluster(ui) {
   };
 
   const press = (on) => { if (!room?.myCards) return; peeking = on; renderHole(); };
-  hole.addEventListener('pointerdown', (e) => { hole.setPointerCapture?.(e.pointerId); press(true); });
+  hole.addEventListener('pointerdown', (e) => {
+    try { hole.setPointerCapture(e.pointerId); } catch { /* synthetic pointer */ }
+    press(true); });
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((t) => hole.addEventListener(t, () => press(false)));
   hole.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -55,7 +57,5 @@ export function createCluster(ui) {
       }));
       shown = r.board.length;
     },
-    isPeeking: () => peeking,
-    pressBoard: zoom,
   };
 }

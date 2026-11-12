@@ -14,6 +14,7 @@ test('connection: reconnect mid-hand resumes the same seat', { timeout: 60000 },
   const [h, b, c] = bots;
   h.start();
   await h.waitFor(() => h.state.phase === 'playing', 3000, 'start');
+  await b.waitFor(() => b.state.phase === 'playing' && b.state.myCards, 3000, 'b sees its hand');
   const seat = b.state.players.find((p) => p.id === b.id).seat;
   const holes = b.state.myCards;
   assert.equal(holes.length, 2);

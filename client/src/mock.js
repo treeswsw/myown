@@ -66,7 +66,7 @@ export function startMock(handle, { mode, state }) {
   }
   send({ t: 'room', state: room });
 
-  const later = (ms, fn) => setTimeout(fn, ms);
+  const later = (ms, fn) => setTimeout(() => { fn(); document.body.dataset.fired = '1'; }, ms); // marker lets screenshot scripts sync
   if (state === 'peek') later(1500, () => document.querySelector('.hole').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
   if (state === 'board') later(1500, () => document.querySelector('.comm').click());
   if (state === 'raise') later(1500, () => document.querySelector('.act .wseg:nth-of-type(2)').dispatchEvent(new MouseEvent('click', { bubbles: true })));

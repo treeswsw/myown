@@ -155,6 +155,5 @@ export function createWheel(ui, send) {
       hl = canRaise ? 1 : 0;
       draw();
     },
-    openDial() { if (ctx?.canRaise) { mode = 'dial'; amount = ctx.min; draw(); } },
   };
 }

@@ -67,3 +67,12 @@ fx.update(dt);   // 매 프레임(초 단위)   fx.dispose();
 ## [연출] 검토 반영: 효과음 실패가 콜백을 막지 않음, skipAll 추가
 - `sfx`/`shake`가 없거나 함수가 아니거나 예외를 던져도 무시하고, 각 시점에서 게임 콜백(onPush/onHit/onResult)을 먼저 호출한다. 콜백 자체의 예외는 console.error로만 남기고 프레임 루프를 멈추지 않는다.
 - `fx.skipAll()`: 진행 중인 연출을 즉시 끝낸다(남은 콜백은 모두 실행되고 Promise도 끝남). 탭이 숨겨진 상태(`document.hidden`)에서 play*를 부르면 바로 콜백을 실행하고 끝난다. 탭이 숨겨질 때(visibilitychange) 호스트가 `skipAll()`을 불러 주면 이벤트 큐가 멈추지 않는다.
+
+## [서버] 완료
+엔진(shared/), 서버(server/), 단위·방·누출·서버 테스트(`node --test test/*.test.js` 56개 통과), render.yaml, README, PROTOCOL-NOTES 작성 완료. 검토 지적(관리자): 사이드 팟 빈 적격자, 타이머 예외 보호, 아바타 검증 강화, 4001 종료 코드, 블러핑 reveal 지연, 팟 의미 모두 반영.
+참고: package.json의 `"test": "node --test test/"`는 Node 22에서 실패하므로 `node --test`(또는 `node --test test/*.test.js test/e2e/*.test.js`)로 바꿔야 한다. 지시상 package.json은 건드리지 않았다.
+
+## [QA] e2e 스위트 결과
+- `node --test test/e2e/*.test.js` 24개 전부 통과 (홀덤 2/3/6명 50판, 블러핑 2/4명 20판, 누출, 남용, 접속). `scripts/soak.js`로 부하 확인 가능.
+- 참고(버그 아님): 올인은 레이즈도 콜도 불가능할 때(체크만 가능, 상대 전원 올인) 오류를 돌려준다. 승자 `win.winners[].amount` 합은 `pot`보다 작을 수 있다(돌려받은 미콜 베팅 제외). 70KB 초과 프레임은 연결을 끊는다.
+- 테스트용 타이머 환경 변수: TURN_MS, RESULT_MS, BUST_EXTRA_MS, STREET_MS, REVEAL_MS, GRACE_MS, ROOM_GC_MS.

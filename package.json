@@ -9,7 +9,7 @@
     "dev": "node server/index.js & vite client --host",
     "build": "vite build client --outDir ../dist --emptyOutDir",
     "start": "node server/index.js",
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js test/e2e/*.test.js"
   },
   "dependencies": {
     "pg": "^8.13.1",

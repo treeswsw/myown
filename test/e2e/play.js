@@ -57,7 +57,7 @@ export async function runBluff(server, n, games, { timeout = 120000 } = {}) {
           await host.waitFor(() => wins() >= games || (host.state && host.state.phase === 'lobby'), timeout, `lobby before game ${wins() + 1}`);
           if (wins() >= games) break;
           host.start();
-          await host.waitFor(() => host.state.phase !== 'lobby', 5000, 'bluff start');
+          await host.waitFor(() => host.state.phase !== 'lobby', 5000, `bluff start (errors=${JSON.stringify(host.errors.slice(-3))} state=${JSON.stringify(host.state).slice(0, 500)})`);
         }
       })(),
       wd.promise,

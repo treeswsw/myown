@@ -46,7 +46,7 @@ class Room {
 
   setTimer(name, ms, fn) {
     this.clearTimer(name);
-    this.timers[name] = this.hub.timers.setTimeout(fn, ms);
+    this.timers[name] = this.hub.timers.setTimeout(this.hub.guard(fn), ms);
   }
 
   clearTimer(name) {
@@ -71,7 +71,7 @@ class Room {
     if (!m) return;
     m.connected = connected;
     if (m.grace !== null) this.hub.timers.clearTimeout(m.grace);
-    m.grace = connected ? null : this.hub.timers.setTimeout(() => this.leave(id), this.hub.timing.grace);
+    m.grace = connected ? null : this.hub.timers.setTimeout(this.hub.guard(() => this.leave(id)), this.hub.timing.grace);
     this.push();
   }
 
@@ -424,6 +424,14 @@ export function createHub({
   const hub = {
     store, rng, now, timers, timing: { ...DEFAULT_TIMING, ...timing },
     rooms: new Map(),
+    // A bug in one room's timer must not take the whole server down.
+    guard: (fn) => () => {
+      try {
+        fn();
+      } catch (err) {
+        console.error('timer failed:', err.stack);
+      }
+    },
     sessions: new Map(), // id -> { id, user, conn, room }
 
     send(session, obj) {

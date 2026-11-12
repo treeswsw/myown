@@ -68,7 +68,9 @@ export async function startServer({
   port = 8080, store, distDir = path.join(ROOT, 'dist'), hubOptions = {},
 } = {}) {
   distDir = path.resolve(distDir);
-  const hub = createHub({ store, ...hubOptions });
+  // Unref'd so pending game timers never keep a closing process alive.
+  const timers = { setTimeout: (fn, ms) => setTimeout(fn, ms).unref(), clearTimeout };
+  const hub = createHub({ store, timers, ...hubOptions });
   const server = http.createServer((req, res) => {
     if (req.url === '/healthz') return plain(res, 200, 'ok');
     serveStatic(req, res, distDir).catch(() => {

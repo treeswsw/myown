@@ -5,6 +5,7 @@ export const AVATAR_PREFIX = 'data:image/jpeg;base64,';
 
 const ID_RE = /^[\p{Script=Hangul}A-Za-z0-9_]{2,12}$/u;
 const CODE_RE = /^[A-HJ-NP-Z]{4}$/;
+const JPEG_MAGIC = '/9j/'; // base64 of FF D8 FF
 const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
 const MODES = ['holdem', 'bluff'];
 const ACTIONS = ['fold', 'check', 'call', 'raise', 'allin'];
@@ -18,8 +19,9 @@ export function normalizeId(raw) {
 }
 
 export function validAvatar(data) {
-  return typeof data === 'string' && data.length <= MAX_AVATAR && data.startsWith(AVATAR_PREFIX) &&
-    BASE64_RE.test(data.slice(AVATAR_PREFIX.length));
+  if (typeof data !== 'string' || data.length > MAX_AVATAR || !data.startsWith(AVATAR_PREFIX)) return false;
+  const body = data.slice(AVATAR_PREFIX.length);
+  return body.length % 4 === 0 && body.startsWith(JPEG_MAGIC) && BASE64_RE.test(body);
 }
 
 const bad = (error) => ({ ok: false, error });

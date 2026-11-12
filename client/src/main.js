@@ -121,7 +121,7 @@ function handle(msg) {
 }
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { animator.flush(); applyRoom(state.room); } });
-stage.onFrame((dt) => { pins.frame(); special.update(dt / 1000); });
+stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); });
 
 const mock = new URLSearchParams(location.search).get('mock');
 if (mock) {

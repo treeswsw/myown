@@ -55,7 +55,7 @@ for (const n of [2, 3, 6]) {
     // after the game: chips conserved (stacks + banks = initial + refills*10000)
     const ids = bots.map((b) => b.id);
     for (const b of bots) b.leave();
-    await new Promise((r) => setTimeout(r, 400));
+    for (const b of bots) await b.waitFor(() => b.state === null, 5000, 'room:null after leave');
     await stopAll(bots);
     const acc = await readAccounts(server, ids);
     let total = 0;

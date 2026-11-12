@@ -34,8 +34,11 @@ for (const [n, games] of [[2, 20], [4, 20]]) {
       }
       if (s.phase === 'playing') {
         assert.ok(alive.length >= 2, 'playing with <2 alive');
+        if (s.turn === null) assert.ok(s.reveal, 'turn may only be null while a reveal is shown');
+      }
+      if (s.phase === 'playing' && s.turn) {
         const turnP = s.players.find((p) => p.id === s.turn);
-        assert.ok(turnP && turnP.alive, 'turn must belong to a living player');
+        assert.ok(turnP && turnP.alive, `turn must belong to a living player: ${JSON.stringify(s).slice(0, 700)}`);
         if (turnP.handCount === 0) {
           // forced LIAR: nobody except the last player may hold cards
           assert.ok(s.lastPlay, 'empty-handed player on turn needs a lastPlay');

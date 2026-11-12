@@ -161,6 +161,22 @@ test('forceFold out of turn ends the hand when one player remains', () => {
   assert.equal(st.result.winners[0].id, 'p0');
 });
 
+test('forceFold when the only live player contributed nothing: dead chips go to them', () => {
+  const { st } = rigged([1000, 1000, 1000, 1000], {
+    p0: ['As', 'Ad'], p1: ['2c', '3d'], p2: ['4c', '5d'], p3: ['6c', '8d'],
+  }, ['7h', '8c', '9s', 'Jd', '3c'], 0);
+  // BB short: posted 1 chip all-in
+  Object.assign(st.seats[2], { bet: 1, total: 1, stack: 0, allin: true });
+  st.seats[1].stack = 950; st.seats[1].bet = 50; st.seats[1].total = 50;
+  const before = st.seats.reduce((n, s) => n + s.stack + s.total, 0);
+  H.forceFold(st, 'p1');
+  H.forceFold(st, 'p2');
+  H.forceFold(st, 'p3');
+  assert.equal(st.phase, 'done');
+  assert.equal(st.result.winners[0].id, 'p0');
+  assert.equal(st.seats.reduce((n, s) => n + s.stack, 0), before);
+});
+
 test('chips are conserved over thousands of random hands', () => {
   const rng = seeded(20240601);
   let hands = 0;
@@ -176,6 +192,10 @@ test('chips are conserved over thousands of random hands', () => {
       let guard = 0;
       while (st.phase === 'betting') {
         assert.ok(++guard < 200, 'hand must terminate');
+        if (rng() < 0.04) {
+          H.forceFold(st, st.seats[Math.floor(rng() * st.seats.length)].id);
+          continue;
+        }
         const id = st.seats[st.turn].id;
         const o = H.options(st, id);
         const roll = rng();
