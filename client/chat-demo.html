@@ -24,7 +24,7 @@ const state = q.get('state') || 'bubbles';
 const t = q.get('t');
 updateScale();
 // pin tops (screen px at 1280x720) of the players in the reference mockup
-const TOPS = { 지우: [243, 106], 서연: [507, 28], 태호: [729, 8], 하린: [1152, 254], 민수: [448, 515] };
+const TOPS = { 지우: [243, 106], 서연: [507, 28], 태호: [729, 8], 하린: [1152, 254], 민수: [448, 515], 중앙: [640, 360] };
 const away = new Set(q.get('away')?.split(',') ?? []);
 const getAnchor = (id) => (TOPS[id] && !away.has(id) ? { x: TOPS[id][0] / 1280 * innerWidth, y: TOPS[id][1] / 720 * innerHeight } : null);
 const chat = createChat({ onSend: (text) => { console.log('send', text); chat.push({ id: '민수', name: '민수', text, ts: Date.now() }, { mine: true }); }, getAnchor });
@@ -65,6 +65,7 @@ if (state === 'lobby') {
   chat.push(M('민수', '#  콜 받아라'), { mine: true });
   chat.push(M('하린', '평범한 말풍선'));
   chat.push(M('지우', '#'));
+  chat.push(M('중앙', '#펠트 위에서도 읽혀야 함'));
   freeze();
 } else if (state === 'bigreplace') {
   chat.push(M('서연', '#첫 번째 강조'));
