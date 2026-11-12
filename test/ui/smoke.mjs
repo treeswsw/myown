@@ -182,6 +182,23 @@ async function runContext(browser, server, name, cfg) {
       await gone('.chat-in');
     });
 
+    await step('chat: a room update while typing keeps focus and text', async () => {
+      await press('.chat-btn');
+      await visible('.chat-in');
+      await page.focus('.chat-in');
+      await page.keyboard.type('keepme');
+      // bot changes its avatar -> server pushes a room update to the page
+      const seen = bot.messages.length;
+      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' });
+      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'room'), T, 'room update after avatar');
+      await sleep(1000);
+      const r = await page.evaluate(() => ({ focused: document.activeElement?.classList.contains('chat-in'), v: document.querySelector('.chat-in')?.value }));
+      check('chat input still focused with text after room update', r.focused && r.v === 'keepme', JSON.stringify(r));
+      await page.fill('.chat-in', '');
+      if (await loc('.chat-in').isVisible()) await press('.chat-btn');
+      await gone('.chat-in');
+    });
+
     await step('emote panel: send emote 0, bot receives the emote event', async () => {
       await press('button[aria-label="이모티콘"]');
       await visible('.hpanel .ep-grid.g3 button');

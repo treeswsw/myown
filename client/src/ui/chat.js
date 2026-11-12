@@ -136,7 +136,10 @@ export function createChat({ onSend, getAnchor }) {
     dock.hidden = !lobby;
     col.hidden = lobby;
     button.hidden = lobby || !enabled;
-    (lobby ? dock : col).insertBefore(bar, lobby ? null : sheet);
+    // Only move the bar when it is not already in place: re-inserting a focused input drops focus and breaks IME composition.
+    const home = lobby ? dock : col;
+    const want = lobby ? null : sheet;
+    if (bar.parentNode !== home || (lobby ? home.lastChild !== bar : bar.nextSibling !== want)) home.insertBefore(bar, want);
     logBtn.hidden = lobby;
     bar.hidden = lobby ? false : !isOpen;
     if (lobby) renderDock();
@@ -227,9 +230,11 @@ export function createChat({ onSend, getAnchor }) {
       renderLogs();
     },
     open, close, toggle,
-    setMode(m) { mode = m; layout(); },
+    setMode(m) { if (m === mode) return; mode = m; layout(); },
     setEnabled(v) {
-      enabled = Boolean(v);
+      v = Boolean(v);
+      if (v === enabled) return;
+      enabled = v;
       if (!enabled) {
         close();
         layer.replaceChildren();
