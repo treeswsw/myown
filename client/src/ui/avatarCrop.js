@@ -1,22 +1,16 @@
-// openAvatarCrop(file) -> Promise<string|null>: 160x160 JPEG data URL (< 55KB) or null if cancelled/failed.
+import { h } from './dom.js';
+
+// openAvatarCrop(file) -> Promise<string|null>: 160x160 JPEG data URL (data URL <= 60KB) or null if cancelled/failed.
 const V = 220; // viewport px
 const OUT = 160;
-const MAX_BYTES = 55 * 1024;
-
-function h(tag, cls, text) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text != null) e.textContent = text;
-  return e;
-}
+const MAX_LEN = 60 * 1024; // server limit on the data URL string length
 
 function encode(canvas) {
-  let url = '';
   for (let q = 0.9; q >= 0.3; q -= 0.1) {
-    url = canvas.toDataURL('image/jpeg', q);
-    if ((url.length - 23) * 0.75 < MAX_BYTES) break;
+    const url = canvas.toDataURL('image/jpeg', q);
+    if (url.length <= MAX_LEN) return url;
   }
-  return url;
+  return null;
 }
 
 export async function openAvatarCrop(file) {
@@ -43,7 +37,8 @@ export async function openAvatarCrop(file) {
   ok.type = cancel.type = 'button';
   const btns = h('div', 'crop-btns');
   btns.append(cancel, ok);
-  side.append(h('p', 'crop-hint', '끌어서 옮기고, 확대해서 맞추세요'), slider, btns);
+  const hint = h('p', 'crop-hint', '끌어서 옮기고, 확대해서 맞추세요');
+  side.append(hint, slider, btns);
   box.append(view, side);
   overlay.append(box);
 
@@ -113,7 +108,7 @@ export async function openAvatarCrop(file) {
     };
     const onKey = (e) => {
       if (e.key === 'Escape') { e.stopPropagation(); finish(null); }
-      else if (e.key === 'Enter' && e.target === view) finish(result());
+      else if (e.key === 'Enter' && e.target === view) submit();
     };
     function result() {
       const out = document.createElement('canvas');
@@ -126,6 +121,11 @@ export async function openAvatarCrop(file) {
     }
     document.addEventListener('keydown', onKey, true);
     cancel.addEventListener('click', () => finish(null));
-    ok.addEventListener('click', () => finish(result()));
+    function submit() {
+      const url = result();
+      if (url) finish(url);
+      else hint.textContent = '사진이 너무 큽니다. 다른 사진을 골라 주세요.';
+    }
+    ok.addEventListener('click', submit);
   });
 }

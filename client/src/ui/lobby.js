@@ -1,5 +1,6 @@
 import './lobby.css';
 import { openAvatarCrop } from './avatarCrop.js';
+import { h, avatar, fmt } from './dom.js';
 
 // createLobby({onLogin(id, avatarDataUrl|null), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
@@ -13,12 +14,6 @@ const ID_RE = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9_]{2,12}$/;
 const LAST_ID_KEY = 'gs.lastId';
 const SPADE = 'M12 2C8 7 3 9.5 3 14a4.5 4.5 0 0 0 7.6 3.2L9.5 22h5l-1.1-4.8A4.5 4.5 0 0 0 21 14c0-4.5-5-7-9-12z';
 
-function h(tag, cls, text) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text != null) e.textContent = text;
-  return e;
-}
 function button(label, cls, onClick) {
   const b = h('button', 'btn ' + cls, label);
   b.type = 'button';
@@ -49,25 +44,6 @@ function logo() {
   const t = h('h1', 'logo');
   t.append(i, document.createTextNode('갱식 클럽'));
   return t;
-}
-
-// Photo or initial-letter avatar. `tag` is div (static) or button (tap to change).
-function avatar(tag, user, label) {
-  const e = h(tag, 'av');
-  if (tag === 'button') { e.type = 'button'; e.setAttribute('aria-label', label); }
-  setAvatar(e, user);
-  return e;
-}
-function setAvatar(e, user) {
-  e.replaceChildren();
-  if (user && user.avatar) {
-    const img = h('img');
-    img.src = user.avatar;
-    img.alt = '';
-    e.append(img);
-  } else if (user && user.name) {
-    e.append(h('span', 'av-letter', [...user.name][0].toUpperCase()));
-  }
 }
 
 function modeCards(onPick) {
@@ -158,8 +134,9 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   // ---------- 2. logged in, no room ----------
   const home = h('div', 'pair');
   const profile = h('section', 'panel');
-  const meAv = avatar('button', null, '프로필 사진 바꾸기');
-  meAv.classList.add('big');
+  const meAv = h('button', 'av-btn');
+  meAv.type = 'button';
+  meAv.setAttribute('aria-label', '프로필 사진 바꾸기');
   meAv.addEventListener('click', () => choosePhoto((d) => onAvatar(d)));
   const meName = h('div', 'me-name');
   const meBank = h('div', 'chips');
@@ -254,7 +231,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     list.replaceChildren(...room.players.map((p) => {
       const li = h('li', p.connected === false ? 'off' : '');
       const info = h('div', 'p-name', p.name);
-      li.append(avatar('div', p), info);
+      li.append(avatar(p), info);
       if (p.id === room.hostId) li.append(h('span', 'badge', '방장'));
       if (p.id === room.you) li.append(h('span', 'badge me', '나'));
       if (p.connected === false) li.append(h('span', 'badge off', '연결 끊김'));
@@ -278,10 +255,10 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     home.hidden = !user || !!room;
     roomView.hidden = !user || !room;
     if (user) {
-      setAvatar(meAv, user);
+      meAv.replaceChildren(avatar(user, 'av big'));
       meName.textContent = user.name;
-      meBank.textContent = `${(user.bank ?? 0).toLocaleString('ko-KR')} 칩`;
-      for (const [k] of statDefs) statVals[k].textContent = (user.stats?.[k] ?? 0).toLocaleString('ko-KR');
+      meBank.textContent = `${fmt(user.bank ?? 0)} 칩`;
+      for (const [k] of statDefs) statVals[k].textContent = fmt(user.stats?.[k] ?? 0);
     }
     if (user && room) renderRoom();
   }

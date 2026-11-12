@@ -39,7 +39,7 @@ export function createGame(ids, rng = secureRng) {
       id, hand: [], alive: true, shots: 0, bullet: Math.floor(rng() * CHAMBERS),
     })),
     tableRank: null, round: 0, turn: 0, pile: null, reveal: null,
-    phase: 'playing', winner: null, rng,
+    phase: 'playing', winner: null, next: 0, rng,
   };
   const events = [dealRound(game, Math.floor(rng() * ids.length), rng)];
   return { game, events };
@@ -103,33 +103,48 @@ export function liar(game, id) {
     { k: 'reveal', ...game.reveal },
     { k: 'shot', id: loser.id, dead, shots: loser.shots },
   ];
-  settle(game, loserIdx, events);
+  game.pile = null;
+  game.turn = -1;
+  // The server pauses here ('reveal') so the penalty can be shown; nextRound() continues.
+  game.phase = 'reveal';
+  game.next = loserIdx;
+  declareWinner(game, events);
   return { ok: true, events };
 }
 
-// After a penalty or a departure: finish the game or start the next round.
-function settle(game, fromIdx, events) {
+function declareWinner(game, events) {
   const alive = game.players.filter((p) => p.alive);
-  if (alive.length === 1) {
-    game.phase = 'done';
-    game.winner = alive[0].id;
-    game.pile = null;
-    events.push({ k: 'bluffWin', id: alive[0].id });
-    return;
-  }
-  const starter = game.players[fromIdx].alive ? fromIdx : nextAlive(game, fromIdx);
-  events.push(dealRound(game, starter, game.rng));
+  if (alive.length > 1) return false;
+  game.phase = 'done';
+  game.winner = alive[0].id;
+  game.pile = null;
+  game.turn = -1;
+  events.push({ k: 'bluffWin', id: alive[0].id });
+  return true;
 }
 
-// A player who leaves is eliminated and the round restarts so no turn is left dangling.
+function starterFrom(game, idx) {
+  return game.players[idx].alive ? idx : nextAlive(game, idx);
+}
+
+// Deals the next round after a penalty (the penalised survivor starts, else the next survivor).
+export function nextRound(game) {
+  if (game.phase !== 'reveal') return { ok: true, events: [] };
+  game.phase = 'playing';
+  return { ok: true, events: [dealRound(game, starterFrom(game, game.next), game.rng)] };
+}
+
+// A player who leaves is eliminated; during play the round restarts so no turn is left dangling.
 export function removePlayer(game, id) {
   const idx = game.players.findIndex((p) => p.id === id);
-  if (game.phase !== 'playing' || idx < 0 || !game.players[idx].alive) return { ok: true, events: [] };
+  if (game.phase === 'done' || idx < 0 || !game.players[idx].alive) return { ok: true, events: [] };
   game.players[idx].alive = false;
   game.players[idx].hand = [];
-  game.reveal = null;
   const events = [];
-  settle(game, idx, events);
+  if (!declareWinner(game, events) && game.phase === 'playing') {
+    game.reveal = null;
+    events.push(dealRound(game, starterFrom(game, idx), game.rng));
+  }
   return { ok: true, events };
 }
 

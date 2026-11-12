@@ -28,3 +28,10 @@ lobby.setUser(user|null); lobby.setRoom(roomState|null); lobby.setError(msg|null
 - `setError`는 현재 화면의 입력 근처에 표시(서버 error.msg를 그대로 넘기면 됨). 다음 입력 때 지워짐(로그인/입장 코드).
 - 한글 폰트(Black Han Sans, Bangers, Noto Sans KR)는 index.html에서 불러와야 함(데모는 lobby-demo.html 참고). 데모: `lobby-demo.html?state=out|in|room-host|room-guest|crop`.
 - `avatarCrop.js`: `openAvatarCrop(file) -> Promise<string|null>`(160x160 JPEG, 55KB 미만).
+
+## [검토] 1차 검토 — 양쪽이 알아야 할 점
+- 이벤트 형식은 서버 결정대로 `{t:'event', e:{k:'<종류>', ...}}`. 화면 쪽은 `msg.e.k`로 분기할 것(`msg.e`가 종류 문자열이 아님). 이모티콘 번호는 `msg.e.e`.
+- 홀덤 올인은 `action{a:'call'|'raise'}` 직후 `allin{id}`로 온다(`a:'allin'` 이벤트는 없음). 클라이언트→서버 `act{a:'allin'}`은 레이즈가 가능할 때만 받아들여지고, 못 하면 짧은 올인 콜로 처리, 둘 다 아니면 오류.
+- 한 번의 처리에서 이벤트가 몰아서 온다: 올인 런아웃이면 `street`×N + `showdown` + `win`이, 블러핑 LIAR면 `liar`+`reveal`+`shot`+다음 라운드 `bluffDeal`이 같은 묶음이고, 바로 뒤 `room`은 이미 다음 상태다. 화면은 연출 큐를 두고 연출이 끝날 때까지 해당 부분(보드·손패·reveal)의 갱신을 미뤄야 한다. 서버에도 지연을 요청함(아래 검토 기록 참고).
+- 블러핑 `myHand`는 무늬 없는 `'A'|'K'|'Q'|'J'`. 시안의 무늬는 화면 쪽에서 장식으로 정할 것.
+- 로그아웃 전용 메시지는 규약에 없다. 화면은 localStorage 아이디를 지우고 소켓을 닫았다 다시 여는 방식으로 처리(서버는 소켓 종료 = 연결 끊김으로 처리하므로 방에 있었다면 60초 자리 유지 후 퇴장).

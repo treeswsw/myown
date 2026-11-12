@@ -48,7 +48,10 @@ test('liar on a truthful play punishes the caller; jokers count as any card', ()
   assert.equal(game.reveal.lie, false);
   assert.equal(game.reveal.loser, 'b');
   assert.equal(game.players[1].shots, 1);
-  assert.deepEqual(r.events.map((e) => e.k), ['liar', 'reveal', 'shot', 'bluffDeal']);
+  assert.deepEqual(r.events.map((e) => e.k), ['liar', 'reveal', 'shot']);
+  assert.equal(game.phase, 'reveal');
+  assert.equal(B.play(game, 'a', [0]).ok, false, 'nobody acts during the reveal pause');
+  assert.deepEqual(B.nextRound(game).events.map((e) => e.k), ['bluffDeal']);
   assert.equal(cur(game).id, 'b', 'penalised survivor starts the next round');
   assert.equal(game.players.every((p) => p.hand.length === 5), true);
 });
@@ -74,6 +77,7 @@ test('revolver: n-th pull kills when n-1 equals the bullet position', () => {
     rig(game, [['Q', 'Q', 'Q', 'Q', 'Q'], ['K', 'K', 'K', 'K', 'K'], ['K', 'K', 'K', 'K', 'K']], 'K', 0);
     ok(B.play(game, 'a', [0])); // a lies
     ok(B.liar(game, 'b'));
+    B.nextRound(game);
     assert.equal(game.players[0].shots, n);
     assert.equal(game.players[0].alive, n < 3);
     assert.equal(game.reveal.dead, n === 3);
@@ -134,7 +138,10 @@ test('full random games always terminate with one survivor', () => {
       assert.ok(step < 2000);
       const me = cur(game);
       assert.ok(me.alive);
-      if (me.hand.length === 0 || (game.pile && rng() < 0.4)) ok(B.liar(game, me.id));
+      if (me.hand.length === 0 || (game.pile && rng() < 0.4)) {
+        ok(B.liar(game, me.id));
+        B.nextRound(game);
+      }
       else ok(B.play(game, me.id, [0, 1, 2].slice(0, 1 + Math.floor(rng() * Math.min(3, me.hand.length)))));
     }
     assert.equal(game.players.filter((p) => p.alive).length, 1);

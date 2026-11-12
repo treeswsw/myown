@@ -10,6 +10,8 @@ export const DEFAULT_TIMING = {
   roomGc: 60_000, // empty room is deleted after this
   result: 6_000, // result display before the next hand / back to lobby
   bustExtra: 3_000, // extra display time when someone busted
+  street: 1_200, // extra result time per community card street dealt by an all-in run-out
+  reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
 const MAX_PLAYERS = { holdem: 6, bluff: 4 };
 const BUY_IN = 5000;
@@ -32,6 +34,7 @@ class Room {
     this.result = null;
     this.lastDealer = null;
     this.turnEndsAt = null;
+    this.armedFor = null;
     this.timers = { turn: null, next: null, gc: null };
   }
 
@@ -96,8 +99,9 @@ class Room {
       this.setTimer('gc', this.hub.timing.roomGc, () => this.hub.rooms.delete(this.code));
       return;
     }
-    if (this.hand && this.phase === 'playing') this.afterHoldem(events);
-    else if (this.game && this.phase === 'playing') this.afterBluff(events);
+    // A departure must not give the player on turn a fresh clock.
+    if (this.hand && this.phase === 'playing') this.afterHoldem(events, false);
+    else if (this.game && this.phase === 'playing') this.afterBluff(events, false);
     else this.push(events);
   }
 
@@ -169,6 +173,7 @@ class Room {
     }
     this.phase = 'playing';
     this.result = null;
+    this.armedFor = null;
     this.afterHoldem(events);
   }
 
@@ -180,10 +185,10 @@ class Room {
     return null;
   }
 
-  afterHoldem(events) {
+  afterHoldem(events, reset = true) {
     const { st } = this.hand;
     if (st.phase === 'done') this.endHand(events);
-    else this.armTurn();
+    else this.armTurn(reset);
     this.push(events);
   }
 
@@ -212,7 +217,9 @@ class Room {
     const by = res.winners[0].id;
     for (const id of res.busted) events.push({ k: 'bust', id, by });
     this.phase = 'result';
-    const wait = this.hub.timing.result + (res.busted.length ? this.hub.timing.bustExtra : 0);
+    const runout = events.filter((ev) => ev.k === 'street').length;
+    const wait = this.hub.timing.result + runout * this.hub.timing.street +
+      (res.busted.length ? this.hub.timing.bustExtra : 0);
     this.setTimer('next', wait, () => this.startHoldem());
   }
 
@@ -225,6 +232,7 @@ class Room {
     for (const m of this.members) m.inHand = players.includes(m);
     this.phase = 'playing';
     this.result = null;
+    this.armedFor = null;
     this.afterBluff(events);
   }
 
@@ -244,9 +252,14 @@ class Room {
     return null;
   }
 
-  afterBluff(events) {
+  afterBluff(events, reset = true) {
     const { g, users } = this.game;
-    if (g.phase === 'done') {
+    if (g.phase === 'reveal') {
+      this.clearTimer('turn');
+      this.turnEndsAt = null;
+      this.armedFor = null;
+      this.setTimer('next', this.hub.timing.reveal, () => this.afterBluff(bluff.nextRound(g).events));
+    } else if (g.phase === 'done') {
       this.clearTimer('turn');
       this.turnEndsAt = null;
       for (const [id, user] of users) {
@@ -259,7 +272,7 @@ class Room {
       this.phase = 'result';
       this.setTimer('next', this.hub.timing.result, () => this.toLobby());
     } else {
-      this.armTurn();
+      this.armTurn(reset);
     }
     this.push(events);
   }
@@ -284,12 +297,16 @@ class Room {
       const { st } = this.hand;
       return st.turn >= 0 ? st.seats[st.turn].id : null;
     }
-    return this.game.g.players[this.game.g.turn].id;
+    const g = this.game.g;
+    return g.phase === 'playing' ? g.players[g.turn].id : null;
   }
 
-  armTurn() {
+  armTurn(reset) {
+    const id = this.turnId();
+    if (!reset && id === this.armedFor && this.timers.turn !== null) return;
     this.clearTimer('turn');
-    if (this.turnId() === null) {
+    this.armedFor = id;
+    if (id === null) {
       this.turnEndsAt = null;
       return;
     }
@@ -354,13 +371,16 @@ class Room {
     });
     const mine = seatOf(viewerId);
     const o = st ? holdem.options(st, viewerId) : null;
-    const { pots, refund } = st ? holdem.buildPots(st.seats) : { pots: [], refund: null };
+    // While betting, pots only hold collected chips; the current street's bets stay in front of the players.
+    const betting = st?.phase === 'betting';
+    const collected = st ? st.seats.map((s) => ({ ...s, total: betting ? s.total - s.bet : s.total })) : [];
+    const { pots, refund } = holdem.buildPots(collected);
     return {
       ...base,
       players,
       board: st ? [...st.board] : [],
-      pot: st ? holdem.totalPot(st) : 0,
-      pots: refund ? [...pots, { amount: refund.amount, eligible: [refund.id] }] : pots,
+      pot: st ? holdem.totalPot({ seats: collected }) : 0,
+      pots: refund && !betting ? [...pots, { amount: refund.amount, eligible: [refund.id] }] : pots,
       street: st?.street ?? 0,
       toCall: o?.toCall ?? 0,
       minRaiseTo: o?.minRaiseTo ?? 0,

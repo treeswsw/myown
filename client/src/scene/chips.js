@@ -38,11 +38,6 @@ export function stackGroup(amount) {
   return g;
 }
 
-export const stackSize = (amount) => {
-  const cols = chipColumns(amount).length;
-  return { w: Math.min(4, cols) * CR * 2.1, d: Math.ceil(cols / 4) * CR * 2.05 };
-};
-
 // Loose pile for the pot: deterministic per amount so rebuilds do not reshuffle.
 export function pileGroup(amount, spread = 0.16) {
   const g = new THREE.Group();

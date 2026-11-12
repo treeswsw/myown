@@ -19,7 +19,7 @@ h2{font-family:"Black Han Sans",sans-serif;font-weight:400;font-size:22px;margin
 .err{margin:0;color:#ff8f8f;font-size:13px;text-align:center;min-height:1.2em}
 .err:empty{min-height:0}
 
-.photo,.av.big{width:112px;height:112px;border-radius:50%;flex:none}
+.photo{width:112px;height:112px;border-radius:50%;flex:none}
 .photo{align-self:center;border:3px dashed rgba(255,255,255,.55);background:none;color:rgba(255,255,255,.75);font:inherit;font-size:13px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;overflow:hidden;padding:0}
 .photo b{font-size:34px;font-weight:300;line-height:1}
@@ -27,9 +27,10 @@ h2{font-family:"Black Han Sans",sans-serif;font-weight:400;font-size:22px;margin
 .photo img,.av img{width:100%;height:100%;object-fit:cover;display:block}
 .av{width:40px;height:40px;border-radius:50%;background:#3a3f46;border:2px solid #fff;display:flex;align-items:center;justify-content:center;
   overflow:hidden;padding:0;flex:none;color:#fff;font:inherit}
-.av.big{width:72px;height:72px;cursor:pointer}
-.av-letter{font-family:"Black Han Sans",sans-serif;font-size:1.2em}
-.av.big .av-letter{font-size:30px}
+.av-btn{background:none;border:0;padding:0;border-radius:50%;cursor:pointer;flex:none;display:block}
+.av.big{width:72px;height:72px}
+.av.letter span{font-family:"Black Han Sans",sans-serif;font-size:1.2em}
+.av.big.letter span{font-size:30px}
 
 .field{height:54px;border-radius:16px;background:rgba(255,255,255,.1);border:1px solid var(--line);padding:0 18px;font:inherit;font-size:17px;color:#fff;width:100%;min-width:0}
 .field::placeholder{color:rgba(255,255,255,.5)}
@@ -90,7 +91,7 @@ h2{font-family:"Black Han Sans",sans-serif;font-weight:400;font-size:22px;margin
   .field{height:40px;font-size:15px;border-radius:12px}
   .btn{height:40px;font-size:15px}
   .btn.link{height:auto}
-  .av.big{width:52px;height:52px}.av.big .av-letter{font-size:22px}.av{width:34px;height:34px}
+  .av.big{width:52px;height:52px}.av.big.letter span{font-size:22px}.av{width:34px;height:34px}
   .me-name{font-size:18px}.chips{font-size:14px}
   .stats{gap:5px}.stats div{padding:4px 10px;border-radius:10px}.stats dt{font-size:10px}.stats dd{font-size:14px}
   .modes{gap:8px}.mode{padding:8px 10px;border-radius:14px}.mode b{font-size:15px}.mode span{font-size:11px}

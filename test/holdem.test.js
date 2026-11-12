@@ -110,14 +110,14 @@ test('odd chips go to the winner closest left of the dealer', () => {
   const { st } = rigged([1000, 1000, 25], {
     p0: ['As', 'Kd'], p1: ['4d', '5d'], p2: ['Ac', 'Kh'],
   }, ['7h', '8c', '9s', 'Jd', '3c'], 0);
-  ok(H.act(st, 'p0', 'call')); // matches 50
-  ok(H.act(st, 'p1', 'check'));
+  ok(H.act(st, 'p0', 'call')); // curBet stays 100 although the BB posted 25
+  ok(H.act(st, 'p1', 'call'));
   while (st.phase === 'betting') ok(H.act(st, st.seats[st.turn].id, 'check'));
   const byId = Object.fromEntries(st.seats.map((s) => [s.id, s.stack]));
-  // main pot 75 splits 38 (p2, first left of dealer) / 37 (p0); side pot 50 to p0.
+  // main pot 75 splits 38 (p2, first left of dealer) / 37 (p0); side pot 150 to p0.
   assert.equal(byId.p2, 38);
-  assert.equal(byId.p0, 950 + 37 + 50);
-  assert.equal(byId.p1, 950);
+  assert.equal(byId.p0, 900 + 37 + 150);
+  assert.equal(byId.p1, 900);
 });
 
 test('everyone all-in preflop: board is run out automatically', () => {

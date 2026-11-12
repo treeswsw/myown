@@ -44,7 +44,7 @@ export function startHand(players, dealer, rng = secureRng) {
   const bb = (sb + 1) % n;
   const sbPaid = pay(seats[sb], SB);
   const bbPaid = pay(seats[bb], BB);
-  st.curBet = Math.max(sbPaid, bbPaid);
+  st.curBet = BB; // a short big blind does not lower what the others must call
   events.push({
     k: 'blinds',
     sb: { id: seats[sb].id, amount: sbPaid },

@@ -124,6 +124,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const timing = Object.fromEntries(Object.entries({
     turn: envNum('TURN_MS'), grace: envNum('GRACE_MS'), roomGc: envNum('ROOM_GC_MS'),
     result: envNum('RESULT_MS'), bustExtra: envNum('BUST_EXTRA_MS'),
+    street: envNum('STREET_MS'), reveal: envNum('REVEAL_MS'),
   }).filter(([, v]) => Number.isFinite(v)));
   const app = await startServer({
     port: process.env.PORT === undefined ? 8080 : Number(process.env.PORT),

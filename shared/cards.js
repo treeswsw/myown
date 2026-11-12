@@ -1,10 +1,8 @@
-import { randomInt } from 'node:crypto';
-
 export const RANKS = '23456789TJQKA';
 export const SUITS = 'shdc';
 
 export function secureRng() {
-  return randomInt(2 ** 32) / 2 ** 32;
+  return globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
 }
 
 export function rankValue(card) {

@@ -113,7 +113,7 @@ export class Bot {
     if (s.toCall === 0) {
       if (r < 0.55) return { t: 'act', a: 'check' };
       if (r < 0.62) return { t: 'act', a: 'fold' };
-      if (r < 0.66) return { t: 'act', a: 'allin' };
+      if (r < 0.66 && canRaise) return { t: 'act', a: 'allin' };
     } else {
       if (r < 0.2) return { t: 'act', a: 'fold' };
       if (r < 0.6) return { t: 'act', a: 'call' };
