@@ -8,6 +8,7 @@ import { createCluster } from './ui/cluster.js';
 import { createWheel } from './ui/wheel.js';
 import { createBluff } from './ui/bluff.js';
 import { createLobby } from './ui/lobby.js';
+import { createChat } from './ui/chat.js';
 import { h, updateScale, view } from './ui/dom.js';
 import { createAnimator } from './anim/events.js';
 import { createSpecialFX } from './anim/special/index.js';
@@ -32,6 +33,10 @@ const hud = createHud(ui, { send, getMe: () => state.me });
 const cluster = createCluster(ui);
 const wheel = createWheel(ui, send);
 const bluff = createBluff(ui, send);
+
+const chat = createChat({ onSend: (text) => send({ t: 'chat', text }), getAnchor: (id) => pins.anchor(id) });
+document.body.append(chat.el, chat.button);
+chat.button.hidden = true;
 
 let pendingAvatar = null;
 const lobby = createLobby({
@@ -71,7 +76,7 @@ let wasMyTurn = false;
 function applyRoom(room) {
   shown = room;
   if (!room) {
-    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null);
+    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null); chat.close(); chat.button.hidden = true;
     cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
     lobby.setRoom(null); lobby.show();
     return;
@@ -82,6 +87,8 @@ function applyRoom(room) {
   const holdem = room.mode === 'holdem';
   const myTurn = live && room.turn === room.you && Boolean(me) && !me.spectating;
   const inLobby = room.phase === 'lobby';
+  chat.button.hidden = false;
+  chat.setMode(inLobby ? 'lobby' : 'game');
   table.sync(room);
   pins.render(room);
   pins.setVisible(!inLobby);
@@ -116,17 +123,21 @@ function handle(msg) {
       if (!animator.busy()) applyRoom(msg.state);
       break;
     case 'event':
-      if (msg.e.k === 'emote') pins.emote(msg.e.id, msg.e.e); else { wheel.update(null, null, false); animator.push(msg.e); }
+      // Emotes and chat are not choreography: they bypass the queue so animations never delay them.
+      if (msg.e.k === 'emote') pins.emote(msg.e.id, msg.e.e);
+      else if (msg.e.k === 'chat') chat.push(msg.e, { mine: msg.e.id === state.room?.you });
+      else if (msg.e.k === 'chatLog') chat.setLog(msg.e.items, state.room?.you);
+      else { wheel.update(null, null, false); animator.push(msg.e); }
       break;
     case 'error':
-      if (!state.room || state.room.phase === 'lobby') lobby.setError(msg.msg); else toast(msg.msg);
+      if (msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
       break;
     default: break;
   }
 }
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { animator.flush(); applyRoom(state.room); } });
-stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); });
+stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); });
 
 const mock = new URLSearchParams(location.search).get('mock');
 if (mock) {

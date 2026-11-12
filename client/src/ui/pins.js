@@ -104,6 +104,15 @@ export function createPins(ui, stage, table) {
     render, frame,
     clearStacks() { stacks.clear(); if (room) render(room); },
     setVisible(v) { layer.style.display = v ? '' : 'none'; hidden = !v; },
+    // Top of the pin (above the action pin / amount when shown), for chat bubbles; null when off screen.
+    anchor(id) {
+      const e = pins.get(id);
+      const head = table.head(id);
+      if (!e || !head || hidden) return null;
+      const [x, y] = stage.project(head);
+      if (x < 0 || y < 0 || x > stage.size.w || y > stage.size.h) return null;
+      return { x, y: y - (e.top.childElementCount ? 98 : 44) * view.k };
+    },
     noteTurn() { turnSeenAt = Date.now(); },
     get: (id) => pins.get(id),
     setAct(id, kind) { acts.set(id, kind); if (room) render(room); },

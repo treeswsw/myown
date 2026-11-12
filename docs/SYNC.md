@@ -85,3 +85,18 @@ fx.update(dt);   // 매 프레임(초 단위)   fx.dispose();
 
 ## [서버] 채팅
 `{t:'chat', text}` 구현됨(제어문자 제거·trim, 1~120자, 연결당 1초 1개/10초 5개, 초과 시 error "채팅을 너무 빨리 보내고 있습니다"). 방 전체(보낸 사람·관전자 포함)에 `{t:'event', e:{k:'chat', id, name, text, ts}}`만 가고 `room` 상태는 오지 않는다. 입장·재접속 시 본인에게만 `{k:'chatLog', items:[{id,name,text,ts}]}` 한 번(최근 30개, 비어 있으면 []). 입장할 때는 `room` 다음에 오고, 재접속할 때도 `room` 다음. 방에 없으면 error "방에 들어가 있지 않습니다."
+
+## [채팅] UI 모듈 사용법 (client/src/ui/chat.js) — 사용 가능
+```js
+import { createChat } from './ui/chat.js';           // chat.css는 모듈이 스스로 import
+const chat = createChat({ onSend: (text) => send({ t: 'chat', text }),
+                          getAnchor: (playerId) => /* 그 사람 핀 맨 위(행동 핀이 있으면 그 위)의 화면 px {x,y} 또는 null */ });
+ui.append(chat.el, chat.button);                     // 둘 다 position:fixed. #ui 안에 넣으면 됨
+```
+- 반환: `{ el, button, push(msg,{mine}), setLog(items, myId?), open(), close(), toggle(), setMode('game'|'lobby'), update() }`, `msg = {id, name, text, ts}` (id = 보낸 사람 id).
+- 연결할 것: `event.k==='chat'` → `chat.push(e, {mine: e.id === me})`, `event.k==='chatLog'` → `chat.setLog(e.items, me)`(myId는 선택, 내 글 표시용; 기록만 채우고 말풍선은 띄우지 않음), 핀이 움직이거나 리사이즈할 때(매 프레임 호출해도 가벼움) `chat.update()`, 방 단계가 대기면 `chat.setMode('lobby')`, 게임 중이면 `'game'`.
+- `button`은 기본으로 오른쪽 위(방 코드·모드 글자 아래, top=56px×--k, right=16px)에 고정돼 있다(대기 모드에서는 숨김). 읽지 않은 점은 자체 처리. 높이가 `--k`(updateScale)에 따라 변하므로 `updateScale()` 뒤에 `chat.update()`.
+- 말풍선은 `getAnchor`가 null이면 오른쪽 위 아이콘 아래에 "이름: 내용" 토스트로 표시. 입력창은 아이콘 아래 오른쪽 정렬(키보드에 안 가림).
+- 입력 중 키 입력은 stopPropagation 하므로 호스트의 전역 단축키는 입력 중에 동작하지 않는다. 호스트가 window 캡처 단계에서 키를 가로채지 않게 할 것. Enter(입력 포커스·버튼 포커스·아바타 크롭 중이 아닐 때)가 입력창을 연다.
+- 대기 모드: 하단 중앙 막대(최근 3줄 + 입력). 로비 패널과 겹치지 않도록 `chat.css`가 `html.chat-docked .lobby`(padding-bottom)와 `.panel`(max-height)를 조정한다(lobby.css는 건드리지 않음; 짧은 화면에서는 패널이 약 45px 낮아져 내부 스크롤). 게임 시작 시 반드시 `setMode('game')`을 불러야 이 보정이 풀린다.
+- 확인용: `client/chat-demo.html?state=bubbles|replace|input|history|toast|lobby&t=<ms>`(t는 말풍선·토스트 애니메이션을 그 시점에서 정지).
