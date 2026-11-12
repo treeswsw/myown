@@ -81,6 +81,17 @@ async function runContext(browser, server, name, cfg) {
     check(`occlusion: ${state}`, bad.length === 0, bad.length ? `\n      ${bad.join('\n      ')}` : '');
   };
 
+  // Liar room: the settings/HUD layout is covered by test/ui/liar-round.mjs; here only the top bar buttons must be on top.
+  const barOnTop = async (state) => {
+    await page.waitForTimeout(150);
+    const bad = await page.evaluate(() => [...document.querySelectorAll('.lgbar-btn')].filter((el) => !el.hidden && el.offsetParent !== null).filter((el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !(top && (top === el || el.contains(top)));
+    }).map((el) => el.textContent));
+    check(`liar top bar on top: ${state}`, bad.length === 0, bad.join(','));
+  };
+
   // Bot opponent (manual mode) with a tiny deterministic pump: always check/call, never fold, never liar-call.
   const bot = new Bot(server.url, uid('bo'), { autoplay: false });
   await bot.connect();
@@ -304,6 +315,114 @@ async function runContext(browser, server, name, cfg) {
       }
     }
     if (!liar) check('bluff: LIAR turn reached', false, 'LIAR was never enabled on my turn');
+
+    /* ---------- liar game (server LIAR=on) ---------- */
+    bot.leave();
+    await step('liar: leave the bluff room', async () => {
+      await press('button[aria-label="메뉴"]');
+      await press('.hpanel button.item');
+      // the bluff reveal animation may still be playing; the lobby returns when it ends
+      await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible', timeout: 20000 });
+    });
+    await step('liar: lobby shows the 라이어 랭킹 button and a 3rd game choice', async () => {
+      await visible('.lb-rank-btn');
+      await visible('.lb-seg-item:has-text("라이어게임")');
+    });
+    await occlusion('home lobby (liar on)');
+    const lgBots = [new Bot(server.url, uid('lb'), { autoplay: false }), new Bot(server.url, uid('lc'), { autoplay: false })];
+    for (const b of lgBots) {
+      await b.connect();
+      await b.login();
+      // bots say something on their own speaking turn (the server waits for them otherwise)
+      b.waiters.push(() => {
+        const st = b.state;
+        if (st?.mode === 'liar' && st.phase === 'speak' && st.speaker === st.you && !b._said) {
+          b._said = true;
+          setTimeout(() => b.send({ t: 'lg', a: 'say', text: '봇의 설명' }), 800);
+        }
+        if (st?.phase !== 'speak') b._said = false;
+      });
+    }
+    await step('liar: pick 라이어게임, create a room, two bots join', async () => {
+      await press('.lb-seg-item:has-text("라이어게임")');
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.lgbar-code');
+      await visible('.lg-st-player');
+      const r = await openRoom('liar');
+      for (const b of lgBots) await b.join(r.code);
+      await page.locator('.lg-st-player').nth(2).waitFor({ state: 'visible', timeout: T });
+    });
+    await barOnTop('liar room (waiting)');
+    await step('liar: lobby is hidden inside the liar room, poker HUD absent', async () => {
+      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root') && !document.querySelector('.lb-root').hidden, cluster: !!document.querySelector('.cluster') && getComputedStyle(document.querySelector('.cluster')).display !== 'none' && document.querySelector('.cluster').offsetParent !== null }));
+      if (r.lobby) throw new Error('lobby is visible in the liar room');
+    });
+    await step('liar: room setting button (host) toggles', async () => {
+      await press('[data-lg="st-liarMode"][aria-pressed="false"]');
+      await visible('[data-lg="st-liarMode"][aria-pressed="true"]');
+    });
+    await step('liar: shortest times, then 시작 → role card', async () => {
+      for (const key of ['speak', 'discuss', 'rediscuss', 'defense', 'judge', 'guess']) {
+        await press(`[data-lg="st-time"][data-key="${key}"]`, 0);
+        await visible(`[data-lg="st-time"][data-key="${key}"][aria-pressed="true"]`);
+      }
+      await press('button.lgbar-btn:has-text("시작")');
+      await visible('[class*="lg-role-"]');
+    });
+    await barOnTop('liar role reveal');
+    await step('liar: first explanations: chat locked with a note on others\' turns, my own turn types in the chat box', async () => {
+      let sawLock = false;
+      let said = false;
+      const end = Date.now() + 70000;
+      while (Date.now() < end && !(sawLock && said)) {
+        const lockedNow = await page.evaluate(() => { const i = document.querySelector('.chat-in'); return Boolean(i && i.disabled && i.placeholder.includes('첫 설명 중에는')); });
+        if (lockedNow) sawLock = true;
+        if (!said && await page.getByText('당신의 발언시간입니다').first().isVisible()) {
+          if (!(await loc('.chat-in').isVisible())) await press('.chat-btn');
+          await page.fill('.chat-in', '제 설명입니다');
+          const p = lgBots[0].waitMsg((m) => m.t === 'event' && m.e.k === 'chat' && /제 설명입니다/.test(m.e.text), T, 'my explanation reaches a bot');
+          p.catch(() => {});
+          await page.press('.chat-in', 'Enter');
+          await p;
+          said = true;
+          if (await loc('.chat-in').isVisible()) await press('.chat-btn');
+        }
+        await page.waitForTimeout(100);
+      }
+      if (!sawLock) throw new Error('chat was never locked with the 첫 설명 note');
+      if (!said) throw new Error('my speaking turn never came');
+    });
+    await step('liar: emote panel → emote reaches a bot', async () => {
+      const p = lgBots[1].waitMsg((m) => m.t === 'event' && m.e.k === 'emote', T, 'emote event');
+      p.catch(() => {});
+      await press('button.lgbar-btn:has-text("이모티콘")');
+      await visible('.hpanel .ep-btn.glyph');
+      await press('.hpanel .ep-btn.glyph', 0);
+      await p;
+      if (await loc('.hpanel').count()) await press('button.lgbar-btn:has-text("이모티콘")');
+      await gone('.hpanel');
+    });
+    await step('liar: 나가기 returns to the lobby, bar disappears', async () => {
+      await press('button.lgbar-btn:has-text("나가기")');
+      await visible('button:has-text("방 만들기")');
+      await gone('.lgbar-code');
+    });
+    await step('liar: lobby 라이어 랭킹 button → window → close', async () => {
+      await press('.lb-rank-btn');
+      await visible('[aria-label="라이어 랭킹"]');
+      await press('[aria-label="라이어 랭킹"] button:has-text("닫기")');
+      await gone('[aria-label="라이어 랭킹"]');
+    });
+    for (const b of lgBots) b.close();
+    await step('poker still works after liar: create a hold\'em room', async () => {
+      await press('.lb-seg-item:has-text("홀덤")');
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.lb-actions .lb-danger');
+    });
+    await step('poker after liar: leave the room (no leftover room for the next context)', async () => {
+      await press('.lb-actions .lb-danger');
+      await visible('button:has-text("방 만들기")');
+    });
   } catch (e) {
     if (!(e instanceof StepFailed)) check('unexpected error', false, String(e.stack || e).split('\n').slice(0, 3).join(' | '));
     const shot = path.join(os.tmpdir(), `smoke-fail-${name}.png`);
@@ -318,7 +437,7 @@ async function runContext(browser, server, name, cfg) {
 let server;
 let browser;
 try {
-  server = await startServer({ ROOM_LIST_MS: '100', RESULT_MS: '60', RESULT_FOLD_MS: '60', STREET_MS: '30', REVEAL_MS: '80' });
+  server = await startServer({ LIAR: 'on', ROOM_LIST_MS: '100', RESULT_MS: '60', RESULT_FOLD_MS: '60', STREET_MS: '30', REVEAL_MS: '80' });
   browser = await chromium.launch();
   for (const [name, cfg] of Object.entries(CONTEXTS)) await runContext(browser, server, name, cfg);
 } catch (e) {
@@ -327,6 +446,42 @@ try {
 } finally {
   await browser?.close().catch(() => {});
   await server?.stop().catch(() => {});
+}
+/* ---------- LIAR switch: off (default) hides everything, test only with ?liar=1 ---------- */
+async function gateCheck(browser, env, query, expectVisible, label) {
+  const srv = await startServer({ ROOM_LIST_MS: '100', ...env });
+  const ctx = await browser.newContext({ viewport: { width: 844, height: 390 } });
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(T);
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  let ok = false;
+  let detail = '';
+  try {
+    await page.goto(`${srv.http}/?nogl=1${query}`);
+    await page.fill('.lb-field', uid('gt'));
+    await page.click('button.lb-primary:has-text("입장")');
+    await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
+    await page.waitForTimeout(300);
+    const seen = await page.evaluate(() => ({ rank: !!document.querySelector('.lb-rank-btn') && !document.querySelector('.lb-rank-btn').hidden && document.querySelector('.lb-rank-btn').offsetParent !== null, pick: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('라이어게임') && e.offsetParent !== null) }));
+    ok = seen.rank === expectVisible && seen.pick === expectVisible && errors.length === 0;
+    detail = JSON.stringify({ ...seen, errors });
+  } catch (e) { detail = String(e.message || e).split('\n')[0]; }
+  results.push({ ctx: 'gate', what: label, ok, detail });
+  console.log(`${ok ? 'PASS' : 'FAIL'} [gate] ${label}${detail ? ` - ${detail}` : ''}`);
+  await ctx.close().catch(() => {});
+  await srv.stop().catch(() => {});
+}
+try {
+  const gb = await chromium.launch();
+  await gateCheck(gb, {}, '', false, 'LIAR unset: no 라이어 choice, no 랭킹 button');
+  await gateCheck(gb, { LIAR: 'test' }, '', false, 'LIAR=test without ?liar=1: hidden');
+  await gateCheck(gb, { LIAR: 'test' }, '&liar=1', true, 'LIAR=test with ?liar=1: visible');
+  await gb.close();
+} catch (e) {
+  results.push({ ctx: 'gate', what: 'gate setup', ok: false, detail: String(e.message || e) });
+  console.log(`FAIL gate setup - ${e.message || e}`);
 }
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed in ${((Date.now() - t0) / 1000).toFixed(1)} s`);

@@ -13,6 +13,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 채팅: client/src/ui/chat.*
 - 이모티콘·사운드: client/src/ui/emotePanel.*, client/src/media.js, audio.js
 - 게임 UI: client/src/ui/hud.js, cluster.js, wheel.js, bluff.js, pins.js
+- 라이어게임: shared/liar/, server/liar/, client/src/liar/, test/liar/, scripts/build-words.mjs, docs/liar/ (한 과제는 그 안의 한 모듈만. 구역 나눔·모듈 접두사는 docs/liar/GDD.md 와 gamemine CLAUDE.md 의 요약대로: 설정 .lg-st-, 첫 발언 .lg-fs-, 상단 표시 .lg-hud-, 역할 .lg-role-, 투표 .lg-vt-, 결과 .lg-rs-, 랭킹 .lg-rk-, 규칙 .lg-rule-, 이모티콘 .lg-em-, 정체 공개 .lg-um-. 라이어 CSS 클래스는 전부 `.lg-`)
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
 - UI 시험: test/ui/, client/src/mock.js
 - 통합(한 번에 한 에이전트만): client/src/main.js, style.css, ui/dom.js, index.html,
@@ -27,6 +28,16 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 새 버튼·화면을 만들면 smoke.mjs에 클릭 한 줄을 추가한다.
 - 이 환경에는 GPU가 없다. 3D 스크린샷과 화면 크기 순회는 사용자가 요청할 때만.
 - 3D 모양·연출·소리·iPad/Safari는 항상 "미확인(실기기 확인 필요)"으로 보고한다.
+
+## 라이어게임 (같은 사이트 안의 두 번째 게임)
+- 스위치 환경 변수 `LIAR`: `off`(기본, 화면·서버 흔적 없음) / `test`(주소에 `?liar=1` 일 때만 버튼 보임) / `on`.
+  render.yaml 은 `test`. 사용자 실기기 확인 뒤 `on`으로 바꾼다. 규칙은 docs/liar/GDD.md, 옮긴 방법은 docs/LIAR-MOVE.md.
+- 반드시 지킬 약속: "다른 제시어" 방식의 라이어는 정체 공개 전까지 자신이 라이어인지 알 수 없다(화면·문구·순서·소리·서버 메시지 모양까지 시민과 같게, test/liar/leaks.test.js).
+  남의 제시어·역할은 그 사람 기기에 보내지 않는다. 라이어·순서·자리·단어는 crypto 난수만(Math.random 금지). 시간은 서버가 잰다. 사용자 글자는 textContent 로만.
+- 라이어 전용 요청은 전부 `{t:'lg', a: 종류, ...}`. 라이어 방 상태에는 프로필 사진을 넣지 않는다(`faces` 알림).
+- main.js 의 라이어 연결: `import('./liar/index.js')` 로 따로 불러온다(포커만 하는 사람은 받지 않는다). 상단 줄은 `.lgbar`(style.css).
+- `npm test` 는 라이어 한 판(test/ui/liar-round.mjs)을 포함한다. 새 라이어 화면이 생기면 거기에도 클릭 한 줄을 추가한다.
+- 복사해 온 라이어 폴더는 gamemine 과 같게 유지한다. 라이어 모듈 안의 버그는 고치지 말고 보고(총괄이 정한다).
 
 ## CSS
 - 접두사: 로비 .lb-, 채팅 .chat-, 이모티콘·사운드 .ep-. 새 모듈은 새 접두사.
