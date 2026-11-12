@@ -1,0 +1,62 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Black+Han+Sans&family=Noto+Sans+KR:wght@500;700;900&display=swap">
+<style>
+body{margin:0;background:#0b0a09;font-family:"Noto Sans KR",sans-serif;color:#fff;display:flex;flex-direction:column;gap:30px;padding:0;width:1600px}
+.sheet{width:1600px;box-sizing:border-box;padding:34px 36px 30px;background:#12100e}
+.sheet h2{font-family:"Black Han Sans";font-weight:400;font-size:30px;margin:0 0 4px;color:#ffc62a}
+.sheet p{margin:0 0 20px;color:#bdb5a8;font-size:15px}
+.row{display:flex;gap:16px}
+.pn{flex:1;min-width:0}
+.pn svg{display:block;width:100%;border-radius:14px;background:#1b1714}
+.pn b{display:block;margin-top:10px;font-size:16px}.pn b i{font-style:normal;font-family:"Bangers";color:#ffc62a;letter-spacing:1px;margin-right:8px;font-size:18px}
+.pn span{display:block;color:#bdb5a8;font-size:13.5px;line-height:1.5;margin-top:2px}
+.num{font-family:"Bangers";fill:#ffc62a;stroke:#17110a;stroke-width:5px;paint-order:stroke fill;letter-spacing:1px}
+.ko{font-family:"Black Han Sans";fill:#fff;stroke:#14100c;stroke-width:4px;paint-order:stroke fill}
+</style></head><body><div id="out"></div>
+<script>
+let uid=0;
+const felt=(c)=>`<ellipse cx="150" cy="330" rx="230" ry="120" fill="${c||'#8e1313'}"/><ellipse cx="150" cy="330" rx="230" ry="120" fill="none" stroke="#0e0e10" stroke-width="16"/>`;
+function chips(x,y,n,cols){let o='';const cs=cols||['#cf4034','#3a80d2','#2fa37a','#23272b','#f3efe6'];for(let k=0;k<n.length;k++)for(let i=0;i<n[k];i++){const cx=x+k*17,cy=y-i*4.2,c=cs[k%cs.length];
+  o+=`<path d="M${cx-8} ${cy} v3.600 a8 3.200 0 0 0 16 0 v-3.600z" fill="${c}" stroke="#0008" stroke-width=".6"/><ellipse cx="${cx}" cy="${cy}" rx="8" ry="3.200" fill="${c}" stroke="#fff" stroke-width=".9" stroke-dasharray="2.500 2"/>`;}return o;}
+function face(x,y,r,col,hair,gray){const id='c'+(uid++);return `<g ${gray?'filter="url(#gray)"':''}><clipPath id="${id}"><circle cx="${x}" cy="${y}" r="${r}"/></clipPath><circle cx="${x}" cy="${y}" r="${r}" fill="#4a3d34"/>
+  <g clip-path="url(#${id})"><ellipse cx="${x}" cy="${y+r*1.05}" rx="${r*.9}" ry="${r*.62}" fill="${col}"/><rect x="${x-r*.14}" y="${y+r*.1}" width="${r*.28}" height="${r*.4}" fill="#c99b7a"/><circle cx="${x}" cy="${y-r*.12}" r="${r*.38}" fill="#e0b592"/><path d="M${x-r*.4} ${y-r*.14}a${r*.4} ${r*.42} 0 0 1 ${r*.8} 0q${-r*.1} ${-r*.2} ${-r*.4} ${-r*.2}q${-r*.3} 0 ${-r*.4} ${r*.2}z" fill="${hair}"/></g>
+  <circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#fff" stroke-width="3.500"/></g>`;}
+const limb=(pts,col,w)=>`<path d="M${pts.map(p=>p.join(' ')).join(' L')}" fill="none" stroke="#17110a" stroke-width="${(w||13)+5}" stroke-linecap="round" stroke-linejoin="round"/><path d="M${pts.map(p=>p.join(' ')).join(' L')}" fill="none" stroke="${col}" stroke-width="${w||13}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const hand=(x,y)=>`<circle cx="${x}" cy="${y}" r="10" fill="#fffaf0" stroke="#17110a" stroke-width="2.500"/>`;
+const shoe=(x,y,d)=>`<ellipse cx="${x+d*6}" cy="${y}" rx="13" ry="7" fill="#23272b" stroke="#17110a" stroke-width="2.500"/>`;
+// body: grows from under the profile. g = growth 0..1, arms/legs = arrays of joint points relative to profile centre
+function body(x,y,col,o){const g=o.g==null?1:o.g,r=o.r||34,th=58*g,ty=y+r-6;let s='';
+  if(g>0){const lg=o.legs||[[[-12,th],[-16,th+34*g]],[[12,th],[16,th+34*g]]];
+    lg.forEach((L,i)=>{s+=limb(L.map(p=>[x+p[0],ty+p[1]]),'#2b3340',12);const e=L[L.length-1];s+=shoe(x+e[0],ty+e[1]+4,i?1:-1);});
+    s+=`<rect x="${x-24}" y="${ty}" width="48" height="${th}" rx="16" fill="${col}" stroke="#17110a" stroke-width="2.500"/>`;
+    (o.arms||[]).forEach(A=>{const P=A.map(p=>[x+p[0],ty+p[1]]);s+=limb(P,col,12);const e=P[P.length-1];s+=hand(e[0],e[1]);});}
+  return s;}
+const gun=(x,y,rot,flip)=>`<g transform="translate(${x} ${y}) rotate(${rot}) scale(${flip?-1:1} 1)"><path d="M-6 -7h44v10H18v4h-8l-2 16h-13l3-17q-6-2-4-13z" fill="#3a4048" stroke="#17110a" stroke-width="2.500" stroke-linejoin="round"/><rect x="6" y="-9" width="13" height="14" rx="3" fill="#59616c" stroke="#17110a" stroke-width="2"/><path d="M-3 8l3 13h9l-1-13z" fill="#7a4a26" stroke="#17110a" stroke-width="2"/></g>`;
+const flash=(x,y,s)=>`<g transform="translate(${x} ${y}) scale(${s||1})"><path d="M0 -26L7 -8 24 -14 12 0 26 12 8 9 4 28-4 10-22 18-11 2-28-8-8-8z" fill="#fff3b0" stroke="#ffc62a" stroke-width="3"/></g>`;
+const lines=(x,y,n,len,ang)=>{let s='';for(let i=0;i<n;i++){const yy=y+i*11;s+=`<path d="M${x} ${yy}h${len-i%2*14}" stroke="#fff" stroke-opacity=".75" stroke-width="3" stroke-linecap="round" transform="rotate(${ang||0} ${x} ${y})"/>`;}return s;};
+const sweat=(x,y)=>[[0,0],[14,10],[-4,18]].map(([a,b])=>`<path d="M${x+a} ${y+b}q-5 8 0 11q5-3 0-11z" fill="#8fd0ff" stroke="#17110a" stroke-width="1.500"/>`).join('');
+const DEFS=`<defs><filter id="gray"><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope=".55"/><feFuncG type="linear" slope=".55"/><feFuncB type="linear" slope=".55"/></feComponentTransfer></filter></defs>`;
+const pn=(svg,t,title,desc,fc)=>`<div class="pn"><svg viewBox="0 0 300 330">${DEFS}${felt(fc)}${svg}</svg><b><i>${t}</i>${title}</b><span>${desc}</span></div>`;
+const sheet=(title,sub,panels)=>`<div class="sheet"><h2>${title}</h2><p>${sub}</p><div class="row">${panels.join('')}</div></div>`;
+const C='#4a6b4a',H='#1a1411';
+const allin=sheet('올인 연출','올인을 누르면 프로필에서 몸이 자라나 자기 칩을 테이블 중앙으로 밀어버립니다. 전체 약 2.5초.',[
+ pn(face(150,96,34,C,H)+chips(118,250,[9,12,8,10]),'0.0s','평상시','프로필 사진만 떠 있고, 앞에 내 칩 더미가 쌓여 있습니다.'),
+ pn(body(150,96,C,{g:.55,arms:[[[-22,8],[-40,20]],[[22,8],[40,20]]]})+face(150,84,34,C,H)+lines(96,150,3,22,90)+lines(190,150,3,22,90)+chips(118,250,[9,12,8,10]),'0.3s','몸이 자라남','사진 아래에서 몸통이 쭉 늘어나고 팔다리가 튀어나옵니다. 고무처럼 살짝 튕깁니다.'),
+ pn(body(150,96,C,{arms:[[[-22,10],[-50,-2],[-62,-26]],[[22,10],[50,-2],[62,-26]]],legs:[[[-12,58],[-26,84]],[[12,58],[26,84]]]})+face(150,70,34,C,H)+chips(118,250,[9,12,8,10]),'0.9s','준비 동작','두 팔을 뒤로 크게 젖히며 웅크립니다. 다음 동작에 힘이 실리도록 잠깐 멈춥니다.'),
+ pn(lines(40,150,5,60,0)+body(120,100,C,{arms:[[[22,14],[60,40],[96,74]],[[22,24],[58,56],[92,92]]],legs:[[[-12,58],[-34,80]],[[12,58],[2,90]]]})+face(128,82,34,C,H)+chips(226,236,[5,7,4])+chips(204,270,[4,6,5,3])+`<text x="196" y="74" font-size="46" class="num" transform="rotate(-8 196 74)">ALL IN!</text>`,'1.3s','칩 밀기','몸을 던지며 칩 더미를 중앙으로 밀어버립니다. 칩이 무너지며 미끄러지고 화면이 살짝 흔들립니다.'),
+ pn(body(150,96,C,{g:.35,arms:[[[-22,6],[-34,14]],[[22,6],[34,14]]]})+face(150,90,34,C,H)+`<text x="150" y="214" font-size="30" text-anchor="middle" class="num">ALL IN</text>`,'2.1s','복귀','손을 털고 팔다리와 몸통이 사진 속으로 쏙 들어갑니다. 머리 위에 ALL IN 표시가 남습니다.')]);
+const D='#8a6a2a';
+const rev=sheet('리볼버 벌칙 연출 (블러핑 게임)','"거짓말" 판정에서 진 사람이 자기 리볼버의 방아쇠를 당깁니다. 6칸 중 1칸에 탄이 있고 위치는 무작위입니다. 전체 약 3초.',[
+ pn(body(150,100,D,{arms:[[[-22,10],[-36,30]],[[22,10],[56,6],[64,-30]]]})+gun(206,62,198,0)+face(150,86,34,D,H)+`<text x="150" y="36" font-size="26" text-anchor="middle" class="num">2 / 6</text>`,'0.0s','리볼버 등장','프로필에서 몸과 팔이 자라나 자기 리볼버를 듭니다. 머리 위에 지금까지 쏜 횟수가 보입니다.','#23262b'),
+ pn(`<g transform="translate(150 150)"><circle r="70" fill="#59616c" stroke="#17110a" stroke-width="5"/>${[0,1,2,3,4,5].map(i=>{const a=i*Math.PI/3;return `<circle cx="${44*Math.cos(a)}" cy="${44*Math.sin(a)}" r="15" fill="${i<2?'#2a2f36':'#17110a'}" stroke="#17110a" stroke-width="3"/>`;}).join('')}<circle r="10" fill="#2a2f36"/></g><path d="M236 96a100 100 0 0 1 16 70" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 8"/><path d="M64 204a100 100 0 0 1-16-70" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 8"/>`,'0.6s','탄창 회전','탄창이 드르륵 돌고, 카메라가 그 사람에게 당겨지며 화면이 느려집니다.','#23262b'),
+ pn(body(150,100,D,{arms:[[[-22,10],[-36,30]],[[22,10],[56,6],[64,-30]]]})+gun(206,62,198,0)+face(150,86,34,D,H)+sweat(104,60)+`<text x="150" y="36" font-size="26" text-anchor="middle" class="num">3 / 6</text><text x="216" y="130" font-size="24" class="ko">철컥</text>`,'1.6s','빈 칸: 생존','"철컥" 소리와 함께 식은땀을 흘리며 안도합니다. 숫자가 한 칸 올라가고 다음 라운드로 넘어갑니다.','#23262b'),
+ pn(flash(214,64,1.3)+`<g transform="translate(150 96) scale(.35 1) rotate(18)">${face(0,0,34,D,H,1)}</g>`+lines(60,70,4,30,20)+`<text x="150" y="214" font-size="44" text-anchor="middle" class="num" style="fill:#ff5a4a">BANG!</text>`,'1.6s','탄: 탈락 (1)','섬광과 함께 화면이 흔들리고, 프로필이 동전처럼 빙글 뒤집힙니다.','#23262b'),
+ pn(`<g transform="rotate(12 150 150)">${face(150,150,34,D,H,1)}</g><text x="150" y="236" font-size="30" text-anchor="middle" class="num" style="fill:#bdb5a8">OUT</text>`,'2.6s','탄: 탈락 (2)','프로필이 흑백으로 바뀌어 내려앉고, 그 사람의 카드가 치워집니다. 남은 사람끼리 계속합니다.','#23262b')]);
+const W1='#7a3b3b',L1='#3b5a7a';
+const out=sheet('포커 탈락 연출','칩을 전부 잃은 사람이 나오면, 그 판을 이긴 사람이 총을 쏴 탈락시킵니다. 전체 약 3초.',[
+ pn(body(80,110,W1,{arms:[[[-22,10],[-34,30]],[[22,6],[60,-4],[84,-6]]]})+gun(170,82,0,0)+face(80,96,34,W1,H)+face(240,100,30,L1,'#5a3a1c')+sweat(204,70)+`<text x="80" y="42" font-size="20" text-anchor="middle" class="ko">승자</text><text x="240" y="52" font-size="20" text-anchor="middle" class="ko">칩 0</text>`,'0.0s','조준','이긴 사람의 프로필에서 팔이 나와 권총을 겨눕니다. 화면이 느려지고 탈락자 쪽으로 카메라가 당겨집니다.'),
+ pn(body(72,110,W1,{arms:[[[-22,10],[-34,30]],[[22,6],[58,-8],[80,-14]]]})+gun(164,72,-8,0)+flash(214,76,1.1)+face(72,96,34,W1,H)+face(246,100,30,L1,'#5a3a1c')+lines(120,150,4,50,0),'0.8s','발사','총구 섬광과 함께 화면이 짧게 흔들립니다. 반동으로 승자의 몸이 뒤로 살짝 밀립니다.'),
+ pn(body(80,110,W1,{arms:[[[-22,10],[-34,30]],[[22,6],[60,-4],[84,-6]]]})+gun(170,82,0,0)+face(80,96,34,W1,H)+`<g transform="translate(240 92) scale(.3 1) rotate(-20)">${face(0,0,30,L1,'#5a3a1c',1)}</g>`+lines(200,40,3,26,60),'1.2s','피격','탈락자 프로필이 뒤로 젖혀지며 동전처럼 빙글 뒤집힙니다. 뒤집히는 동안 색이 빠집니다.'),
+ pn(body(80,110,W1,{arms:[[[-22,10],[-34,30]],[[22,6],[44,-14],[40,-40]]]})+gun(124,56,-70,0)+`<path d="M130 22q-8-10 0-18q8-8 0-16" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="4" stroke-linecap="round" transform="translate(0 20)"/>`+face(80,96,34,W1,H)+`<g transform="rotate(14 240 130)">${face(240,130,30,L1,'#5a3a1c',1)}</g><text x="240" y="196" font-size="26" text-anchor="middle" class="num" style="fill:#bdb5a8">OUT</text>`,'2.2s','정리','탈락자는 흑백으로 내려앉고 칩과 카드가 치워집니다. 승자는 총구 연기를 후 불고 팔이 들어갑니다.')]);
+document.getElementById('out').innerHTML=allin+rev+out;
+</script></body></html>
