@@ -230,10 +230,15 @@ export function createChat({ onSend, getAnchor }) {
       renderLogs();
     },
     open, close, toggle,
-    setMode(m) { if (m === mode) return; mode = m; layout(); },
+    setMode(m) {
+      const same = m === mode;
+      mode = m;
+      if (same) { button.hidden = mode === 'lobby' || !enabled; return; } // host re-shows the icon on every room update
+      layout();
+    },
     setEnabled(v) {
       v = Boolean(v);
-      if (v === enabled) return;
+      if (v === enabled) { button.hidden = mode === 'lobby' || !enabled; return; }
       enabled = v;
       if (!enabled) {
         close();

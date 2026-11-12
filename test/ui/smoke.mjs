@@ -143,6 +143,14 @@ async function runContext(browser, server, name, cfg) {
       await bot.join(r.code);
       await visible('button.lb-primary:has-text("게임 시작"):not([disabled])');
     });
+    await step('waiting room: chat icon stays hidden after later room updates', async () => {
+      const seen = bot.messages.length;
+      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' });
+      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'room'), T, 'room update in waiting room');
+      await sleep(500);
+      const hidden = await page.evaluate(() => { const b = document.querySelector('.chat-btn'); return !b || b.hidden; });
+      check('chat icon hidden in lobby mode after 2nd room update', hidden);
+    });
     await step('start: both sides are playing', async () => {
       await press('button.lb-primary:has-text("게임 시작")');
       await bot.waitFor((b) => b.state?.phase === 'playing', T, 'bot sees playing');
