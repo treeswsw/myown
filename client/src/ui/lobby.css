@@ -107,6 +107,7 @@ h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2
   .players .row{min-height:40px}
   .seg-box .cap{display:none}
   .rooms{min-height:96px}
+  .row.room-row{min-height:48px}
   .actions{flex-direction:row-reverse;align-items:center;justify-content:space-between}
   .btn.text.danger{align-self:center}
 }

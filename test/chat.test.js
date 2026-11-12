@@ -65,20 +65,16 @@ test('broadcast reaches sender, players and spectators; no room state push', asy
   assert.deepEqual(cs.map((c) => c.sock.msgs.filter((m) => m.t === 'room').length), rooms);
 });
 
-test('chat does not reset the turn timer or change the game', async () => {
+test('chat does not change the game or push room state', async () => {
   const { clock, cs } = await setup();
   await cs[0].send({ t: 'start' });
   const before = cs[0].state;
   clock.advance(10000);
   const rooms = cs[0].sock.msgs.filter((m) => m.t === 'room').length;
   await cs[1].send({ t: 'chat', text: 'gl' });
-  assert.equal(cs[0].state.turnEndsAt, before.turnEndsAt);
+  assert.equal(cs[0].state.turnEndsAt, null);
   assert.equal(cs[0].state.turn, before.turn);
   assert.equal(cs[0].sock.msgs.filter((m) => m.t === 'room').length, rooms);
-  clock.advance(19999);
-  assert.equal(cs[0].state.phase, 'playing');
-  clock.advance(1);
-  assert.equal(cs[0].state.phase, 'result', 'timeout fired at the original deadline');
 });
 
 test('rate limit: 1 per second and 5 per 10 seconds, per connection', async () => {
@@ -159,7 +155,7 @@ test('rate limit survives a same-ID takeover', async () => {
 test('chat works in result and reveal phases', async () => {
   const { clock, cs } = await setup();
   await cs[0].send({ t: 'start' });
-  clock.advance(30000); // turn timeout ends the hand
+  await cs.find((c) => c.state.you === cs[0].state.turn).send({ t: 'act', a: 'fold' });
   assert.equal(cs[0].state.phase, 'result');
   await cs[0].send({ t: 'chat', text: 'result' });
   const b = await setup('bluff', ['dd11', 'ee11', 'ff11']);

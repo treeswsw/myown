@@ -1,9 +1,9 @@
 :root { --k: 1; --gold: #ffc62a; }
-html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: "Noto Sans KR", sans-serif; color: #fff; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: "Noto Sans KR", sans-serif; color: #fff; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+input, textarea { -webkit-user-select: text; user-select: text; }
 canvas { display: block; position: fixed; inset: 0; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
-#ui > * { pointer-events: none; }
-button { font: inherit; color: inherit; cursor: pointer; }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
 .hit { pointer-events: auto; }
 
 #rotate { display: none; position: fixed; inset: 0; z-index: 99; background: #0b0a09; align-items: center; justify-content: center; text-align: center; font-family: "Black Han Sans", sans-serif; font-size: 22px; }
@@ -24,8 +24,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .pav img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
 .pav.letter { display: flex; align-items: center; justify-content: center; font-family: "Black Han Sans", sans-serif; font-size: 34px; background: radial-gradient(circle at 50% 30%, #7a6858, #241c17); }
 .pl.turn .pav { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 198, 42, .35), 0 0 16px rgba(255, 198, 42, .8); }
-.pl .ring { position: absolute; inset: -7px; border-radius: 50%; background: conic-gradient(var(--gold) calc(var(--p, 0) * 1%), rgba(255, 255, 255, .12) 0); -webkit-mask: radial-gradient(circle, transparent 41px, #000 42px); mask: radial-gradient(circle, transparent 41px, #000 42px); display: none; }
-.pl.turn .ring { display: block; }
 .pl.dim .pav, .pav.dead { filter: grayscale(1) brightness(.5); }
 .pl.away { opacity: .55; }
 .pl .top { position: absolute; left: 0; bottom: 46px; width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; }
@@ -38,9 +36,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .pl .nm .nmt { font-style: normal; max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
 .pl .nm span { font-family: "Bangers"; color: var(--gold); letter-spacing: .5px; font-size: 13px; -webkit-text-stroke: 0; }
 .pl .rv { position: absolute; left: 22px; top: -44px; font-family: "Bangers"; font-size: 13px; letter-spacing: 1px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; background: rgba(18, 16, 14, .9); border: 1.5px solid #cfc9bd; }
-.pl .emote { position: absolute; left: 44px; top: -30px; font-size: 34px; opacity: 0; filter: drop-shadow(0 2px 4px #000); }
-.pl .emote.show { animation: emote 2.2s ease-out; }
-@keyframes emote { 0% { opacity: 0; transform: scale(.2); } 12% { opacity: 1; transform: scale(1.25); } 22% { transform: scale(1); } 85% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+.pl .emote { position: absolute; left: 0; bottom: 56px; transform: translateX(-50%); font-size: 60px; line-height: 1; opacity: 0; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .8)); white-space: nowrap; }
+.pl.has-top .emote { bottom: 112px; }
+.pl .emote.show { animation: emote 3.4s ease-out forwards; }
+@keyframes emote { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.2); } 8% { opacity: 1; transform: translate(-50%, 0) scale(1.3); } 14% { transform: translate(-50%, 0) scale(1); } 74% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, -46px) scale(1); } }
 .potlabel { position: fixed; left: 0; top: 0; font-size: 26px; transform: translate(-50%, -100%); white-space: nowrap; }
 
 /* top-left icons + top-right info */
@@ -49,7 +48,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .ic { width: 34px; height: 34px; border-radius: 50%; border: 2.5px solid #fff; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
 .ic.big { width: 46px; height: 46px; margin-right: 16px; border-width: 3px; }
 .ic svg { width: 64%; height: 64%; }
+.ic { position: relative; }
+.ic::after { content: ''; position: absolute; inset: -6px; }
 .ic:active { background: rgba(255, 255, 255, .25); }
+.chat-btn::after { content: ''; position: absolute; inset: -6px; }
 .hpanel { position: fixed; left: 14px; top: 66px; zoom: var(--k); min-width: 200px; max-width: 320px; max-height: calc(100vh / var(--k) - 90px); overflow: auto; border-radius: 16px; padding: 12px 14px; background: rgba(20, 18, 16, .82); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, .22); pointer-events: auto; font-size: 14px; }
 .hpanel h3 { margin: 0 0 8px; font-family: "Black Han Sans"; font-weight: 400; font-size: 17px; }
 .hpanel button.item { display: block; width: 100%; text-align: left; padding: 10px 6px; background: none; border: 0; border-bottom: 1px solid rgba(255, 255, 255, .1); font-size: 15px; }
@@ -147,11 +149,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .dialbox .mid .num { font-size: 34px; }
 .dialbox .mid small { font: 600 11px -apple-system, "Helvetica Neue", "Noto Sans KR", sans-serif; color: rgba(255, 255, 255, .7); }
 .dialbox .ar { display: flex; gap: 22px; margin-top: 6px; pointer-events: auto; }
-.dialbox .ar button { width: 30px; height: 30px; border-radius: 50%; border: 1.8px solid #fff; background: none; display: flex; align-items: center; justify-content: center; padding: 0; box-sizing: border-box; touch-action: none; }
-.dialbox .ar svg { position: static; width: 14px; height: 14px; }
+.dialbox .ar button { width: 44px; height: 44px; margin: -7px; border-radius: 50%; border: 0; background: none; display: flex; align-items: center; justify-content: center; padding: 0; box-sizing: border-box; touch-action: none; }
+.dialbox .ar button::before { content: ''; position: absolute; width: 30px; height: 30px; border-radius: 50%; border: 1.8px solid #fff; box-sizing: border-box; }
+.dialbox .ar button { position: relative; }
+.dialbox .ar svg { position: relative; width: 14px; height: 14px; }
 .dialbox .lim { position: absolute; bottom: 6px; font-family: "Bangers"; font-size: 14px; color: #cfc9bd; letter-spacing: .5px; }
 .keys { display: flex; gap: 18px; justify-content: center; font-size: 12px; font-weight: 700; text-shadow: 0 1px 3px #000; white-space: nowrap; }
-.keys button { display: flex; align-items: center; gap: 5px; background: none; border: 0; padding: 8px 4px; font-weight: 700; font-size: 12px; }
+.keys button { display: flex; align-items: center; gap: 5px; background: none; border: 0; padding: 0 6px; min-height: 44px; font-weight: 700; font-size: 12px; }
 .keys button:disabled { opacity: .35; }
 .keys svg { width: 17px; height: 17px; }
 
@@ -181,3 +185,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .banner .num { font-size: 40px; }
 
 .lobby[hidden] { display: none; }
+
+.hpanel button.item { min-height: 44px; }
+.leave-pill { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); zoom: var(--k); min-height: 44px; padding: 0 22px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .3); background: rgba(20, 18, 16, .85); font-size: 15px; font-weight: 700; pointer-events: auto; }
+.act .wseg { -webkit-tap-highlight-color: transparent; }
+.act .wseg .bg { fill: rgba(22, 20, 18, .94); stroke: #0a0806; stroke-width: 3.5; }
+.act .wseg.hl .bg { fill: rgba(40, 36, 30, .97); }
+.act .wseg .arc { display: none; fill: none; stroke: #ffc62a; stroke-width: 5; stroke-linecap: round; }
+.act .wseg.hl .arc { display: inline; }

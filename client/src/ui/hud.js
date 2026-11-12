@@ -21,7 +21,10 @@ const circle = (icon, label, big = false) => {
 export function createHud(ui, { send, getMe }) {
   const row = h('div', 'hud-tl');
   const info = h('div', 'hud-tr');
-  ui.append(row, info);
+  const pill = h('button', 'leave-pill', '나가기');
+  pill.type = 'button';
+  pill.onclick = () => send({ t: 'leave' });
+  ui.append(row, info, pill);
   let panel = null;
   let room = null;
 
@@ -73,6 +76,9 @@ export function createHud(ui, { send, getMe }) {
     update(r) {
       room = r;
       row.style.display = info.style.display = r ? '' : 'none';
+      const me = r?.players.find((p) => p.id === r.you);
+      // The menu is always there, but spectators and the result screen get a plain leave button too.
+      pill.style.display = r && (me?.spectating || r.phase === 'result') ? '' : 'none';
       if (!r) { closePanel(); return; }
       const sub = r.mode === 'holdem' ? '텍사스 홀덤 · 블라인드 50/100'
         : r.phase === 'lobby' ? '블러핑 카드 · 대기 중'

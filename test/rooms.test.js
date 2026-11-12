@@ -129,7 +129,7 @@ test('holdem: full hand through the handlers, stacks, stats and auto next hand',
   assert.equal(s.players.length, 3);
   assert.equal(s.players.reduce((n, p) => n + p.stack + p.bet, 0), 15000);
   assert.equal(cs[0].sock.last('me').user.bank, 5000);
-  assert.equal(s.turnEndsAt, clock.now() + 30000);
+  assert.equal(s.turnEndsAt, null);
   assert.equal(s.pot, 0, 'blinds are still bets, not yet in the pot');
   for (const c of cs) {
     assert.equal(c.state.myCards.length, 2);
@@ -170,28 +170,62 @@ test('holdem: full hand through the handlers, stacks, stats and auto next hand',
   assert.equal(dealers.size, 3, 'dealer button rotates');
 });
 
-test('turn timer: checks when possible, folds otherwise; disconnect grace then removal', async () => {
+test('no turn limit for connected players; disconnected player on turn is auto-played after the grace', async () => {
   const { hub, clock } = await setup(3);
   const { cs } = await lobby(hub, 'holdem', ['ann1', 'bob1']);
   await cs[0].send({ t: 'start' });
   const first = cs[0].state.turn;
-  clock.advance(29999);
-  assert.equal(cs[0].state.turn, first);
-  clock.advance(1);
-  // heads-up preflop dealer faces the blind: timeout means fold, hand over.
-  assert.equal(cs[0].state.phase, 'result');
-  assert.equal(cs[0].state.result.winners[0].handName, null);
-
-  clock.advance(6000);
+  clock.advance(10 * 60_000);
+  assert.equal(cs[0].state.turn, first, 'a connected player may think forever');
+  assert.equal(cs[0].state.turnEndsAt, null);
   assert.equal(cs[0].state.phase, 'playing');
-  const bob = cs[1];
-  bob.conn.close();
-  assert.equal(cs[0].state.players.find((p) => p.id === 'bob1').connected, false);
-  clock.advance(59000);
-  assert.equal(cs[0].state.players.length, 2);
+
+  // the player on turn disconnects: grace, then fold (facing the blind), then removal
+  const actor = cs.find((c) => c.state.you === first);
+  const other = cs.find((c) => c !== actor);
+  actor.conn.close();
+  clock.advance(59_999);
+  assert.equal(other.state.phase, 'playing');
+  clock.advance(1);
+  assert.equal(other.state.phase, 'result');
+  assert.equal(other.state.players.length, 1);
+  assert.ok(other.sock.msgs.some((m) => m.t === 'event' && m.e.k === 'action' && m.e.id === first && m.e.a === 'fold'));
+});
+
+test('grace auto-act checks when checking is free; reconnect within the grace cancels it', async () => {
+  const { hub, clock } = await setup(3);
+  const { cs } = await lobby(hub, 'holdem', ['ann1', 'bob1']);
+  await cs[0].send({ t: 'start' });
+  // SB calls, then the BB (who may check) is on turn
+  let sb = cs.find((c) => c.state.you === cs[0].state.turn);
+  await sb.send({ t: 'act', a: 'call' });
+  const bb = cs.find((c) => c.state.you === cs[0].state.turn);
+  bb.conn.close();
+  clock.advance(30_000);
+  const back = client(hub);
+  await back.send({ t: 'login', id: bb.state.you });
+  assert.equal(back.state.turn, bb.state.you);
+  clock.advance(120_000);
+  assert.equal(back.state.phase, 'playing', 'reconnect cancelled the grace');
+  assert.equal(back.state.players.length, 2);
+  back.conn.close();
+  clock.advance(60_000);
+  const acts = sb.sock.msgs.filter((m) => m.t === 'event' && m.e.k === 'action' && m.e.id === bb.state.you);
+  assert.deepEqual(acts.map((m) => m.e.a), ['check', 'fold'], 'auto-check first, then the removal folds');
+  assert.equal(sb.state.players.length, 1);
+});
+
+test('everyone disconnected: the hand cannot deadlock and the room is collected', async () => {
+  const { hub, clock } = await setup(3);
+  const { cs, code } = await lobby(hub, 'holdem', ['ann1', 'bob1', 'cat1']);
+  await cs[0].send({ t: 'start' });
+  cs.forEach((c) => c.conn.close());
+  clock.advance(60_000);
+  assert.equal(hub.rooms.get(code).members.length, 0);
+  clock.advance(60_000);
+  assert.ok(!hub.rooms.has(code));
   clock.advance(1000);
-  assert.equal(cs[0].state.players.length, 1);
-  assert.equal(cs[0].state.phase, 'lobby', 'fewer than two players left');
+  assert.equal(clock.pending, 0);
 });
 
 test('same ID takeover keeps the seat and sends the current room state', async () => {
@@ -221,7 +255,6 @@ test('leaving mid-hand folds, returns chips and the room empties after 60s', asy
   assert.ok(hub.rooms.has(code));
   clock.advance(60000);
   assert.ok(!hub.rooms.has(code));
-  assert.equal(clock.pending, 0);
 });
 
 test('bust: busted player re-sits from the bank; empty bank gets a free refill', async () => {
@@ -294,17 +327,21 @@ test('bluff: game through the handlers incl. revolver and result', async () => {
   assert.equal(cs[0].state.round, 0);
 });
 
-test('bluff: turn timeout plays the first card, then calls LIAR with no hand', async () => {
+test('bluff: a disconnected player on turn plays the first card after the grace, then is removed', async () => {
   const { hub, clock } = await setup(9);
-  const { cs } = await lobby(hub, 'bluff', ['ann1', 'bob1']);
+  const { cs } = await lobby(hub, 'bluff', ['ann1', 'bob1', 'cat1']);
   await cs[0].send({ t: 'start' });
   const g = hub.rooms.values().next().value.game.g;
+  clock.advance(5 * 60_000);
+  assert.equal(cs[0].state.turnEndsAt, null);
   const first = g.players[g.turn];
   const card = first.hand[0];
-  clock.advance(30000);
-  assert.equal(g.pile.by, first.id);
-  assert.deepEqual(g.pile.cards, [card]);
-  assert.equal(cs[0].state.turn !== first.id, true);
+  const watcher = cs.find((c) => c.state.you !== first.id);
+  cs.find((c) => c.state.you === first.id).conn.close();
+  clock.advance(60_000);
+  assert.ok(watcher.sock.msgs.some((m) => m.t === 'event' && m.e.k === 'bluffPlay' && m.e.id === first.id));
+  assert.equal(watcher.state.players.length, 2);
+  assert.equal(card !== undefined, true);
 });
 
 test('late joiners spectate until the next hand', async () => {
@@ -344,26 +381,22 @@ test('bluff: penalty is shown with nobody on turn, then the next round is dealt'
   s = cs[2].state;
   assert.equal(s.turn, 'ann1');
   assert.equal(s.round, 2);
-  assert.equal(s.turnEndsAt, clock.now() + 30000);
+  assert.equal(s.turnEndsAt, null);
 });
 
-test('pots only hold collected chips while betting; leaving does not reset the turn clock', async () => {
+test('pots only hold collected chips while betting; a spectator leaving changes nothing', async () => {
   const { hub, clock } = await setup(13);
   const { cs, code } = await lobby(hub, 'holdem', ['ann1', 'bob1', 'cat1']);
   await cs[0].send({ t: 'start' });
-  let s = cs[0].state;
+  const s = cs[0].state;
   assert.equal(s.pot, 0);
   assert.deepEqual(s.pots, []);
   assert.equal(s.players.reduce((n, p) => n + p.bet, 0), 150);
   const spectator = await login(hub, 'dan1');
   await spectator.send({ t: 'join', code });
-  const endsAt = s.turnEndsAt;
   clock.advance(10000);
   await spectator.send({ t: 'leave' });
-  assert.equal(cs[0].state.turnEndsAt, endsAt);
-  clock.advance(20000);
-  assert.notEqual(cs[0].state.turn, s.turn, 'original deadline still applied');
-  // after the first street is collected the pot shows it
+  assert.equal(cs[0].state.turn, s.turn);
   await playHandOut(cs);
   assert.equal(cs[0].state.phase, 'result');
   assert.equal(cs[0].state.pot > 0, true);

@@ -124,6 +124,7 @@ function handle(msg) {
       state.room = msg.state;
       if (!animator.busy()) applyRoom(msg.state);
       break;
+    case 'rooms': lobby.setRooms(msg.list); break;
     case 'event':
       // Emotes and chat are not choreography: they bypass the queue so animations never delay them.
       if (msg.e.k === 'emote') pins.emote(msg.e.id, msg.e.e);

@@ -37,7 +37,9 @@ export function createCluster(ui) {
     const slots = Array.from({ length: 5 }, (_, i) => (room.board[i] ? cardEl(room.board[i]) : h('div', 'slot')));
     const ov = h('div', 'ov', h('div', 't', `공용 카드 · ${STREETS[room.street] ?? ''}`), h('div', 'crow', slots),
       room.myBest ? h('div', 'num r', room.myBest) : null, h('div', 'x', '화면을 누르면 닫힙니다'));
-    ov.addEventListener('pointerdown', () => ov.remove());
+    // Ignore the click that opened it; any later click or tap closes.
+    const t0 = performance.now();
+    ov.addEventListener('click', () => { if (performance.now() - t0 > 250) ov.remove(); });
     ui.append(ov);
   }
   comm.addEventListener('click', zoom);

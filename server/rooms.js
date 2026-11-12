@@ -10,6 +10,7 @@ export const DEFAULT_TIMING = {
   result: 6_000, // result display before the next hand / back to lobby
   bustExtra: 3_000, // extra display time when someone busted
   street: 1_200, // extra result time per community card street dealt by an all-in run-out
+  roomList: 500, // open-room list broadcasts are coalesced to one per this interval
   reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
 const MAX_PLAYERS = { holdem: 6, bluff: 4 };
@@ -113,9 +114,11 @@ class Room {
     if (this.hostId === id) this.hostId = this.members[0]?.id ?? null;
     this.hub.send(m.session, { t: 'room', state: null });
     this.hub.sendMe(m.session);
+    this.hub.sendRooms(m.session);
     if (!m.session.conn) this.hub.sessions.delete(id);
     if (this.members.length === 0) {
       this.toLobby();
+      this.hub.roomsChanged();
       this.setTimer('gc', this.hub.timing.roomGc, () => this.hub.rooms.delete(this.code));
       return;
     }
@@ -327,6 +330,7 @@ class Room {
   }
 
   push(events = []) {
+    this.hub.roomsChanged();
     this.sendEvents(events);
     for (const m of this.members) this.hub.send(m.session, { t: 'room', state: this.view(m.id) });
   }
@@ -422,6 +426,8 @@ export function createHub({
         console.error('timer failed:', err.stack);
       }
     },
+    roomsTimer: null,
+    roomsSig: '[]',
     sessions: new Map(), // id -> { id, user, conn, room }
 
     send(session, obj) {
@@ -430,6 +436,27 @@ export function createHub({
     sendMe(...sessions) {
       for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user) });
     },
+    // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
+    roomList() {
+      return [...hub.rooms.values()].filter((r) => r.members.length > 0).map((r) => ({
+        code: r.code, mode: r.mode, hostName: r.member(r.hostId).session.user.name,
+        count: r.members.length, max: MAX_PLAYERS[r.mode], phase: r.phase,
+      }));
+    },
+    sendRooms(session) {
+      if (!session.room) hub.send(session, { t: 'rooms', list: hub.roomList() });
+    },
+    roomsChanged() {
+      if (hub.roomsTimer !== null) return;
+      hub.roomsTimer = timers.setTimeout(hub.guard(() => {
+        hub.roomsTimer = null;
+        const list = hub.roomList();
+        const sig = JSON.stringify(list);
+        if (sig === hub.roomsSig) return;
+        hub.roomsSig = sig;
+        for (const s of hub.sessions.values()) if (!s.room) hub.send(s, { t: 'rooms', list });
+      }), hub.timing.roomList);
+    },
     persist(user) {
       store.save(user).catch((err) => console.error('save failed:', err.message));
     },
@@ -437,6 +464,7 @@ export function createHub({
       return createConn(hub, sock);
     },
     close() {
+      if (hub.roomsTimer !== null) timers.clearTimeout(hub.roomsTimer);
       for (const room of hub.rooms.values()) {
         for (const name of Object.keys(room.timers)) room.clearTimer(name);
         for (const m of room.members) if (m.grace !== null) timers.clearTimeout(m.grace);
@@ -522,6 +550,7 @@ async function login(hub, conn, msg) {
   if (session.room) session.room.setConnected(session.id, true);
   hub.send(session, { t: 'room', state: session.room ? session.room.view(session.id) : null });
   session.room?.sendChatLog(session);
+  hub.sendRooms(session);
   return null;
 }
 

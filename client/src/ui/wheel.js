@@ -4,7 +4,7 @@ import { LINE, TOP } from './icons.js';
 const STEP = 100;
 const NS = 'http://www.w3.org/2000/svg';
 
-const segPath = (a0, a1, icon, hl) => {
+const segPath = (a0, a1, icon) => {
   const R0 = 75;
   const p = (a, r) => [R0 + r * Math.cos(a), R0 + r * Math.sin(a)];
   const [x0, y0] = p(a0, 66);
@@ -12,8 +12,7 @@ const segPath = (a0, a1, icon, hl) => {
   const [ix, iy] = p((a0 + a1) / 2, 40);
   const [ax, ay] = p(a0 + 0.08, 71);
   const [bx, by] = p(a1 - 0.08, 71);
-  return `<path d="M${R0} ${R0}L${x0} ${y0}A66 66 0 0 1 ${x1} ${y1}z" fill="${hl ? 'rgba(40,36,30,.97)' : 'rgba(22,20,18,.94)'}" stroke="#0a0806" stroke-width="3.5"/>`
-    + (hl ? `<path d="M${ax} ${ay}A71 71 0 0 1 ${bx} ${by}" fill="none" stroke="#ffc62a" stroke-width="5" stroke-linecap="round"/>` : '')
+  return `<path class="bg" d="M${R0} ${R0}L${x0} ${y0}A66 66 0 0 1 ${x1} ${y1}z"/><path class="arc" d="M${ax} ${ay}A71 71 0 0 1 ${bx} ${by}"/>`
     + `<g transform="translate(${ix - 17} ${iy - 17}) scale(1.42)">${icon}</g>`;
 };
 
@@ -31,6 +30,8 @@ export function createWheel(ui, send) {
   const act = (a, extra) => { send({ t: 'act', a, ...extra }); hide(); };
   const hide = () => { root.style.display = 'none'; key = ''; mode = 'wheel'; };
 
+  // The wheel is built once per turn; hover/press only toggles classes. Rebuilding the nodes on
+  // pointerenter would detach the element before the tap's click arrives on touch screens.
   function drawWheel() {
     const segs = [
       { icon: LINE.call, name: ctx.toCall > 0 ? '콜' : '체크', val: ctx.toCall > 0 ? fmt(ctx.toCall) : '', on: true, run: () => act(ctx.toCall > 0 ? 'call' : 'check') },
@@ -39,18 +40,30 @@ export function createWheel(ui, send) {
     ];
     const s = svg('', '0 0 150 150');
     s.classList.add('wheel');
-    segs.forEach((g, i) => {
+    s.addEventListener('contextmenu', (e) => e.preventDefault());
+    const nameEl = h('span', 'ko');
+    const valEl = h('span', 'num');
+    const nodes = segs.map((g, i) => {
       const a0 = (Math.PI * 5) / 6 + (i * 2 * Math.PI) / 3;
       const node = document.createElementNS(NS, 'g');
       node.setAttribute('class', `wseg ${g.on ? '' : 'off'}`);
-      node.innerHTML = segPath(a0, a0 + (2 * Math.PI) / 3, g.icon, hl === i);
-      node.addEventListener('pointerenter', () => { if (g.on && hl !== i) { hl = i; draw(); } });
-      node.addEventListener('click', () => { if (!g.on) return; if (hl !== i) hl = i; g.run(); });
+      node.innerHTML = segPath(a0, a0 + (2 * Math.PI) / 3, g.icon);
       s.append(node);
+      return node;
+    });
+    const highlight = (i) => {
+      hl = i;
+      nodes.forEach((n, k) => n.classList.toggle('hl', k === i));
+      nameEl.textContent = segs[i].name;
+      valEl.textContent = segs[i].val;
+    };
+    nodes.forEach((node, i) => {
+      node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && segs[i].on) highlight(i); });
+      node.addEventListener('click', () => { if (segs[i].on) { highlight(i); segs[i].run(); } });
     });
     s.insertAdjacentHTML('beforeend', '<circle cx="75" cy="75" r="9" fill="#0a0806" stroke="#cfc9bd" stroke-width="1.5"/>');
-    const g = segs[hl];
-    root.replaceChildren(h('div', 'wl', h('span', 'ko', g.name), g.val ? h('span', 'num', g.val) : null), s);
+    root.replaceChildren(h('div', 'wl', nameEl, valEl), s);
+    highlight(hl);
   }
 
   /* dial: gauge from 135deg clockwise to 405deg */
