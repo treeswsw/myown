@@ -15,11 +15,21 @@
 .ep-btn:active { background: rgba(255, 255, 255, .26); }
 .ep-btn.glyph { font-size: 30px; line-height: 1; }
 .ep-btn.snd { justify-content: flex-start; padding-left: 10px; }
-.ep-btn.snd span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-nm { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+.ep-nm span, .ep-nm small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-nm small { font-size: 11px; font-weight: 400; color: rgba(255, 255, 255, .6); }
+.ep-btn.wait { opacity: .7; border: 1px dashed rgba(255, 255, 255, .4); }
+.ep-rows { display: grid; gap: 6px; }
+.ep-row { padding: 6px 8px; border-radius: 12px; background: rgba(255, 255, 255, .08); display: grid; gap: 6px; }
+.ep-row .ep-nm { flex-direction: row; align-items: baseline; gap: 8px; }
+.ep-row .ep-form { margin: 0; padding: 0; background: none; }
+.ep-ctl { display: flex; gap: 6px; }
+.ep-ctl button { flex: 1; min-height: var(--hit); border-radius: 10px; background: rgba(255, 255, 255, .14); font-weight: 700; padding: 0 6px; }
+.ep-edit { min-height: var(--hit); padding: 0 12px; margin: -8px -6px -8px 0; border-radius: 10px; background: none; color: var(--accent); font-weight: 700; font-size: 13px; }
 .ep-btn.add { background: none; border: 1.5px dashed rgba(255, 255, 255, .4); color: rgba(255, 255, 255, .85); }
 .ep-btn.wide { width: 100%; margin-top: 8px; }
 .ep-btn svg { width: 20px; height: 20px; flex: none; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.ep-sub { margin: 12px 0 6px; font-size: 12px; color: rgba(255, 255, 255, .55); display: flex; justify-content: space-between; gap: 8px; }
+.ep-sub { margin: 12px 0 6px; font-size: 12px; color: rgba(255, 255, 255, .55); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .ep-recent { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .ep-recent button { aspect-ratio: 1; min-height: var(--hit); border-radius: 10px; padding: 0; overflow: hidden; background: rgba(255, 255, 255, .08); }
 .ep-recent img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }

@@ -16,7 +16,7 @@
 <div id="ui"></div>
 <pre id="log"></pre>
 <script type="module">
-// ?state=emote|sound|photo|playing  &t=<ms> freezes the floating photo / sound label at that moment of its life
+// ?state=emote|sound|sound-edit|photo|playing  (&host, &fail: server never answers)  &t=<ms> freezes the floating photo / sound label at that moment of its life
 import { createEmotePanel } from './src/ui/emotePanel.js';
 import { updateScale } from './src/ui/dom.js';
 import { createHud } from './src/ui/hud.js';
@@ -35,7 +35,11 @@ const panel = window.panel = createEmotePanel({
   onPhoto: (d) => { say('photo', d); window.lastPhoto = d; panel.showPhoto('민수', d); },
   onSoundAdd: (s) => { say('sndAdd', s); window.lastAdd = s; if (!q.has('fail')) panel.addRoomSound({ ...s, by: '민수' }); },
   onSound: (sid) => { say('snd', sid); panel.playSound('민수', sid); },
+  onSoundDelete: (sid) => { say('sndDel', sid); if (!q.has('fail')) panel.removeRoomSound(sid); },
+  onSoundRename: (sid, name) => { say('sndRename', sid, name); if (!q.has('fail')) panel.renameRoomSound(sid, name); },
   getSelf: () => '민수',
+  getName: (id) => id,
+  isHost: () => q.has('host'),
   getAnchor,
 });
 const ui = document.getElementById('ui');
@@ -61,7 +65,12 @@ const freeze = () => {
   requestAnimationFrame(() => { for (const a of document.getAnimations()) { a.pause(); a.currentTime = +t; } });
 };
 
-if (state === 'sound') document.querySelectorAll('.ep-tab')[1].click();
+const WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=';
+if (state.startsWith('sound')) {
+  document.querySelectorAll('.ep-tab')[1].click();
+  panel.setRoomSounds([['m1abcdef', '서연', '박수갈채'], ['m2abcdef', '태호', '어이쿠야'], ['m3abcdef', '민수', '내사운드'], ['m4abcdef', '하린', '긴이름여덟글자']].map(([sid, by, name]) => ({ sid, by, name, data: WAV })));
+  if (state === 'sound-edit') document.querySelector('.ep-edit').click();
+}
 if (state === 'photo' || state === 'playing') {
   panel.showPhoto('서연', photo('#e8483a', '#4f8fe8'));
   panel.showPhoto('하린', photo('#3ecf5a', '#e9a53a'));
