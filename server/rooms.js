@@ -14,8 +14,6 @@ export const DEFAULT_TIMING = {
   reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
 const MAX_PLAYERS = { holdem: 6, bluff: 4 };
-const BUY_IN = 5000;
-const REFILL = 10_000;
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
 export const REPLACED_CODE = 4001;
@@ -59,7 +57,7 @@ class Room {
   join(session) {
     if (this.members.length >= MAX_PLAYERS[this.mode]) return '방이 가득 찼습니다.';
     this.clearTimer('gc');
-    this.members.push({ id: session.id, session, connected: true, grace: null, stack: 0, inHand: false });
+    this.members.push({ id: session.id, session, connected: true, grace: null, inHand: false });
     this.hostId ??= session.id;
     session.room = this;
     this.push();
@@ -100,15 +98,15 @@ class Room {
     if (m.grace !== null) this.hub.timers.clearTimeout(m.grace);
     this.members = this.members.filter((x) => x !== m);
     m.session.room = null;
-    this.cashOut(m);
     const events = [];
     if (this.hand && this.phase === 'playing' && m.inHand) {
       events.push(...holdem.forceFold(this.hand.st, id).events);
-      // The leaver's remaining chips go home now; only an uncalled-bet refund can still arrive later.
+      // A leaver folds: committed chips stay in the pot, the rest goes home now. Only an
+      // uncalled-bet refund can still arrive later (see settleSeat).
       const seat = this.hand.st.seats.find((x) => x.id === id);
-      m.session.user.bank += seat.stack;
+      this.settleSeat(seat, m.session.user);
       seat.stack = 0;
-      this.hub.persist(m.session.user);
+      this.hand.start.set(id, 0);
     }
     if (this.game && this.phase === 'playing') events.push(...bluff.removePlayer(this.game.g, id).events);
     if (this.hostId === id) this.hostId = this.members[0]?.id ?? null;
@@ -127,21 +125,11 @@ class Room {
     else this.push(events);
   }
 
-  // Table chips go back to the bank (never while they are inside a running hand).
-  cashOut(m) {
-    if (m.stack === 0) return;
-    m.session.user.bank += m.stack;
-    m.stack = 0;
-    this.hub.persist(m.session.user);
-  }
-
   setMode(id, mode) {
     if (id !== this.hostId) return '방장만 변경할 수 있습니다.';
     if (this.phase !== 'lobby') return '게임 중에는 변경할 수 없습니다.';
     if (this.members.length > MAX_PLAYERS[mode]) return `${mode === 'bluff' ? '블러핑 카드' : '텍사스 홀덤'}은 최대 ${MAX_PLAYERS[mode]}명입니다.`;
     this.mode = mode;
-    this.members.forEach((m) => this.cashOut(m));
-    this.hub.sendMe(...this.members.map((m) => m.session));
     this.push();
     return null;
   }
@@ -149,7 +137,8 @@ class Room {
   start(id) {
     if (id !== this.hostId) return '방장만 시작할 수 있습니다.';
     if (this.phase !== 'lobby') return '이미 게임이 진행 중입니다.';
-    if (this.members.filter((m) => m.connected).length < 2) return '2명 이상 필요합니다.';
+    const ready = this.members.filter((m) => m.connected && (this.mode === 'bluff' || m.session.user.bank > 0));
+    if (ready.length < 2) return this.mode === 'bluff' ? '2명 이상 필요합니다.' : '칩이 있는 사람이 2명 이상 필요합니다.';
     if (this.mode === 'holdem') this.startHoldem();
     else this.startBluff();
     return null;
@@ -162,37 +151,26 @@ class Room {
 
   // ---- holdem ----
 
-  sit(m) {
-    const user = m.session.user;
-    if (user.bank <= 0) {
-      user.bank += REFILL;
-      user.stats.refills++;
-    }
-    m.stack = Math.min(user.bank, BUY_IN);
-    user.bank -= m.stack;
-    this.hub.persist(user);
-    this.hub.sendMe(m.session);
-  }
-
   startHoldem() {
-    const seated = this.members.filter((m) => m.connected);
+    // Everything the account owns is the stack. Busted (0 chips) and disconnected players sit out.
+    const seated = this.members.filter((m) => m.connected && m.session.user.bank > 0);
     if (seated.length < 2) {
       this.toLobby();
       return;
     }
-    for (const m of seated) if (m.stack === 0) this.sit(m);
     const at = seated.findIndex((m) => m.id === this.lastDealer);
     const dealer = (at + 1) % seated.length;
     const { st, events } = holdem.startHand(
-      seated.map((m) => ({ id: m.id, stack: m.stack })), dealer, this.hub.rng,
+      seated.map((m) => ({ id: m.id, stack: m.session.user.bank })), dealer, this.hub.rng,
     );
     this.lastDealer = seated[dealer].id;
-    // The chips now live in the engine; the member's table stack is restored when the hand ends.
-    this.hand = { st, users: new Map(seated.map((m) => [m.id, m.session.user])) };
-    for (const m of this.members) {
-      m.inHand = seated.includes(m);
-      if (m.inHand) m.stack = 0;
-    }
+    // user.bank keeps the pre-hand amount; only the difference is applied (settleSeat), so chips
+    // are conserved even when a leaver's refund arrives after they joined another room.
+    this.hand = {
+      st, users: new Map(seated.map((m) => [m.id, m.session.user])),
+      start: new Map(seated.map((m) => [m.id, m.session.user.bank])),
+    };
+    for (const m of this.members) m.inHand = seated.includes(m);
     this.phase = 'playing';
     this.result = null;
     this.afterHoldem(events);
@@ -211,14 +189,18 @@ class Room {
     this.push(events);
   }
 
+  settleSeat(seat, user) {
+    user.bank += seat.stack - this.hand.start.get(seat.id);
+    this.hand.start.set(seat.id, seat.stack);
+    this.hub.persist(user);
+  }
+
   endHand(events) {
     const { st, users } = this.hand;
     const res = st.result;
     for (const seat of st.seats) {
-      const m = this.member(seat.id);
       const user = users.get(seat.id);
-      if (m) m.stack = seat.stack;
-      else user.bank += seat.stack; // left mid-hand: whatever is left goes home
+      this.settleSeat(seat, user);
       user.stats.hands++;
       const w = res.winners.find((x) => x.id === seat.id);
       if (w) {
@@ -231,13 +213,24 @@ class Room {
     }
     this.result = { winners: res.winners, shown: res.shown, busted: res.busted };
     events.push({ k: 'win', winners: res.winners, pot: res.pot });
-    const by = res.winners[0].id;
+    const by = res.winners.reduce((best, w) => (w.amount > best.amount ? w : best)).id;
     for (const id of res.busted) events.push({ k: 'bust', id, by });
     this.phase = 'result';
     const runout = events.filter((ev) => ev.k === 'street').length;
     const wait = this.hub.timing.result + runout * this.hub.timing.street +
       (res.busted.length ? this.hub.timing.bustExtra : 0);
-    this.setTimer('next', wait, () => this.startHoldem());
+    const busted = res.busted.length > 0;
+    this.setTimer('next', wait, () => this.afterResult(busted));
+  }
+
+  // After the result display: next hand, or the room's champion when a bust left one player with chips.
+  afterResult(busted) {
+    const withChips = this.members.filter((m) => m.session.user.bank > 0);
+    if (busted && withChips.length === 1) {
+      this.toLobby([{ k: 'champion', id: withChips[0].id }]);
+      return;
+    }
+    this.startHoldem();
   }
 
   // ---- bluff ----
@@ -286,14 +279,14 @@ class Room {
     this.push(events);
   }
 
-  toLobby() {
+  toLobby(events = []) {
     this.clearTimer('next');
     this.phase = 'lobby';
     this.hand = null;
     this.game = null;
     this.result = null;
     for (const m of this.members) m.inHand = false;
-    this.push();
+    this.push(events);
   }
 
   // ---- turns: no time limit for connected players; only a disconnected one is auto-played ----
@@ -357,7 +350,8 @@ class Room {
       const shown = this.result?.shown[m.id];
       return {
         ...common(m, i),
-        stack: seat ? seat.stack : m.stack,
+        stack: seat ? seat.stack : m.session.user.bank,
+        eliminated: m.session.user.bank <= 0,
         bet: seat && st.phase === 'betting' ? seat.bet : 0,
         folded: seat?.folded ?? false,
         allin: seat?.allin ?? false,
@@ -568,6 +562,7 @@ async function dispatch(hub, conn, msg) {
       return null;
     case 'create': {
       if (room) return '이미 방에 있습니다.';
+      if (msg.mode === 'holdem' && session.user.bank <= 0) return '칩이 없습니다. 새 아이디로 다시 시작하세요';
       const r = new Room(hub, newCode(hub), msg.mode);
       hub.rooms.set(r.code, r);
       return r.join(session);

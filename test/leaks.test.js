@@ -33,12 +33,17 @@ function forbiddenKeys(value, found = new Set()) {
 }
 
 test('holdem: a player only ever receives own hole cards, the board and showdown reveals', async () => {
-  const { clock, cs, room } = await table('holdem', ['ann1', 'bob1', 'cat1'], 31);
+  const { clock, hub, cs, room } = await table('holdem', ['ann1', 'bob1', 'cat1'], 31);
   const rng = seeded(5);
   for (let h = 0; h < 25; h++) {
     const marks = cs.map((c) => c.sock.raw.length);
     if (h === 0) await cs[0].send({ t: 'start' });
     else clock.advance(13000);
+    if (room.phase === 'lobby') {
+      // someone busted and a champion was crowned: give everybody chips again and restart
+      for (const sess of hub.sessions.values()) sess.user.bank = 10000;
+      await cs[0].send({ t: 'start' });
+    }
     const { st } = room.hand;
     const hole = Object.fromEntries(st.seats.map((s) => [s.id, [...s.cards]]));
     const deckCards = new Set(st.deck);
@@ -62,7 +67,7 @@ test('holdem: a player only ever receives own hole cards, the board and showdown
       const before = cut < 0 ? slice : slice.slice(0, cut);
       for (const raw of before) {
         for (const card of cardsIn(raw)) {
-          assert.ok(hole[me].includes(card) || board.has(card), `${me} saw ${card} before showdown`);
+          assert.ok((hole[me] ?? []).includes(card) || board.has(card), `${me} saw ${card} before showdown`);
         }
       }
       for (const raw of slice) {

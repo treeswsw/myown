@@ -4,6 +4,8 @@ import { createHub } from '../server/rooms.js';
 import { createStore } from '../server/store.js';
 import { FakeClock, client, seeded } from './helpers.js';
 
+const events = (c, k) => c.sock.msgs.filter((m) => m.t === 'event' && m.e.k === k).map((m) => m.e);
+
 async function setup(seed = 1) {
   const clock = new FakeClock();
   const store = createStore();
@@ -127,8 +129,7 @@ test('holdem: full hand through the handlers, stacks, stats and auto next hand',
   const s = cs[0].state;
   assert.equal(s.phase, 'playing');
   assert.equal(s.players.length, 3);
-  assert.equal(s.players.reduce((n, p) => n + p.stack + p.bet, 0), 15000);
-  assert.equal(cs[0].sock.last('me').user.bank, 5000);
+  assert.equal(s.players.reduce((n, p) => n + p.stack + p.bet, 0), 30000, 'whole accounts are on the table');
   assert.equal(s.turnEndsAt, null);
   assert.equal(s.pot, 0, 'blinds are still bets, not yet in the pot');
   for (const c of cs) {
@@ -143,7 +144,7 @@ test('holdem: full hand through the handlers, stacks, stats and auto next hand',
   const end = cs[0].state;
   assert.equal(end.phase, 'result');
   assert.equal(end.result.winners.length >= 1, true);
-  assert.equal(end.players.reduce((n, p) => n + p.stack, 0), 15000);
+  assert.equal(end.players.reduce((n, p) => n + p.stack, 0), 30000);
   assert.equal(end.board.length, 5);
   assert.deepEqual(Object.keys(end.result.shown).sort(), end.players.filter((p) => !p.folded).map((p) => p.id).sort());
   const winnerId = end.result.winners[0].id;
@@ -248,7 +249,7 @@ test('leaving mid-hand folds, returns chips and the room empties after 60s', asy
   await cs[0].send({ t: 'start' });
   await cs[1].send({ t: 'leave' });
   assert.equal(cs[0].state.phase, 'result');
-  const total = cs[0].sock.last('me').user.bank + cs[0].state.players[0].stack + cs[1].sock.last('me').user.bank;
+  const total = cs[0].state.players[0].stack + cs[1].sock.last('me').user.bank;
   assert.equal(total, 20000);
   await cs[0].send({ t: 'leave' });
   assert.equal(cs[0].sock.last('me').user.bank + cs[1].sock.last('me').user.bank, 20000);
@@ -257,8 +258,8 @@ test('leaving mid-hand folds, returns chips and the room empties after 60s', asy
   assert.ok(!hub.rooms.has(code));
 });
 
-test('bust: busted player re-sits from the bank; empty bank gets a free refill', async () => {
-  const { hub, clock } = await setup(6);
+test('bust: the busted player is eliminated for good, chips 0, and the last one standing is champion', async () => {
+  const { hub, clock, store } = await setup(6);
   const { cs } = await lobby(hub, 'holdem', ['ann1', 'bob1']);
   await cs[0].send({ t: 'start' });
   const shove = (state) => (state.maxRaiseTo > 0 || state.toCall > 0 ? { t: 'act', a: 'allin' } : null);
@@ -266,32 +267,92 @@ test('bust: busted player re-sits from the bank; empty bank gets a free refill',
   for (let i = 0; i < 30 && !busted.length; i++) {
     await playHandOut(cs, shove);
     busted = cs[0].state.result.busted;
-    if (!busted.length) clock.advance(6000);
+    if (!busted.length) clock.advance(15000);
   }
   assert.equal(busted.length, 1);
   const loser = cs.find((c) => c.state.you === busted[0]);
-  assert.ok(cs[0].sock.msgs.some((m) => m.t === 'event' && m.e.k === 'bust' && m.e.id === busted[0]));
-  assert.equal(loser.state.players.find((p) => p.id === busted[0]).stack, 0);
-  const bankBefore = loser.sock.last('me').user.bank;
-  clock.advance(6000 + 3 * 1200 + 3000 - 1);
-  assert.equal(cs[0].state.phase, 'result', 'run-out and bust animations get their time');
-  clock.advance(1);
-  const seat = loser.state.players.find((p) => p.id === busted[0]);
-  const sat = seat.stack + seat.bet;
-  assert.equal(sat > 0, true);
-  assert.equal(sat, Math.min(bankBefore, 5000));
-  assert.equal(loser.sock.last('me').user.stats.refills, 0);
+  const winner = cs.find((c) => c !== loser);
+  const bust = cs[0].sock.msgs.find((m) => m.t === 'event' && m.e.k === 'bust');
+  assert.deepEqual([bust.e.id, bust.e.by], [busted[0], winner.state.you]);
+  const row = loser.state.players.find((p) => p.id === busted[0]);
+  assert.deepEqual([row.stack, row.eliminated], [0, true]);
+  assert.equal(loser.sock.last('me').user.bank, 0);
+  assert.equal(winner.sock.last('me').user.bank, 20000);
+  assert.equal(events(winner, 'champion').length, 0, 'not yet: the result is still shown');
+  clock.advance(6000 + 3 * 1200 + 3000);
+  assert.deepEqual(events(winner, 'champion'), [{ k: 'champion', id: winner.state.you }]);
+  assert.equal(winner.state.phase, 'lobby');
+  assert.equal((await store.getOrCreate(busted[0], busted[0])).bank, 0, 'persisted');
+  assert.equal((await store.getOrCreate(winner.state.you, 'x')).bank, 20000);
+  // cannot be dealt in again, cannot start alone
+  await winner.send({ t: 'start' });
+  assert.equal(winner.sock.last('error').msg, '칩이 있는 사람이 2명 이상 필요합니다.');
+  // a relogin does not restore chips; no hold'em room for a broke account
+  const fresh = client(hub);
+  await fresh.send({ t: 'login', id: busted[0] });
+  assert.equal(fresh.sock.last('me').user.bank, 0);
 });
 
-test('free refill when the bank is empty at sit-down', async () => {
+test('a broke account cannot create hold\'em but can spectate and play bluff', async () => {
   const { hub } = await setup(6);
-  const { cs } = await lobby(hub, 'holdem', ['ann1', 'bob1']);
+  const a = await login(hub, 'ann1');
   hub.sessions.get('ann1').user.bank = 0;
+  await a.send({ t: 'create', mode: 'holdem' });
+  assert.equal(a.sock.last('error').msg, '칩이 없습니다. 새 아이디로 다시 시작하세요');
+  await a.send({ t: 'create', mode: 'bluff' });
+  assert.equal(a.state.mode, 'bluff');
+  const h = await login(hub, 'bob1');
+  const c = await login(hub, 'cat1');
+  const d = await login(hub, 'dan1');
+  await h.send({ t: 'create', mode: 'holdem' });
+  await c.send({ t: 'join', code: h.state.code });
+  await d.send({ t: 'join', code: h.state.code });
+  hub.sessions.get('dan1').user.bank = 0;
+  await h.send({ t: 'start' });
+  const dan = h.state.players.find((p) => p.id === 'dan1');
+  assert.deepEqual([dan.spectating, dan.eliminated], [true, true]);
+  assert.equal(h.state.players.filter((p) => !p.spectating).length, 2);
+});
+
+test('mid-hand leave in all-in run-out and when only one player remains keeps chips conserved', async () => {
+  const { hub, clock } = await setup(15);
+  const { cs } = await lobby(hub, 'holdem', ['ann1', 'bob1', 'cat1']);
   await cs[0].send({ t: 'start' });
-  const me = cs[0].sock.last('me').user;
-  assert.equal(me.stats.refills, 1);
-  assert.equal(me.bank, 5000);
-  assert.equal(cs[0].state.players[0].stack + cs[0].state.players[0].bet, 5000);
+  // everyone shoves except the last actor, who leaves instead
+  for (let i = 0; i < 2; i++) await cs.find((c) => c.state.you === cs[0].state.turn).send({ t: 'act', a: 'allin' });
+  const leaver = cs.find((c) => c.state.you === cs[0].state.turn);
+  await leaver.send({ t: 'leave' });
+  const stay = cs.filter((c) => c !== leaver);
+  assert.equal(stay[0].state.phase, 'result');
+  assert.equal(stay[0].state.board.length, 5, 'run-out completed');
+  const total = leaver.sock.last('me').user.bank + stay.reduce((n, c) => n + c.state.players.find((p) => p.id === c.state.you).stack, 0);
+  assert.equal(total, 30000);
+  clock.advance(60000);
+});
+
+test('chips are conserved across seats, leaves and busts (fuzz over rooms)', async () => {
+  const { hub, clock } = await setup(16);
+  const rng = seeded(99);
+  const names = ['ann1', 'bob1', 'cat1', 'dan1'];
+  const { cs } = await lobby(hub, 'holdem', names);
+  const total = () => [...hub.sessions.values()].reduce((n, s) => n + s.user.bank, 0);
+  const inEngine = (room) => (room.hand && room.phase === 'playing'
+    ? room.hand.st.seats.reduce((n, s) => n + s.stack + s.total - room.hand.start.get(s.id), 0) : 0);
+  const room = hub.rooms.values().next().value;
+  await cs[0].send({ t: 'start' });
+  for (let step = 0; step < 400 && room.members.length > 1; step++) {
+    assert.equal(total() + inEngine(room), 40000, 'step ' + step);
+    if (room.phase === 'playing') {
+      const actor = cs.find((c) => c.state?.you === room.turnId());
+      if (rng() < 0.03 && room.members.length > 2) await actor.send({ t: 'leave' });
+      else {
+        const s = actor.state;
+        const roll = rng();
+        await actor.send(roll < 0.2 && s.maxRaiseTo > 0 ? { t: 'act', a: 'allin' } : { t: 'act', a: s.toCall > 0 ? (roll < 0.3 ? 'fold' : 'call') : 'check' });
+      }
+    } else clock.advance(15000);
+  }
+  assert.equal(total() + inEngine(room), 40000);
 });
 
 test('bluff: game through the handlers incl. revolver and result', async () => {

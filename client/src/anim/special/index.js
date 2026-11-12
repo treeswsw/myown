@@ -277,7 +277,7 @@ export function createSpecialFX({ scene, camera, getSeat, shake: hostShake, sfx:
   function stand(playerId, { onUp, onDown } = {}) {
     const actor = spawnActor(playerId);
     const { rig, scale, neck, feet } = actor;
-    const rise = 0.13 * scale;
+    const rise = 0.24 * scale;
     const feetY = feet ? feet.map((f) => f.y) : null;
     const press = (side) => v(side * 0.2, actor.aboveFelt(0.03), 0.34);
     const high = (side) => v(side * 0.47, 0.3, 0.02);
