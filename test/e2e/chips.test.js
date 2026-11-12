@@ -167,3 +167,65 @@ test('chips: bluff and unrelated rooms keep working while an eliminated account 
   assert.equal(me.stats.refills, 0);
   b.close();
 });
+
+/** 3 players; X and Y go all-in, Z (a blind) has not acted yet. */
+async function pendingAllIns(srv) {
+  const { bots } = await seatAll(srv, 'holdem', 3, { autoplay: false });
+  const [h] = bots;
+  h.start();
+  await h.waitFor(() => h.state.phase === 'playing' && h.state.turn, 3000, 'start');
+  for (const b of bots) await b.waitFor(() => b.state.phase === 'playing', 3000, 'seen');
+  const X = bots.find((b) => b.id === h.state.turn);
+  X.send({ t: 'act', a: 'allin' });
+  await h.waitFor(() => h.state.turn !== X.state.you && h.state.turn, 3000, 'turn moves');
+  const Y = bots.find((b) => b.state.you === h.state.turn);
+  Y.send({ t: 'act', a: 'allin' });
+  await h.waitFor(() => h.state.turn !== Y.state.you && h.state.turn && h.state.phase === 'playing', 3000, 'turn to Z');
+  const Z = bots.find((b) => b.state.you === h.state.turn);
+  assert.ok(Z !== X && Z !== Y);
+  const zContrib = 10000 - h.state.players.find((p) => p.id === Z.state.you).stack - 0; // blind posted (stack already reduced)
+  return { bots, h, X, Y, Z, zBlind: zContrib };
+}
+
+test('chips: explicit leave while all-in is a fold (forfeits the chips, cannot win)', { timeout: 60000 }, async () => {
+  const { bots, h, X, Y, Z } = await pendingAllIns(server);
+  const xId = X.state.you;
+  X.leave();
+  await X.waitFor(() => X.state === null, 3000, 'X left');
+  await Y.waitFor(() => !Y.state.players.some((p) => p.id === xId) || Y.state.players.find((p) => p.id === xId).folded, 3000, 'X folded/removed');
+  Z.send({ t: 'act', a: 'fold' });
+  await h.waitFor(() => h.state.phase === 'result' || (h === X && false), 5000, 'result').catch(() => {});
+  const obs = h === X ? Y : h;
+  await obs.waitFor(() => obs.state.phase === 'result', 5000, 'result');
+  const res = obs.state.result;
+  assert.ok(!res.winners.some((w) => w.id === xId), 'a player who explicitly left while all-in must not win');
+  assert.equal(res.winners.length, 1);
+  assert.equal(res.winners[0].id, Y.state.you);
+  assert.ok(!(res.shown && res.shown[xId]), 'left player must not be shown down');
+  const acc = await readAccounts(server, bots.map((b) => b.id));
+  assert.equal(acc[X.id].bank, 0, 'forfeited chips are gone from the leaver');
+  assert.equal(bots.reduce((a, b) => a + acc[b.id].bank, 0) + obs.state.players.reduce((a, p) => a + p.stack, 0) * 0, bots.reduce((a, b) => a + acc[b.id].bank, 0));
+  const stacks = obs.state.players.reduce((a, p) => a + p.stack, 0);
+  assert.equal(stacks + acc[X.id].bank, 30000, 'chips conserved');
+  bots.forEach((b) => b.close());
+});
+
+test('chips: disconnect while all-in keeps the player in the hand; chips are credited to the account', { timeout: 60000 }, async () => {
+  const { bots, h, X, Y, Z } = await pendingAllIns(server);
+  const xId = X.state.you;
+  const obs = [h, Y, Z].find((b) => b !== X);
+  X.terminate();
+  await obs.waitFor(() => obs.state.players.find((p) => p.id === xId)?.connected === false, 3000, 'X disconnected');
+  Z.send({ t: 'act', a: 'fold' });
+  await obs.waitFor(() => obs.state.phase === 'result', 5000, 'result');
+  const res = obs.state.result;
+  assert.ok(res.shown && res.shown[xId] && res.shown[Y.state.you], 'both all-in players are shown down (disconnected X stayed in)');
+  const xFinal = obs.state.players.find((p) => p.id === xId).stack;
+  // after the grace the seat is removed and the stack is credited to the account
+  await obs.waitFor(() => !obs.state.players.some((p) => p.id === xId), 6000, 'X removed after grace');
+  const acc = await readAccounts(server, bots.map((b) => b.id));
+  assert.equal(acc[xId].bank, xFinal, 'disconnected all-in player gets their result credited');
+  const total = bots.reduce((a, b) => a + acc[b.id].bank, 0) + obs.state.players.reduce((a, p) => a + p.stack, 0);
+  assert.equal(total, 30000, 'chips conserved');
+  bots.forEach((b) => b.close());
+});
