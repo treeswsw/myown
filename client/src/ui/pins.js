@@ -16,6 +16,7 @@ export function createPins(ui, stage, table) {
   const stacks = new Map(); // id -> displayed stack override while the win animation runs
   const dead = new Set();
   let room = null;
+  let hidden = false;
   // The server clock may differ from this device's, so the ring counts from when the turn message arrived.
   let turnSeenAt = 0;
 
@@ -79,6 +80,8 @@ export function createPins(ui, stage, table) {
 
   function frame() {
     if (!room) return;
+    potLabel.style.display = 'none';
+    if (hidden) return;
     for (const [id, e] of pins) {
       const head = table.head(id);
       e.el.style.display = head ? '' : 'none';
@@ -99,6 +102,8 @@ export function createPins(ui, stage, table) {
 
   return {
     render, frame,
+    clearStacks() { stacks.clear(); if (room) render(room); },
+    setVisible(v) { layer.style.display = v ? '' : 'none'; hidden = !v; },
     noteTurn() { turnSeenAt = Date.now(); },
     get: (id) => pins.get(id),
     setAct(id, kind) { acts.set(id, kind); if (room) render(room); },

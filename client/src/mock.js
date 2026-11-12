@@ -1,4 +1,5 @@
-// Dev-only: ?mock=holdem|bluff&state=preflop|default|peek|board|raise|win|allin|bust|shot|shotsafe
+// Dev-only: ?mock=holdem|bluff&state=preflop|default|peek|board|raise|win|allin|bust|shot|shotsafe|flood (flood: bluff only)
+// Add &fx=full to keep the full effects even on a slow machine.
 // Feeds canned messages through the same handler the WebSocket uses.
 const PEOPLE = [
   ['me', '민수', '#7a3b3b', '#2a1a12'], ['jiwoo', '지우', '#3b5a7a', '#5a3a1c'], ['seoyeon', '서연', '#4a6b4a', '#1a1411'],
@@ -82,4 +83,14 @@ export function startMock(handle, { mode, state }) {
   if (state === 'allin') later(1500, () => { event({ k: 'allin', id: 'harin' }); send({ t: 'room', state: { ...room, players: room.players.map((p) => (p.id === 'harin' ? { ...p, stack: 0, bet: 16050, allin: true } : p)) } }); });
   if (state === 'bust') later(1500, () => event({ k: 'bust', id: 'jiwoo', by: 'seoyeon' }));
   if (state === 'shot' || state === 'shotsafe') later(1500, () => event({ k: 'shot', id: 'seoyeon', dead: state === 'shot', shots: 3 }));
+  if (state === 'flood') {
+    later(1500, () => {
+      for (let i = 0; i < 4; i++) {
+        event({ k: 'liar', caller: 'seoyeon', by: 'harin' });
+        event({ k: 'reveal', by: 'harin', caller: 'seoyeon', cards: ['K', 'Q'], lie: true, loser: 'harin', dead: false, shots: i + 1 });
+        event({ k: 'shot', id: 'harin', dead: false, shots: i + 1 });
+      }
+      send({ t: 'room', state: { ...room, round: 7, players: room.players.map((p) => ({ ...p, shots: 4 })) } });
+    });
+  }
 }

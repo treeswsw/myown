@@ -37,6 +37,8 @@ export function createBluff(ui, send) {
   liar.onclick = () => send({ t: 'liar' });
 
   return {
+    // The local player's own penalty sequence plays at the bottom of the screen, so the hand steps aside.
+    setAway(on) { all.forEach((e) => e.classList.toggle('away', on)); },
     update(r, visible, canAct) {
       room = r;
       mine = canAct;

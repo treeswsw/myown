@@ -19,7 +19,8 @@ const REFILL = 10_000;
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
 export const REPLACED_CODE = 4001;
-const RATE_LIMIT = 20; // messages per second per connection
+const RATE_LIMIT = 20;
+const CHAT_LOG = 30; // messages per second per connection
 
 const publicUser = (u) => ({ id: u.id, name: u.name, bank: u.bank, avatar: u.avatar, stats: { ...u.stats } });
 
@@ -35,6 +36,7 @@ class Room {
     this.game = null; // bluff: { g, users }
     this.result = null;
     this.lastDealer = null;
+    this.chatLog = [];
     this.turnEndsAt = null;
     this.armedFor = null;
     this.timers = { turn: null, next: null, gc: null };
@@ -63,7 +65,20 @@ class Room {
     this.hostId ??= session.id;
     session.room = this;
     this.push();
+    this.sendChatLog(session);
     return null;
+  }
+
+  sendChatLog(session) {
+    this.hub.send(session, { t: 'event', e: { k: 'chatLog', items: this.chatLog.map((x) => ({ ...x })) } });
+  }
+
+  // Chat is independent of the game: no state push, no timers.
+  chat(session, text) {
+    const item = { id: session.id, name: session.user.name, text, ts: this.hub.now() };
+    this.chatLog.push(item);
+    if (this.chatLog.length > CHAT_LOG) this.chatLog.shift();
+    this.sendEvents([{ k: 'chat', ...item }]);
   }
 
   setConnected(id, connected) {
@@ -467,6 +482,7 @@ function newCode(hub) {
 function createConn(hub, sock) {
   const conn = {
     session: null,
+    chatTimes: [],
     queue: Promise.resolve(),
     windowStart: 0,
     count: 0,
@@ -531,6 +547,7 @@ async function login(hub, conn, msg) {
   hub.sendMe(session);
   if (session.room) session.room.setConnected(session.id, true);
   hub.send(session, { t: 'room', state: session.room ? session.room.view(session.id) : null });
+  session.room?.sendChatLog(session);
   return null;
 }
 
@@ -568,6 +585,15 @@ async function dispatch(hub, conn, msg) {
     case 'play': return room.play(session.id, msg.cards);
     case 'liar': return room.liar(session.id);
     case 'emote': room.emote(session.id, msg.e); return null;
+    case 'chat': {
+      const t = hub.now();
+      conn.chatTimes = conn.chatTimes.filter((x) => t - x < 10_000);
+      const last = conn.chatTimes.at(-1);
+      if (conn.chatTimes.length >= 5 || (last !== undefined && t - last < 1000)) return '채팅을 너무 빨리 보내고 있습니다.';
+      conn.chatTimes.push(t);
+      room.chat(session, msg.text);
+      return null;
+    }
     default: return '알 수 없는 요청입니다.';
   }
 }

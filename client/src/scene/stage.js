@@ -74,36 +74,44 @@ export function createStage(canvas) {
   let last = performance.now();
   let frames = 0;
   let acc = 0;
-  let stage;
-  // Degrade once if the first seconds run slower than ~30fps: bloom first, then resolution and shadows.
-  let degraded = 0;
-  function adapt(dt) {
+  let windowStart = last;
+  let lowPower = false;
+  const forceFull = new URLSearchParams(location.search).get('fx') === 'full';
+  // Judge speed per 3s of wall time (a frame count would take minutes on a very slow device).
+  // >50ms average: drop to reduced mode (no body sequences, no bloom, 1x pixels, no shadows).
+  // >36ms: just bloom off.
+  function adapt(now, dt) {
     frames++; acc += dt;
-    if (frames < 90 || degraded >= 2) return;
-    if (acc / frames > 36) {
-      degraded++;
-      if (degraded === 1 && composer) composer = null;
-      else { pixelRatio = 1; renderer.shadowMap.enabled = false; scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; }); resize(); }
-    }
-    frames = 0; acc = 0;
+    if (now - windowStart < 3000) return;
+    const avg = acc / frames;
+    frames = 0; acc = 0; windowStart = now;
+    if (now < 6000 || forceFull) return;
+    if (avg > 50 && !lowPower) {
+      lowPower = true;
+      composer = null;
+      pixelRatio = 1;
+      renderer.shadowMap.enabled = false;
+      scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+      resize();
+    } else if (avg > 36 && composer) composer = null;
   }
   const loop = (now) => {
     requestAnimationFrame(loop);
-    const dt = Math.min(now - last, 100);
+    const dt = Math.min(now - last, 1000); // one slow frame must still advance animations by real time
     last = now;
     tick(now);
     applyCamera();
     subs.forEach((f) => f(dt));
     if (composer) composer.render(); else renderer.render(scene, camera);
-    adapt(dt);
+    adapt(now, dt);
   };
   requestAnimationFrame(loop);
 
-  stage = {
+  return {
     scene, camera, size, project, shake,
+    isLowPower: () => lowPower,
     ready: room.ready,
     setMode: room.setMode,
     onFrame: (f) => { subs.add(f); return () => subs.delete(f); },
   };
-  return stage;
 }

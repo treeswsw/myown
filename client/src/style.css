@@ -157,6 +157,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* bluff */
 .bhand { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); zoom: var(--k); display: flex; gap: 12px; pointer-events: auto; }
+.bhand, .tip, .btns, .rvtxt { transition: transform .35s, opacity .35s; }
+.bhand.away { transform: translate(-50%, 140%); opacity: 0; }
+.tip.away { transform: translate(-50%, 300%); opacity: 0; }
+.btns.away { transform: translateY(200%); opacity: 0; }
+.rvtxt.away { opacity: 0; }
 .bhand .pc { --h: 138px; transition: transform .15s, box-shadow .15s; cursor: pointer; }
 .bhand.dim .pc { filter: brightness(.82); }
 .bhand .pc.sel { transform: translateY(-26px); box-shadow: 0 0 0 3px #fff, 0 0 0 7px rgba(255, 255, 255, .22), 0 18px 30px rgba(0, 0, 0, .55); }

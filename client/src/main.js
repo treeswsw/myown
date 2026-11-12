@@ -71,7 +71,7 @@ let wasMyTurn = false;
 function applyRoom(room) {
   shown = room;
   if (!room) {
-    table.reset(); pins.render({ players: [], mode: 'holdem' }); hud.update(null);
+    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null);
     cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
     lobby.setRoom(null); lobby.show();
     return;
@@ -81,9 +81,11 @@ function applyRoom(room) {
   const live = room.phase === 'playing';
   const holdem = room.mode === 'holdem';
   const myTurn = live && room.turn === room.you && Boolean(me) && !me.spectating;
+  const inLobby = room.phase === 'lobby';
   table.sync(room);
   pins.render(room);
-  hud.update(room);
+  pins.setVisible(!inLobby);
+  hud.update(inLobby ? null : room);
   cluster.update(room, holdem && playing && Boolean(me) && !me.spectating);
   wheel.update(room, me, holdem && myTurn && !me.folded && !animator.busy());
   bluff.update(room, !holdem && playing && Boolean(me) && me.alive !== false && !me.spectating, myTurn && !animator.busy());
@@ -95,6 +97,7 @@ function applyRoom(room) {
 const animator = createAnimator({
   ui, stage, table, pins, special,
   getRoom: () => state.room ?? shown,
+  setHandAway: (on) => bluff.setAway(on),
   applyPartial: (fn) => { if (shown) applyRoom(fn(shown)); },
   onIdle: () => applyRoom(state.room),
 });

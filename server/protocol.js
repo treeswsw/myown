@@ -1,6 +1,7 @@
 // Validation of everything a client may send. Returns sanitized messages only.
 export const MAX_RAW = 70_000;
 export const MAX_AVATAR = 60 * 1024;
+export const MAX_CHAT = 120;
 export const AVATAR_PREFIX = 'data:image/jpeg;base64,';
 
 const ID_RE = /^[\p{Script=Hangul}A-Za-z0-9_]{2,12}$/u;
@@ -65,6 +66,12 @@ export function parseMessage(raw) {
       const ok = Array.isArray(m.cards) && m.cards.length >= 1 && m.cards.length <= 3 &&
         m.cards.every((i) => Number.isInteger(i) && i >= 0 && i < 5) && new Set(m.cards).size === m.cards.length;
       return ok ? good({ t: 'play', cards: m.cards }) : bad('카드를 1~3장 선택하세요.');
+    }
+    case 'chat': {
+      if (typeof m.text !== 'string') return bad('채팅 내용이 올바르지 않습니다.');
+      // Control characters (incl. newlines) are removed, not rejected, so pasted text still goes through.
+      const text = m.text.replace(/\p{Cc}/gu, '').trim();
+      return text.length >= 1 && [...text].length <= MAX_CHAT ? good({ t: 'chat', text }) : bad('채팅은 1~120자여야 합니다.');
     }
     case 'emote':
       return Number.isInteger(m.e) && m.e >= 0 && m.e <= 5 ? good({ t: 'emote', e: m.e }) : bad('잘못된 이모티콘입니다.');

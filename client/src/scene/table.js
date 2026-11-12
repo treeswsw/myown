@@ -313,6 +313,7 @@ export function createTable(stage) {
   return {
     sync, shove, payout, release, addToPile, clearPile,
     reset: () => setMode('holdem'),
+    releaseAll: () => holds.clear(),
     slot: slotOf,
     head: (id) => { const s = slotOf(id); return s ? pose.head(s) : null; },
     stackPos: (id) => { const s = slotOf(id); return s ? pose.stack(s) : null; },
