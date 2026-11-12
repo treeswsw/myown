@@ -92,6 +92,18 @@
 .lb-empty{margin:0;font-size:15px;color:var(--ink2);padding:16px;background:var(--fill);border-radius:14px}
 .lb-actions{display:flex;flex-direction:column;gap:4px;flex:none;margin-top:auto}
 
+.lb-sheet-overlay{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;animation:lb-fade .25s ease-out both}
+.lb-sheet{width:min(300px,calc(100vw - 32px));border-radius:24px;overflow:hidden;background:rgba(40,40,42,.88);-webkit-backdrop-filter:blur(40px) saturate(180%);backdrop-filter:blur(40px) saturate(180%);
+  box-shadow:inset 0 0 0 1px var(--hair),0 24px 64px rgba(0,0,0,.5);animation:rise .3s var(--ease) both}
+.lb-sheet-body{padding:20px 20px 16px;text-align:center;display:flex;flex-direction:column;gap:6px}
+.lb-sheet-body b{font-size:17px;font-weight:700}
+.lb-sheet-body p{margin:0;font-size:13px;color:var(--ink2)}
+.lb-sheet-btns{display:grid;grid-template-columns:1fr 1fr;box-shadow:inset 0 1px 0 var(--hair)}
+.lb-sheet-btn{min-height:48px;border:0;background:none;font-size:17px;cursor:pointer;color:var(--ink);transition:background-color .15s}
+.lb-sheet-btn+.lb-sheet-btn{box-shadow:inset 1px 0 0 var(--hair);font-weight:600}
+.lb-sheet-btn.lb-danger{color:var(--red)}
+.lb-sheet-btn:active{background:rgba(255,255,255,.1)}
+@keyframes lb-fade{from{opacity:0}}
 @media (max-width:640px) and (min-height:481px){
   .lb-pair{flex-direction:column;overflow-y:auto;max-height:100dvh}
   .lb-panel{width:calc(100vw - 24px);min-height:0}

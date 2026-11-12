@@ -54,8 +54,10 @@ document.body.append(chat.el, chat.button);
 chat.button.hidden = true;
 
 let pendingAvatar = null;
+let loginId = null; // remembered only once the server accepts it (the reserved reset ID is never accepted)
 const lobby = createLobby({
-  onLogin: (id, avatar) => { pendingAvatar = avatar; saved.set('gs.lastId', id); send({ t: 'login', id }); },
+  onLogin: (id, avatar) => { pendingAvatar = avatar; loginId = id; send({ t: 'login', id }); },
+  onResetConfirm: () => send({ t: 'reset', confirm: true }),
   onAvatar: (data) => send({ t: 'avatar', data }),
   onCreate: (mode) => send({ t: 'create', mode }),
   onJoin: (code) => send({ t: 'join', code }),
@@ -132,6 +134,7 @@ const animator = createAnimator({
 function handle(msg) {
   switch (msg.t) {
     case 'me':
+      if (loginId) { saved.set('gs.lastId', loginId); loginId = null; }
       state.me = msg.user;
       lobby.setUser(msg.user);
       if (pendingAvatar && !msg.user.avatar) send({ t: 'avatar', data: pendingAvatar });
@@ -142,6 +145,20 @@ function handle(msg) {
       if (msg.state?.code !== state.room?.code) { chat.setLog([]); emotePanel.clearRoom(); }
       state.room = msg.state;
       if (!animator.busy()) applyRoom(msg.state);
+      break;
+    case 'resetAsk': loginId = null; lobby.showResetConfirm(); break;
+    case 'resetDone':
+      // Everything was wiped: drop the remembered ID and any local room state, then show the login screen.
+      saved.del('gs.lastId');
+      animator.flush();
+      special.skipAll();
+      state.me = null;
+      state.room = null;
+      emotePanel.clearRoom();
+      chat.setLog([]);
+      applyRoom(null);
+      lobby.setUser(null);
+      lobby.showNotice('초기화되었습니다');
       break;
     case 'rooms': lobby.setRooms(msg.list); break;
     case 'event':

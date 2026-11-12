@@ -4,7 +4,8 @@ import { h, svg, avatar, fmt } from './dom.js';
 
 // createLobby({onLogin(id, avatarDataUrl|null), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
-// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), show(), hide() }
+// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide() }
+// onResetConfirm() is called when the user confirms 전체 초기화.
 //    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
 
 const MODES = {
@@ -56,7 +57,7 @@ function segmented(onPick) {
   };
 }
 
-export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout }) {
+export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm }) {
   const el = h('div', 'lobby');
   let user = null, room = null, pendingAvatar = null;
 
@@ -102,9 +103,10 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     onLogin(id, pendingAvatar);
   }
   idInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
-  idInput.addEventListener('input', () => { outErr.textContent = ''; });
+  const outInfo = h('p', 'lb-cap lb-center');
+  idInput.addEventListener('input', () => { outErr.textContent = ''; outInfo.textContent = ''; });
   const form = h('div', 'lb-stack');
-  form.append(idInput, outErr);
+  form.append(outInfo, idInput, outErr);
   out.append(brand('lb-large'), outPhoto, form, button('입장', 'lb-primary', submitLogin));
   renderOutPhoto();
 
@@ -224,6 +226,39 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     }
   }
 
+  // ---------- reset confirmation sheet ----------
+  function showResetConfirm() {
+    const prev = document.activeElement;
+    const cancel = h('button', 'lb-sheet-btn', '취소');
+    const wipe = h('button', 'lb-sheet-btn lb-danger', '전부 지우기');
+    cancel.type = wipe.type = 'button';
+    cancel.addEventListener('click', () => close());
+    wipe.addEventListener('click', () => { close(); onResetConfirm?.(); });
+    const sheet = h('div', 'lb-sheet', h('div', 'lb-sheet-body', h('b', null, '전체 초기화'),
+      h('p', null, '모든 아이디와 칩, 전적, 프로필 사진을 지웁니다. 되돌릴 수 없습니다.')), h('div', 'lb-sheet-btns', cancel, wipe));
+    sheet.setAttribute('role', 'alertdialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-label', '전체 초기화');
+    const overlay = h('div', 'lb-sheet-overlay', sheet);
+    overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) close(); });
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); close(); }
+      else if (e.key === 'Tab') {
+        const first = e.shiftKey ? cancel : wipe;
+        const last = e.shiftKey ? wipe : cancel;
+        if (document.activeElement === first || !sheet.contains(document.activeElement)) { e.preventDefault(); last.focus(); }
+      }
+    };
+    function close() {
+      document.removeEventListener('keydown', onKey, true);
+      overlay.remove();
+      prev?.focus?.();
+    }
+    document.addEventListener('keydown', onKey, true);
+    el.append(overlay);
+    cancel.focus();
+  }
+
   // ---------- state ----------
   el.append(out, home, roomView, fileInput);
   function render() {
@@ -250,6 +285,8 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     setRoom(r) { room = r; render(); },
     setRooms(list) { renderRooms(list); },
     setError(msg) { (!user ? outErr : room ? roomErr : homeErr).textContent = msg || ''; },
+    showNotice(text) { outInfo.textContent = text || ''; },
+    showResetConfirm,
     show() { el.hidden = false; },
     hide() { el.hidden = true; },
   };

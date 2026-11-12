@@ -27,6 +27,7 @@ const lobby = createLobby({
   onStart: () => log('start'),
   onLeave: () => { log('leave'); lobby.setRoom(null); },
   onLogout: () => { log('logout'); lobby.setUser(null); },
+  onResetConfirm: () => log('reset'),
 });
 document.body.append(lobby.el);
 
@@ -38,7 +39,10 @@ const room = (mode, n, you = 0, host = 0) => ({
   players: names.slice(0, n).map((name, i) => ({ id: name, name, avatar: null, seat: i, connected: i !== 2 })),
 });
 
-if (state === 'crop') {
+if (state === 'reset') {
+  lobby.showNotice('초기화되었습니다');
+  lobby.showResetConfirm();
+} else if (state === 'crop') {
   const c = document.createElement('canvas');
   c.width = 600; c.height = 400;
   const x = c.getContext('2d');

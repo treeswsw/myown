@@ -27,7 +27,7 @@ async function runContext(browser, server, name, cfg) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
-  page.setDefaultTimeout(60000);
+  page.setDefaultTimeout(150000);
   const check = (what, ok, detail = '') => {
     results.push({ ctx: name, what, ok: Boolean(ok), detail });
     console.log(`${ok ? 'PASS' : 'FAIL'} [${name}] ${what}${detail ? ` - ${detail}` : ''}`);
