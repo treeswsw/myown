@@ -15,6 +15,7 @@ export function createPins(ui, stage, table) {
   const stacks = new Map(); // id -> displayed stack override while the win animation runs
   const dead = new Set();
   const lifts = new Map(); // id -> world-space height added to the photo (the winner standing up)
+  const betLabels = new Map(); // id -> label element next to the player's bet pile
   const hands = new Map(); // id -> element with the two showdown cards above the photo
   let winners = null; // Set of ids emphasised at showdown, null otherwise
   let room = null;
@@ -42,7 +43,7 @@ export function createPins(ui, stage, table) {
   function render(r) {
     room = r;
     const live = new Set(r.players.map((p) => p.id));
-    for (const [id, e] of pins) if (!live.has(id)) { e.el.remove(); pins.delete(id); }
+    for (const [id, e] of pins) if (!live.has(id)) { e.el.remove(); pins.delete(id); betLabels.get(id)?.remove(); betLabels.delete(id); }
     const holdem = r.mode === 'holdem';
     for (const p of r.players) {
       const e = pins.get(p.id) ?? (pins.set(p.id, build(p)), pins.get(p.id));
@@ -71,6 +72,13 @@ export function createPins(ui, stage, table) {
       } else if (r.turn === p.id) kind = 'turn';
       else if (r.lastPlay?.by === p.id) { kind = 'play'; amount = `${r.tableRank} ${r.lastPlay.count}장`; }
       if (gone) { amount = '탈락'; kind = null; }
+      // The bet amount is shown beside the pile on the felt, not above the photo.
+      const bet = holdem && p.bet > 0 ? fmt(p.bet) : '';
+      const lbl = betLabels.get(p.id);
+      if (bet && !lbl) { const l = h('div', 'betlabel num'); betLabels.set(p.id, l); layer.append(l); }
+      if (!bet && lbl) { lbl.remove(); betLabels.delete(p.id); }
+      if (bet) betLabels.get(p.id).textContent = bet;
+      if (holdem && !gone) amount = p.allin ? 'ALL IN' : '';
       e.top.replaceChildren(...(amount ? [h('div', gone ? 'ko out' : 'num', amount)] : []), ...(kind ? [pinIcon(kind)] : []));
       e.el.classList.toggle('has-top', Boolean(amount || kind));
 
@@ -89,6 +97,12 @@ export function createPins(ui, stage, table) {
       const head = table.head(id)?.clone();
       if (head) head.y += lifts.get(id) ?? 0;
       e.el.style.display = head ? '' : 'none';
+      const bl = betLabels.get(id);
+      if (bl) {
+        const bp = table.betPos(id);
+        const [bx, by] = bp ? stage.project(bp) : [-99, -99];
+        bl.style.transform = `translate(${bx.toFixed(1)}px, ${by.toFixed(1)}px) translate(-50%, -150%) scale(${view.k})`;
+      }
       if (!head) continue;
       const [x, y] = stage.project(head);
       e.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${view.k})`;

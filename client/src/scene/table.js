@@ -25,7 +25,8 @@ const pose = {
     return { x: slot.x - 0.2 + d * 0.085, y: TY + 0.003 + i * 0.0035, z: slot.s * (R - 0.36), ry: (slot.s > 0 ? 0 : Math.PI) + d * 0.14 };
   },
   stack: (slot) => new THREE.Vector3(slot.x + 0.12, TY, slot.s * (R - 0.3) - (slot.s < 0 ? CR * 2 : 0)),
-  bet: (slot) => new THREE.Vector3(slot.x, TY, slot.s * (R - 0.56)),
+  // Bet piles sit about 60% of the way from the seat's stack toward the middle, clear of the board and the pot.
+  bet: (slot) => new THREE.Vector3(slot.x, TY, slot.s * 0.28),
   head: (slot) => new THREE.Vector3(slot.x, slot.s > 0 ? 0.95 : 0.92, slot.s * (R + 0.42) + (slot.s > 0 ? 0.05 : -0.05)),
 };
 
@@ -165,6 +166,17 @@ export function createTable(stage) {
 
   function syncChips(room, p, slot, seat) {
     if (room.mode !== 'holdem') return;
+    // Chips pushed forward by an all-in stay on the felt: they turn into the real bet pile in place,
+    // or, if the betting round is already over, travel to the pot. They never just vanish.
+    if (seat.shoved && !holds.has(p.id)) {
+      const g = seat.shoved;
+      seat.shoved = null;
+      if ((p.bet || 0) > 0) { root.remove(g); seat.bet.inPlace = true; } else {
+        potDelay = 450;
+        move(g, g.position.clone().add(POT.clone().sub(pose.bet(slot))), 420, 0, ease.inOut).then(() => root.remove(g));
+        sfx.chip();
+      }
+    }
     if (!holds.has(p.id) && seat.stack.amount !== p.stack) {
       if (seat.stack.group) root.remove(seat.stack.group);
       seat.stack.amount = p.stack;
@@ -187,7 +199,8 @@ export function createTable(stage) {
       if (g) {
         const to = pose.bet(slot);
         g.position.copy(to);
-        if (!old || bet > 0) {
+        if (seat.bet.inPlace) seat.bet.inPlace = false;
+        else if (!old || bet > 0) {
           g.position.copy(pose.stack(slot));
           move(g, to, 380).then(() => sfx.chip());
         }
@@ -232,7 +245,7 @@ export function createTable(stage) {
     const d = room.mode === 'holdem' && room.phase !== 'lobby' ? room.players.find((p) => p.isDealer) : null;
     const slot = d && layout.get(d.id);
     if (!slot) { if (dealer.mesh) { root.remove(dealer.mesh); dealer = { id: null, mesh: null }; } return; }
-    const to = new THREE.Vector3(slot.x + 0.3, TY + 0.005, slot.s * (R - 0.5));
+    const to = new THREE.Vector3(slot.x + 0.3, TY + 0.005, slot.s * 0.36);
     if (!dealer.mesh) { dealer.mesh = put(dealerButton()); dealer.mesh.position.copy(to); }
     else if (dealer.id !== d.id) move(dealer.mesh, to, 500);
     dealer.id = d.id;
@@ -310,6 +323,8 @@ export function createTable(stage) {
     });
     sfx.chip();
     await Promise.all(jobs);
+    seat.shoved = g;
+    seat.stack = { amount: -1, group: null };
   }
 
   // Pot chips fly to each winner and merge into their stack.
@@ -343,6 +358,7 @@ export function createTable(stage) {
     releaseAll: () => holds.clear(),
     slot: slotOf,
     head: (id) => { const s = slotOf(id); return s ? pose.head(s) : null; },
+    betPos: (id) => { const s = slotOf(id); return s ? pose.bet(s) : null; },
     stackPos: (id) => { const s = slotOf(id); return s ? pose.stack(s) : null; },
     potPos: () => POT.clone().setY(TY + 0.12),
     boardPos: () => new THREE.Vector3(0, TY, -0.02),

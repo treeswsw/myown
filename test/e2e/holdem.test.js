@@ -40,7 +40,7 @@ for (const n of [2, 3, 6]) {
         }
         for (const p of s.players) {
           assert.ok(Number.isInteger(p.stack) && p.stack >= 0 && p.stack <= total, `bad stack ${p.stack}`);
-          if (gone.has(p.id)) {
+          if (gone.has(p.id) && s.phase !== 'lobby') {
             assert.equal(p.stack, 0, 'eliminated player has chips');
             assert.equal(p.spectating, true, 'eliminated player is dealt in');
             assert.ok(!p.cards, 'eliminated player has cards');

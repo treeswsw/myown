@@ -10,6 +10,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const FAST_TIMERS = {
   ROOM_LIST_MS: '150',
   RESULT_MS: '60',
+  RESULT_FOLD_MS: '60',
+  TIE_EXTRA_MS: '0',
+  BLUFF_RESULT_MS: '100',
   BUST_EXTRA_MS: '0',
   STREET_MS: '30',
   REVEAL_MS: '80',

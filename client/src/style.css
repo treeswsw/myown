@@ -234,3 +234,5 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 
 .pl .top > *, .pl .nm, .pl .rv { white-space: nowrap; width: max-content; }
 .pl .top .out { text-align: center; }
+
+.betlabel { position: absolute; left: 0; top: 0; font-size: 20px; white-space: nowrap; transform-origin: 0 0; pointer-events: none; }

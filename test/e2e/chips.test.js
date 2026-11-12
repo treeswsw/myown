@@ -130,7 +130,7 @@ test('chips: leaving mid-hand folds; chips already in stay in the pot', { timeou
 });
 
 test('chips: leaving during an all-in run-out', { timeout: 60000 }, async () => {
-  const srv = await startServer({ STREET_MS: '1200', RESULT_MS: '300' });
+  const srv = await startServer({ STREET_MS: '1200', RESULT_MS: '300', RESULT_FOLD_MS: '300' });
   try {
     const { bots } = await seatAll(srv, 'holdem', 2, { autoplay: false });
     const [h, o] = bots;
