@@ -4,14 +4,18 @@ import { h, svg, avatar, fmt } from './dom.js';
 
 // createLobby({onLogin(id, avatarDataUrl|null), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
-// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide() }
+// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), showRank({top, mine}) }
+// onRank() -> ask the server for the liar ranking, then call showRank.
 // onResetConfirm() is called when the user confirms 전체 초기화.
 //    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
 
 const MODES = {
   holdem: { name: '텍사스 홀덤', desc: '2~6명 · 블라인드 50/100', max: 6 },
   bluff: { name: '블러핑 카드', desc: '2~4명 · 리볼버 벌칙', max: 4 },
+  liar: { name: '라이어게임', desc: '3~8명 · 말로 하는 추리', max: 8 },
 };
+const BASE_KEYS = ['holdem', 'bluff'];
+const LIAR_KEYS = ['holdem', 'bluff', 'liar'];
 const ID_RE = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9_]{2,12}$/;
 const LAST_ID_KEY = 'gs.lastId';
 const SPADE = '<path d="M12 2C8 7 3 9.5 3 14a4.5 4.5 0 0 0 7.6 3.2L9.5 22h5l-1.1-4.8A4.5 4.5 0 0 0 21 14c0-4.5-5-7-9-12z"/>';
@@ -33,22 +37,28 @@ function brand(cls) {
 }
 
 // Segmented control with a sliding thumb. Returns { el, caption, set(mode, enabled) }.
-function segmented(onPick) {
+function segmented(onPick, initKeys = BASE_KEYS) {
   const el = h('div', 'lb-seg');
   el.setAttribute('role', 'radiogroup');
   el.setAttribute('aria-label', '게임 종류');
   const caption = h('p', 'lb-cap');
-  const keys = Object.keys(MODES);
-  const btns = keys.map((k) => {
-    const b = h('button', 'lb-seg-item', MODES[k].name);
-    b.type = 'button';
-    b.setAttribute('role', 'radio');
-    b.addEventListener('click', () => onPick(k));
-    return b;
-  });
-  el.append(h('span', 'lb-seg-thumb'), ...btns);
+  let keys = initKeys, btns = [];
+  function build(next) {
+    keys = next;
+    btns = keys.map((k) => {
+      const b = h('button', 'lb-seg-item', MODES[k].name);
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.addEventListener('click', () => onPick(k));
+      return b;
+    });
+    el.style.setProperty('--n', keys.length);
+    el.replaceChildren(h('span', 'lb-seg-thumb'), ...btns);
+  }
+  build(keys);
   return {
     el, caption,
+    setKeys(next) { build(next); },
     set(mode, enabled = true) {
       el.style.setProperty('--i', keys.indexOf(mode));
       btns.forEach((b, i) => { b.setAttribute('aria-checked', String(keys[i] === mode)); b.disabled = !enabled; });
@@ -57,9 +67,9 @@ function segmented(onPick) {
   };
 }
 
-export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm }) {
+export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm, onRank }) {
   const el = h('div', 'lb-root lobby');
-  let user = null, room = null, pendingAvatar = null;
+  let user = null, room = null, pendingAvatar = null, liarOn = false;
 
   const fileInput = h('input');
   fileInput.type = 'file';
@@ -127,8 +137,10 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
   const brokeNote = h('div', 'lb-notice', h('p', null, '칩을 모두 잃었습니다. 홀덤은 새 아이디로 다시 시작해야 합니다.'),
     button('새 아이디로 시작', 'lb-text lb-accent', () => onLogout()));
+  const rankBtn = button('라이어 랭킹', 'lb-tint lb-rank-btn', () => onRank?.());
+  rankBtn.hidden = true;
   profile.append(brand('lb-small'), h('div', 'lb-who', meAv, h('div', null, meName, meBank)), brokeNote, stats,
-    h('div', 'lb-grow'), button('로그아웃', 'lb-text', () => onLogout()));
+    rankBtn, h('div', 'lb-grow'), button('로그아웃', 'lb-text', () => onLogout()));
 
   const play = h('section', 'lb-panel panel');
   let pickedMode = 'holdem';
@@ -161,8 +173,9 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     chev.setAttribute('class', 'lb-chev');
     return { b, chev, ...parts };
   }
-  function renderRooms(list) {
-    lastRooms = list;
+  function renderRooms(all) {
+    lastRooms = all;
+    const list = liarOn ? all : all.filter((r) => r.mode !== 'liar');
     const seen = new Set();
     let ref = roomList.firstChild;
     for (const r of list) {
@@ -191,7 +204,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   const roomView = h('div', 'lb-pair');
   const info = h('section', 'lb-panel panel');
   const roomTitle = h('h2');
-  const roomSeg = segmented((m) => onMode(m));
+  const roomSeg = segmented((m) => onMode(m), BASE_KEYS);
   info.append(roomTitle, h('div', 'lb-stack', roomSeg.el, roomSeg.caption));
 
   const people = h('section', 'lb-panel panel');
@@ -259,6 +272,56 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     cancel.focus();
   }
 
+  // ---------- liar ranking window ----------
+  // rankLines 와 같은 규칙(같은 점수는 같은 순위)을 여기에 둔다: 라이어 묶음을 로비가 받지 않게.
+  function showRank({ top, mine } = {}) {
+    const prev = document.activeElement;
+    const rows = [];
+    (Array.isArray(top) ? top : []).slice(0, 20).forEach((r, i) => {
+      const score = Number(r?.score) || 0;
+      const rank = rows[i - 1] && rows[i - 1].score === score ? rows[i - 1].rank : i + 1;
+      rows.push({ rank, score, name: String(r?.name ?? ''), games: Number(r?.games) || 0 });
+    });
+    const mineText = mine && Number.isInteger(mine.rank) ? `내 순위 ${mine.rank}위 · ${Number(mine.score) || 0}점` : '아직 순위 없음';
+    const closeBtn = h('button', 'lb-sheet-btn', '닫기');
+    closeBtn.type = 'button';
+    const body = h('div', 'lb-group lb-rank-list');
+    if (!rows.length) body.append(h('p', 'lb-empty', '아직 순위가 없습니다.'));
+    for (const r of rows) {
+      body.append(h('div', 'lb-row lb-rank-row', h('span', 'lb-rank-n', String(r.rank)), h('span', 'lb-p-name', r.name),
+        h('span', 'lb-tags', `${r.games}판`), h('b', 'lb-rank-s', `${r.score}점`)));
+    }
+    const sheet = h('div', 'lb-sheet lb-rank-sheet', h('div', 'lb-sheet-body', h('b', null, '라이어 랭킹')), body,
+      h('p', 'lb-rank-mine', mineText), h('div', 'lb-sheet-btns lb-one', closeBtn));
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-label', '라이어 랭킹');
+    const overlay = h('div', 'lb-sheet-overlay lb-rank-overlay', sheet);
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    function close() {
+      document.removeEventListener('keydown', onKey, true);
+      overlay.remove();
+      prev?.focus?.();
+    }
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', onKey, true);
+    el.append(overlay);
+    closeBtn.focus();
+  }
+
+  function setLiar(on) {
+    on = !!on;
+    if (on === liarOn) return;
+    liarOn = on;
+    homeSeg.setKeys(on ? LIAR_KEYS : BASE_KEYS);
+    if (!on && pickedMode === 'liar') pickedMode = 'holdem';
+    homeSeg.set(pickedMode);
+    rankBtn.hidden = !on;
+    updateCreate();
+    renderRooms(lastRooms);
+  }
+
   // ---------- state ----------
   el.append(out, home, roomView, fileInput);
   function render() {
@@ -287,6 +350,8 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     setError(msg) { (!user ? outErr : room ? roomErr : homeErr).textContent = msg || ''; },
     showNotice(text) { outInfo.textContent = text || ''; },
     showResetConfirm,
+    setLiar,
+    showRank,
     show() { el.hidden = false; },
     hide() { el.hidden = true; },
   };
