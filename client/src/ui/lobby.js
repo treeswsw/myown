@@ -213,7 +213,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     count.textContent = `참가자 ${room.players.length}/${max}`;
     list.replaceChildren(...room.players.map((p) => {
       const tags = [p.id === room.hostId && '방장', p.id === room.you && '나', p.connected === false && '연결 끊김'].filter(Boolean);
-      return h('li', 'lb-row' + (p.connected === false ? ' lb-off' : ''), avatar(p), h('span', 'lb-p-name', p.name), h('span', 'lb-tags', tags.join(' · ')));
+      return h('li', 'lb-row' + (p.connected === false ? ' lb-off' : ''), avatar(p, 'lb-av'), h('span', 'lb-p-name', p.name), h('span', 'lb-tags', tags.join(' · ')));
     }));
     const n = room.players.length;
     if (isHost) {
