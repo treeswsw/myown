@@ -13,10 +13,14 @@ const isWeak = () => matchMedia('(pointer: coarse)').matches || (navigator.hardw
 
 export function createStage(canvas) {
   const weak = isWeak();
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  // ?nogl=1: headless UI tests. No WebGL renderer/composer and no render calls; scene, camera, loop and projection still work.
+  const nogl = new URLSearchParams(location.search).has('nogl');
+  const renderer = nogl ? null : new THREE.WebGLRenderer({ canvas, antialias: true });
+  if (renderer) {
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  }
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x070605);
@@ -32,13 +36,13 @@ export function createStage(canvas) {
     composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.14, 0.5, 1.0));
     composer.addPass(new OutputPass());
   };
-  if (!weak) makeComposer();
+  if (!weak && renderer) makeComposer();
 
   const size = { w: 1, h: 1 };
   function resize() {
     size.w = innerWidth; size.h = innerHeight;
-    renderer.setPixelRatio(pixelRatio);
-    renderer.setSize(size.w, size.h, false);
+    renderer?.setPixelRatio(pixelRatio);
+    renderer?.setSize(size.w, size.h, false);
     canvas.style.width = `${size.w}px`; canvas.style.height = `${size.h}px`;
     composer?.setPixelRatio(pixelRatio);
     composer?.setSize(size.w, size.h);
@@ -101,7 +105,7 @@ export function createStage(canvas) {
       lowPower = true;
       composer = null;
       pixelRatio = 1;
-      renderer.shadowMap.enabled = false;
+      if (renderer) renderer.shadowMap.enabled = false;
       scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
       resize();
     } else if (avg > 36 && composer) composer = null;
@@ -113,7 +117,7 @@ export function createStage(canvas) {
     tick(now);
     applyCamera();
     subs.forEach((f) => f(dt));
-    if (composer) composer.render(); else renderer.render(scene, camera);
+    if (composer) composer.render(); else renderer?.render(scene, camera);
     adapt(now, dt);
   };
   requestAnimationFrame(loop);

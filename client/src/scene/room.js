@@ -24,7 +24,7 @@ export function buildRoom(scene, renderer, shadowSize) {
   const mgr = new THREE.LoadingManager();
   const texLoader = new THREE.TextureLoader(mgr);
   const gltf = new GLTFLoader(mgr);
-  const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const aniso = renderer ? Math.min(8, renderer.capabilities.getMaxAnisotropy()) : 1;
   const tex = (n, m, rep, srgb) => {
     const t = texLoader.load(`${AS}tex/${n}_${m}.jpg`);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
