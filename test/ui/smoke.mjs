@@ -143,6 +143,14 @@ async function runContext(browser, server, name, cfg) {
       await bot.join(r.code);
       await visible('button.lb-primary:has-text("게임 시작"):not([disabled])');
     });
+    await step('waiting room: chat icon stays hidden after later room updates', async () => {
+      const seen = bot.messages.length;
+      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' });
+      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'room'), T, 'room update in waiting room');
+      await sleep(500);
+      const hidden = await page.evaluate(() => { const b = document.querySelector('.chat-btn'); return !b || b.hidden; });
+      check('chat icon hidden in lobby mode after 2nd room update', hidden);
+    });
     await step('start: both sides are playing', async () => {
       await press('button.lb-primary:has-text("게임 시작")');
       await bot.waitFor((b) => b.state?.phase === 'playing', T, 'bot sees playing');
@@ -178,6 +186,23 @@ async function runContext(browser, server, name, cfg) {
       const p = event((e) => e.k === 'chat' && e.text === `hi-${name}`, 'chat event');
       await press('.chat-send');
       await p;
+      if (await loc('.chat-in').isVisible()) await press('.chat-btn');
+      await gone('.chat-in');
+    });
+
+    await step('chat: a room update while typing keeps focus and text', async () => {
+      await press('.chat-btn');
+      await visible('.chat-in');
+      await page.focus('.chat-in');
+      await page.keyboard.type('keepme');
+      // bot changes its avatar -> server pushes a room update to the page
+      const seen = bot.messages.length;
+      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' });
+      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'room'), T, 'room update after avatar');
+      await sleep(1000);
+      const r = await page.evaluate(() => ({ focused: document.activeElement?.classList.contains('chat-in'), v: document.querySelector('.chat-in')?.value }));
+      check('chat input still focused with text after room update', r.focused && r.v === 'keepme', JSON.stringify(r));
+      await page.fill('.chat-in', '');
       if (await loc('.chat-in').isVisible()) await press('.chat-btn');
       await gone('.chat-in');
     });
