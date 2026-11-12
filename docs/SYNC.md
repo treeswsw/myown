@@ -134,3 +134,6 @@ ui.append(chat.el, chat.button);                     // 둘 다 position:fixed. 
 - 다른 연출과 같이 한 번에 하나만: 호출 전에 `skipAll()`. 건너뛰어도 `onUp`·`onDown`은 호출되고 Promise는 해결된다.
 - 동작 줄이기 설정에서는 몸 없이 `onUp(0)`, `onDown()`만 호출하고 0.3초에 끝난다.
 - 데모: `client/special-demo.html?seq=stand&seat=<n>&t=<초>`
+
+## [서버] 결과 표시 시간 (SPEC 15)
+홀덤 결과 유지: 쇼다운 있음 11000ms(`RESULT_MS`), 모두 폴드 4000ms(`RESULT_FOLD_MS`); 추가: 올인 런아웃 카드 장면당 1700ms(`STREET_MS`), 공동 승자 추가 1명당 2500ms(`TIE_EXTRA_MS`), 탈락자 있으면 3000ms(`BUST_EXTRA_MS`). 블러핑 종료 후 로비 복귀는 6000ms(`BLUFF_RESULT_MS`). 챔피언 이벤트는 이 대기가 끝난 시점에 나간다.

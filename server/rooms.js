@@ -7,9 +7,12 @@ import { parseMessage } from './protocol.js';
 export const DEFAULT_TIMING = {
   grace: 60_000, // a disconnected player is auto-played (if on turn) and removed after this
   roomGc: 60_000, // empty room is deleted after this
-  result: 6_000, // result display before the next hand / back to lobby
+  result: 11_000, // hold'em result display when the hand reached showdown
+  resultFold: 4_000, // ... when everyone else folded
+  tieExtra: 2_500, // extra per additional winner (each is presented in turn)
+  bluffResult: 6_000, // bluff winner display before returning to the lobby
   bustExtra: 3_000, // extra display time when someone busted
-  street: 1_200, // extra result time per community card street dealt by an all-in run-out
+  street: 1_700, // extra result time per community card street dealt by an all-in run-out
   roomList: 500, // open-room list broadcasts are coalesced to one per this interval
   reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
@@ -217,7 +220,9 @@ class Room {
     for (const id of res.busted) events.push({ k: 'bust', id, by });
     this.phase = 'result';
     const runout = events.filter((ev) => ev.k === 'street').length;
-    const wait = this.hub.timing.result + runout * this.hub.timing.street +
+    const t = this.hub.timing;
+    const wait = (Object.keys(res.shown).length ? t.result : t.resultFold) + runout * t.street +
+      (res.winners.length - 1) * t.tieExtra +
       (res.busted.length ? this.hub.timing.bustExtra : 0);
     const busted = res.busted.length > 0;
     this.setTimer('next', wait, () => this.afterResult(busted));
@@ -274,7 +279,7 @@ class Room {
         if (session) this.hub.sendMe(session);
       }
       this.phase = 'result';
-      this.setTimer('next', this.hub.timing.result, () => this.toLobby());
+      this.setTimer('next', this.hub.timing.bluffResult, () => this.toLobby());
     }
     this.push(events);
   }

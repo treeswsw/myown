@@ -156,9 +156,9 @@ test('holdem: full hand through the handlers, stacks, stats and auto next hand',
   }
   assert.ok(cs.some((c) => c.sock.msgs.some((m) => m.t === 'event' && m.e.k === 'win')));
   // result stays, then the next hand starts automatically
-  clock.advance(5000);
+  clock.advance(10999);
   assert.equal(cs[0].state.phase, 'result');
-  clock.advance(1000);
+  clock.advance(1);
   assert.equal(cs[0].state.phase, 'playing');
   assert.equal(cs[0].state.result, null);
   assert.equal(cs[0].state.players.find((p) => p.isDealer).id !== winnerId || true, true);
@@ -166,7 +166,7 @@ test('holdem: full hand through the handlers, stacks, stats and auto next hand',
   for (let i = 0; i < 3; i++) {
     dealers.add(cs[0].state.players.find((p) => p.isDealer).id);
     await playHandOut(cs);
-    clock.advance(9000);
+    clock.advance(25000);
   }
   assert.equal(dealers.size, 3, 'dealer button rotates');
 });
@@ -279,7 +279,7 @@ test('bust: the busted player is eliminated for good, chips 0, and the last one 
   assert.equal(loser.sock.last('me').user.bank, 0);
   assert.equal(winner.sock.last('me').user.bank, 20000);
   assert.equal(events(winner, 'champion').length, 0, 'not yet: the result is still shown');
-  clock.advance(6000 + 3 * 1200 + 3000);
+  clock.advance(11000 + 3 * 1700 + 3000);
   assert.deepEqual(events(winner, 'champion'), [{ k: 'champion', id: winner.state.you }]);
   assert.equal(winner.state.phase, 'lobby');
   assert.equal((await store.getOrCreate(busted[0], busted[0])).bank, 0, 'persisted');
@@ -415,7 +415,7 @@ test('late joiners spectate until the next hand', async () => {
   assert.equal(me.spectating, true);
   assert.equal(late.state.myCards, null);
   await playHandOut(cs);
-  clock.advance(9000);
+  clock.advance(25000);
   assert.equal(late.state.players.find((p) => p.id === 'cat1').spectating, false);
   assert.equal(late.state.myCards.length, 2);
 });
@@ -463,17 +463,26 @@ test('pots only hold collected chips while betting; a spectator leaving changes 
   assert.equal(cs[0].state.pot > 0, true);
 });
 
-test('all-in run-out extends the result display per street', async () => {
+test('result hold: 11 s at showdown, 4 s when everyone folded, plus run-out, tie and bust extras', async () => {
   const { hub, clock } = await setup(14);
   const { cs } = await lobby(hub, 'holdem', ['ann1', 'bob1']);
+  const hold = (r, streets) => (Object.keys(r.shown).length ? 11000 : 4000) + streets * 1700 +
+    (r.winners.length - 1) * 2500 + (r.busted.length ? 3000 : 0);
+  // fold: 4 s
   await cs[0].send({ t: 'start' });
-  for (let i = 0; i < 2; i++) {
-    const actor = cs.find((c) => c.state.you === cs[0].state.turn);
-    await actor.send({ t: 'act', a: 'allin' });
-  }
+  await cs.find((c) => c.state.you === cs[0].state.turn).send({ t: 'act', a: 'fold' });
+  assert.equal(hold(cs[0].state.result, 0), 4000);
+  clock.advance(3999);
   assert.equal(cs[0].state.phase, 'result');
-  clock.advance(6000 + 3600 - 1 + 3000);
-  assert.equal(cs[0].state.phase === 'result' || cs[0].state.result === null, true);
   clock.advance(1);
-  assert.equal(cs[0].state.phase === 'playing' || cs[0].state.phase === 'lobby', true);
+  assert.equal(cs[0].state.phase, 'playing');
+  // heads-up all-in preflop: showdown + 3 run-out streets (+ ties / bust)
+  for (let i = 0; i < 2; i++) await cs.find((c) => c.state.you === cs[0].state.turn).send({ t: 'act', a: 'allin' });
+  assert.equal(cs[0].state.phase, 'result');
+  const wait = hold(cs[0].state.result, 3);
+  assert.ok(wait >= 11000 + 3 * 1700);
+  clock.advance(wait - 1);
+  assert.equal(cs[0].state.phase, 'result');
+  clock.advance(1);
+  assert.notEqual(cs[0].state.phase, 'result');
 });

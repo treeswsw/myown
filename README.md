@@ -43,7 +43,7 @@ PLAYWRIGHT_MODULE=/경로/playwright node test/ui/click.e2e.mjs phone    # 하�
 |---|---|
 | `PORT` | 서버 포트 (기본 8080) |
 | `DATABASE_URL` | PostgreSQL 연결 문자열. 있으면 `users` 테이블을 자동 생성해 사용 |
-| `GRACE_MS` `ROOM_GC_MS` `RESULT_MS` `BUST_EXTRA_MS` `STREET_MS` `REVEAL_MS` `ROOM_LIST_MS` | 타이머 조정(밀리초). 테스트용이며 기본값은 SPEC대로 |
+| `GRACE_MS` `ROOM_GC_MS` `RESULT_MS` `RESULT_FOLD_MS` `TIE_EXTRA_MS` `BLUFF_RESULT_MS` `BUST_EXTRA_MS` `STREET_MS` `REVEAL_MS` `ROOM_LIST_MS` | 타이머 조정(밀리초). 테스트용이며 기본값은 SPEC대로 |
 
 ## 배포 (Render + Neon)
 

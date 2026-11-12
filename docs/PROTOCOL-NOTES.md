@@ -34,8 +34,8 @@ SPEC과 충돌하지 않는 추가·구체화만 적는다. 화면 담당과 주
 - 홀덤 `pot`/`pots`는 이미 모인 칩만이다. 현재 베팅 라운드의 베팅은 `players[].bet`에 있고 라운드가 끝나면 팟으로 합쳐진다. 판이 끝나면(`result` 있음) 전체 팟(`pots`에 안 불린 베팅 환급 1건 포함 가능).
 - `toCall`은 보는 사람 기준. `minRaiseTo`/`maxRaiseTo`는 보는 사람이 레이즈할 수 있을 때만 값이 있고 아니면 0. 레이즈 불가인데 올인(콜)만 가능한 경우 `allin` 요청은 가능한 만큼 콜로 처리한다.
 - 블러핑 벌칙 직후에는 `reveal`이 채워지고 `turn:null`, `turnEndsAt:null`인 상태가 약 4초 이어진 뒤 새 라운드(`round` 증가)가 배분된다.
-- 홀덤 결과 표시 시간: 6초 + 올인 런아웃으로 깐 카드 장면당 1.2초 + 탈락자가 있으면 3초.
-- 블러핑 종료 후 `phase:'result'`에서 6초 뒤 `lobby`.
+- 홀덤 결과 표시 시간: 쇼다운이 있으면 11초(`RESULT_MS`), 모두 폴드로 끝났으면 4초(`RESULT_FOLD_MS`) + 올인 런아웃으로 깐 카드 장면당 1.7초(`STREET_MS`) + 승자가 둘 이상이면 추가 승자당 2.5초(`TIE_EXTRA_MS`) + 탈락자가 있으면 3초(`BUST_EXTRA_MS`).
+- 블러핑 종료 후 `phase:'result'`에서 6초(`BLUFF_RESULT_MS`) 뒤 `lobby`.
 
 ## 에러·검증
 
@@ -44,7 +44,7 @@ SPEC과 충돌하지 않는 추가·구체화만 적는다. 화면 담당과 주
 
 ## 타이머 환경 변수
 
-`GRACE_MS`(60000) `ROOM_LIST_MS`(500) `ROOM_GC_MS`(60000) `RESULT_MS`(6000) `BUST_EXTRA_MS`(3000) `STREET_MS`(1200) `REVEAL_MS`(4000). `PORT=0`이면 임의 포트를 쓰고 시작 시 `listening on <port>`를 출력한다.
+`GRACE_MS`(60000) `ROOM_LIST_MS`(500) `ROOM_GC_MS`(60000) `RESULT_MS`(11000) `RESULT_FOLD_MS`(4000) `TIE_EXTRA_MS`(2500) `BLUFF_RESULT_MS`(6000) `BUST_EXTRA_MS`(3000) `STREET_MS`(1700) `REVEAL_MS`(4000). `PORT=0`이면 임의 포트를 쓰고 시작 시 `listening on <port>`를 출력한다.
 
 ## 알려진 한계
 

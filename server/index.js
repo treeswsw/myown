@@ -125,7 +125,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   await store.init();
   const timing = Object.fromEntries(Object.entries({
     grace: envNum('GRACE_MS'), roomGc: envNum('ROOM_GC_MS'),
-    result: envNum('RESULT_MS'), bustExtra: envNum('BUST_EXTRA_MS'),
+    result: envNum('RESULT_MS'), resultFold: envNum('RESULT_FOLD_MS'), tieExtra: envNum('TIE_EXTRA_MS'),
+    bluffResult: envNum('BLUFF_RESULT_MS'), bustExtra: envNum('BUST_EXTRA_MS'),
     street: envNum('STREET_MS'), roomList: envNum('ROOM_LIST_MS'), reveal: envNum('REVEAL_MS'),
   }).filter(([, v]) => Number.isFinite(v)));
   const app = await startServer({

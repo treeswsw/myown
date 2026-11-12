@@ -114,13 +114,15 @@ export class Bot {
     this._acted = true;
     const [lo, hi] = this.opts.thinkMs;
     setTimeout(() => {
-      if (this.closed) return;
+      if (this.closed || !this.opts.autoplay) return;
       const cur = this.state;
       if (!cur || cur.phase !== 'playing' || cur.turn !== cur.you) return;
       const act = cur.mode === 'holdem' ? this.chooseHoldem(cur) : this.chooseBluff(cur);
       if (act) { this.actionsSent++; this.send(act); } else this._acted = false;
     }, ri(lo, hi));
   }
+
+  autoplayOn() { this.opts.autoplay = true; this._acted = false; this._maybeAct(); }
 
   chooseHoldem(s) {
     const r = Math.random();

@@ -8,66 +8,73 @@ before(async () => { server = await startServer(); });
 after(async () => { await server.stop(); });
 
 for (const n of [2, 3, 6]) {
-  test(`holdem: ${n} bots play 50 hands`, { timeout: 240000 }, async () => {
+  test(`holdem: ${n} bots play 50 hands (in sessions until a champion)`, { timeout: 300000 }, async () => {
     const HANDS = 50;
-    const { bots, hands } = await runHoldem(server, n, HANDS);
+    const { sessions, hands } = await runHoldem(server, n, HANDS);
     assert.ok(hands >= HANDS);
 
-    // no errors for legal moves
-    for (const b of bots) assert.deepEqual(b.errors, [], `bot ${b.id} got errors: ${JSON.stringify(b.errors)}`);
+    for (const sess of sessions) {
+      const { bots, stateHistory: states } = sess;
+      for (const b of bots) assert.deepEqual(b.errors, [], `bot ${b.id} got errors: ${JSON.stringify(b.errors)}`);
+      const host = bots[0];
+      const total = n * 10000;
 
-    const host = bots[0];
-    // every hand produced a result with winners whose amounts sum to the pot
-    const wins = host.messages.filter((m) => m.t === 'event' && m.e.k === 'win');
-    for (const w of wins) {
-      assert.ok(w.e.winners.length >= 1);
-      const sum = w.e.winners.reduce((a, x) => a + x.amount, 0);
-      assert.ok(sum > 0 && sum <= w.e.pot, `winner amounts ${sum} must be within pot ${w.e.pot}`);
-    }
-    const deals = host.messages.filter((m) => m.t === 'event' && m.e.k === 'deal').length;
-    assert.ok(deals >= wins.length, 'a deal precedes each win');
-
-    // per-state sanity: stacks non-negative integers, board <= 5
-    for (const s of host.stateHistory) {
-      for (const p of s.players) if (s.mode === 'holdem') {
-        assert.ok(Number.isInteger(p.stack) && p.stack >= 0, `bad stack ${p.stack}`);
+      // every result has winners within the pot
+      for (const w of host.messages.filter((m) => m.t === 'event' && m.e.k === 'win')) {
+        const sum = w.e.winners.reduce((a, x) => a + x.amount, 0);
+        assert.ok(sum > 0 && sum <= w.e.pot, `winner amounts ${sum} must be within pot ${w.e.pot}`);
       }
-      assert.ok(s.board.length <= 5);
-    }
 
-    // chips are conserved inside every hand: sum(stack+bet)+pot is constant while playing,
-    // and equals the sum of stacks once the result is shown
-    let T = null;
-    for (const s of host.stateHistory) {
-      if (s.mode !== 'holdem') continue;
-      const stacks = s.players.reduce((a, p) => a + p.stack, 0);
-      if (s.phase === 'playing') {
-        const total = stacks + s.players.reduce((a, p) => a + p.bet, 0) + s.pot;
-        if (T === null) T = total;
-        assert.equal(total, T, 'chips created/destroyed during a hand');
-      } else if (s.phase === 'result') {
-        if (T !== null) assert.equal(stacks, T, 'chips created/destroyed at result');
-        assert.ok(s.result && s.result.winners.length >= 1, 'result state has winners');
-        T = null;
-      } else T = null;
-    }
+      // chips are conserved at every state: stacks + bets + pot (playing) / stacks (result) = accounts x 10,000, no refills
+      const gone = new Set(); // eliminated players
+      let lastResult = null;
+      for (const s of states) {
+        if (s.mode !== 'holdem') continue;
+        const stacks = s.players.reduce((a, p) => a + p.stack, 0);
+        if (s.phase === 'playing') {
+          assert.equal(stacks + s.players.reduce((a, p) => a + p.bet, 0) + s.pot, total, 'chips created/destroyed during a hand');
+        } else if (s.phase === 'result') {
+          assert.equal(stacks, total, 'chips created/destroyed at result');
+          assert.ok(s.result && s.result.winners.length >= 1);
+          lastResult = s;
+        }
+        for (const p of s.players) {
+          assert.ok(Number.isInteger(p.stack) && p.stack >= 0 && p.stack <= total, `bad stack ${p.stack}`);
+          if (gone.has(p.id)) {
+            assert.equal(p.stack, 0, 'eliminated player has chips');
+            assert.equal(p.spectating, true, 'eliminated player is dealt in');
+            assert.ok(!p.cards, 'eliminated player has cards');
+            assert.ok(p.eliminated, 'eliminated flag dropped');
+            if (p.id === s.you) assert.ok(!s.myCards, 'eliminated player was dealt cards');
+          }
+          if (p.eliminated) {
+            gone.add(p.id);
+            assert.equal(p.stack, 0);
+          } else if (s.phase === 'result' && p.stack === 0) assert.fail('stack 0 after a hand but not eliminated');
+        }
+      }
+      // exactly one champion when the session ended that way, and it is the only chip holder
+      const champs = host.messages.filter((m) => m.t === 'event' && m.e.k === 'champion');
+      assert.ok(champs.length <= 1);
+      if (champs.length) {
+        assert.equal(sess.champion, champs[0].e.id);
+        const holders = lastResult.players.filter((p) => p.stack > 0);
+        assert.deepEqual(holders.map((p) => p.id), [sess.champion]);
+        assert.equal(gone.size, n - 1);
+      }
 
-    // after the game: chips conserved (stacks + banks = initial + refills*10000)
-    const ids = bots.map((b) => b.id);
-    for (const b of bots) b.leave();
-    for (const b of bots) await b.waitFor(() => b.state === null, 5000, 'room:null after leave');
-    await stopAll(bots);
-    const acc = await readAccounts(server, ids);
-    let total = 0;
-    let refills = 0;
-    for (const id of ids) {
-      total += acc[id].bank;
-      refills += acc[id].stats.refills;
-      assert.ok(acc[id].stats.hands >= 1, 'hands stat');
+      // account chips: nothing created, nothing lost, no refills; eliminated accounts at exactly 0
+      const acc = await readAccounts(server, bots.map((b) => b.id));
+      let sum = 0;
+      for (const b of bots) {
+        const a = acc[b.id];
+        sum += a.bank;
+        assert.equal(a.stats.refills, 0, 'refills must be 0');
+        if (gone.has(b.id)) assert.equal(a.bank, 0, 'eliminated account must hold 0');
+      }
+      assert.equal(sum, total, `account chips not conserved: ${sum} != ${total}`);
+      await stopAll(bots);
     }
-    assert.equal(total, ids.length * 10000 + refills * 10000, `chips not conserved: total=${total} refills=${refills}`);
-    const winsStat = ids.reduce((a, id) => a + acc[id].stats.wins, 0);
-    assert.ok(winsStat >= HANDS, `wins stat ${winsStat}`);
     assert.ok(server.alive());
   });
 }

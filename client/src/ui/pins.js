@@ -1,4 +1,4 @@
-import { h, svg, avatar, fmt, fmtShort, view } from './dom.js';
+import { h, svg, avatar, cardEl, cardBack, fmt, fmtShort, view } from './dom.js';
 import { PIN } from './icons.js';
 
 const EMOTES = ['👍', '😂', '😮', '😡', '😭', '🔥'];
@@ -15,6 +15,7 @@ export function createPins(ui, stage, table) {
   const stacks = new Map(); // id -> displayed stack override while the win animation runs
   const dead = new Set();
   const lifts = new Map(); // id -> world-space height added to the photo (the winner standing up)
+  const hands = new Map(); // id -> element with the two showdown cards above the photo
   let winners = null; // Set of ids emphasised at showdown, null otherwise
   let room = null;
   let hidden = false;
@@ -104,6 +105,17 @@ export function createPins(ui, stage, table) {
 
   return {
     render, frame,
+    // Showdown: the player's two cards pop up above the photo face-down, then flip.
+    showHand(id, codes) {
+      const e = pins.get(id);
+      if (!e) return;
+      hands.get(id)?.remove();
+      const box = h('div', 'handup', codes.map(() => cardBack()));
+      e.el.append(box);
+      hands.set(id, box);
+      setTimeout(() => box.replaceChildren(...codes.map((c) => cardEl(c, 'flip'))), 380);
+    },
+    clearHands() { hands.forEach((b) => b.remove()); hands.clear(); },
     emphasize(ids) { winners = ids ? new Set(ids) : null; if (room) render(room); },
     setLift(id, v) { if (v) lifts.set(id, v); else lifts.delete(id); },
     clearStacks() { stacks.clear(); if (room) render(room); },

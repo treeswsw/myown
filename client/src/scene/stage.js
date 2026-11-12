@@ -51,17 +51,28 @@ export function createStage(canvas) {
   addEventListener('resize', resize);
   resize();
 
-  /* camera shake (the special-fx module nudges the camera itself for push-ins) */
-  const fx = { shake: 0 };
+  /* camera shake and a slow push-in toward a world point (the special-fx module nudges the camera on its own) */
+  const fx = { shake: 0, push: 0, target: new THREE.Vector3() };
   const applyCamera = () => {
+    const look = BASE_LOOK.clone();
     camera.position.copy(BASE_POS);
+    if (fx.push > 0) {
+      camera.position.lerp(fx.target, fx.push * 0.3);
+      look.lerp(fx.target, fx.push * 0.8);
+    }
     if (fx.shake > 0) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * fx.shake, (Math.random() - 0.5) * fx.shake, (Math.random() - 0.5) * fx.shake));
-    camera.lookAt(BASE_LOOK);
+    camera.lookAt(look);
     camera.updateMatrixWorld();
   };
   const shake = (amp = 0.04, dur = 350) => {
     if (reducedMotion) return;
     tween(dur, (p) => { fx.shake = amp * (1 - p); }, ease.linear);
+  };
+
+  const pushIn = (target, k, dur) => {
+    if (target) fx.target.copy(target);
+    const from = fx.push;
+    return tween(dur, (p) => { fx.push = from + (k - from) * p; }, ease.inOut);
   };
 
   const project = (v) => {
@@ -108,7 +119,7 @@ export function createStage(canvas) {
   requestAnimationFrame(loop);
 
   return {
-    scene, camera, size, project, shake,
+    scene, camera, size, project, shake, pushIn,
     isLowPower: () => lowPower,
     ready: room.ready,
     setMode: room.setMode,
