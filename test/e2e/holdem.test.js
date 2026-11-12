@@ -22,7 +22,7 @@ for (const n of [2, 3, 6]) {
     for (const w of wins) {
       assert.ok(w.e.winners.length >= 1);
       const sum = w.e.winners.reduce((a, x) => a + x.amount, 0);
-      assert.equal(sum, w.e.pot, 'winner amounts must sum to the pot');
+      assert.ok(sum > 0 && sum <= w.e.pot, `winner amounts ${sum} must be within pot ${w.e.pot}`);
     }
     const deals = host.messages.filter((m) => m.t === 'event' && m.e.k === 'deal').length;
     assert.ok(deals >= wins.length, 'a deal precedes each win');
@@ -35,7 +35,24 @@ for (const n of [2, 3, 6]) {
       assert.ok(s.board.length <= 5);
     }
 
-    // result phase: chips conserved (stacks + banks = initial + refills*10000)
+    // chips are conserved inside every hand: sum(stack+bet)+pot is constant while playing,
+    // and equals the sum of stacks once the result is shown
+    let T = null;
+    for (const s of host.stateHistory) {
+      if (s.mode !== 'holdem') continue;
+      const stacks = s.players.reduce((a, p) => a + p.stack, 0);
+      if (s.phase === 'playing') {
+        const total = stacks + s.players.reduce((a, p) => a + p.bet, 0) + s.pot;
+        if (T === null) T = total;
+        assert.equal(total, T, 'chips created/destroyed during a hand');
+      } else if (s.phase === 'result') {
+        if (T !== null) assert.equal(stacks, T, 'chips created/destroyed at result');
+        assert.ok(s.result && s.result.winners.length >= 1, 'result state has winners');
+        T = null;
+      } else T = null;
+    }
+
+    // after the game: chips conserved (stacks + banks = initial + refills*10000)
     const ids = bots.map((b) => b.id);
     await stopAll(bots);
     await new Promise((r) => setTimeout(r, 300));

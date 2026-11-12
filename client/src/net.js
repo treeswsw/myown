@@ -14,7 +14,7 @@ export function connect(onMessage, onStatus) {
     ws.onopen = () => {
       delay = 500;
       onStatus(true);
-      const id = saved.get('gk.id');
+      const id = saved.get('gs.lastId');
       if (id) ws.send(JSON.stringify({ t: 'login', id }));
     };
     ws.onmessage = (ev) => {

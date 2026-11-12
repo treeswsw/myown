@@ -12,7 +12,7 @@ const SLOTS = {
 };
 // Clockwise from me, indexed by player count.
 const ORDER = {
-  holdem: { 1: [4], 2: [4, 1], 3: [4, 0, 2], 4: [4, 5, 1, 3], 5: [4, 5, 0, 2, 3], 6: [4, 5, 0, 1, 2, 3] },
+  holdem: { 1: [4], 2: [4, 1], 3: [4, 0, 2], 4: [4, 5, 1, 3], 5: [4, 0, 1, 2, 3], 6: [4, 5, 0, 1, 2, 3] },
   bluff: { 1: [3], 2: [3, 1], 3: [3, 0, 2], 4: [3, 0, 1, 2] },
 };
 const POT = new THREE.Vector3(0.62, TY, 0.02);
@@ -48,7 +48,6 @@ export function createTable(stage) {
   root.add(pile.group);
   let layout = new Map();
   let mode = null;
-  let last = null;
   let potDelay = 0;
 
   const put = (obj, parent = root) => { parent.add(obj); return obj; };
@@ -246,7 +245,6 @@ export function createTable(stage) {
   function clearPile() { pile.group.clear(); pile.n = 0; }
 
   function sync(room) {
-    last = room;
     if (room.mode !== mode) setMode(room.mode);
     layout = computeLayout(room);
     for (const id of seats.keys()) if (!layout.has(id)) { clearSeat(seats.get(id)); seats.delete(id); }
@@ -267,15 +265,14 @@ export function createTable(stage) {
 
   /* hooks for animations */
   const slotOf = (id) => layout.get(id);
-  const hold = (id) => holds.add(id);
-  const release = (id) => { holds.delete(id); if (last) sync(last); };
+  const release = (id) => holds.delete(id);
 
   // All-in: the whole stack slides to the bet spot while tumbling.
   async function shove(id) {
     const slot = slotOf(id);
     const seat = seats.get(id);
     if (!slot || !seat?.stack.group) return;
-    hold(id);
+    holds.add(id);
     const g = seat.stack.group;
     const dest = pose.bet(slot).sub(pose.stack(slot));
     const jobs = g.children.map((c, i) => {
@@ -310,11 +307,11 @@ export function createTable(stage) {
     holds.delete('pot');
     winners.forEach((w) => holds.delete(w.id));
     pot.amount = -1;
-    if (last) sync(last);
   }
 
   return {
-    sync, shove, payout, hold, release, addToPile, clearPile,
+    sync, shove, payout, release, addToPile, clearPile,
+    reset: () => setMode('holdem'),
     slot: slotOf,
     head: (id) => { const s = slotOf(id); return s ? pose.head(s) : null; },
     stackPos: (id) => { const s = slotOf(id); return s ? pose.stack(s) : null; },

@@ -243,7 +243,8 @@ test('bust: busted player re-sits from the bank; empty bank gets a free refill',
   clock.advance(6000 + 3 * 1200 + 3000 - 1);
   assert.equal(cs[0].state.phase, 'result', 'run-out and bust animations get their time');
   clock.advance(1);
-  const sat = loser.state.players.find((p) => p.id === busted[0]).stack;
+  const seat = loser.state.players.find((p) => p.id === busted[0]);
+  const sat = seat.stack + seat.bet;
   assert.equal(sat > 0, true);
   assert.equal(sat, Math.min(bankBefore, 5000));
   assert.equal(loser.sock.last('me').user.stats.refills, 0);

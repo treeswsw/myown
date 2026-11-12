@@ -35,3 +35,6 @@ lobby.setUser(user|null); lobby.setRoom(roomState|null); lobby.setError(msg|null
 - 한 번의 처리에서 이벤트가 몰아서 온다: 올인 런아웃이면 `street`×N + `showdown` + `win`이, 블러핑 LIAR면 `liar`+`reveal`+`shot`+다음 라운드 `bluffDeal`이 같은 묶음이고, 바로 뒤 `room`은 이미 다음 상태다. 화면은 연출 큐를 두고 연출이 끝날 때까지 해당 부분(보드·손패·reveal)의 갱신을 미뤄야 한다. 서버에도 지연을 요청함(아래 검토 기록 참고).
 - 블러핑 `myHand`는 무늬 없는 `'A'|'K'|'Q'|'J'`. 시안의 무늬는 화면 쪽에서 장식으로 정할 것.
 - 로그아웃 전용 메시지는 규약에 없다. 화면은 localStorage 아이디를 지우고 소켓을 닫았다 다시 여는 방식으로 처리(서버는 소켓 종료 = 연결 끊김으로 처리하므로 방에 있었다면 60초 자리 유지 후 퇴장).
+
+## [로비] 디자인 변경 (API 동일)
+로비를 시스템 글꼴(-apple-system 계열) 기반 iOS 스타일로 다시 만들었다. 위 `[로비]` 항의 "한글 폰트를 index.html에서 불러와야 함"은 로비에 한해 더 이상 필요 없다(Bangers·Black Han Sans 미사용). createLobby 인자·반환값·동작은 그대로.
