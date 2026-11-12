@@ -24,8 +24,13 @@ test('http: healthz, static files, SPA fallback, traversal safety', async (t) =>
   fs.mkdirSync(path.join(dist, 'assets'));
   fs.writeFileSync(path.join(dist, 'assets', 'a.js'), 'x');
   fs.writeFileSync(path.join(dist, '..', path.basename(dist) + '-secret.txt'), 'secret');
+  const secret = path.join(dist, '..', path.basename(dist) + '-secret.txt');
   const app = await startServer({ port: 0, store: createStore(), distDir: dist });
-  t.after(() => app.close());
+  t.after(async () => {
+    await app.close();
+    fs.rmSync(dist, { recursive: true });
+    fs.rmSync(secret);
+  });
 
   assert.equal((await rawGet(app.port, '/healthz')).status, 200);
   const home = await rawGet(app.port, '/');
@@ -66,11 +71,11 @@ test('websocket: login, create and receive room state; same-ID takeover closes t
   assert.equal(room.state.mode, 'bluff');
   assert.equal(room.state.players[0].id, 'wsuser');
 
-  const closed = new Promise((resolve) => a.on('close', resolve));
+  const closed = new Promise((resolve) => a.on('close', (code) => resolve(code)));
   const b = await open();
   b.send(JSON.stringify({ t: 'login', id: 'WSUSER' }));
   const again = await waitFor(b, (m) => m.t === 'room' && m.state);
   assert.equal(again.state.code, room.state.code);
-  await closed;
+  assert.equal(await closed, 4001);
   b.close();
 });

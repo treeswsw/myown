@@ -20,8 +20,10 @@ export function connect(onMessage, onStatus) {
     ws.onmessage = (ev) => {
       try { onMessage(JSON.parse(ev.data)); } catch (err) { console.error('bad message', err); }
     };
-    ws.onclose = () => {
-      onStatus(false);
+    ws.onclose = (ev) => {
+      // 4001: another tab took over this id; reconnecting would just kick that tab back.
+      onStatus(false, ev.code);
+      if (ev.code === 4001) return;
       setTimeout(open, delay);
       delay = Math.min(delay * 2, 5000);
     };

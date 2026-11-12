@@ -70,9 +70,8 @@ export function buildFlash(kit) {
     flash.add(s);
   }
   flash.add(new THREE.Mesh(kit.geo('flashCore', () => new THREE.SphereGeometry(0.035, 10, 8)), material));
-  const light = new THREE.PointLight(0xffc56a, 0, 4, 2);
-  flash.add(light);
-  flash.userData = { light, dispose: () => material.dispose() };
+  // No point light on purpose: adding a light mid-game would force every material to recompile.
+  flash.userData = { dispose: () => material.dispose() };
   return flash;
 }
 

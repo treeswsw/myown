@@ -69,7 +69,7 @@ export function startMock(handle, { mode, state }) {
   const later = (ms, fn) => setTimeout(fn, ms);
   if (state === 'peek') later(1500, () => document.querySelector('.hole').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
   if (state === 'board') later(1500, () => document.querySelector('.comm').click());
-  if (state === 'raise') later(1500, () => document.querySelector('.act .seg:nth-of-type(2)').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  if (state === 'raise') later(1500, () => document.querySelector('.act .wseg:nth-of-type(2)').dispatchEvent(new MouseEvent('click', { bubbles: true })));
   if (bluff && state === 'default') later(1500, () => document.querySelectorAll('.bhand .pc').forEach((c, i) => { if (i === 1 || i === 2) c.click(); }));
   if (state === 'win') {
     later(1500, () => {

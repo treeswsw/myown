@@ -11,6 +11,8 @@ export const FAST_TIMERS = {
   TURN_MS: '2500',
   RESULT_MS: '60',
   BUST_EXTRA_MS: '0',
+  STREET_MS: '30',
+  REVEAL_MS: '80',
   GRACE_MS: '1500',
   ROOM_GC_MS: '1500',
 };

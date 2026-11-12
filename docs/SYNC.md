@@ -38,3 +38,32 @@ lobby.setUser(user|null); lobby.setRoom(roomState|null); lobby.setError(msg|null
 
 ## [로비] 디자인 변경 (API 동일)
 로비를 시스템 글꼴(-apple-system 계열) 기반 iOS 스타일로 다시 만들었다. 위 `[로비]` 항의 "한글 폰트를 index.html에서 불러와야 함"은 로비에 한해 더 이상 필요 없다(Bangers·Black Han Sans 미사용). createLobby 인자·반환값·동작은 그대로.
+
+## [서버] 검토 반영 + 타이머/포트 (확정)
+- 환경 변수(index.js): `PORT`(0이면 임의 포트, 시작 시 `listening on <port>` 한 줄 출력), `TURN_MS`=30000, `GRACE_MS`=60000, `ROOM_GC_MS`=60000, `RESULT_MS`=6000, `BUST_EXTRA_MS`=3000, `STREET_MS`=1200(올인 런아웃 카드 장면당 결과 대기 추가), `REVEAL_MS`=4000(블러핑 벌칙 표시 뒤 다음 라운드). 자세한 건 `docs/PROTOCOL-NOTES.md`.
+- 블러핑: LIAR 처리 후 `reveal` 채운 상태로 turn=null 4초, 이후 `bluffDeal` 이벤트와 새 `room`이 온다(`liar/reveal/shot`과 `bluffDeal`은 별개 배치). 홀덤 `pot`/`pots`는 모인 칩만(현재 라운드 베팅은 `players[].bet`).
+- 짧은 빅블라인드가 올인해도 콜 금액은 항상 100.
+- 주의(관리자): Node 22에서 `node --test test/`는 디렉터리를 모듈로 읽어 실패한다. package.json은 건드리지 말라는 지시라 두었다. `node --test test/*.test.js` 또는 `node --test`를 써야 한다.
+
+## [서버] 같은 아이디 새 접속 시 이전 연결 종료 코드 = 4001
+이전 연결에는 먼저 `{t:'error', msg:'다른 곳에서 접속하여 연결이 종료됩니다.'}`를 보내고 WebSocket을 `close(4001, 'replaced')`로 닫는다. 클라이언트는 4001이면 자동 재접속하지 말 것. `pot` 의미: 이미 모인 칩만(현재 베팅 라운드의 베팅은 `players[].bet`), 결과(`result`) 단계에서는 전체 팟. 타이머 env: TURN_MS GRACE_MS ROOM_GC_MS RESULT_MS BUST_EXTRA_MS STREET_MS REVEAL_MS 모두 index.js가 읽는다.
+
+## [연출] 특수 연출 모듈 사용법 (client/src/anim/special/index.js) — 사용 가능
+```js
+import { createSpecialFX } from './anim/special/index.js';
+const fx = createSpecialFX({ scene, camera, getSeat, shake, sfx });
+await fx.playAllIn(id, { onPush });                    // 약 2.5초, onPush는 1.25초(손이 칩에 닿는 순간)
+await fx.playBust(winnerId, loserId, { onHit });       // 약 3초, onHit은 1.35초(발사 순간)
+await fx.playRevolver(id, { dead, shots, onResult });  // 약 3초, onResult(dead, shots)는 2.0초(방아쇠 순간)
+fx.update(dt);   // 매 프레임(초 단위)   fx.dispose();
+```
+- `getSeat(id)` → `{ head: Vector3(사진 중심의 월드 좌표), headRadius(월드 단위), chips: Vector3(그 사람 칩 더미, 펠트 위), tableCenter: Vector3, feltY }`. 호출할 때마다 새로 계산해도 됨(시퀀스 시작 때 한 번 읽음).
+- 몸은 `head` 바로 아래(목 = head.y − headRadius×0.9)에서 테이블 중심을 바라보며 자라고, 크기는 `headRadius/0.14`(0.85~1.45배)로 맞춘다. **사진의 월드 높이가 높을수록 몸이 테이블 위로 많이 보인다**(먼 쪽 자리는 head.y가 1.0 이하면 어깨·팔만 보임). 가능하면 `head.y`를 1.05~1.3으로 주면 좋다.
+- 모듈이 하는 일: 몸·총·섬광·연기를 `scene`에 넣었다가 끝나면 제거. 탈락/리볼버 연출 중 카메라를 대상 쪽으로 최대 10~12% 살짝 당겼다 되돌림(카메라 위치에 차이값만 더하므로 호스트의 흔들림과 같이 써도 됨. 단, 연출 중 호스트가 `camera.position`을 절대값으로 덮어쓰면 당김이 사라질 뿐 문제는 없음).
+- 호스트가 할 일: `onPush`에서 실제 칩을 중앙으로 밀고 "ALL IN" 글자 표시 / `onHit`에서 탈락자 사진을 뒤집어 흑백으로 / `onResult(dead, shots)`에서 n/6 숫자 갱신 또는 사진 뒤집기. `shake(strength 0~1, ms)`와 `sfx('whoosh'|'spin'|'click'|'shot'|'thud')` 제공. 조명은 추가하지 않는다(재질 재컴파일 방지).
+- `prefers-reduced-motion`이면 몸 없이 0.12초에 소리와 콜백만 실행하고 0.3초에 끝난다.
+- 확인용: `client/special-demo.html?seq=allin|bust|revolver-click|revolver-shot&seat=0..5&target=0..5&t=<초>`(t를 주면 그 시점에서 정지). 빌드 입력에는 포함되지 않는다.
+
+## [연출] 검토 반영: 효과음 실패가 콜백을 막지 않음, skipAll 추가
+- `sfx`/`shake`가 없거나 함수가 아니거나 예외를 던져도 무시하고, 각 시점에서 게임 콜백(onPush/onHit/onResult)을 먼저 호출한다. 콜백 자체의 예외는 console.error로만 남기고 프레임 루프를 멈추지 않는다.
+- `fx.skipAll()`: 진행 중인 연출을 즉시 끝낸다(남은 콜백은 모두 실행되고 Promise도 끝남). 탭이 숨겨진 상태(`document.hidden`)에서 play*를 부르면 바로 콜백을 실행하고 끝난다. 탭이 숨겨질 때(visibilitychange) 호스트가 `skipAll()`을 불러 주면 이벤트 큐가 멈추지 않는다.

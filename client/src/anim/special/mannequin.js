@@ -16,9 +16,9 @@ export const REST = { R: v(-0.255, -0.725, 0.05), L: v(0.255, -0.725, 0.05) };
 export function createKit() {
   const mat = (color, roughness, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
   const mats = {
-    suit: mat(0x16171b, 0.84), shirt: mat(0xe9e6df, 0.7), tie: mat(0x5c1016, 0.6),
-    skin: mat(0xc49878, 0.62), shoe: mat(0x0b0b0c, 0.32), button: mat(0x2d2f36, 0.5),
-    metal: mat(0x30343a, 0.34, 0.85), wood: mat(0x4b2d18, 0.55), hole: mat(0x08090a, 0.9),
+    suit: mat(0x3a3e4a, 0.78), shirt: mat(0xe9e6df, 0.7), tie: mat(0x5c1016, 0.6),
+    skin: mat(0xc49878, 0.62), shoe: mat(0x1b1b1e, 0.3), button: mat(0x2d2f36, 0.5),
+    metal: mat(0x8a9099, 0.32, 0.75), wood: mat(0x4b2d18, 0.55), hole: mat(0x08090a, 0.9),
   };
   const geos = new Map();
   return {

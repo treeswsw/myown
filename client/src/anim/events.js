@@ -47,7 +47,7 @@ export function createAnimator({ ui, stage, table, pins, special, getRoom, apply
         await sleep(800);
         break;
       case 'reveal': {
-        const cards = h('div', 'row', e.cards.map((r, i) => cardEl(handCode(r, i))));
+        const cards = h('div', 'crow', e.cards.map((r, i) => cardEl(handCode(r, i))));
         const verdict = e.lie ? '거짓말이었다!' : '진짜였다!';
         const who = (id) => room?.players.find((p) => p.id === id)?.name ?? id;
         const ov = h('div', 'ov', h('div', 't', `${who(e.by)}의 카드 · 이번 카드 ${room?.tableRank ?? ''}`), cards,
@@ -75,7 +75,6 @@ export function createAnimator({ ui, stage, table, pins, special, getRoom, apply
         b.remove();
         break;
       }
-      case 'emote': pins.emote(e.id, e.e); break;
       default: break;
     }
   }
@@ -83,14 +82,16 @@ export function createAnimator({ ui, stage, table, pins, special, getRoom, apply
   async function run() {
     running = true;
     while (queue.length) {
-      try { await handle(queue.shift()); } catch (err) { console.error('animation failed', err); }
+      try { await Promise.race([handle(queue.shift()), new Promise((r) => setTimeout(r, 10000))]); } catch (err) { console.error('animation failed', err); }
     }
     running = false;
     onIdle();
   }
 
   return {
-    push(e) { queue.push(e); if (!running) run(); },
+    // A hidden tab stops requestAnimationFrame, so its animations could never finish: skip them.
+    push(e) { if (document.hidden) return; queue.push(e); if (!running) run(); },
+    flush() { queue.length = 0; },
     busy: () => running,
   };
 }

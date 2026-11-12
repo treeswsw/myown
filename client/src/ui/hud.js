@@ -30,7 +30,7 @@ export function createHud(ui, { send, getMe }) {
     const same = panel?.dataset.key === key;
     closePanel();
     if (same) return;
-    panel = h('div', 'panel', ...kids);
+    panel = h('div', 'hpanel', ...kids);
     panel.dataset.key = key;
     ui.append(panel);
   };
@@ -59,7 +59,7 @@ export function createHud(ui, { send, getMe }) {
     const me = getMe();
     if (!me) return;
     const s = me.stats ?? {};
-    const line = (k, v) => h('div', 'row', k, h('b', '', fmt(v ?? 0)));
+    const line = (k, v) => h('div', 'stat', k, h('b', '', fmt(v ?? 0)));
     open('stats', h('h3', '', me.name), line('보유 칩', me.bank), line('홀덤 판수', s.hands), line('홀덤 승리', s.wins), line('최고 획득', s.biggestWin),
       line('리필', s.refills), line('블러핑 판수', s.bluffGames), line('블러핑 승리', s.bluffWins));
   };

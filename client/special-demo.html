@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>특수 연출 데모</title>
+<style>
+  html,body{margin:0;height:100%;background:#070605;overflow:hidden;font:13px system-ui,sans-serif;color:#fff}
+  canvas{display:block}
+  #bar{position:fixed;left:12px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap}
+  #bar button{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid #fff5;background:#0008;color:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<script type="module">
+// Stand-alone check for client/src/anim/special: the mock's table and camera, fake seats, no game code.
+// ?seq=allin|bust|revolver-click|revolver-shot  &seat=0..5  &target=0..5 (bust)  &t=<seconds> freezes that frame.
+import * as THREE from 'three';
+import { createSpecialFX } from './src/anim/special/index.js';
+
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0a09);
+const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.1, 60);
+camera.position.set(-1.75, 3.25, 3.45);
+camera.lookAt(0.02, 0.62, -0.02);
+
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x1a1410, 0.6));
+const key = new THREE.SpotLight(0xfff0d8, 40, 0, 0.72, 0.6, 1.5);
+key.position.set(0, 4.6, 0.4);
+key.target.position.set(0, 0.78, 0);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.bias = -0.0004;
+scene.add(key, key.target);
+const fill = new THREE.PointLight(0xffd0a0, 14, 14, 2);
+fill.position.set(-4, 2.6, 3.5);
+scene.add(fill);
+
+const TY = 0.78, L = 1.25, R = 0.98;
+const stadium = (l, r) => { const s = new THREE.Shape(); s.moveTo(-l, -r); s.lineTo(l, -r); s.absarc(l, 0, r, -Math.PI / 2, Math.PI / 2, false); s.lineTo(-l, r); s.absarc(-l, 0, r, Math.PI / 2, Math.PI * 1.5, false); return s; };
+const flat = (g) => g.rotateX(-Math.PI / 2);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: 0x3a3632, roughness: 0.9 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const felt = new THREE.Mesh(flat(new THREE.ShapeGeometry(stadium(L, R - 0.1), 48)), new THREE.MeshStandardMaterial({ color: 0x8e1313, roughness: 0.95 }));
+felt.position.y = TY; felt.receiveShadow = true; scene.add(felt);
+const railShape = stadium(L, R); railShape.holes.push(stadium(L, R - 0.13));
+const rail = new THREE.Mesh(flat(new THREE.ExtrudeGeometry(railShape, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.035, bevelSegments: 6, curveSegments: 32 })), new THREE.MeshStandardMaterial({ color: 0x0e0e10, roughness: 0.5 }));
+rail.position.y = TY - 0.02; rail.castShadow = rail.receiveShadow = true; scene.add(rail);
+const bodyMesh = new THREE.Mesh(flat(new THREE.ExtrudeGeometry(stadium(L, R - 0.03), { depth: 0.13, bevelEnabled: false, curveSegments: 32 })), new THREE.MeshStandardMaterial({ color: 0x0b0b0c, roughness: 0.4 }));
+bodyMesh.position.y = TY - 0.16; bodyMesh.castShadow = true; scene.add(bodyMesh);
+[-1.15, 1.15].forEach((x) => { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.46, 0.62, 32), bodyMesh.material); p.position.set(x, 0.31, 0); scene.add(p); });
+
+// Seats as in the hold'em mock; photo discs always face the camera and draw on top, like the DOM photos do.
+const center = new THREE.Vector3(0, TY, 0);
+const seats = [[-1.3, -1], [0, -1], [1.3, -1], [1.3, 1], [0, 1], [-1.3, 1]].map(([x, s], i) => {
+  const head = new THREE.Vector3(x, s > 0 ? 0.95 : 0.92, s * (R + 0.45) + (s > 0 ? 0.05 : -0.05));
+  const headRadius = s > 0 ? 0.125 : 0.19;
+  const chips = new THREE.Vector3(x + 0.12, TY, s * (R - 0.3));
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(headRadius, 40), new THREE.MeshBasicMaterial({ color: [0x7a8fa6, 0x6f9a78, 0x9a7fb0, 0xb09a5a, 0x5f9a94, 0xa66a6a][i], depthTest: false }));
+  disc.position.copy(head); disc.renderOrder = 10; scene.add(disc);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(headRadius, headRadius * 1.07, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+  ring.position.copy(head); ring.renderOrder = 11; scene.add(ring);
+  const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 20), new THREE.MeshStandardMaterial({ color: 0x3a80d2, roughness: 0.5 }));
+  stack.position.copy(chips).setY(TY + 0.05); stack.castShadow = true; scene.add(stack);
+  return { head, headRadius, chips, tableCenter: center, feltY: TY, disc, ring, stack };
+});
+
+let shakeLeft = 0, shakeAmp = 0;
+const basePos = camera.position.clone();
+const fx = createSpecialFX({
+  scene, camera,
+  getSeat: (id) => seats[id],
+  shake: (strength, ms) => { shakeAmp = strength * 0.03; shakeLeft = ms / 1000; },
+  sfx: (name) => console.debug('sfx', name),
+});
+
+function play(seq, seat, target) {
+  const s = seats[seat];
+  if (seq === 'allin') return fx.playAllIn(seat, { onPush: () => s.stack.position.lerp(center, 0.35).setY(TY + 0.05) });
+  if (seq === 'bust') return fx.playBust(seat, target, { onHit: () => seats[target].disc.material.color.set(0x555555) });
+  return fx.playRevolver(seat, { dead: seq === 'revolver-shot', shots: 3, onResult: (dead) => dead && s.disc.material.color.set(0x555555) });
+}
+
+const seq = q.get('seq'), seat = +(q.get('seat') ?? 1), target = +(q.get('target') ?? 4), freeze = q.get('t');
+function frame(dt) {
+  fx.update(dt);
+  if (shakeLeft > 0) { shakeLeft -= dt; camera.position.x += (Math.random() - 0.5) * shakeAmp; camera.position.y += (Math.random() - 0.5) * shakeAmp; }
+  for (const s of seats) { s.disc.quaternion.copy(camera.quaternion); s.ring.quaternion.copy(camera.quaternion); }
+  renderer.render(scene, camera);
+}
+if (seq) play(seq, seat, target);
+if (freeze != null) {
+  frame(+freeze);
+  frame(0);
+  window.__done = true;
+} else {
+  let last = performance.now();
+  renderer.setAnimationLoop((now) => { frame(Math.min(0.05, (now - last) / 1000)); last = now; });
+  for (const name of ['allin', 'bust', 'revolver-click', 'revolver-shot']) {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.onclick = () => play(name, seat, target);
+    document.getElementById('bar').append(b);
+  }
+}
+</script>
+</body>
+</html>

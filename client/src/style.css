@@ -20,13 +20,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #pins { position: fixed; inset: 0; overflow: hidden; }
 .pl { position: absolute; left: 0; top: 0; transform-origin: 0 0; width: 0; height: 0; }
 .pl .av-wrap { position: absolute; left: -38px; top: -38px; width: 76px; height: 76px; }
-.av { position: relative; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; box-sizing: border-box; border: 3px solid #fff; background: #3a2f27; box-shadow: 0 3px 8px rgba(0, 0, 0, .7); transition: filter .4s; }
-.av img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
-.av.letter { display: flex; align-items: center; justify-content: center; font-family: "Black Han Sans", sans-serif; font-size: 34px; background: radial-gradient(circle at 50% 30%, #7a6858, #241c17); }
-.pl.turn .av { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 198, 42, .35), 0 0 16px rgba(255, 198, 42, .8); }
+.pav { position: relative; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; box-sizing: border-box; border: 3px solid #fff; background: #3a2f27; box-shadow: 0 3px 8px rgba(0, 0, 0, .7); transition: filter .4s; }
+.pav img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.pav.letter { display: flex; align-items: center; justify-content: center; font-family: "Black Han Sans", sans-serif; font-size: 34px; background: radial-gradient(circle at 50% 30%, #7a6858, #241c17); }
+.pl.turn .pav { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 198, 42, .35), 0 0 16px rgba(255, 198, 42, .8); }
 .pl .ring { position: absolute; inset: -7px; border-radius: 50%; background: conic-gradient(var(--gold) calc(var(--p, 0) * 1%), rgba(255, 255, 255, .12) 0); -webkit-mask: radial-gradient(circle, transparent 41px, #000 42px); mask: radial-gradient(circle, transparent 41px, #000 42px); display: none; }
 .pl.turn .ring { display: block; }
-.pl.dim .av, .av.dead { filter: grayscale(1) brightness(.5); }
+.pl.dim .pav, .pav.dead { filter: grayscale(1) brightness(.5); }
 .pl.away { opacity: .55; }
 .pl .top { position: absolute; left: 0; bottom: 46px; width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; }
 .pl .top .num { font-size: 22px; white-space: nowrap; }
@@ -49,14 +49,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .ic.big { width: 46px; height: 46px; margin-right: 16px; border-width: 3px; }
 .ic svg { width: 64%; height: 64%; }
 .ic:active { background: rgba(255, 255, 255, .25); }
-.panel { position: fixed; left: 14px; top: 66px; zoom: var(--k); min-width: 200px; max-width: 320px; max-height: calc(100vh / var(--k) - 90px); overflow: auto; border-radius: 16px; padding: 12px 14px; background: rgba(20, 18, 16, .82); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, .22); pointer-events: auto; font-size: 14px; }
-.panel h3 { margin: 0 0 8px; font-family: "Black Han Sans"; font-weight: 400; font-size: 17px; }
-.panel button.item { display: block; width: 100%; text-align: left; padding: 10px 6px; background: none; border: 0; border-bottom: 1px solid rgba(255, 255, 255, .1); font-size: 15px; }
-.panel button.item:last-child { border: 0; }
-.panel .row { display: flex; justify-content: space-between; gap: 18px; padding: 4px 0; color: rgba(255, 255, 255, .8); }
-.panel .row b { color: var(--gold); font-weight: 700; }
-.panel .emotes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.panel .emotes button { font-size: 30px; background: rgba(255, 255, 255, .08); border: 0; border-radius: 12px; padding: 6px 0; }
+.hpanel { position: fixed; left: 14px; top: 66px; zoom: var(--k); min-width: 200px; max-width: 320px; max-height: calc(100vh / var(--k) - 90px); overflow: auto; border-radius: 16px; padding: 12px 14px; background: rgba(20, 18, 16, .82); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, .22); pointer-events: auto; font-size: 14px; }
+.hpanel h3 { margin: 0 0 8px; font-family: "Black Han Sans"; font-weight: 400; font-size: 17px; }
+.hpanel button.item { display: block; width: 100%; text-align: left; padding: 10px 6px; background: none; border: 0; border-bottom: 1px solid rgba(255, 255, 255, .1); font-size: 15px; }
+.hpanel button.item:last-child { border: 0; }
+.hpanel .stat { display: flex; justify-content: space-between; gap: 18px; padding: 4px 0; color: rgba(255, 255, 255, .8); }
+.hpanel .stat b { color: var(--gold); font-weight: 700; }
+.hpanel .emotes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.hpanel .emotes button { font-size: 30px; background: rgba(255, 255, 255, .08); border: 0; border-radius: 12px; padding: 6px 0; }
 .hr { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; }
 .hr b { font-weight: 700; } .hr span { color: rgba(255, 255, 255, .65); font-size: 12.5px; align-self: center; }
 .hud-tr { position: fixed; right: 16px; top: 16px; zoom: var(--k); text-align: right; font-size: 12px; font-weight: 700; color: #e2dccf; text-shadow: 0 1px 3px #000; }
@@ -98,7 +98,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* zoom + win overlays */
 .ov { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .62); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; pointer-events: auto; zoom: var(--k); animation: fade .2s; }
-.ov .row { display: flex; gap: 18px; }
+.ov .crow { display: flex; gap: 18px; }
 .ov .pc { --h: 222px; }
 .ov .slot { width: 158.5px; height: 222px; border-radius: 17px; border-width: 2.5px; border-color: rgba(255, 255, 255, .35); }
 .ov .t { font: 600 15px -apple-system, "Helvetica Neue", "Noto Sans KR", sans-serif; letter-spacing: .08em; color: rgba(255, 255, 255, .75); }
@@ -109,7 +109,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .win.out { opacity: 0; }
 .win .wt { font-size: 72px; color: #fff; -webkit-text-stroke: 7px #14100c; letter-spacing: 2px; animation: pop .5s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes pop { from { transform: scale(.3); opacity: 0; } }
-.win .row { display: flex; gap: 10px; }
+.win .crow { display: flex; gap: 10px; }
 .win .pc { --h: 170px; animation: deal .5s cubic-bezier(.2, 1.3, .4, 1) backwards; }
 .win .pc:nth-child(1) { transform: rotate(-6deg) translateY(10px); animation-delay: .25s; }
 .win .pc:nth-child(2) { transform: rotate(-3deg) translateY(2px); animation-delay: .35s; }
@@ -119,7 +119,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes deal { from { opacity: 0; translate: 0 -60px; scale: .6; } }
 .win .ws { display: flex; gap: 26px; align-items: center; animation: pop .5s .9s cubic-bezier(.3, 1.6, .5, 1) backwards; }
 .win .w { display: flex; gap: 12px; align-items: center; }
-.win .w .av { width: 56px; height: 56px; flex: none; }
+.win .w .pav { width: 56px; height: 56px; flex: none; }
 .win .w .ko { font-size: 30px; }
 .win .w .num { font-size: 64px; -webkit-text-stroke: 7px #17110a; }
 .win.small .w .num { font-size: 44px; }
@@ -138,8 +138,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .act .wl .ko { font-size: 22px; color: var(--gold); display: block; }
 .act .wl .num { font-size: 24px; }
 .act svg.wheel { display: block; width: 214px; height: 214px; touch-action: manipulation; }
-.act svg.wheel .seg { cursor: pointer; }
-.act svg.wheel .seg.off { opacity: .35; cursor: default; }
+.act svg.wheel .wseg { cursor: pointer; }
+.act svg.wheel .wseg.off { opacity: .35; cursor: default; }
 .dialbox { position: relative; width: 190px; height: 190px; margin: 0 auto 6px; }
 .dialbox svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 .dialbox .mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; pointer-events: none; }
@@ -173,3 +173,5 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .banner { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); zoom: var(--k); text-align: center; animation: pop .5s cubic-bezier(.3, 1.6, .5, 1); }
 .banner .ko { font-size: 56px; color: #fff; -webkit-text-stroke: 6px #14100c; }
 .banner .num { font-size: 40px; }
+
+.lobby[hidden] { display: none; }

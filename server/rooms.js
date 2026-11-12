@@ -17,6 +17,8 @@ const MAX_PLAYERS = { holdem: 6, bluff: 4 };
 const BUY_IN = 5000;
 const REFILL = 10_000;
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+// WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
+export const REPLACED_CODE = 4001;
 const RATE_LIMIT = 20; // messages per second per connection
 
 const publicUser = (u) => ({ id: u.id, name: u.name, bank: u.bank, avatar: u.avatar, stats: { ...u.stats } });
@@ -485,8 +487,8 @@ function createConn(hub, sock) {
         });
       return conn.queue;
     },
-    closeSocket() {
-      sock.close();
+    closeSocket(code, reason) {
+      sock.close(code, reason);
     },
     close() {
       const s = conn.session;
@@ -514,7 +516,7 @@ async function login(hub, conn, msg) {
   if (old && old !== conn) {
     old.session = null; // so its close does not mark the seat as disconnected
     old.send({ t: 'error', msg: '다른 곳에서 접속하여 연결이 종료됩니다.' });
-    old.closeSocket();
+    old.closeSocket(REPLACED_CODE, 'replaced');
   }
   session.conn = conn;
   conn.session = session;

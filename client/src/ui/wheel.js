@@ -42,7 +42,7 @@ export function createWheel(ui, send) {
     segs.forEach((g, i) => {
       const a0 = (Math.PI * 5) / 6 + (i * 2 * Math.PI) / 3;
       const node = document.createElementNS(NS, 'g');
-      node.setAttribute('class', `seg ${g.on ? '' : 'off'}`);
+      node.setAttribute('class', `wseg ${g.on ? '' : 'off'}`);
       node.innerHTML = segPath(a0, a0 + (2 * Math.PI) / 3, g.icon, hl === i);
       node.addEventListener('pointerenter', () => { if (g.on && hl !== i) { hl = i; draw(); } });
       node.addEventListener('click', () => { if (!g.on) return; if (hl !== i) hl = i; g.run(); });

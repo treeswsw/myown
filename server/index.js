@@ -82,7 +82,7 @@ export async function startServer({
     ws.on('pong', () => { ws.alive = true; });
     const conn = hub.connect({
       send: (text) => { if (ws.readyState === ws.OPEN) ws.send(text); },
-      close: () => ws.close(),
+      close: (code, reason) => ws.close(code, reason),
     });
     ws.on('message', (data, isBinary) => {
       if (!isBinary) conn.message(data.toString());
@@ -109,9 +109,9 @@ export async function startServer({
     port: server.address().port,
     async close() {
       clearInterval(heartbeat);
-      hub.close();
       for (const ws of wss.clients) ws.terminate();
       await new Promise((resolve) => server.close(resolve));
+      hub.close(); // after the sockets are gone: their close handlers start grace timers
     },
   };
 }
