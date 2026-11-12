@@ -236,3 +236,5 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .pl .top .out { text-align: center; }
 
 .betlabel { position: absolute; left: 0; top: 0; font-size: 20px; white-space: nowrap; transform-origin: 0 0; pointer-events: none; }
+
+.buildtag { position: fixed; right: calc(4px + env(safe-area-inset-right, 0px)); bottom: calc(4px + env(safe-area-inset-bottom, 0px)); z-index: 5; font: 10px/1 monospace; color: rgba(255, 255, 255, .4); pointer-events: none; user-select: none; }
