@@ -20,16 +20,13 @@
 
 /* speech bubbles above profiles */
 .chat-slot{position:absolute;left:0;top:0;width:0;height:0}
-.chat-w{position:absolute;left:0;bottom:0;transform:translateX(-50%);width:max-content;max-width:max(180px,calc(220px*var(--k)));
-  font-size:max(12px,calc(13.5px*var(--k)))}
-.chat-b{position:relative;padding:.5em .85em;border-radius:1.05em;background:#fff8e6;color:#1c1608;font-weight:600;line-height:1.3;letter-spacing:-.01em;
-  box-shadow:0 .3em 1em rgba(0,0,0,.45),0 0 0 1px rgba(0,0,0,.18);transform-origin:calc(50% + var(--tx,0px)) calc(100% + .5em);
-  animation:chat-life 4600ms both}
-.chat-b>span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
-.chat-b::after{content:"";position:absolute;left:calc(50% + var(--tx,0px));top:100%;width:.9em;height:.5em;margin-left:-.45em;background:#fff8e6;
-  clip-path:polygon(0 0,100% 0,50% 100%)}
-.chat-w.big{max-width:min(60vw,560px);font-size:calc(max(12px,13.5px*var(--k))*var(--bf,2.5))}
-.chat-b.big{font-weight:800;line-height:1.2;letter-spacing:-.03em;box-shadow:0 .2em .7em rgba(0,0,0,.5),0 0 0 1px rgba(0,0,0,.22);animation:chat-big 5600ms both}
+.chat-w{position:absolute;left:0;bottom:0;transform:translateX(-50%);width:max-content;max-width:max(190px,calc(230px*var(--k)));
+  font-size:max(14px,calc(16.5px*var(--k)))}
+.chat-b{position:relative;text-align:center;color:#fff;font-family:"Black Han Sans","Noto Sans KR",sans-serif;line-height:1.3;letter-spacing:.01em;
+  -webkit-text-stroke:.24em #14100c;paint-order:stroke fill;text-shadow:0 .12em .25em rgba(0,0,0,.65);transform-origin:50% 100%;animation:chat-life 4600ms both}
+.chat-b>span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;padding:0 .2em}
+.chat-w.big{max-width:min(60vw,560px);font-size:calc(max(14px,16.5px*var(--k))*var(--bf,2.5))}
+.chat-b.big{color:#ffc62a;-webkit-text-stroke:.2em #17110a;line-height:1.25;letter-spacing:0;animation:chat-big 5600ms both}
 .chat-b.old,.chat-b.big.old{animation:chat-push 600ms ease-in both}
 @keyframes chat-life{
   0%{opacity:0;transform:translateY(.6em) scale(.55)}
@@ -48,12 +45,12 @@
 @keyframes chat-push{to{opacity:0;transform:translateY(-34px) scale(.96)}}
 
 /* toast for players that are not on screen */
-.chat-toast{max-width:300px;padding:7px 14px;border-radius:16px;background:var(--glass);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);
-  box-shadow:inset 0 0 0 1px var(--hair),0 8px 24px rgba(0,0,0,.35);font-size:13px;line-height:1.3;animation:chat-toast 3800ms both;
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
-.chat-toast.big,.chat-row.big,.chat-msg.big{font-weight:700}
+.chat-toast{max-width:300px;font-size:15px;line-height:1.25;color:#fff;font-family:"Black Han Sans","Noto Sans KR",sans-serif;text-align:right;-webkit-text-stroke:3.5px #14100c;paint-order:stroke fill;
+  text-shadow:0 2px 4px rgba(0,0,0,.65);animation:chat-toast 3800ms both;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+.chat-toast.big{color:#ffc62a}
+.chat-row.big,.chat-msg.big{font-weight:700}
 .chat-row.big .meta{font-weight:400}
-.chat-toast b{font-weight:600;color:var(--accent)}
+.chat-toast b{font-weight:400;color:#ffc62a}
 @keyframes chat-toast{from{opacity:0;transform:translateY(-6px)}6%,90%{opacity:1;transform:none}to{opacity:0;transform:translateY(-6px)}}
 
 /* input column under the icon */
@@ -108,7 +105,7 @@
 }
 @media (prefers-reduced-motion:reduce){
   .chat-b{animation-name:chat-life-rm}
-  .chat-b.big{animation-name:chat-big-rm}
+  .chat-b.big{color:#ffc62a;-webkit-text-stroke:.2em #17110a;line-height:1.25;letter-spacing:0;animation:chat-big 5600ms both}
   .chat-b.old,.chat-b.big.old{animation-name:chat-push-rm}
   .chat-toast{animation-name:chat-fade-rm}
   .chat-bar,.chat-sheet,.chat-msg,.chat-dot{animation:none!important}

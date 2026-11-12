@@ -73,8 +73,6 @@ export function createChat({ onSend, getAnchor }) {
     const top = (slot.live?.offsetHeight ?? 0) + 8 * view.k + 6;
     const y = Math.max(a.y - 8 * view.k, top);
     slot.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-    const tx = Math.max(-half + 18, Math.min(half - 18, a.x - x));
-    slot.live?.firstChild.style.setProperty('--tx', `${tx.toFixed(1)}px`);
   }
 
   function bubble(msg) {

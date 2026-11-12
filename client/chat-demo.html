@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>채팅 데모</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Black+Han+Sans&family=Noto+Sans+KR:wght@500;700;900&display=swap">
 <link rel="stylesheet" href="./src/style.css">
 <style>
 #bg{position:fixed;inset:0;background:#000 url(../design/holdem-default.jpg) center/100% 100% no-repeat}
@@ -23,7 +24,7 @@ const state = q.get('state') || 'bubbles';
 const t = q.get('t');
 updateScale();
 // pin tops (screen px at 1280x720) of the players in the reference mockup
-const TOPS = { 지우: [243, 158], 서연: [507, 52], 태호: [729, 8], 하린: [1152, 280], 민수: [448, 545] };
+const TOPS = { 지우: [243, 106], 서연: [507, 28], 태호: [729, 8], 하린: [1152, 254], 민수: [448, 515] };
 const away = new Set(q.get('away')?.split(',') ?? []);
 const getAnchor = (id) => (TOPS[id] && !away.has(id) ? { x: TOPS[id][0] / 1280 * innerWidth, y: TOPS[id][1] / 720 * innerHeight } : null);
 const chat = createChat({ onSend: (text) => { console.log('send', text); chat.push({ id: '민수', name: '민수', text, ts: Date.now() }, { mine: true }); }, getAnchor });
