@@ -20,7 +20,6 @@ export function createAnimator({ ui, stage, table, pins, cluster, special, getRo
   let backlog = 0; // nominal ms of everything queued or running
   let running = false;
   let abort = null; // resolves the event being played when the guard flushes
-  let allinShown = false; // later all-ins of one hand only slide chips, keeping the batch short
   const pos = (id) => stage.project(table.head(id));
 
   // Reduced mode (slow device): the same host-side effects without the body sequences.
@@ -33,20 +32,19 @@ export function createAnimator({ ui, stage, table, pins, cluster, special, getRo
   async function handle(e) {
     const room = getRoom();
     switch (e.k) {
-      case 'deal': allinShown = false; pins.clearHands(); pins.emphasize(null); table.highlight(null); cluster.highlight(null); pins.clearActs(); pins.clearDead(); sfx.card(); break;
+      case 'deal': pins.clearHands(); pins.emphasize(null); table.highlight(null); cluster.highlight(null); pins.clearActs(); pins.clearDead(); sfx.card(); break;
       case 'blinds': sfx.chip(); break;
       case 'action':
         if (e.a !== 'fold') { pins.setAct(e.id, e.a); sfx.chip(); }
         break;
-      case 'allin':
-        if (allinShown || stage.isLowPower()) {
-          table.shove(e.id);
-          if (!allinShown) { bigText(ui, 'ALL IN', pos(e.id)); sfx.thud(); }
-          allinShown = true;
-          await sleep(600);
-        } else { allinShown = true; await body(() => special.playAllIn(e.id, { onPush: () => table.shove(e.id) })); }
+      case 'allin': {
+        // Every all-in plays (raise, dial all-in, or a call that puts in the whole stack): the server emits
+        // `allin` for all of them. Slow devices get the text, sound and chip shove without the body.
+        const push = () => { table.shove(e.id); bigText(ui, 'ALL IN', pos(e.id)); };
+        if (stage.isLowPower()) { push(); sfx.thud(); await sleep(900); } else await body(() => special.playAllIn(e.id, { onPush: push }));
         table.release(e.id);
         break;
+      }
       case 'street':
         applyPartial((r) => ({ ...r, board: [...r.board, ...e.cards], street: e.street }));
         pins.clearActs();

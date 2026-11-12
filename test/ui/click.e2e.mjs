@@ -189,6 +189,7 @@ async function runContext(browser, server, name, cfg) {
       return { valid: row.querySelectorAll('.pc.valid').length, invalid: row.querySelectorAll('.pc.invalid').length, champ: document.querySelectorAll('.pl.champ').length, oneRow: new Set([...row.querySelectorAll('.pc')].map((c) => Math.round(c.getBoundingClientRect().top / 40))).size === 1 };
     });
     if (showdown) break;
+    if (process.env.UI_DEBUG && i % 5 === 0) console.log(`  .. waiting for a showdown (${i}) wheel=${await page.locator('.act .wseg').count()} phase=${bot.state?.phase} street=${bot.state?.street}`);
     if (await page.evaluate(() => document.querySelectorAll('.act .wseg').length === 3 && !document.querySelector('.dialbox'))) await press('.act .wseg:nth-of-type(1)').catch(() => {});
     await sleep(800);
   }
@@ -257,10 +258,63 @@ async function runContext(browser, server, name, cfg) {
     } catch (e) { await sleep(1000); }
   }
   check('LIAR click produced a reveal on the server', liarSent);
+  /* ---------- facing an all-in (heads-up) ---------- */
+  await press('.hud-tl .ic.big');
+  await press('.hpanel button.item');
+  await page.waitForSelector('.lobby button:has-text("방 만들기")', { state: 'visible', timeout: 20000 });
+  bot.leave();
+  const ai = new Bot(server.url, uid('ai'), { autoplay: false });
+  await ai.connect();
+  await ai.login();
+  await ai.create('holdem');
+  const row3 = page.locator(`.lobby .rooms button:not([disabled]):has-text("${ai.me.name}")`).first();
+  await row3.waitFor({ state: 'visible' });
+  if (cfg.touch) await row3.tap(); else await row3.click();
+  await ai.waitFor((b) => b.state?.players.length === 2, 20000, 'all-in join');
+  ai.start();
+  let shoved = false;
+  let names = null;
+  for (let i = 0; i < 150 && !names; i++) {
+    const st = ai.state;
+    if (!shoved && st?.phase === 'playing' && st.turn === st.you) { ai.send({ t: 'act', a: 'allin' }); shoved = true; }
+    const seen = await page.evaluate(() => {
+      const w = [...document.querySelectorAll('.act .wseg')];
+      return w.length === 3 ? { names: w.map((n) => n.dataset.name), off: w.map((n) => n.classList.contains('off')) } : null;
+    });
+    if (seen && shoved && seen.names[0] === '올인') names = seen;
+    else if (seen && !shoved) await press('.act .wseg:nth-of-type(1)').catch(() => {});
+    await sleep(700);
+  }
+  check('facing an all-in the left segment is labelled 올인', names?.names[0] === '올인', JSON.stringify(names));
+  check('raise segment is visibly disabled when I can only call all-in', names?.off[1] === true);
+  if (names) {
+    await press('.act .wseg:nth-of-type(2)');
+    const reason = await page.waitForFunction(() => document.querySelector('.wreason.show')?.textContent || null, null, { timeout: 5000 }).then((h) => h.jsonValue(), () => null);
+    check('tapping the disabled raise segment explains why', Boolean(reason), reason ?? '');
+    const sh = ai.stateHistory.length;
+    await press('.act .wseg:nth-of-type(1)');
+    // my call puts in my whole stack: the all-in sequence must play for it too ("ALL IN" text appears)
+    await page.waitForFunction(() => [...document.querySelectorAll('.fxtext')].some((n) => n.textContent === 'ALL IN'), null, { timeout: 40000 })
+      .then(() => check('a call that puts in the whole stack still plays the ALL IN sequence', true), () => check('a call that puts in the whole stack still plays the ALL IN sequence', false));
+    await ai.waitFor((b) => b.stateHistory.slice(sh).some((st) => st.result && Object.keys(st.result.shown || {}).length >= 2), 30000, 'showdown').then(
+      () => check('calling the all-in ended in a showdown', true), () => check('calling the all-in ended in a showdown', false));
+    // one of us is out of chips now: the 탈락 label must be one line, wider than tall
+    const out = await page.waitForFunction(() => {
+      const n = document.querySelector('.pl .top .out');
+      if (!n) return null;
+      const r = n.getBoundingClientRect();
+      return { text: n.textContent, w: Math.round(r.width), h: Math.round(r.height) };
+    }, null, { timeout: 60000 }).then((h) => h.jsonValue(), () => null);
+    check('eliminated label is on one line (wider than tall)', out && out.w > out.h, out ? JSON.stringify(out) : 'no eliminated player (chopped pot?)');
+  }
+  ai.close();
+
   const css = await page.evaluate(() => ({
     zoom: [...document.styleSheets].some((sh) => [...sh.cssRules].some((r) => /(^|[;{\s])zoom\s*:/.test(r.cssText))),
     wraps: [...document.querySelectorAll('.comm, .bhand, .win .show, .keys')].filter((n) => getComputedStyle(n).flexWrap !== 'nowrap').length,
   }));
+  const labels = await page.evaluate(() => [...document.querySelectorAll('.pl .top > *, .pl .nm, .pl .rv, .notice')].filter((n) => n.offsetParent && n.getBoundingClientRect().height > n.getBoundingClientRect().width * 1.5 && n.textContent.length > 2).map((n) => n.textContent));
+  check('no pin label or notice wraps into a tall column', labels.length === 0, labels.join(','));
   check('no stylesheet rule uses the non-standard zoom property', !css.zoom);
   check('card/button rows are flex-wrap: nowrap', css.wraps === 0);
   check('no console/page errors in the page', errors.length === 0, errors.slice(0, 2).join(' | '));

@@ -17,35 +17,35 @@ const SPADE = '<path d="M12 2C8 7 3 9.5 3 14a4.5 4.5 0 0 0 7.6 3.2L9.5 22h5l-1.1
 const STATS = [['hands', '판 수'], ['wins', '승리'], ['biggestWin', '최대 획득'], ['bluffWins', '블러핑 우승']];
 
 function button(label, cls, onClick) {
-  const b = h('button', 'btn ' + cls, label);
+  const b = h('button', 'lb-btn ' + cls, label);
   b.type = 'button';
   b.addEventListener('click', onClick);
   return b;
 }
 function err() {
-  const p = h('p', 'err');
+  const p = h('p', 'lb-err');
   p.setAttribute('role', 'alert');
   return p;
 }
 function brand(cls) {
-  return h('h1', 'brand ' + cls, svg(SPADE), '갱식 클럽');
+  return h('h1', 'lb-brand ' + cls, svg(SPADE), '갱식 클럽');
 }
 
 // Segmented control with a sliding thumb. Returns { el, caption, set(mode, enabled) }.
 function segmented(onPick) {
-  const el = h('div', 'seg');
+  const el = h('div', 'lb-seg');
   el.setAttribute('role', 'radiogroup');
   el.setAttribute('aria-label', '게임 종류');
-  const caption = h('p', 'cap');
+  const caption = h('p', 'lb-cap');
   const keys = Object.keys(MODES);
   const btns = keys.map((k) => {
-    const b = h('button', 'seg-item', MODES[k].name);
+    const b = h('button', 'lb-seg-item', MODES[k].name);
     b.type = 'button';
     b.setAttribute('role', 'radio');
     b.addEventListener('click', () => onPick(k));
     return b;
   });
-  el.append(h('span', 'seg-thumb'), ...btns);
+  el.append(h('span', 'lb-seg-thumb'), ...btns);
   return {
     el, caption,
     set(mode, enabled = true) {
@@ -74,15 +74,15 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   function choosePhoto(cb) { onPicked = cb; fileInput.click(); }
 
   // ---------- 1. logged out ----------
-  const out = h('section', 'panel narrow');
-  const outPhoto = h('button', 'photo');
+  const out = h('section', 'lb-panel lb-narrow panel narrow');
+  const outPhoto = h('button', 'lb-photo');
   outPhoto.type = 'button';
   outPhoto.setAttribute('aria-label', '프로필 사진 고르기');
   function renderOutPhoto() {
     outPhoto.replaceChildren(pendingAvatar ? avatar({ avatar: pendingAvatar }, 'av') : h('span', null, '사진'));
   }
   outPhoto.addEventListener('click', () => choosePhoto((d) => { pendingAvatar = d; renderOutPhoto(); }));
-  const idInput = h('input', 'field');
+  const idInput = h('input', 'lb-field');
   idInput.placeholder = '아이디';
   idInput.maxLength = 12;
   idInput.autocomplete = 'off';
@@ -103,37 +103,37 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
   idInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
   idInput.addEventListener('input', () => { outErr.textContent = ''; });
-  const form = h('div', 'stack');
+  const form = h('div', 'lb-stack');
   form.append(idInput, outErr);
-  out.append(brand('large'), outPhoto, form, button('입장', 'primary', submitLogin));
+  out.append(brand('lb-large'), outPhoto, form, button('입장', 'lb-primary', submitLogin));
   renderOutPhoto();
 
   // ---------- 2. logged in, no room ----------
-  const home = h('div', 'pair');
-  const profile = h('section', 'panel');
-  const meAv = h('button', 'av-btn');
+  const home = h('div', 'lb-pair');
+  const profile = h('section', 'lb-panel panel');
+  const meAv = h('button', 'lb-av-btn');
   meAv.type = 'button';
   meAv.setAttribute('aria-label', '프로필 사진 바꾸기');
   meAv.addEventListener('click', () => choosePhoto((d) => onAvatar(d)));
-  const meName = h('div', 'name');
-  const meBank = h('div', 'sub');
+  const meName = h('div', 'lb-name');
+  const meBank = h('div', 'lb-sub');
   const statVals = {};
-  const stats = h('dl', 'group');
+  const stats = h('dl', 'lb-group');
   for (const [k, label] of STATS) {
     statVals[k] = h('dd');
-    stats.append(h('div', 'row', h('dt', null, label), statVals[k]));
+    stats.append(h('div', 'lb-row', h('dt', null, label), statVals[k]));
   }
-  const brokeNote = h('div', 'notice', h('p', null, '칩을 모두 잃었습니다. 홀덤은 새 아이디로 다시 시작해야 합니다.'),
-    button('새 아이디로 시작', 'text accent', () => onLogout()));
-  profile.append(brand('small'), h('div', 'who', meAv, h('div', null, meName, meBank)), brokeNote, stats,
-    h('div', 'grow'), button('로그아웃', 'text', () => onLogout()));
+  const brokeNote = h('div', 'lb-notice', h('p', null, '칩을 모두 잃었습니다. 홀덤은 새 아이디로 다시 시작해야 합니다.'),
+    button('새 아이디로 시작', 'lb-text lb-accent', () => onLogout()));
+  profile.append(brand('lb-small'), h('div', 'lb-who', meAv, h('div', null, meName, meBank)), brokeNote, stats,
+    h('div', 'lb-grow'), button('로그아웃', 'lb-text', () => onLogout()));
 
-  const play = h('section', 'panel');
+  const play = h('section', 'lb-panel panel');
   let pickedMode = 'holdem';
   const homeSeg = segmented((m) => { pickedMode = m; homeSeg.set(m); updateCreate(); });
   homeSeg.set(pickedMode);
-  const createBtn = button('방 만들기', 'primary', () => { homeErr.textContent = ''; onCreate(pickedMode); });
-  const createNote = h('p', 'cap');
+  const createBtn = button('방 만들기', 'lb-primary', () => { homeErr.textContent = ''; onCreate(pickedMode); });
+  const createNote = h('p', 'lb-cap');
   const isBroke = () => user != null && (user.chips ?? user.bank) === 0;
   function updateCreate() {
     const blocked = isBroke() && pickedMode === 'holdem';
@@ -141,22 +141,22 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     createNote.textContent = blocked ? '칩이 없어 홀덤 방은 만들 수 없습니다.' : '';
   }
   const homeErr = err();
-  const roomList = h('div', 'group rooms');
-  const emptyNote = h('p', 'empty', '열린 방이 없습니다. 새 게임을 만들어 보세요.');
+  const roomList = h('div', 'lb-group lb-rooms');
+  const emptyNote = h('p', 'lb-empty', '열린 방이 없습니다. 새 게임을 만들어 보세요.');
   const rows = new Map();
   let lastRooms = [];
-  play.append(h('h2', null, '새 게임'), h('div', 'stack seg-box', homeSeg.el, homeSeg.caption),
+  play.append(h('h2', null, '새 게임'), h('div', 'lb-stack lb-seg-box', homeSeg.el, homeSeg.caption),
     createBtn, createNote,
     h('hr'), h('h2', null, '열린 방'), roomList, emptyNote, homeErr);
 
   function roomRow(code) {
-    const b = h('button', 'row room-row');
+    const b = h('button', 'lb-row lb-room-row');
     b.type = 'button';
     b.addEventListener('click', () => { homeErr.textContent = ''; onJoin(code); });
-    const parts = { title: h('b'), host: h('span', 'sub'), count: h('span', 'count'), state: h('span', 'tags') };
-    b.append(h('span', 'rr-main', parts.title, parts.host), parts.count, parts.state, svg('<path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'));
+    const parts = { title: h('b'), host: h('span', 'lb-sub'), count: h('span', 'lb-count'), state: h('span', 'lb-tags') };
+    b.append(h('span', 'lb-rr-main', parts.title, parts.host), parts.count, parts.state, svg('<path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'));
     const chev = b.lastChild;
-    chev.setAttribute('class', 'chev');
+    chev.setAttribute('class', 'lb-chev');
     return { b, chev, ...parts };
   }
   function renderRooms(list) {
@@ -186,20 +186,20 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   home.append(profile, play);
 
   // ---------- 3. room (waiting) ----------
-  const roomView = h('div', 'pair');
-  const info = h('section', 'panel');
+  const roomView = h('div', 'lb-pair');
+  const info = h('section', 'lb-panel panel');
   const roomTitle = h('h2');
   const roomSeg = segmented((m) => onMode(m));
-  info.append(roomTitle, h('div', 'stack', roomSeg.el, roomSeg.caption));
+  info.append(roomTitle, h('div', 'lb-stack', roomSeg.el, roomSeg.caption));
 
-  const people = h('section', 'panel');
+  const people = h('section', 'lb-panel panel');
   const count = h('h2');
-  const list = h('ul', 'group players');
-  const startBtn = button('게임 시작', 'primary', () => onStart());
-  const roomMsg = h('p', 'cap center');
+  const list = h('ul', 'lb-group lb-players');
+  const startBtn = button('게임 시작', 'lb-primary', () => onStart());
+  const roomMsg = h('p', 'lb-cap lb-center');
   const roomErr = err();
-  const leaveBtn = button('나가기', 'text danger', () => onLeave());
-  const actions = h('div', 'actions');
+  const leaveBtn = button('나가기', 'lb-text lb-danger', () => onLeave());
+  const actions = h('div', 'lb-actions');
   people.append(count, list, roomMsg, roomErr, actions);
   roomView.append(info, people);
 
@@ -211,7 +211,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     count.textContent = `참가자 ${room.players.length}/${max}`;
     list.replaceChildren(...room.players.map((p) => {
       const tags = [p.id === room.hostId && '방장', p.id === room.you && '나', p.connected === false && '연결 끊김'].filter(Boolean);
-      return h('li', 'row' + (p.connected === false ? ' off' : ''), avatar(p), h('span', 'p-name', p.name), h('span', 'tags', tags.join(' · ')));
+      return h('li', 'lb-row' + (p.connected === false ? ' lb-off' : ''), avatar(p), h('span', 'lb-p-name', p.name), h('span', 'lb-tags', tags.join(' · ')));
     }));
     const n = room.players.length;
     if (isHost) {
@@ -231,7 +231,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     home.hidden = !user || !!room;
     roomView.hidden = !user || !room;
     if (user) {
-      meAv.replaceChildren(avatar(user, 'av big'));
+      meAv.replaceChildren(avatar(user, 'av lb-big'));
       meName.textContent = user.name;
       const chips = user.chips ?? user.bank ?? 0;
       meBank.textContent = `${fmt(chips)} 칩`;

@@ -33,8 +33,11 @@ export function createWheel(ui, send) {
   // The wheel is built once per turn; hover/press only toggles classes. Rebuilding the nodes on
   // pointerenter would detach the element before the tap's click arrives on touch screens.
   function drawWheel() {
+    // Facing an all-in (or short stack) the left segment is an all-in call, named as such.
+    const callAll = ctx.toCall > 0 && ctx.toCall >= ctx.stack;
+    const reason = ctx.stack <= ctx.toCall ? '칩이 부족해 레이즈할 수 없습니다' : '상대가 모두 올인이라 레이즈할 수 없습니다';
     const segs = [
-      { icon: LINE.call, name: ctx.toCall > 0 ? '콜' : '체크', val: ctx.toCall > 0 ? fmt(ctx.toCall) : '', on: true, run: () => act(ctx.toCall > 0 ? 'call' : 'check') },
+      { icon: LINE.call, name: callAll ? '올인' : ctx.toCall > 0 ? '콜' : '체크', val: callAll ? fmt(ctx.stack) : ctx.toCall > 0 ? fmt(ctx.toCall) : '', on: true, hot: callAll, run: () => act(callAll ? 'allin' : ctx.toCall > 0 ? 'call' : 'check') },
       { icon: LINE.raise, name: '레이즈', val: '', on: ctx.canRaise, run: () => { mode = 'dial'; amount = ctx.min; draw(); } },
       { icon: LINE.fold, name: '폴드', val: '', on: true, run: () => act('fold') },
     ];
@@ -46,11 +49,21 @@ export function createWheel(ui, send) {
     const nodes = segs.map((g, i) => {
       const a0 = (Math.PI * 5) / 6 + (i * 2 * Math.PI) / 3;
       const node = document.createElementNS(NS, 'g');
-      node.setAttribute('class', `wseg ${g.on ? '' : 'off'}`);
+      node.setAttribute('class', `wseg ${g.on ? '' : 'off'} ${g.hot ? 'hot' : ''}`);
+      node.dataset.name = g.name;
       node.innerHTML = segPath(a0, a0 + (2 * Math.PI) / 3, g.icon);
       s.append(node);
       return node;
     });
+    const reasonEl = h('div', 'wreason');
+    let reasonTimer;
+    // A disabled segment never swallows a tap silently: it says why.
+    const explain = () => {
+      reasonEl.textContent = reason;
+      reasonEl.classList.add('show');
+      clearTimeout(reasonTimer);
+      reasonTimer = setTimeout(() => reasonEl.classList.remove('show'), 3000);
+    };
     const highlight = (i) => {
       hl = i;
       nodes.forEach((n, k) => n.classList.toggle('hl', k === i));
@@ -58,11 +71,11 @@ export function createWheel(ui, send) {
       valEl.textContent = segs[i].val;
     };
     nodes.forEach((node, i) => {
-      node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && segs[i].on) highlight(i); });
-      node.addEventListener('click', () => { if (segs[i].on) { highlight(i); segs[i].run(); } });
+      node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { if (segs[i].on) highlight(i); else explain(); } });
+      node.addEventListener('click', () => { if (segs[i].on) { highlight(i); segs[i].run(); } else explain(); });
     });
     s.insertAdjacentHTML('beforeend', '<circle cx="75" cy="75" r="9" fill="#0a0806" stroke="#cfc9bd" stroke-width="1.5"/>');
-    root.replaceChildren(h('div', 'wl', nameEl, valEl), s);
+    root.replaceChildren(h('div', 'wl', nameEl, valEl), s, reasonEl);
     highlight(hl);
   }
 
@@ -80,6 +93,7 @@ export function createWheel(ui, send) {
   };
 
   let dialSvg;
+  let confirmLabel;
   let numEl;
   let subEl;
   const paintDial = () => {
@@ -87,6 +101,7 @@ export function createWheel(ui, send) {
     const [kx, ky] = pt(a);
     dialSvg.innerHTML = `<circle cx="95" cy="95" r="93" fill="rgba(18,16,14,.95)" stroke="#0a0806" stroke-width="3"/>${arc(A0, A1, 'rgba(255,255,255,.2)')}${frac() > 0 ? arc(A0, a, '#ffc62a') : ''}<circle cx="${kx}" cy="${ky}" r="9" fill="#fff" stroke="#0a0806" stroke-width="2.5"/>`;
     numEl.textContent = fmt(amount);
+    if (confirmLabel) confirmLabel.textContent = amount >= ctx.max ? `올인 ${fmt(amount)}` : '레이즈 확정';
     subEl.textContent = potText();
   };
   const setAmount = (v) => { amount = clamp(v); paintDial(); };
@@ -136,18 +151,18 @@ export function createWheel(ui, send) {
     });
     dialSvg.addEventListener('pointerup', () => { dialSvg.onpointermove = null; });
 
-    const btn = (icon, label, fn, off) => {
-      const b = h('button');
+    const btn = (icon, label, fn, cls = '') => {
+      const b = h('button', cls);
       b.type = 'button';
-      b.disabled = Boolean(off);
-      b.append(svg(icon), label);
+      confirmLabel = h('span', '', label);
+      b.append(svg(icon), confirmLabel);
       b.onclick = fn;
       return b;
     };
-    const keys = h('div', 'keys',
-      btn(LINE.raise, '올인', () => act('allin')),
-      btn(LINE.fold, '취소', () => { mode = 'wheel'; draw(); }),
-      btn(LINE.call, '레이즈 확정', () => act('raise', { amount })));
+    const all = btn(LINE.raise, '올인', () => act('allin'), 'allin');
+    const cancel = btn(LINE.fold, '취소', () => { mode = 'wheel'; draw(); });
+    const confirm = btn(LINE.call, '레이즈 확정', () => (amount >= ctx.max ? act('allin') : act('raise', { amount })), 'confirm');
+    const keys = h('div', 'keys', all, cancel, confirm);
     root.replaceChildren(box, keys);
     paintDial();
   }
@@ -158,7 +173,7 @@ export function createWheel(ui, send) {
     update(room, me, visible) {
       if (!visible) { hide(); return; }
       const canRaise = room.maxRaiseTo > 0;
-      const next = { min: room.minRaiseTo, max: room.maxRaiseTo, pot: room.pot, toCall: room.toCall, canRaise };
+      const next = { min: room.minRaiseTo, max: room.maxRaiseTo, pot: room.pot, toCall: room.toCall, stack: me.stack ?? 0, canRaise };
       const k = `${room.turn}|${room.toCall}|${room.minRaiseTo}|${room.maxRaiseTo}|${me.stack}`;
       ctx = next;
       root.style.display = '';

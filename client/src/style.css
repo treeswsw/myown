@@ -223,3 +223,14 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 @keyframes rise { to { transform: translateY(-24px); box-shadow: 0 0 0 4px var(--gold), 0 0 22px rgba(255, 198, 42, .9), 0 14px 22px rgba(0, 0, 0, .5); } }
 @keyframes sink { to { transform: translateY(16px); filter: saturate(.15) brightness(.4); } }
 @media (prefers-reduced-motion: reduce) { .win .show .pc.valid, .win .show .pc.invalid { animation-duration: .15s; animation-delay: 0s; } }
+
+.act .wseg.hot .bg { fill: rgba(86, 58, 8, .97); }
+.act .wseg.hot .arc { display: inline; }
+.act .wseg.off { opacity: .35; }
+.act .wreason { position: absolute; left: 50%; top: -70px; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: rgba(20, 18, 16, .92); border: 1px solid rgba(255, 255, 255, .3); font-size: 13px; font-weight: 700; white-space: nowrap; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.act .wreason.show { opacity: 1; }
+.keys button.allin { color: var(--gold); font-weight: 900; }
+.keys button.confirm { color: #fff; font-weight: 900; }
+
+.pl .top > *, .pl .nm, .pl .rv { white-space: nowrap; width: max-content; }
+.pl .top .out { text-align: center; }
