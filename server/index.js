@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { createStore } from './store.js';
 import { createHub } from './rooms.js';
-import { MAX_RAW } from './protocol.js';
+import { MAX_FRAME } from './protocol.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -78,7 +78,7 @@ export async function startServer({
       else res.destroy();
     });
   });
-  const wss = new WebSocketServer({ server, path: '/ws', maxPayload: MAX_RAW });
+  const wss = new WebSocketServer({ server, path: '/ws', maxPayload: MAX_FRAME });
   wss.on('connection', (ws) => {
     ws.alive = true;
     ws.on('pong', () => { ws.alive = true; });

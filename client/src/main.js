@@ -154,7 +154,7 @@ if (mock) {
   await stage.ready;
   startMock(handle, { mode: mock, state: new URLSearchParams(location.search).get('state') ?? 'default' });
 } else {
-  lobby.show();
+  applyRoom(null); // hides every in-game element until a room arrives
   connect(handle, (up, code) => {
     if (up) return;
     if (code === 4001) {

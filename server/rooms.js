@@ -21,6 +21,8 @@ const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
 export const REPLACED_CODE = 4001;
 const RATE_LIMIT = 20;
+const MAX_ROOM_SOUNDS = 24;
+const MAX_ACCOUNT_SOUNDS = 8;
 const CHAT_LOG = 30; // messages remembered per room
 
 const publicUser = (u) => ({ id: u.id, name: u.name, bank: u.bank, avatar: u.avatar, stats: { ...u.stats } });
@@ -38,6 +40,7 @@ class Room {
     this.result = null;
     this.lastDealer = null;
     this.chatLog = [];
+    this.sounds = []; // [{sid, by, name, data}], oldest first; lives and dies with the room
     this.timers = { next: null, gc: null };
   }
 
@@ -64,12 +67,34 @@ class Room {
     this.hostId ??= session.id;
     session.room = this;
     this.push();
-    this.sendChatLog(session);
+    this.sendExtras(session);
     return null;
   }
 
-  sendChatLog(session) {
+  // What a joining/reconnecting player needs besides the room state.
+  sendExtras(session) {
     this.hub.send(session, { t: 'event', e: { k: 'chatLog', items: this.chatLog.map((x) => ({ ...x })) } });
+    if (this.sounds.length) {
+      this.hub.send(session, { t: 'event', e: { k: 'sndList', items: this.sounds.map((x) => ({ ...x })) } });
+    }
+  }
+
+  // Sounds and photo emotes never touch game state or timers.
+  addSound(session, sid, name, data) {
+    const existing = this.sounds.find((x) => x.sid === sid);
+    if (existing) return existing.by === session.id ? null : '이미 사용 중인 소리 번호입니다.';
+    this.sounds.push({ sid, by: session.id, name, data });
+    const mine = this.sounds.filter((x) => x.by === session.id);
+    if (mine.length > MAX_ACCOUNT_SOUNDS) this.sounds.splice(this.sounds.indexOf(mine[0]), 1);
+    if (this.sounds.length > MAX_ROOM_SOUNDS) this.sounds.shift();
+    this.sendEvents([{ k: 'sndAdd', sid, by: session.id, name, data }]);
+    return null;
+  }
+
+  playSound(session, sid) {
+    if (!sid.startsWith('builtin:') && !this.sounds.some((x) => x.sid === sid)) return '없는 소리입니다.';
+    this.sendEvents([{ k: 'snd', id: session.id, sid }]);
+    return null;
   }
 
   // Chat is independent of the game: no state push, no timers.
@@ -534,7 +559,7 @@ async function login(hub, conn, msg) {
   let session = hub.sessions.get(msg.key);
   if (!session) {
     const user = await hub.store.getOrCreate(msg.key, msg.name);
-    session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [] };
+    session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [], lastSent: {} };
     hub.sessions.set(msg.key, session);
   }
   const old = session.conn;
@@ -548,9 +573,18 @@ async function login(hub, conn, msg) {
   hub.sendMe(session);
   if (session.room) session.room.setConnected(session.id, true);
   hub.send(session, { t: 'room', state: session.room ? session.room.view(session.id) : null });
-  session.room?.sendChatLog(session);
+  session.room?.sendExtras(session);
   hub.sendRooms(session);
   return null;
+}
+
+// Per-account (not per-socket) minimum spacing; a refused attempt does not extend the wait.
+function tooSoon(hub, session, key, ms) {
+  const t = hub.now();
+  const last = session.lastSent[key];
+  if (last !== undefined && t - last < ms) return true;
+  session.lastSent[key] = t;
+  return false;
 }
 
 async function dispatch(hub, conn, msg) {
@@ -588,6 +622,16 @@ async function dispatch(hub, conn, msg) {
     case 'play': return room.play(session.id, msg.cards);
     case 'liar': return room.liar(session.id);
     case 'emote': room.emote(session.id, msg.e); return null;
+    case 'pemote':
+      if (tooSoon(hub, session, 'pemote', 3000)) return '사진 이모티콘을 너무 빨리 보내고 있습니다';
+      room.sendEvents([{ k: 'pemote', id: session.id, data: msg.data }]);
+      return null;
+    case 'sndAdd':
+      if (tooSoon(hub, session, 'sndAdd', 10_000)) return '소리를 너무 빨리 올리고 있습니다';
+      return room.addSound(session, msg.sid, msg.name, msg.data);
+    case 'snd':
+      if (tooSoon(hub, session, 'snd', 2000)) return '소리를 너무 빨리 재생하고 있습니다';
+      return room.playSound(session, msg.sid);
     case 'chat': {
       const t = hub.now();
       // Kept on the account, not the socket, so reconnecting or taking over does not reset it.

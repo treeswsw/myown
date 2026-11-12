@@ -1,5 +1,8 @@
 // Validation of everything a client may send. Returns sanitized messages only.
-export const MAX_RAW = 70_000;
+export const MAX_RAW = 70_000; // every message except sndAdd
+export const MAX_FRAME = 300_000; // WebSocket frame limit: room for sndAdd
+export const MAX_PEMOTE = 40 * 1024;
+export const MAX_SOUND = 200 * 1024;
 export const MAX_AVATAR = 60 * 1024;
 export const MAX_CHAT = 120;
 export const AVATAR_PREFIX = 'data:image/jpeg;base64,';
@@ -20,16 +23,41 @@ export function normalizeId(raw) {
 }
 
 export function validAvatar(data) {
-  if (typeof data !== 'string' || data.length > MAX_AVATAR || !data.startsWith(AVATAR_PREFIX)) return false;
+  return validJpegData(data, MAX_AVATAR);
+}
+
+const SID_RE = /^[a-z0-9]{6,16}$/;
+const BUILTIN_RE = /^builtin:[a-z]{1,16}$/;
+const AUDIO_RE = /^data:audio\/[a-z0-9.+-]{1,30}(;[a-z0-9=.+-]{1,40})*;base64,/;
+
+function validJpegData(data, max) {
+  if (typeof data !== 'string' || data.length > max || !data.startsWith(AVATAR_PREFIX)) return false;
   const body = data.slice(AVATAR_PREFIX.length);
   return body.length % 4 === 0 && body.startsWith(JPEG_MAGIC) && BASE64_RE.test(body);
+}
+
+function validAudioData(data) {
+  if (typeof data !== 'string' || data.length > MAX_SOUND) return false;
+  const head = AUDIO_RE.exec(data);
+  if (!head) return false;
+  const body = data.slice(head[0].length);
+  return body.length > 0 && body.length % 4 === 0 && BASE64_RE.test(body);
+}
+
+// Removes control/format characters and trims; "" when nothing visible is left.
+function cleanText(raw) {
+  if (typeof raw !== 'string') return '';
+  const text = raw.replace(/[\p{Cc}\p{Cf}]/gu, (c) => (c === '\u200d' ? c : '')).trim();
+  return /[^\s\u200d\ufe0f]/u.test(text) ? text : '';
 }
 
 const bad = (error) => ({ ok: false, error });
 const good = (msg) => ({ ok: true, msg });
 
 export function parseMessage(raw) {
-  if (typeof raw !== 'string' || raw.length > MAX_RAW) return bad('메시지가 너무 큽니다.');
+  if (typeof raw !== 'string' || raw.length > MAX_FRAME) return bad('메시지가 너무 큽니다.');
+  // Only sound uploads may exceed MAX_RAW; checked on the prefix so oversized junk is never parsed.
+  if (raw.length > MAX_RAW && !raw.startsWith('{"t":"sndAdd"')) return bad('메시지가 너무 큽니다.');
   let m;
   try {
     m = JSON.parse(raw);
@@ -75,6 +103,18 @@ export function parseMessage(raw) {
       const visible = /[^\s\u200d\ufe0f]/u.test(text);
       return visible && [...text].length <= MAX_CHAT ? good({ t: 'chat', text }) : bad('채팅은 1~120자여야 합니다.');
     }
+    case 'pemote':
+      return validJpegData(m.data, MAX_PEMOTE) ? good({ t: 'pemote', data: m.data }) : bad('사진은 40KB 이하의 JPEG여야 합니다.');
+    case 'sndAdd': {
+      const name = cleanText(m.name);
+      if (typeof m.sid !== 'string' || !SID_RE.test(m.sid)) return bad('소리 번호가 올바르지 않습니다.');
+      if (!name || [...name].length > 8) return bad('소리 이름은 1~8자여야 합니다.');
+      if (!validAudioData(m.data)) return bad('소리가 너무 크거나 형식이 올바르지 않습니다.');
+      return good({ t: 'sndAdd', sid: m.sid, name, data: m.data });
+    }
+    case 'snd':
+      return typeof m.sid === 'string' && (SID_RE.test(m.sid) || BUILTIN_RE.test(m.sid))
+        ? good({ t: 'snd', sid: m.sid }) : bad('소리 번호가 올바르지 않습니다.');
     case 'emote':
       return Number.isInteger(m.e) && m.e >= 0 && m.e <= 5 ? good({ t: 'emote', e: m.e }) : bad('잘못된 이모티콘입니다.');
     default:
