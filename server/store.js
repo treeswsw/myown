@@ -20,6 +20,9 @@ function createMemoryStore() {
     async save(user) {
       users.set(user.id, structuredClone(user));
     },
+    async clear() {
+      users.clear();
+    },
     async close() {},
   };
 }
@@ -57,6 +60,13 @@ function createPgStore(url) {
          ON CONFLICT (id) DO UPDATE SET name = $2, bank = $3, avatar = $4, stats = $5`,
         params,
       ));
+      const done = writes;
+      writes = writes.catch(() => {});
+      return done;
+    },
+    // Queued behind pending saves so none of them can land after the wipe.
+    clear() {
+      writes = writes.then(() => pool.query('TRUNCATE users'));
       const done = writes;
       writes = writes.catch(() => {});
       return done;

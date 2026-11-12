@@ -2,7 +2,7 @@ import { secureRng } from '../shared/cards.js';
 import { describe } from '../shared/handeval.js';
 import * as holdem from '../shared/holdem.js';
 import * as bluff from '../shared/bluff.js';
-import { parseMessage } from './protocol.js';
+import { parseMessage, RESET_ID } from './protocol.js';
 
 export const DEFAULT_TIMING = {
   grace: 60_000, // a disconnected player is auto-played (if on turn) and removed after this
@@ -20,6 +20,7 @@ const MAX_PLAYERS = { holdem: 6, bluff: 4 };
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
 export const REPLACED_CODE = 4001;
+const RESET_WINDOW = 60_000; // a reset needs a resetAsk this recent, and runs at most once per window
 const RATE_LIMIT = 20;
 const MAX_ROOM_SOUNDS = 24;
 const MAX_ACCOUNT_SOUNDS = 8;
@@ -462,6 +463,11 @@ export function createHub({
       }
     },
     roomsTimer: null,
+    epoch: 0, // bumped by a reset: user objects from an older epoch are never saved again
+    userEpoch: new WeakMap(),
+    conns: new Set(),
+    resetting: false,
+    lastResetAt: null,
     roomsSig: '[]',
     sessions: new Map(), // id -> { id, user, conn, room }
 
@@ -493,13 +499,33 @@ export function createHub({
       }), hub.timing.roomList);
     },
     persist(user) {
+      if (hub.userEpoch.get(user) !== hub.epoch) return;
       store.save(user).catch((err) => console.error('save failed:', err.message));
     },
     connect(sock) {
       return createConn(hub, sock);
     },
+    // Wipes every account and room. The sockets stay open, logged out.
+    async reset() {
+      hub.resetting = true;
+      hub.epoch++;
+      hub.close();
+      hub.rooms.clear();
+      hub.roomsSig = '[]';
+      hub.sessions.clear();
+      for (const c of hub.conns) c.session = null;
+      try {
+        await store.clear();
+      } finally {
+        hub.resetting = false;
+      }
+      hub.lastResetAt = hub.now();
+      hub.epoch++;
+      for (const c of hub.conns) c.send({ t: 'resetDone' });
+    },
     close() {
       if (hub.roomsTimer !== null) timers.clearTimeout(hub.roomsTimer);
+      hub.roomsTimer = null;
       for (const room of hub.rooms.values()) {
         for (const name of Object.keys(room.timers)) room.clearTimer(name);
         for (const m of room.members) if (m.grace !== null) timers.clearTimeout(m.grace);
@@ -520,6 +546,7 @@ function newCode(hub) {
 function createConn(hub, sock) {
   const conn = {
     session: null,
+    resetAskedAt: null,
     queue: Promise.resolve(),
     windowStart: 0,
     count: 0,
@@ -552,6 +579,7 @@ function createConn(hub, sock) {
       sock.close(code, reason);
     },
     close() {
+      hub.conns.delete(conn);
       const s = conn.session;
       if (!s || s.conn !== conn) return;
       s.conn = null;
@@ -559,17 +587,33 @@ function createConn(hub, sock) {
       else hub.sessions.delete(s.id);
     },
   };
+  hub.conns.add(conn);
   return conn;
 }
 
+const RESET_COOLDOWN_MSG = '방금 초기화했습니다. 잠시 후 다시 시도하세요';
+const RESET_BUSY_MSG = '초기화 중입니다. 잠시 후 다시 시도하세요';
+const resetCooling = (hub) => hub.lastResetAt !== null && hub.now() - hub.lastResetAt < RESET_WINDOW;
+
 async function login(hub, conn, msg) {
+  if (msg.key === RESET_ID) {
+    if (conn.session) return '로그인 상태에서는 초기화할 수 없습니다.';
+    if (resetCooling(hub)) return RESET_COOLDOWN_MSG;
+    conn.resetAskedAt = hub.now();
+    conn.send({ t: 'resetAsk' });
+    return null;
+  }
   if (conn.session) {
     if (conn.session.id !== msg.key) return '이미 로그인되어 있습니다.';
     return null;
   }
   let session = hub.sessions.get(msg.key);
   if (!session) {
+    if (hub.resetting) return RESET_BUSY_MSG;
+    const epoch = hub.epoch;
     const user = await hub.store.getOrCreate(msg.key, msg.name);
+    if (epoch !== hub.epoch) return RESET_BUSY_MSG; // a wipe happened while loading: the user is stale
+    hub.userEpoch.set(user, epoch);
     session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [], editTimes: [], lastSent: {} };
     hub.sessions.set(msg.key, session);
   }
@@ -600,6 +644,14 @@ function tooSoon(hub, session, key, ms) {
 
 async function dispatch(hub, conn, msg) {
   if (msg.t === 'login') return login(hub, conn, msg);
+  if (msg.t === 'reset') {
+    if (conn.session) return '로그인 상태에서는 초기화할 수 없습니다.';
+    if (conn.resetAskedAt === null || hub.now() - conn.resetAskedAt > RESET_WINDOW) return '초기화 확인이 필요합니다.';
+    if (resetCooling(hub) || hub.resetting) return RESET_COOLDOWN_MSG;
+    conn.resetAskedAt = null;
+    await hub.reset();
+    return null;
+  }
   const session = conn.session;
   if (!session) return '먼저 로그인하세요.';
   const room = session.room;

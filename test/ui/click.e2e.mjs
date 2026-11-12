@@ -318,6 +318,24 @@ async function runContext(browser, server, name, cfg) {
   check('no stylesheet rule uses the non-standard zoom property', !css.zoom);
   check('card/button rows are flex-wrap: nowrap', css.wraps === 0);
   check('no console/page errors in the page', errors.length === 0, errors.slice(0, 2).join(' | '));
+
+  /* ---------- full reset via the reserved ID (another connected page must land on the login screen) ---------- */
+  const rctx = await browser.newContext({ viewport: cfg.viewport, hasTouch: cfg.touch, isMobile: cfg.touch });
+  const rp = await rctx.newPage();
+  rp.setDefaultTimeout(150000);
+  await rp.goto(`${server.http}/`);
+  await rp.waitForSelector('.lobby input');
+  await rp.fill('.lobby input', '초기화');
+  await rp.locator('.lobby button.primary').first().tap().catch(() => rp.locator('.lobby button.primary').first().click());
+  await rp.waitForSelector('.lb-sheet-btn.lb-danger', { state: 'visible' });
+  check('typing the reserved ID opens the reset confirmation', true);
+  if (cfg.touch) await rp.locator('.lb-sheet-btn.lb-danger').tap(); else await rp.locator('.lb-sheet-btn.lb-danger').click();
+  await page.waitForFunction(() => { const i = document.querySelector('.lobby input'); return i && i.offsetParent !== null; }, null, { timeout: 60000 })
+    .then(() => check('another connected page was sent back to the login screen after the reset', true), () => check('another connected page was sent back to the login screen after the reset', false));
+  const stored = await page.evaluate(() => localStorage.getItem('gs.lastId'));
+  check('the wiped ID is no longer remembered for auto-login', !stored, String(stored));
+  await rctx.close();
+
   await ctx.close();
   bot.close();
 }

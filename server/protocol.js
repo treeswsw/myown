@@ -5,6 +5,7 @@ export const MAX_PEMOTE = 40 * 1024;
 export const MAX_SOUND = 200 * 1024;
 export const MAX_AVATAR = 60 * 1024;
 export const MAX_CHAT = 120;
+export const RESET_ID = '초기화'; // reserved: asks for the full wipe instead of logging in
 export const AVATAR_PREFIX = 'data:image/jpeg;base64,';
 
 const ID_RE = /^[\p{Script=Hangul}A-Za-z0-9_]{2,12}$/u;
@@ -72,6 +73,8 @@ export function parseMessage(raw) {
       const id = normalizeId(m.id);
       return id ? good({ t: 'login', ...id }) : bad('아이디는 2~12자의 한글, 영문, 숫자, _ 만 쓸 수 있습니다.');
     }
+    case 'reset':
+      return m.confirm === true ? good({ t: 'reset' }) : bad('초기화 확인이 필요합니다.');
     case 'avatar':
       return validAvatar(m.data) ? good({ t: 'avatar', data: m.data }) : bad('프로필 사진은 60KB 이하의 JPEG여야 합니다.');
     case 'create':

@@ -51,6 +51,10 @@ export async function runHoldemSession(server, n, maxHands, { timeout = 120000 }
       wd.promise,
     ]);
     if (champion()) await host.waitFor(() => host.state.phase === 'lobby', 5000, 'lobby after champion');
+  } catch (e) {
+    const evs = host.messages.filter((m) => m.t === 'event').slice(-8).map((m) => JSON.stringify(m.e)).join(' ');
+    e.message += ` | state=${JSON.stringify(host.state).slice(0, 700)} | errors=${JSON.stringify(bots.map((b) => b.errors))} | last events: ${evs}`;
+    throw e;
   } finally { wd.stop(); }
   for (const b of bots) b.opts.autoplay = false; // freeze: nobody acts any more
   const champ = champion();
