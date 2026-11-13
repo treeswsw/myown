@@ -10,6 +10,7 @@ import './ui/emote.css';
 import './ui/rules.css';
 import './ui/rank.css';
 import './anim/unmask.css';
+import './anim/ending.css';
 import { LIMITS, TIME_CHOICES, GOAL_CHOICES } from '../../../shared/liar/constants.js';
 import { cameraFor } from './scene/layout.js'; // three.js 를 가져오지 않는 순수 함수
 import { createHud, chatLockFor } from './ui/hud.js';
@@ -22,6 +23,7 @@ import { createEmote } from './ui/emote.js';
 import { createRules } from './ui/rules.js';
 import { createRank } from './ui/rank.js';
 import { createUnmask } from './anim/unmask.js';
+import { createEnding } from './anim/ending.js';
 import { createAudio } from './audio.js';
 import { chatMsgFor, plainChat, soundForEvent, resultSound } from './pure.js';
 
@@ -97,7 +99,18 @@ function mountLiarInner({ ui, stage, send, getMe, chat, toast, emotePanel, scene
       else if (st === 'liar') {
         audio.play('liar');
         if (info?.id != null) scene?.setView({ mode: 'liar', id: info.id });   // CONTRACTS 6절
-      } else if (st === 'end' && state) scene?.setView(viewFor(state));
+      } else if (st === 'end' && state && state.phase !== 'guess' && state.phase !== 'answer') {
+        scene?.setView(viewFor(state)); // guess·answer 는 엔딩이 이어받는다(spot 그대로, 테이블로 돌리지 않는다: 깜빡임 방지)
+      }
+    },
+    onTick(big) { audio.play(big ? 'tickBig' : 'tick'); },
+  });
+  // 엔딩(답 입력 + 정답 공개): 3D 에서만 라이어 머리 자리(anchor)를 준다. nogl 은 null 이라 카드 위에 말풍선이 붙는다.
+  const endCtx = { ...ctx, anchor: (id) => (scene ? scene.screenPos(id) : null) };
+  mods.ending = createEnding(endCtx, {
+    onStage(st, info) {
+      if (st === 'verdict') audio.play(info?.correct ? 'guessOk' : 'guessNo');
+      // 'end' 에서는 카메라를 건드리지 않는다. 결과 단계로 넘어가면 syncScene 이 테이블로 돌린다.
     },
     onTick(big) { audio.play(big ? 'tickBig' : 'tick'); },
   });
