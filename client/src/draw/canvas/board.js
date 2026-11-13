@@ -12,7 +12,7 @@ import {
 import { createRenderer, absOf } from './render.js';
 import { createInput } from './input.js';
 import {
-  fitBox, toLogical, smoothToward, farEnough, planMessages, planRm, appendAbs, strokeHit, bbox,
+  fitBox, toLogical, smoothToward, farEnough, finalPoint, planMessages, planRm, appendAbs, strokeHit, bbox,
 } from './pure.js';
 
 const boxCache = new WeakMap();
@@ -34,6 +34,7 @@ export function createBoard(parent, ctx) {
   let raf = 0;
   let g = null; // 내가 긋는 중인 한 번의 누름
   let size = { w: 0, h: 0 };
+  let disposed = false;
 
   const sendDr = (a, body) => ctx.send({ t: 'dr', a, ...body });
 
@@ -77,13 +78,14 @@ export function createBoard(parent, ctx) {
       rd.drawGrowth(live, live.a, live.shown, next);
       live.shown = next;
     }
-    if (live.shown >= n && live.done) { live = null; return; }
+    if (live.shown >= n && live.done) { rd.commit(live, live.a); live = null; return; }
     if (live.shown < n) raf = requestAnimationFrame(tick);
   }
   function flushLive() { // 남은 점을 한꺼번에 그린다
     if (!live) return;
     const n = live.a.length >> 1;
     rd.drawGrowth(live, live.a, live.shown, n);
+    rd.commit(live, live.a); // 꼬리를 본 그림에 확정
     live = null;
   }
 
@@ -116,6 +118,7 @@ export function createBoard(parent, ctx) {
     endTimer();
     if (g.mode !== 'strokeErase' && !g.dead) {
       flush(true);
+      if (state.cur) rd.commit(g, absPoints(state.cur.p)); // 꼬리를 본 그림에 확정
       opPt(state, { p: [], f: 1 }); // 내 상태도 선 끝
       notify();
     } else if (g.mode === 'strokeErase') flushRm();
@@ -155,8 +158,34 @@ export function createBoard(parent, ctx) {
     for (const id of ids) {
       const r = opRm(state, g.rmLocal ? { ids: [id], g: 1 } : { ids: [id] });
       if (r.ok && !r.noop) { g.rmLocal = true; g.rmQueue.push(id); changed = true; }
+      else if (!r.ok && r.error === 'full') { if (!g.fullTold) { g.fullTold = true; if (ctx.onFull) ctx.onFull(); } break; }
     }
     if (changed) fullRedraw();
+  }
+
+  function dropStroke(r) {
+    g.dead = true;
+    endTimer();
+    sendDr('cx', {});
+    if (r.error === 'full' && ctx.onFull) ctx.onFull();
+    fullRedraw();
+  }
+
+  // 손을 뗀 자리를 선의 마지막 점으로 더한다(손가락 보정 때문에 선이 뗀 자리보다 앞에서 끝나지 않게).
+  // 점 간격·범위 규칙은 그대로, 로컬과 보내는 점이 같다.
+  function addFinalPoint(cx, cy) {
+    if (!g || g.dead || g.mode === 'strokeErase' || !g.cur || !state.cur) return;
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) return;
+    const p = finalPoint(g.last, toLogical(cx, cy, g.rect));
+    if (!p) return;
+    const r = opPt(state, { p: [p.x - g.last.x, p.y - g.last.y] });
+    if (!r.ok) { if (r.error === 'full') dropStroke(r); return; } // 한도: 선을 버림(pt 가 이미 버렸다). 그 밖: 마지막 점만 포기
+    g.last = p;
+    g.q.push(p);
+    const a = absPoints(state.cur.p);
+    const n = a.length >> 1;
+    rd.drawGrowth(g, a, g.drawn, n);
+    g.drawn = n;
   }
 
   const input = createInput(canvas, {
@@ -209,14 +238,7 @@ export function createBoard(parent, ctx) {
         const sm = smoothToward(g.last, toLogical(raw.x, raw.y, g.rect), g.k);
         if (!farEnough(g.last, sm)) continue;
         const r = opPt(state, { p: [sm.x - g.last.x, sm.y - g.last.y] });
-        if (!r.ok) { // 한도 초과 등: 이 선은 버린다
-          g.dead = true;
-          endTimer();
-          sendDr('cx', {});
-          if (r.error === 'full' && ctx.onFull) ctx.onFull();
-          fullRedraw();
-          return;
-        }
+        if (!r.ok) { dropStroke(r); return; } // 한도 초과 등: 이 선은 버린다
         g.last = sm;
         g.q.push(sm);
       }
@@ -227,7 +249,7 @@ export function createBoard(parent, ctx) {
         g.drawn = n;
       }
     },
-    up() { finishGesture(); },
+    up(cx, cy) { addFinalPoint(cx, cy); finishGesture(); },
     cancel() { cancelGesture(true); },
   });
 
@@ -250,11 +272,14 @@ export function createBoard(parent, ctx) {
   function update(s) {
     const was = canDraw;
     canDraw = !!(s && s.phase === 'draw' && s.drawerId && s.drawerId === ctx.meId());
-    if (was && !canDraw && g) { input.release(); cancelGesture(false); }
+    if (was && !canDraw && g) { // 단계가 끝날 때 긋던 선: 가능하면 정상으로 끝내 서버와 맞춘다(서버가 거절해도 drNew 로 정리된다)
+      input.release();
+      if (g.dead) cancelGesture(false); else finishGesture();
+    }
   }
 
   function event(e) {
-    if (!e) return;
+    if (!e || disposed) return;
     if (e.k === 'drSync') {
       const r = importSync(e);
       if (!r.ok) return;
@@ -307,6 +332,8 @@ export function createBoard(parent, ctx) {
   if (size.w) rd.paper();
 
   function dispose() {
+    disposed = true;
+    listeners.clear();
     if (ro) ro.disconnect();
     if (raf) cancelAnimationFrame(raf);
     endTimer();
