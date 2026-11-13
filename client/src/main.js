@@ -15,7 +15,7 @@ import { h, updateScale, view } from './ui/dom.js';
 import { createAnimator } from './anim/events.js';
 import { createSpecialFX } from './anim/special/index.js';
 import { connect, send, useTransport } from './net.js';
-import { state, saved } from './state.js';
+import { state, saved, tokens } from './state.js';
 import { sfx, isMuted, setMuted } from './audio.js';
 import { TY } from './scene/room.js';
 
@@ -88,14 +88,14 @@ const lobby = createLobby({
     pendingAvatar = avatar; loginId = id; loginPw = pw ?? null;
     const m = { t: 'login', id };
     if (pw) m.pw = pw;
-    const tok = saved.get('gs.tok');
+    const tok = tokens.get(id);
     if (tok) m.tok = tok;
     if (pinFields?.pin) m.pin = pinFields.pin;
     if (pinFields?.newPin) m.newPin = pinFields.newPin;
     send(m);
   },
   onResetConfirm: (pw) => { resetWait = true; send({ t: 'reset', confirm: true, pw }); },
-  onCoin: (kind) => coin?.open(kind),
+  onCoin: (kind) => { if (coin) coin.open(kind); else { pendingCoin = kind; loadCoin(); } },
   onAvatar: (data) => send({ t: 'avatar', data }),
   onCreate: (mode) => send({ t: 'create', mode }),
   onJoin: (code) => send({ t: 'join', code }),
@@ -104,7 +104,8 @@ const lobby = createLobby({
   onLeave: () => send({ t: 'leave' }),
   onLogout: () => {
     send({ t: 'pin', a: 'forget' }); // server forgets this device's token first
-    saved.del('gs.lastId'); saved.del('gs.adminPw'); saved.del('gs.tok');
+    tokens.del(saved.get('gs.lastId') ?? loginId); // only this id's token
+    saved.del('gs.lastId'); saved.del('gs.adminPw');
     setTimeout(() => location.reload(), 150); // let the message leave before the socket closes
   },
   onRank: () => send({ t: 'lg', a: 'rank' }),
@@ -114,6 +115,7 @@ document.body.append(lobby.el);
 let coin = null;
 let coinLoading = false;
 let coinBuf = [];
+let pendingCoin = null; // a coin button pressed while the module was still loading
 let authed = false; // true between the server's first 'me' and the next disconnect: decides whether PIN messages belong to the login screen or the PIN window
 function loadCoin() {
   if (coin || coinLoading) return;
@@ -123,6 +125,7 @@ function loadCoin() {
     const buf = coinBuf; coinBuf = [];
     if (state.me?.wallet) coin.onMe({ wallet: state.me.wallet });
     for (const m of buf) coin.onMsg(m);
+    if (pendingCoin) { const k = pendingCoin; pendingCoin = null; coin.open(k); }
   }).catch((e) => { coinLoading = false; console.error(e); });
 }
 const toCoin = (msg) => { if (coin) coin.onMsg(msg); else { coinBuf.push(msg); loadCoin(); } };
@@ -446,14 +449,14 @@ function handle(msg) {
     case 'pin':
       // login-time answer: keep this device's token (has:false = no PIN on the account any more)
       if (msg.a === 'ok') {
-        if (msg.has === false) saved.del('gs.tok');
-        else if (typeof msg.tok === 'string' && msg.tok) saved.set('gs.tok', msg.tok);
+        if (msg.has === false) tokens.del(loginId ?? saved.get('gs.lastId'));
+        else if (typeof msg.tok === 'string' && msg.tok) tokens.set(loginId ?? saved.get('gs.lastId'), msg.tok);
       }
       toCoin(msg);
       break;
     case 'error':
       if (/^pin_(need|bad|lock|exists|fmt)$/.test(msg.code ?? '') && !authed) { // login-time PIN problem (belongs to the login screen)
-        if (msg.code === 'pin_need') saved.del('gs.tok'); // a stale token: ask the PIN
+        if (msg.code === 'pin_need') tokens.del(loginId ?? saved.get('gs.lastId')); // a stale token: ask the PIN
         loginPw = null;
         if (state.me) backToLogin(); // reconnect refused after a drop: the login screen again
         if (msg.code === 'pin_need') lobby.askPin(msg.msg); else lobby.loginError(msg.code, msg.msg);
