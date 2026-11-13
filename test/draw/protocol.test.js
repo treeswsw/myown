@@ -30,7 +30,7 @@ test('봉투가 틀린 요청', () => {
 });
 
 test('단순 요청: 필드를 떼고 돌려준다', () => {
-  for (const a of ['cx', 'undo', 'redo', 'clear', 'give', 'skip', 'end']) {
+  for (const a of ['cx', 'undo', 'redo', 'clear', 'give', 'skip', 'end', 'lobby']) {
     assert.deepEqual(ok({ a, junk: 1 }), { a });
   }
 });
