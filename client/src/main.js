@@ -146,6 +146,15 @@ const toast = (msg) => {
   ui.append(t);
   setTimeout(() => t.remove(), 3000);
 };
+/* a game screen file failed to load (usually a new version was deployed): stays until tapped, then reloads */
+let staleNote = null;
+const staleReload = (e) => {
+  console.error(e);
+  if (staleNote?.isConnected) return;
+  staleNote = h('div', 'toast toast-stale', '새 버전이 나왔어요. 눌러서 새로고침');
+  staleNote.onclick = () => location.reload();
+  ui.append(staleNote);
+};
 
 /* liar / draw room top bar (global classes, style.css): room code / emote / start / leave */
 let liarPanel = null;
@@ -194,7 +203,7 @@ ytLeave.dataset.yt = 'bar-leave';
 const ytBar = h('div', 'ytbar', ytCode, h('span', 'ytbar-sp'), ytSound, ytEmote, ytStart, ytLeave);
 ytBar.hidden = true;
 ui.append(ytBar);
-document.addEventListener('pointerdown', (e) => { if (liarPanel && !liarPanel.contains(e.target) && !lgEmote.contains(e.target) && !ytEmote.contains(e.target)) closeLiarPanel(); });
+document.addEventListener('pointerdown', (e) => { if (liarPanel && !liarPanel.contains(e.target) && !lgEmote.contains(e.target) && !ytEmote.contains(e.target) && !gkEmote.contains(e.target)) closeLiarPanel(); });
 
 /* special animations: the host supplies seat geometry and the camera shake */
 const seatInfo = (id) => {
@@ -240,7 +249,7 @@ function applyDrawRoom(room) {
       if (draw) return;
       const { mountDraw } = await import('./draw/index.js');
       draw = mountDraw({ ui, send, getMe: () => state.me, toast: drawToast, leave: () => send({ t: 'leave' }), openEmote: () => { if (!liarPanel) toggleLiarPanel(); } });
-    }).catch((e) => console.error(e));
+    }).catch(staleReload);
   }
   withDraw((d) => d.room(state.room));
 }
@@ -265,7 +274,7 @@ function applyGskRoom(room) {
       if (gsk) return;
       const { mountGsk } = await import('./gsk/index.js');
       gsk = mountGsk({ ui, send, getMe: () => state.me, toast, leave: () => send({ t: 'leave' }), openEmote: () => { if (!liarPanel) toggleLiarPanel(); } });
-    }).catch((e) => console.error(e));
+    }).catch(staleReload);
   }
   withGsk((g) => (g.update ?? g.room).call(g, state.room));
 }
@@ -288,7 +297,7 @@ function applyLiarRoom(room) {
       if (liar) return; // reconnects can queue several mounts: check again inside the queue
       const { mountLiar } = await import('./liar/index.js');
       liar = mountLiar({ ui, stage, send, getMe: () => state.me, chat, toast, emotePanel });
-    }).catch((e) => console.error(e));
+    }).catch(staleReload);
   }
   withLiar((l) => l.applyRoom(state.room));
 }
@@ -313,7 +322,7 @@ function applyYachtRoom(room) {
       if (yacht) return;
       const { mountYacht } = await import('./yacht/index.js');
       yacht = mountYacht({ ui, stage, send, getMe: () => state.me, chat, toast, emotePanel });
-    }).catch((e) => console.error(e));
+    }).catch(staleReload);
   }
   withYacht((y) => y.applyRoom(state.room));
 }
@@ -338,7 +347,7 @@ function applyMiniRoom(room) {
       if (mini) return;
       const { mountMini } = await import('./mini/index.js');
       mini = mountMini({ ui, send });
-    }).catch((e) => console.error(e));
+    }).catch(staleReload);
   }
   withMini((m) => m.applyRoom(state.room));
 }
@@ -384,7 +393,7 @@ function applyRoom(room) {
   if (room?.mode === 'gsk') { applyGskRoom(room); return; }
   shown = room;
   if (!room) {
-    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null); emotePanel.clearRoom(); chat.close(); chat.setEnabled(false); chat.button.hidden = true;
+    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.clearDead(); pins.setVisible(false); hud.update(null); emotePanel.clearRoom(); chat.close(); chat.setEnabled(false); chat.button.hidden = true;
     cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
     lobby.setRoom(null); lobby.show();
     return;
@@ -597,7 +606,7 @@ function handle(msg) {
         else lobby.setError(msg.msg);
         break;
       }
-      if (typeof msg.code === 'string' && msg.code.startsWith('gk_')) withGsk((g) => g.error?.(msg));
+      if (typeof msg.code === 'string' && msg.code.startsWith('gk_') && gsk) { withGsk((g) => g.error?.(msg)); break; } // the gsk screen shows the notice itself
       if (inLiar() || inYacht() || inDraw() || inGsk() || inMini() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
       break;
     default: break;
