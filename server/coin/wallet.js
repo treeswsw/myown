@@ -115,6 +115,7 @@ export function installWallet(hub) {
         if (e) return e;
         const cost = COST * (m.n === 10 ? TEN : 1);
         if (u.coins < cost) return coinErr('coin_low');
+        if (u.bank + m.n * 100_000 > MAX_CHIPS) return coinErr('coin_max'); // top prize is 100000 chips per pull
         const r = gachaDraw(hub.rng, m.n, g.pity);
         u.coins -= cost;
         u.bank += r.chips;

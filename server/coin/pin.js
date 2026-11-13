@@ -68,15 +68,29 @@ export function installPin(hub) {
   const tokenOk = (rec, tok) => typeof tok === 'string' && /^[0-9a-f]{64}$/.test(tok) &&
     (rec.t ?? []).some((h) => eqHex(h, sha(tok)));
 
-  // Checks a PIN for an account that has one. null = right; else an error object. Counts wrong ones.
-  async function checkPin(id, rec, pin) {
-    if (isLocked(id)) return pinErr('pin_lock');
-    if (await verifyPin(pin, rec)) {
-      locks.delete(id);
-      return null;
-    }
-    fail(id);
-    return pinErr('pin_bad');
+  // One PIN verification in flight per id: others wait their turn and see the lock the earlier ones caused.
+  const queues = new Map(); // id -> tail promise
+  function serial(id, fn) {
+    const prev = queues.get(id) ?? Promise.resolve();
+    const run = prev.then(fn, fn);
+    const tail = run.catch(() => {});
+    queues.set(id, tail);
+    tail.then(() => { if (queues.get(id) === tail) queues.delete(id); });
+    return run;
+  }
+
+  // Checks a PIN for an account that has one. null = right; else an error object. The attempt is counted
+  // BEFORE the slow hash runs (and taken back when it was right), so parallel guesses cannot beat the lock.
+  function checkPin(id, rec, pin) {
+    return serial(id, async () => {
+      if (isLocked(id)) return pinErr('pin_lock');
+      fail(id);
+      if (await verifyPin(pin, rec)) {
+        locks.delete(id);
+        return null;
+      }
+      return pinErr('pin_bad');
+    });
   }
 
   const api = {
@@ -88,6 +102,7 @@ export function installPin(hub) {
       if (msg.newPin !== undefined) {
         if (rec || !fresh) return { err: pinErr('pin_exists') };
         const nr = await hashPin(msg.newPin);
+        if (user.pin) return { err: pinErr('pin_exists') };
         nr.t = [];
         const tok = addToken(nr);
         user.pin = nr;
@@ -98,6 +113,7 @@ export function installPin(hub) {
       if (msg.pin === undefined) return { err: pinErr('pin_need') };
       const err = await checkPin(id, rec, msg.pin);
       if (err) return { err };
+      if (user.pin !== rec) return { err: pinErr('pin_need') }; // the PIN record was replaced while we waited
       const tok = addToken(rec);
       return { tok, changed: true, hash: sha(tok) };
     },
@@ -127,8 +143,10 @@ export function installPin(hub) {
       if (m.a === 'set') {
         if (u.pin) {
           if (m.cur === undefined) return pinErr('pin_bad');
-          const err = await checkPin(session.id, u.pin, m.cur);
+          const rec = u.pin;
+          const err = await checkPin(session.id, rec, m.cur);
           if (err) return err;
+          if (u.pin !== rec) return pinErr('pin_bad');
         }
         const nr = await hashPin(m.pin);
         nr.t = [];
@@ -140,8 +158,10 @@ export function installPin(hub) {
       }
       // clear
       if (!u.pin) return done(false);
-      const err = await checkPin(session.id, u.pin, m.cur);
+      const rec = u.pin;
+      const err = await checkPin(session.id, rec, m.cur);
       if (err) return err;
+      if (u.pin !== rec) return pinErr('pin_bad');
       u.pin = null;
       if (conn) conn.tokHash = null;
       return done(false);

@@ -8,7 +8,7 @@ import { createDrawRoom } from './draw/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 import { createAdmin, ADMIN_ID } from './admin/bots.js';
 import { installWallet, walletOf } from './coin/wallet.js';
-import { installPin } from './coin/pin.js';
+import { installPin, pinErr } from './coin/pin.js';
 import { hookRoom } from './coin/hooks.js';
 
 export const DEFAULT_TIMING = {
@@ -319,13 +319,15 @@ class Room {
       this.setTimer('next', this.hub.timing.reveal, () => this.afterBluff(bluff.nextRound(g).events));
     } else if (g.phase === 'done') {
       const rows = [];
-      for (const [id, user] of users) {
+      for (const id of users.keys()) {
+        const session = this.hub.sessions.get(id);
+        const user = session?.user; // always the live account (the one captured at start may be stale)
         if (this.members.some((m) => m.id === id)) rows.push({ id, won: id === g.winner, opp: users.size - 1 });
+        if (!user) continue;
         user.stats.bluffGames++;
         if (id === g.winner) user.stats.bluffWins++;
         this.hub.persist(user);
-        const session = this.hub.sessions.get(id);
-        if (session) this.hub.sendMe(session);
+        this.hub.sendMe(session);
       }
       if (rows.length >= 2) this.hub.award(this, 'bluff', rows); // a lone survivor of leavers gets nothing
       this.phase = 'result';
@@ -485,6 +487,7 @@ export function createHub({
     userEpoch: new WeakMap(),
     conns: new Set(),
     resetting: false,
+    pinPending: new Set(), // new ids whose first password is being hashed
     lastResetAt: null,
     roomsSig: '[]',
     sessions: new Map(), // id -> { id, user, conn, room }
@@ -661,24 +664,46 @@ async function login(hub, conn, msg) {
   let session = hub.sessions.get(msg.key);
   let user = session?.user;
   let fresh = false;
+  const epoch = hub.epoch;
+  let pending = false;
   if (!session) {
     if (hub.resetting) return RESET_BUSY_MSG;
-    const epoch = hub.epoch;
-    const existed = hub.coinSeed > 0 || msg.newPin !== undefined ? await hub.store.exists(msg.key) : true;
-    user = await hub.store.getOrCreate(msg.key, msg.name);
-    fresh = !existed;
-    if (fresh && !user.coins) user.coins = hub.coinSeed; // tests only (hubOptions.coinSeed)
-    if (epoch !== hub.epoch) return RESET_BUSY_MSG; // a wipe happened while loading: the user is stale
-    hub.userEpoch.set(user, epoch);
-    session = hub.sessions.get(msg.key);
-    if (session) {
-      user = session.user; // another login got there first
-      fresh = false;
+    if (hub.pinPending.has(msg.key)) return pinErr('pin_need'); // a password is being set on this new id right now
+    if (msg.newPin !== undefined) {
+      pending = true;
+      hub.pinPending.add(msg.key);
     }
   }
-  // Password gate (SPEC 22-8): nothing is sent and no old connection is touched before this passes.
-  const gate = await hub.pinAuth.gate(user, msg.key, msg, fresh);
-  if (gate.err) return gate.err;
+  let gate;
+  try {
+    if (!session) {
+      const existed = hub.coinSeed > 0 || msg.newPin !== undefined ? await hub.store.exists(msg.key) : true;
+      user = await hub.store.getOrCreate(msg.key, msg.name);
+      fresh = !existed;
+      if (fresh && !user.coins) user.coins = hub.coinSeed; // tests only (hubOptions.coinSeed)
+      if (epoch !== hub.epoch) return RESET_BUSY_MSG; // a wipe happened while loading: the user is stale
+      hub.userEpoch.set(user, epoch);
+      session = hub.sessions.get(msg.key);
+      if (session) {
+        user = session.user; // another login got there first
+        fresh = false;
+      }
+    }
+    // Password gate (SPEC 22-8): nothing is sent and no old connection is touched before this passes.
+    for (let tries = 0; ; tries++) {
+      gate = await hub.pinAuth.gate(user, msg.key, msg, fresh);
+      if (epoch !== hub.epoch || hub.resetting) return RESET_BUSY_MSG; // a wipe happened while we waited
+      if (gate.err) return gate.err;
+      const cur = hub.sessions.get(msg.key);
+      if (!cur || cur.user === user) break;
+      // another login created the session meanwhile: what we checked is stale, check against the live account
+      if (tries >= 2) return pinErr('pin_need');
+      user = cur.user;
+      fresh = false;
+    }
+  } finally {
+    if (pending) hub.pinPending.delete(msg.key);
+  }
   session = hub.sessions.get(msg.key);
   if (!session) {
     if (hub.resetting) return RESET_BUSY_MSG;
