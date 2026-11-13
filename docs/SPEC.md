@@ -701,3 +701,15 @@ design/   시안
 - 내 꾸미기(`.lk-`): 큰 프사 미리보기, slot 탭, 가진 품목(등급 색 테두리), 끼기/빼기, 스티커형은 끌기·크기·돌리기 조절, 게임 안 모습 예시.
 - 캡슐 뽑기(`.cp-`): 캡슐 기계(손잡이 → 캡슐 굴러 나옴 → 색으로 등급 암시·페이크 → 열림), 10개 결과, 조각, 천장 남은 수. 확률 숫자는 보이지 않는다.
 - 칭호 효과(`.tfx-`): 레전드·갱식 칭호의 움직이는 효과. `prefers-reduced-motion` 이면 멈춘 그림.
+
+### 22-17. 치장템 화면 약속 (병렬 작업 기준)
+- 그림 모음 `client/src/coin/art/{hat,acc,face}.js`: `export default { '<품목 id>': { svg, w, dx, dy, fx? } }`.
+  `svg` = 완성된 `<svg viewBox="0 0 100 100" ...>` 글자(우리 코드가 쓴 고정 글자라 innerHTML 가능, 사용자 글자는 절대 넣지 않는다). 색은 svg 안에 직접.
+  `w` = 그림 한 변 길이 ÷ 프사 지름, `dx`·`dy` = 그림 중심이 프사 중심에서 떨어진 정도 ÷ 프사 지름(위쪽이 −). 예: 모자 `{w:0.9, dx:0, dy:-0.55}`.
+  edge 는 이 값 그대로 고정. sticker 는 이 값이 기본 자리이고 `gear.pos[id]` 의 `x,y`(더하기), `s`(곱하기), `r`(돌리기)을 적용. cover 는 `w:1, dx:0, dy:0` 이고 프사 동그라미로 잘린다.
+  `fx` = 움직임 이름(선택, `.lk-fx-<이름>` CSS 는 art 파일 옆 `art.css` 에). `prefers-reduced-motion` 이면 멈춤.
+- `client/src/coin/look.js`: `decorate(avatarEl, look, {size?})`(프사 요소를 감싸 모자·악세·페이셜·테두리를 겹쳐 그림. 다시 부르면 갈아 끼움. `look` 이 없으면 원래대로), `titleBadge(look) -> 요소|null`(등급 색 테두리 + 효과), `nameColor(look) -> 색|null`, `itemIcon(id, size) -> 요소`(목록·뽑기 결과에 쓰는 작은 그림: 칭호는 글자 배지, 색은 동그라미, 치장템은 그 그림).
+  그림이 아직 없는 id 는 등급 색 물음표 동그라미로 그린다(오류 없이).
+- 칭호 효과 `client/src/coin/titlefx.js`: `applyFx(badgeEl, fx)`, CSS `titlefx.css` 는 `.tfx-` 만. fx 이름은 `shared/coin/items/title.js` 의 것.
+- 창: `openLook(ctx)`(내 꾸미기, `client/src/coin/lookwin.js`, `.lk-`), `openCapsule(ctx)`(`capsule.js`, `.cp-`), `openGacha(ctx)`(카드 뽑기, `.gc-`), `openShop(ctx)`(`.sh-`). `createCoin().open(kind)` 의 kind 에 `'cap'`, `'look'` 추가.
+- `me.wallet` 추가 칸: `shard`, `cpity`, `pos`. 방 안: `{t:'looks', looks:{id: look}}`.
