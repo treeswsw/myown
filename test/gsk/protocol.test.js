@@ -18,8 +18,6 @@ test('올바른 요청은 정리된 객체로 돌아온다(모르는 필드는 �
   assert.deepEqual(okOf({ a: 'bid', n: 7 }), { a: 'bid', n: 7 });
   assert.deepEqual(okOf({ a: 'pass', z: 3 }), { a: 'pass' });
   assert.deepEqual(okOf({ a: 'flip', p: 'abc' }), { a: 'flip', p: 'abc' });
-  assert.deepEqual(okOf({ a: 'discard', i: 0 }), { a: 'discard', i: 0 });
-  assert.deepEqual(okOf({ a: 'discard', i: 3 }), { a: 'discard', i: 3 });
   assert.deepEqual(okOf({ a: 'discard', k: 'S' }), { a: 'discard', k: 'S' });
 });
 
@@ -48,12 +46,11 @@ test('flip: 글자만', () => {
   for (const p of ['', 5, null, undefined, {}, 'x'.repeat(101)]) badOf({ a: 'flip', p });
 });
 
-test('discard: i 또는 k 중 정확히 하나', () => {
+test('discard: k 만 받는다 (i 는 거절)', () => {
   badOf({ a: 'discard' });
+  badOf({ a: 'discard', i: 0 });
+  badOf({ a: 'discard', i: 3 });
   badOf({ a: 'discard', i: 0, k: 'F' });
-  badOf({ a: 'discard', i: -1 });
-  badOf({ a: 'discard', i: 4 });
-  badOf({ a: 'discard', i: 1.5 });
   badOf({ a: 'discard', i: '1' });
   badOf({ a: 'discard', k: 'Z' });
 });

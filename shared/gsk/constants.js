@@ -8,7 +8,9 @@ export const DISCS = Object.freeze({ F: 3, S: 1 });
 export const DISC_TOTAL = 4;
 export const WIN_POINTS = 2;
 // 연출 시간(서버가 잼)
-export const REVEAL_MS = 2500;
+export const REVEAL_MS = 3500; // 판정 뒤 피날레(해골 패배·성공)가 보일 시간
+export const FLIP_MS = 1700; // 꽃 한 장 뒤집기 연출. 자동 공개 간격·판정 대기
+export const TEASE_MS = 1400; // tease 이면 한 장당 추가
 export const BETWEEN_MS = 1500;
 export const AUTO_FLIP_MS = 500;
 // 끊긴 지 이 시간이 지나면 기권 (사이트 공통 60초. 방이 다른 값을 넘겨도 된다)

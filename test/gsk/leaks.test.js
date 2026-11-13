@@ -27,7 +27,12 @@ function world(rnd = rng0) {
   const fx0 = start(s, 'p0', T0, rnd);
   addPlayer(s, { id: 'spec', name: 'spec' }); // 판 중 들어온 관전자
   record(fx0);
-  w.act = (id, msg) => { const r = act(s, id, msg, w.now, rnd); assert.equal(r.ok, true, `${id} ${JSON.stringify(msg)} ${r.code}`); record(r); return r; };
+  w.act = (id, msg) => {
+    if (msg.a === 'flip' && s.busyUntil != null) w.now = Math.max(w.now, s.busyUntil); // 앞 장 연출이 끝난 뒤에만 누를 수 있다
+    const r = act(s, id, msg, w.now, rnd); assert.equal(r.ok, true, `${id} ${JSON.stringify(msg)} ${r.code}`); record(r);
+    while (msg.a === 'flip' && s.pend) w.tickTo(s.flipAt); // 판정은 연출 시간 뒤
+    return r;
+  };
   w.tickTo = (t) => { w.now = t; record(tick(s, t, rnd)); };
   return w;
 }
@@ -132,7 +137,7 @@ test('뒤집힌 원판만 모두에게 보이고, 다음 라운드엔 다시 비
   w.tickTo(w.s.endsAt);
   if (w.s.step === 'penalty') {
     const pen = viewFor(w.s, 'spec').penalty;
-    w.act(pen.by, pen.faceUp ? { a: 'discard', k: 'F' } : { a: 'discard', i: 0 });
+    w.act(pen.by, { a: 'discard', k: 'F' });
   }
   w.tickTo(w.s.endsAt);
   assert.equal(w.s.step, 'setup');
@@ -141,10 +146,9 @@ test('뒤집힌 원판만 모두에게 보이고, 다음 라운드엔 다시 비
   }
 });
 
-// ----- 4. 벌칙: 버린 종류·칸 순서는 서버만 -----
-function penaltyWorld(rnd, pick) {
+// ----- 4. 벌칙: 버린 종류는 도전자만 (GDD 17절) -----
+function penaltyWorld(kind) {
   const w = world();
-  const [a, b, c, d] = order(w.s);
   const st = w.s.starter;
   const skullMan = order(w.s).find((x) => x !== st);
   for (const id of order(w.s)) w.act(id, { a: 'place', k: id === skullMan ? 'S' : 'F' });
@@ -153,60 +157,29 @@ function penaltyWorld(rnd, pick) {
   while (w.s.flipAt != null) w.tickTo(w.s.flipAt);
   w.act(st, { a: 'flip', p: skullMan });
   w.now = w.s.endsAt;
-  const fx = tick(w.s, w.now, rnd); // 여기서 벌칙 칸 순서가 섞인다
-  w.record(fx);
-  w.act(skullMan, { a: 'discard', i: pick });
-  void a; void b; void c; void d;
+  w.record(tick(w.s, w.now, rng0));
+  assert.deepEqual(viewFor(w.s, 'spec').penalty, { by: st, target: st, n: 4, faceUp: true });
+  w.act(st, { a: 'discard', k: kind });
   return { w, st, skullMan };
 }
 
-test('벌칙 칸 순서와 버린 종류는 도전자 본인 말고는 모른다', () => {
-  // 칸 번호 3: 섞기에 따라 해골(rngLast: 순서 그대로 [F,F,F,S]) 또는 꽃(rng0: 섞으면 [F,F,S,F] 의 3 → F)
-  const X = penaltyWorld(rngLast, 3);
-  const Y = penaltyWorld(rng0, 3);
+test('버린 종류는 도전자 본인 말고는 모른다 (관전자 포함)', () => {
+  const X = penaltyWorld('F');
+  const Y = penaltyWorld('S');
   assert.equal(X.st, Y.st);
   const ch = X.st;
-  const lostX = viewFor(X.w.s, ch).mine.lost, lostY = viewFor(Y.w.s, ch).mine.lost;
-  assert.notDeepEqual(lostX, lostY); // 서로 다른 것을 버렸다
+  assert.notDeepEqual(viewFor(X.w.s, ch).mine.lost, viewFor(Y.w.s, ch).mine.lost);
   for (const v of [...IDS, 'spec']) {
     if (v === ch) continue;
     assert.deepEqual(X.w.log[v], Y.w.log[v], `${v}: 버린 종류가 남의 시점에 영향을 줌`);
   }
-  // 해골 주인이 받는 벌칙 화면엔 칸 수만 있다
-  const pv = viewFor(penaltyOpen(rngLast), X.skullMan).penalty;
-  assert.deepEqual(Object.keys(pv).sort(), ['by', 'faceUp', 'n', 'target']);
-  // 도전자만 gkLoseMine 을 받는다
-  for (const v of IDS.filter((x) => x !== ch).concat('spec')) {
-    assert.equal(X.w.log[v].filter((_, i) => i % 2 === 0).join('').includes('gkLoseMine'), false);
-  }
-  assert.equal(X.w.log[ch].filter((_, i) => i % 2 === 0).join('').includes('gkLoseMine'), true);
-  // 화면 어디에도 순서 정보(perm)·종류 글자 없음 (본인 mine 제외)
+  const has = (w, v) => w.log[v].filter((_, i) => i % 2 === 0).join('').includes('gkLoseMine');
+  for (const v of IDS.filter((x) => x !== ch).concat('spec')) assert.equal(has(X.w, v), false, v);
+  assert.equal(has(X.w, ch), true);
   for (const v of [...IDS.filter((x) => x !== ch), 'spec']) {
     const view = viewFor(X.w.s, v);
-    assert.equal(JSON.stringify(view).includes('perm'), false);
     delete view.mine;
     assert.deepEqual(leaves(view).filter(([, val]) => val === 'F' || val === 'S'), []);
-  }
-});
-// 벌칙 단계 상태(고르기 전)를 만든다
-function penaltyOpen(rnd) {
-  const w = world();
-  const st = w.s.starter;
-  const skullMan = order(w.s).find((x) => x !== st);
-  for (const id of order(w.s)) w.act(id, { a: 'place', k: id === skullMan ? 'S' : 'F' });
-  w.act(st, { a: 'bid', n: 2 });
-  while (w.s.step === 'bid') w.act(w.s.turnId, { a: 'pass' });
-  while (w.s.flipAt != null) w.tickTo(w.s.flipAt);
-  w.act(st, { a: 'flip', p: skullMan });
-  tick(w.s, w.s.endsAt, rnd);
-  return w.s;
-}
-
-test('벌칙 칸 순서(섞기)가 달라도 고르기 전 모든 시점의 화면은 같다', () => {
-  const s1 = penaltyOpen(rngLast), s2 = penaltyOpen(rng0);
-  assert.equal(s1.step, 'penalty'); assert.equal(s2.step, 'penalty');
-  for (const v of [...IDS, 'spec']) {
-    assert.equal(JSON.stringify(viewFor(s1, v)), JSON.stringify(viewFor(s2, v)), v);
   }
 });
 
@@ -216,7 +189,7 @@ test('자기 해골로 실패해도 남이 보는 것은 도전자 본인 선택
   for (const id of order(w.s)) w.act(id, { a: 'place', k: id === st ? 'S' : 'F' });
   w.act(st, { a: 'bid', n: 2 });
   while (w.s.step === 'bid') w.act(w.s.turnId, { a: 'pass' });
-  w.tickTo(w.s.flipAt); // 자기 해골이 먼저 공개
+  while (w.s.flipAt != null) w.tickTo(w.s.flipAt); // 자기 해골이 먼저 공개, 연출 뒤 판정
   w.tickTo(w.s.endsAt);
   assert.equal(viewFor(w.s, 'spec').penalty.faceUp, true);
   w.act(st, { a: 'discard', k: 'F' }); // 해골이 공개돼도 "무엇을 버렸는지"는 남이 모른다
@@ -230,27 +203,8 @@ test('자기 해골로 실패해도 남이 보는 것은 도전자 본인 선택
   }
 });
 
-// ----- 5. 사라진 고르는 사람 대신 난수로 고를 때도 남에게는 종류가 새지 않는다 -----
-test('나가기로 대신 고른 벌칙도 종류가 남에게 가지 않는다', () => {
-  const w = world();
-  const st = w.s.starter;
-  const skullMan = order(w.s).find((x) => x !== st);
-  for (const id of order(w.s)) w.act(id, { a: 'place', k: id === skullMan ? 'S' : 'F' });
-  w.act(st, { a: 'bid', n: 2 });
-  while (w.s.step === 'bid') w.act(w.s.turnId, { a: 'pass' });
-  while (w.s.flipAt != null) w.tickTo(w.s.flipAt);
-  w.act(st, { a: 'flip', p: skullMan });
-  w.tickTo(w.s.endsAt);
-  const fx = leave(w.s, skullMan, w.now, rngLast);
-  for (const v of order(w.s).filter((x) => x !== st && x !== skullMan)) {
-    const evs = fx.events.filter((x) => x.to === 'all' || x.to === v);
-    assert.equal(JSON.stringify(evs).includes('gkLoseMine'), false);
-    assert.equal(JSON.stringify(evs).includes('"disc"'), false);
-  }
-  assert.ok(fx.events.some((x) => x.to === st && x.e.k === 'gkLoseMine'));
-});
-
-test('난수 벌칙(해골 주인 이탈)에서도 버린 종류는 도전자 말고 아무에게도 가지 않는다', () => {
+// ----- 5. 해골 주인이 나가도 버린 종류는 도전자만 안다 -----
+test('해골 주인 이탈 뒤에도 버린 종류는 도전자 말고 아무에게도 가지 않는다', () => {
   const w = world();
   const st = w.s.starter;
   const skullMan = order(w.s).find((x) => x !== st);
@@ -261,7 +215,9 @@ test('난수 벌칙(해골 주인 이탈)에서도 버린 종류는 도전자 �
   w.act(st, { a: 'flip', p: skullMan });
   w.record(leave(w.s, skullMan, w.now, rng0));
   w.now = w.s.endsAt;
-  w.record(tick(w.s, w.now, rngLast)); // 난수로 벌칙을 고른다
+  w.record(tick(w.s, w.now, rngLast));
+  assert.equal(w.s.step, 'penalty');
+  w.act(st, { a: 'discard', k: 'S' });
   assert.equal(w.s.step, 'between');
   const has = (v) => w.log[v].filter((_, i) => i % 2 === 0).join('').includes('gkLoseMine');
   assert.equal(has(st), true);

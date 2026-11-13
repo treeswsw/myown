@@ -22,12 +22,8 @@ export function parseGk(msg) {
       return good({ a: 'pass' });
     case 'flip':
       return typeof msg.p === 'string' && msg.p.length >= 1 && msg.p.length <= 100 ? good({ a: 'flip', p: msg.p }) : bad();
-    case 'discard': {
-      const hasI = has(msg, 'i'), hasK = has(msg, 'k');
-      if (hasI === hasK) return bad(); // 둘 중 정확히 하나
-      if (hasI) return Number.isInteger(msg.i) && msg.i >= 0 && msg.i <= 3 ? good({ a: 'discard', i: msg.i }) : bad();
-      return kind(msg.k) ? good({ a: 'discard', k: msg.k }) : bad();
-    }
+    case 'discard':
+      return !has(msg, 'i') && kind(msg.k) ? good({ a: 'discard', k: msg.k }) : bad();
     default: return bad();
   }
 }
