@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>내 차례 (동작)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&amp;family=Gowun+Batang:wght@400;700&amp;family=IBM+Plex+Sans+KR:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+.gk{--bw:128px;--bh:117px;--ds:80px;--th:5px;--bs:28px;width:1280px;height:720px;position:relative;overflow:hidden;background:#2a1c14 url(/_blob/334cf2e0c7edf16b229c755f2bc9b04f) center / cover no-repeat;font-family:'IBM Plex Sans KR',sans-serif;color:#efe6d2;-webkit-font-smoothing:antialiased}
+.gk *{box-sizing:border-box}
+.gk-vig{position:absolute;left:0;top:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 42%,rgba(0,0,0,0) 28%,rgba(8,5,3,.66) 100%);pointer-events:none}
+.gk-top{position:absolute;left:28px;top:20px;display:flex;align-items:center;gap:12px;font:400 15px/20px 'Gowun Batang',serif;color:#d9ccb0;letter-spacing:.06em}
+.gk-top b{font-weight:700;color:#efe6d2;font-size:17px;letter-spacing:.1em}
+.gk-top i{display:block;width:26px;height:1px;background:#c9a45c;opacity:.7}
+.gk-seat{position:absolute;width:var(--bw);height:var(--bh);margin:calc(var(--bh) / -2) 0 0 calc(var(--bw) / -2)}
+.gk-board{position:absolute;left:0;top:0;width:100%;height:100%;display:block;filter:drop-shadow(0 6px 8px rgba(0,0,0,.55))}
+.gk-pile{position:absolute;left:50%;top:50%;width:0;height:0}
+.gk-dk{position:absolute;width:var(--ds);height:var(--ds);margin:calc(var(--ds) / -2) 0 0 calc(var(--ds) / -2)}
+.gk-dk::before{content:"";position:absolute;left:0;top:var(--th);width:100%;height:100%;border-radius:50%;background:linear-gradient(#523a27 50%,#2a1c12);box-shadow:inset 0 -1.5px 0 rgba(236,210,150,.85),0 2px 3px rgba(0,0,0,.7)}
+.gk-dk img{position:relative;display:block;width:100%;height:100%}
+.gk-hi{position:absolute;width:var(--ds);height:var(--ds);margin:calc(var(--ds) / -2) 0 0 calc(var(--ds) / -2);border-radius:50%;background:radial-gradient(circle at 34% 24%,rgba(255,250,235,.3),rgba(255,250,235,0) 56%);box-shadow:inset 0 0 0 1.5px rgba(243,234,215,.55),0 0 10px rgba(236,210,150,.3);pointer-events:none}
+.gk-n{position:absolute;width:var(--bs);height:var(--bs);display:flex;align-items:center;justify-content:center;font:600 15px/1 'Cormorant Garamond',serif;font-variant-numeric:lining-nums;color:#f3ead7;pointer-events:none}
+.gk-n::before{content:"";position:absolute;left:0;top:0;width:100%;height:100%;transform:rotate(45deg) scale(.86);background:#1c1410;border:1px solid #c9a45c;box-shadow:0 2px 5px rgba(0,0,0,.6)}
+.gk-n span{position:relative}
+.gk-snd{width:44px;height:44px;padding:0;border-radius:50%;border:1px solid rgba(201,164,92,.5);background:rgba(18,12,8,.66);color:#efe6d2;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.gk-snd:hover{background:rgba(40,28,20,.85)}
+.gk-snd svg{display:block}
+.gk-turn{position:absolute;left:-7px;top:-7px;right:-7px;bottom:-7px;border:1.5px solid rgba(236,210,150,.95);border-radius:20px;box-shadow:0 0 18px rgba(236,210,150,.42),inset 0 0 10px rgba(236,210,150,.2)}
+.gk-turn.red{border-color:rgba(214,84,70,.95);box-shadow:0 0 26px rgba(200,50,40,.7),inset 0 0 12px rgba(200,50,40,.35)}
+.gk-tag{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:9px;padding:5px 15px 5px 5px;border-radius:999px;background:rgba(18,12,8,.66);border:1px solid rgba(201,164,92,.3);white-space:nowrap}
+.gk-tag.on{border-color:rgba(236,210,150,.9)}
+.gk-av{width:36px;height:36px;border-radius:50%;object-fit:cover;display:block;background:#1c1410}
+.gk-nm{font-size:14px;font-weight:500;line-height:18px;color:#efe6d2;display:flex;align-items:center;gap:6px}
+.gk-dot{width:6px;height:6px;border-radius:50%;display:block}
+.gk-meta{display:flex;align-items:center;gap:5px;font-size:11px;line-height:14px;color:#c8bca4;margin-top:2px}
+.gk-pip{width:7px;height:7px;transform:rotate(45deg);border:1px solid #c9a45c;display:block}
+.gk-pip.on{background:#c9a45c}
+.gk-meta svg{display:block;margin-left:5px}
+.gk-chip{font-size:11px;line-height:16px;padding:0 7px;border-radius:999px;border:1px solid #c9a45c;color:#ecd296;margin-left:4px}
+.gk-chip.mute{border-color:rgba(200,188,164,.5);color:#c8bca4}
+.gk-mid{position:absolute;left:640px;top:300px;width:270px;transform:translate(-50%,-50%);text-align:center}
+.gk-cap{font-size:11px;line-height:14px;font-weight:500;letter-spacing:.34em;text-indent:.34em;color:#d2b06a}
+.gk-numrow{display:flex;align-items:center;justify-content:center;gap:14px}
+.gk-numrow i{display:block;width:44px;height:1px;background:linear-gradient(90deg,rgba(201,164,92,0),#c9a45c)}
+.gk-numrow i.r{background:linear-gradient(270deg,rgba(201,164,92,0),#c9a45c)}
+.gk-num{font:600 54px/50px 'Cormorant Garamond',serif;font-variant-numeric:lining-nums;color:#f3ead7;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+.gk-host{width:96px;height:96px;object-fit:contain;display:block;margin:2px auto 0;filter:drop-shadow(0 6px 10px rgba(0,0,0,.65))}
+.gk-say{font:700 17px/22px 'Gowun Batang',serif;color:#f3ead7;text-shadow:0 1px 4px rgba(0,0,0,.9);margin-top:4px}
+.gk-sub{font-size:13px;line-height:18px;color:#d9ccb0;text-shadow:0 1px 4px rgba(0,0,0,.9)}
+.gk-acts{position:absolute;left:0;right:0;top:608px;display:flex;align-items:center;justify-content:center;gap:18px}
+.gk-btn{position:relative;height:54px;min-width:188px;padding:0 26px;display:inline-flex;align-items:center;justify-content:center;gap:12px;border:1px solid #c9a45c;border-radius:4px;background:linear-gradient(#f4ecda,#e4d8bd);color:#2a1f17;font:700 18px/1 'Gowun Batang',serif;letter-spacing:.1em;cursor:pointer;box-shadow:0 0 0 3px #1c1410,0 0 0 4px rgba(201,164,92,.6),0 10px 20px rgba(0,0,0,.45);transition:transform .15s,filter .15s}
+.gk-btn::before{content:"";position:absolute;left:4px;top:4px;right:4px;bottom:4px;border:1px solid rgba(150,112,48,.55);border-radius:2px;pointer-events:none}
+.gk-btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.gk-btn:active{transform:translateY(1px)}
+.gk-btn.ink{background:linear-gradient(#30241c,#1c1410);color:#efe6d2}
+.gk-btn.ink::before{border-color:rgba(201,164,92,.5)}
+.gk-btn svg{display:block;flex:none}
+.gk-ghost{height:46px;min-width:92px;padding:0 20px;border:1px solid rgba(201,164,92,.65);border-radius:4px;background:rgba(18,12,8,.6);color:#efe6d2;font:500 14px/1 'IBM Plex Sans KR',sans-serif;letter-spacing:.06em;cursor:pointer}
+.gk-ghost:hover{background:rgba(40,28,20,.8)}
+.gk-coin{width:50px;height:50px;border-radius:50%;padding:0;border:1px solid #c9a45c;background:radial-gradient(circle at 50% 35%,#f6efdf,#e2d5b8);color:#2a1f17;font:600 27px/1 'Cormorant Garamond',serif;font-variant-numeric:lining-nums;cursor:pointer;box-shadow:0 0 0 3px #1c1410,0 0 0 4px rgba(201,164,92,.55),0 6px 12px rgba(0,0,0,.45);transition:transform .15s}
+.gk-coin:hover{transform:translateY(-2px)}
+.gk-coin.sel{background:radial-gradient(circle at 50% 35%,#e6c987,#c9a45c);box-shadow:0 0 0 3px #1c1410,0 0 0 4px #ecd296,0 6px 12px rgba(0,0,0,.45)}
+.gk-ask{position:absolute;left:0;right:0;top:588px;text-align:center;font:400 14px/18px 'Gowun Batang',serif;color:#d9ccb0;letter-spacing:.08em}
+.gk-sep{display:block;width:1px;height:34px;background:rgba(201,164,92,.5);margin:0 6px}
+.gk-scrim{position:absolute;left:0;right:0;bottom:0;height:270px;background:linear-gradient(rgba(10,6,4,0),rgba(10,6,4,.9) 58%);pointer-events:none;transition:opacity .4s}
+.gk-hcap{position:absolute;left:36px;top:610px;font-size:11px;line-height:14px;letter-spacing:.24em;color:#d2b06a;transition:opacity .3s}
+.gk-hd{position:absolute;left:0;top:0;width:112px;padding:0;border:0;background:none;color:#efe6d2;cursor:pointer;transform-origin:0 0;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.gk-hd-face{position:relative;display:block;width:112px;height:112px;border-radius:50%;filter:drop-shadow(0 6px 8px rgba(0,0,0,.6));transition:transform .18s}
+.gk-hd:hover .gk-hd-face{transform:translateY(-6px)}
+.gk-hd-face img{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.gk-hd-face img.gk-ph,.gk-ph{position:absolute;left:10%;top:10%;width:80%;height:80%;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px #17100c}
+.gk-hd-cap{display:block;margin-top:8px;font:400 14px/18px 'Gowun Batang',serif;letter-spacing:.12em;text-align:center;transition:opacity .3s}
+.gk-cnt{position:absolute;right:20px;top:14px;display:flex;align-items:center;gap:2px;padding:2px 2px 2px 12px;border-radius:999px;background:rgba(18,12,8,.66);border:1px solid rgba(201,164,92,.3)}
+.gk-cnt span{font-size:11px;letter-spacing:.2em;color:#d2b06a;margin-right:6px}
+.gk-cnt button{width:44px;height:44px;border-radius:50%;border:1px solid rgba(201,164,92,0);background:none;color:#d9ccb0;font:600 20px/1 'Cormorant Garamond',serif;font-variant-numeric:lining-nums;cursor:pointer}
+.gk-dark{position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(9,3,3,.62);pointer-events:none}
+.gk-red{position:absolute;left:0;top:0;right:0;bottom:0;background:radial-gradient(circle at 50% 41%,rgba(165,32,26,.46),rgba(165,32,26,0) 46%);pointer-events:none}
+
+.pl-fly{position:absolute;left:0;top:0;width:112px;height:112px;transform-origin:0 0;z-index:5;pointer-events:none;filter:drop-shadow(0 14px 12px rgba(0,0,0,.55))}
+.pl-arc{width:100%;height:100%;perspective:600px;animation:plArc .54s cubic-bezier(.3,0,.5,1) both}
+.pl-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;-webkit-transform-style:preserve-3d;animation:plTurn .54s cubic-bezier(.4,0,.4,1) both}
+.pl-f,.pl-b{position:absolute;left:0;top:0;width:100%;height:100%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.pl-f img{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.pl-f img.gk-ph{left:10%;top:10%;width:80%;height:80%}
+.pl-b{transform:rotateY(180deg)}
+.pl-shade{position:absolute;left:-46px;top:-34px;width:92px;height:92px;border-radius:50%;background:radial-gradient(circle,rgba(0,0,0,.75),rgba(0,0,0,0) 68%);animation:plShade .5s ease-out both;pointer-events:none}
+.pl-dust{position:absolute;left:-52px;top:-48px;width:104px;height:104px;border-radius:50%;border:1.5px solid rgba(236,210,150,.75);box-shadow:0 0 14px rgba(236,210,150,.45),inset 0 0 12px rgba(236,210,150,.3);animation:plDust .55s ease-out both;pointer-events:none}
+.pl-puff{position:absolute;left:-60px;top:-56px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,244,214,.5),rgba(255,244,214,0) 62%);animation:plPuff .45s ease-out both;pointer-events:none}
+@keyframes plArc{0%{transform:translateY(0)}48%{transform:translateY(-58px)}100%{transform:translateY(0)}}
+@keyframes plTurn{0%{transform:rotateY(0deg) rotateZ(0deg)}100%{transform:rotateY(180deg) rotateZ(-14deg)}}
+@keyframes plLand{0%{transform:translateY(-7px) scale(1.07)}45%{transform:translateY(2px) scale(.965)}72%{transform:translateY(-1.5px) scale(1.012)}100%{transform:translateY(0) scale(1)}}
+@keyframes plShade{0%{opacity:0;transform:scale(.7)}40%{opacity:.9;transform:scale(1.08)}100%{opacity:.55;transform:scale(1)}}
+@keyframes plDust{0%{opacity:.9;transform:scale(.72)}100%{opacity:0;transform:scale(1.34)}}
+@keyframes plPuff{0%{opacity:.8;transform:scale(.6)}100%{opacity:0;transform:scale(1.25)}}
+</style>
+</helmet>
+<div class="gk">
+  <div class="gk-vig"></div>
+  <div class="gk-top"><b>갱스껄</b><i></i><span>3라운드</span></div>
+  <sc-for list="{{seats}}" as="s" hint-placeholder-count="5">
+    <div class="gk-seat" style="{{s.style}}">
+      <sc-if value="{{s.turn}}" hint-placeholder-val="{{ false }}"><div class="gk-turn"></div></sc-if>
+      <img class="gk-board" src="{{s.board}}" alt="" />
+      <sc-if value="{{s.hasPile}}" hint-placeholder-val="{{ true }}">
+        <div class="gk-pile" style="{{s.pileStyle}}">
+          <sc-if value="{{s.landed}}" hint-placeholder-val="{{ false }}"><i class="pl-shade"></i></sc-if>
+          <sc-for list="{{s.stack}}" as="d" hint-placeholder-count="2"><div class="gk-dk" style="{{d.style}}"><img src="{{d.src}}" style="{{d.imgStyle}}" alt="" /></div></sc-for>
+          <i class="gk-hi" style="{{s.hiStyle}}"></i>
+          <sc-if value="{{s.landed}}" hint-placeholder-val="{{ false }}"><i class="pl-puff"></i><i class="pl-dust"></i></sc-if>
+          <div class="gk-n" style="{{s.badgeStyle}}"><span>{{s.pileLabel}}</span></div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-for>
+  <sc-for list="{{seats}}" as="s" hint-placeholder-count="5">
+    <div class="gk-tag" style="{{s.tagStyle}}">
+      <img class="gk-av" src="{{s.avatar}}" style="{{s.avStyle}}" alt="" />
+      <div>
+        <div class="gk-nm"><span>{{s.label}}</span><i class="gk-dot" style="{{s.dotStyle}}"></i></div>
+        <div class="gk-meta"><i class="gk-pip" style="{{s.pip1}}"></i><i class="gk-pip" style="{{s.pip2}}"></i><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#c8bca4" stroke-width="1.3" aria-hidden="true"><circle cx="6" cy="6" r="4.6"></circle><circle cx="6" cy="6" r="1.5"></circle></svg><span>{{s.discs}}</span></div>
+      </div>
+    </div>
+  </sc-for>
+  <div class="gk-mid">
+    <div class="gk-cap">{{cap}}</div>
+    <div class="gk-numrow"><i></i><span class="gk-num">{{num}}</span><i class="r"></i></div>
+    <img class="gk-host" src="/_blob/a2c0e1d07fb93fdf99e90cd6a0a2d3be" alt="" />
+    <div class="gk-say">{{say}}</div>
+    <div class="gk-sub">{{sub}}</div>
+  </div>
+  <div class="gk-cnt"><span>인원</span>
+    <sc-for list="{{counts}}" as="c" hint-placeholder-count="5"><button type="button" style="{{c.style}}" onClick="{{ c.set }}" aria-label="{{c.aria}}">{{c.n}}</button></sc-for>
+  </div>
+  <button type="button" class="gk-snd" style="position: absolute; right: 20px; top: 72px;" onClick="{{ toggleSnd }}" aria-label="{{sndAria}}"><sc-if value="{{sndOn}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"></path><path d="M15.5 9a4.2 4.2 0 0 1 0 6"></path><path d="M18.2 6.5a7.8 7.8 0 0 1 0 11"></path></svg></sc-if><sc-if value="{{sndOff}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"></path><path d="M16 9.5l5 5"></path><path d="M21 9.5l-5 5"></path></svg></sc-if></button>
+  <sc-if value="{{isChoose}}" hint-placeholder-val="{{ true }}">
+    <div class="gk-acts">
+      <button type="button" class="gk-btn" onClick="{{ openHand }}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M5 0.8 L9.2 5 L5 9.2 L0.8 5 Z"></path></svg><span>원판 내기</span><svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M5 0.8 L9.2 5 L5 9.2 L0.8 5 Z"></path></svg></button>
+      <button type="button" class="gk-btn ink" onClick="{{ openBid }}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M5 0.8 L9.2 5 L5 9.2 L0.8 5 Z"></path></svg><span>도전</span><svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M5 0.8 L9.2 5 L5 9.2 L0.8 5 Z"></path></svg></button>
+    </div>
+  </sc-if>
+  <sc-if value="{{isBid}}" hint-placeholder-val="{{ false }}">
+    <div class="gk-ask">꽃만 몇 개 뒤집겠습니까</div>
+    <div class="gk-acts" style="top: 616px; gap: 14px;">
+      <sc-for list="{{nums}}" as="b" hint-placeholder-count="7"><button type="button" class="gk-coin" onClick="{{ b.pick }}" aria-label="{{b.aria}}">{{b.n}}</button></sc-for>
+      <i class="gk-sep"></i>
+      <button type="button" class="gk-ghost" onClick="{{ cancel }}">취소</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+    <div class="gk-acts" style="top: 614px;"><button type="button" class="gk-ghost" onClick="{{ cancel }}">처음부터 다시 보기</button></div>
+  </sc-if>
+  <div class="gk-scrim" style="{{scrimStyle}}"></div>
+  <div class="gk-hcap" style="{{hcapStyle}}">{{hcap}}</div>
+  <sc-for list="{{hand}}" as="h" hint-placeholder-count="3">
+    <button type="button" class="gk-hd" style="{{h.style}}" onClick="{{ h.pick }}" aria-label="{{h.aria}}">
+      <span class="gk-hd-face"><img src="{{h.src}}" alt="" /><sc-if value="{{h.hasPhoto}}" hint-placeholder-val="{{ false }}"><img class="gk-ph" src="{{h.photo}}" alt="" /></sc-if></span>
+      <span class="gk-hd-cap" style="{{h.capStyle}}">{{h.label}}</span>
+    </button>
+  </sc-for>
+  <sc-if value="{{isPlay}}" hint-placeholder-val="{{ false }}">
+    <button type="button" class="gk-ghost" style="{{cancelStyle}}" onClick="{{ cancel }}">취소</button>
+  </sc-if>
+  <sc-if value="{{isFly}}" hint-placeholder-val="{{ false }}">
+    <div class="pl-fly" style="{{flyStyle}}">
+      <div class="pl-arc">
+        <div class="pl-in">
+          <span class="pl-f"><img src="{{flySrc}}" alt="" /><sc-if value="{{flyHasPhoto}}" hint-placeholder-val="{{ false }}"><img class="gk-ph" src="{{flyPhoto}}" alt="" /></sc-if></span>
+          <img class="pl-b" src="/_blob/d836973ee4412f6e5a8e9eb83effc300" alt="" />
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  state = { phase: 'choose', n: 5, hand: ['F', 'F', 'S'], played: 0, bid: 0, fly: null, snd: true };
+
+  // ── 타이머: 전부 모아 두었다가 치울 때 한 번에 지운다
+  later(fn, ms) {
+    var self = this;
+    if (!this._t) this._t = [];
+    var id = setTimeout(function () { fn.call(self); }, ms);
+    this._t.push(id);
+    return id;
+  }
+  clearTimers() {
+    var t = this._t || [];
+    for (var i = 0; i < t.length; i++) clearTimeout(t[i]);
+    this._t = [];
+  }
+  componentWillUnmount() {
+    this.clearTimers();
+    if (this._ac && this._ac.close) { try { this._ac.close(); } catch (e) {} }
+    this._ac = null;
+  }
+
+  // ── 소리(WebAudio 합성). 첫 누름 때 만든다.
+  ac(force) {
+    if (!force && this.state && this.state.snd === false) return null;
+    if (!this._ac) {
+      var A = null;
+      if (typeof AudioContext !== 'undefined') A = AudioContext;
+      else if (typeof webkitAudioContext !== 'undefined') A = webkitAudioContext;
+      if (!A) return null;
+      try {
+        this._ac = new A();
+        this._out = this._ac.createGain();
+        this._out.gain.value = 0.7;
+        this._out.connect(this._ac.destination);
+      } catch (e) { this._ac = null; return null; }
+    }
+    if (this._ac.state === 'suspended' && this._ac.resume) { try { this._ac.resume(); } catch (e) {} }
+    return this._ac;
+  }
+  // 여러 음을 한꺼번에. opt = { to: 끝 음높이 배수, lp: 저역 통과(Hz), att: 올라오는 시간 }
+  tone(freqs, dur, type, gain, delay, opt) {
+    var ac = this.ac(); if (!ac) return;
+    var o = opt || {}, t = ac.currentTime + (delay || 0) + 0.01, out = this._out;
+    if (o.lp) {
+      var lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.lp;
+      lp.connect(this._out); out = lp;
+    }
+    for (var i = 0; i < freqs.length; i++) {
+      var osc = ac.createOscillator(), g = ac.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freqs[i], t);
+      if (o.to) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freqs[i] * o.to), t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + (o.att || 0.008));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g); g.connect(out);
+      osc.start(t); osc.stop(t + dur + 0.05);
+    }
+  }
+  // 걸러 낸 잡음 한 번
+  noise(dur, gain, delay, freq, kind) {
+    var ac = this.ac(); if (!ac) return;
+    var t = ac.currentTime + (delay || 0) + 0.01;
+    var len = Math.max(1, Math.floor(ac.sampleRate * dur));
+    var buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    var src = ac.createBufferSource(); src.buffer = buf;
+    var f = ac.createBiquadFilter(); f.type = kind || 'bandpass'; f.frequency.value = freq || 1800;
+    var g = ac.createGain();
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(this._out);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+  // 놓기 "탁": 짧은 잡음 + 떨어지는 저음
+  sfxTak() {
+    this.noise(0.05, 0.3, 0, 1900, 'bandpass');
+    this.tone([150], 0.1, 'sine', 0.4, 0, { to: 0.45 });
+    this.tone([420], 0.04, 'triangle', 0.08, 0);
+  }
+  // 꽃 단계음 1~5: 한 장마다 음이 오르고(도 레 미 솔 라) 화음 겹이 하나씩 늘어난다
+  sfxFlower(n, d) {
+    var steps = [0, 2, 4, 7, 9, 12, 14, 16];
+    var f = 523.25 * Math.pow(2, steps[Math.max(1, Math.min(n, 8)) - 1] / 12);
+    this.tone([f], 0.55, 'sine', 0.2, d);                 // 마림바 몸통
+    this.tone([f * 4], 0.14, 'sine', 0.05, d);            // 두드리는 맑은 끝
+    this.tone([f * 2], 0.3, 'triangle', 0.04, d);
+    if (n >= 2) this.tone([f * 1.5], 0.5, 'sine', 0.1, d + 0.07);          // + 5도
+    if (n >= 3) this.tone([f * 2], 0.6, 'sine', 0.09, d + 0.14);           // + 옥타브
+    if (n >= 4) { this.tone([f * 2.5], 0.7, 'sine', 0.07, d + 0.21); this.noise(0.35, 0.03, d + 0.05, 7000, 'highpass'); }   // + 3도, 반짝임
+    if (n >= 5) { this.tone([f * 3, f * 4], 0.9, 'triangle', 0.045, d + 0.28); this.tone([f / 2], 0.9, 'sine', 0.12, d); }    // + 높은 겹, 낮은 받침
+  }
+  // 성공 피날레: 큰 장조 화음 + 위로 흩어지는 음 + 반짝임
+  sfxWin() {
+    this.tone([261.63, 329.63, 392, 523.25, 659.25, 783.99], 2.4, 'sine', 0.085, 0, { att: 0.02 });
+    this.tone([130.81], 2.4, 'triangle', 0.13, 0, { att: 0.02 });
+    var a = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568, 2093];
+    for (var i = 0; i < a.length; i++) this.tone([a[i]], 0.9, 'sine', 0.09, 0.08 + i * 0.07);
+    this.noise(1.4, 0.035, 0.1, 6500, 'highpass');
+  }
+  // 해골 애태우기: 심장 박동 한 번(쿵-쿵)
+  sfxBeat(d) {
+    this.tone([62], 0.2, 'sine', 0.6, d, { to: 0.6 });
+    this.tone([124], 0.1, 'triangle', 0.1, d, { to: 0.5 });
+    this.tone([54], 0.24, 'sine', 0.42, d + 0.16, { to: 0.6 });
+    this.tone([108], 0.1, 'triangle', 0.06, d + 0.16, { to: 0.5 });
+    this.noise(0.06, 0.07, d, 180, 'lowpass');
+  }
+  // 해골 등장: 낮은 쿵 + 디튠된 불협 화음(증4도) + 아래로 일그러지는 소리
+  sfxDoom() {
+    this.tone([72], 1.6, 'sine', 0.8, 0, { to: 0.38 });
+    this.tone([110], 0.5, 'triangle', 0.22, 0, { to: 0.45 });
+    this.noise(0.7, 0.5, 0, 320, 'lowpass');
+    this.tone([55, 58.6, 77.8], 1.9, 'sawtooth', 0.11, 0.02, { lp: 520, att: 0.03 });
+    this.tone([233.1, 246.9], 1.5, 'sawtooth', 0.045, 0.05, { lp: 1400, to: 0.5, att: 0.05 });
+  }
+  toggleSound() {
+    var on = !(this.state && this.state.snd === false);
+    this.setState({ snd: !on });
+    if (!on) this.ac(true);
+  }
+
+  // 원판 내기: 손패 자리에서 내 개인판 위로 날아가(0.54초) 탁 내려앉는다
+  playDisc(j) {
+    var st = this.state, list = st.hand;
+    if (st.phase !== 'play') return;
+    this.ac();
+    var m = list.length, W = 112, GAP = 22, x0 = 640 - (m * W + (m - 1) * GAP) / 2;
+    var rest = list.slice(); var t = rest.splice(j, 1)[0];
+    this.clearTimers();
+    this.setState({ phase: 'fly', hand: rest, fly: { t: t, x: x0 + j * (W + GAP), y: 546, go: false } });
+    this.later(function () {
+      var f = this.state.fly; if (!f) return;
+      this.setState({ fly: { t: f.t, x: f.x, y: f.y, go: true } });
+    }, 40);
+    this.later(function () {
+      this.setState({ phase: 'played', played: 1, fly: null });
+      this.sfxTak();
+    }, 580);
+  }
+  resetAll(n) {
+    this.clearTimers();
+    this.setState({ phase: 'choose', n: n || this.state.n, hand: ['F', 'F', 'S'], played: 0, bid: 0, fly: null });
+  }
+
+  renderVals() {
+    var st = this.state || { phase: 'choose', n: 5, hand: ['F', 'F', 'S'], played: 0, bid: 0, fly: null, snd: true };
+    var self = this;
+    var BACK = ["/_blob/d836973ee4412f6e5a8e9eb83effc300","/_blob/8ca2c56e56837d55480d5122d002a9cd","/_blob/87a0e01399d3495a7b929b68f8bb26e3","/_blob/1c0fe4c2386ec8bcc4bad6633ebc325a","/_blob/c7818f700734310390e22bff425bf55c","/_blob/a7bccbcd64bb1a02985a223852850c45"];
+    var FLOWER = ["/_blob/f49b820f8f6564bf4ee15b913af814f3","/_blob/6b5b129f2f5f3190bf9f714c87a84ac9","/_blob/32550dc6dd7da1a696f7ee90e829fed1","/_blob/bf3cb2c46153bd6f1e0e96d8b1d7e960","/_blob/05e881cc7d4e86732293c1d8529ed139","/_blob/81ca634b1142a8e2625b7eab295897bd"];
+    var SKULL = ["/_blob/9384ced753ae211e8d9ad90457519ea5","/_blob/c889980fa2f348c27cfa14f27f453fb0","/_blob/c3e91ed0f2ea42ff557ac0cbe794c28d","/_blob/c78961ee4dc25e12771173f71d135b90","/_blob/0969c065e1b926c54af5438f87f8a5c2","/_blob/d11cd5edc660da84a9a6fb226e6580fd"];
+    var BOARD = ["/_blob/dd453f6ef62cbd8e24725e5a6cb105b8","/_blob/d2652663cb049c68e7c6851c16e0a40b","/_blob/13623d4575f0f2a14f610e7adf4b4fa7","/_blob/9c5376f9fd3a48021ccad1214849bb39","/_blob/6ec4d24bafbacca722d580ab500274b1","/_blob/3503ea554522770918179c8c5e3d6765"];
+    var BOARDB = ["/_blob/93fb461e3d123382d0967449072e63ee","/_blob/a7f0cfc8f0fec64e7b1c124e15e8168a","/_blob/7a1bbaf5f899aea78ce1727adde7f67d","/_blob/5bf7aaae7a4394d87cc8e2b8d74f3b26","/_blob/ef71a9b09e1eb209c6ea1964885fd9b5","/_blob/785a0a01f3f08396177d41290451a9c8"];
+    var TINT = ["#7fb56a","#a98bd0","#dcae45","#d0655a","#62aecb","#de8b4c"];
+    var P = [{"name":"하린","color":0,"photo":"/_blob/a21a69b43c748544081763c67891950e","points":0,"discs":4,"stack":1},{"name":"도윤","color":1,"photo":"/_blob/35038f9c315d1c689542c22145c3fde6","points":0,"discs":4,"stack":2},{"name":"서아","color":2,"photo":null,"points":0,"discs":3,"stack":3},{"name":"지호","color":3,"photo":"/_blob/297556fb8e4a4587041a1f65d1ff8627","points":1,"discs":4,"stack":1},{"name":"민서","color":4,"photo":"/_blob/bb2bba731b76918c14139a7b8a0449cf","points":0,"discs":4,"stack":4},{"name":"태오","color":5,"photo":null,"points":0,"discs":4,"stack":2}];
+    var G = {"cx":640,"cy":300,"rx":235,"ry":180,"gap":66,"lw":82,"lh":20};
+    var STEP = 6, DS = 80, BS = 28;
+    function calc(n, G) {
+  var out = [];
+  for (var i = 0; i < n; i++) {
+    var deg = 90 + i * 360 / n;
+    var a = deg * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a);
+    var x = G.cx + G.rx * ux, y = G.cy + G.ry * uy;
+    var d = G.gap + Math.abs(ux) * G.lw + Math.abs(uy) * G.lh;
+    var r = function (v) { return Math.round(v * 10) / 10; };
+    out.push({ x: r(x), y: r(y), rot: r(deg - 90), lx: r(x + ux * d), ly: r(y + uy * d) });
+  }
+  return out;
+}
+    function pile(src, count, o) {
+  var discs = [];
+  for (var k = 0; k < count; k++) {
+    var dx = k === 0 ? 0 : (k % 2 ? 2.5 : -2);
+    discs.push({ src: src, x: dx, y: -k * o.step, style: 'left: ' + dx + 'px; top: ' + (-k * o.step) + 'px', imgStyle: 'transform: rotate(' + ((k * 37 + 11) % 360) + 'deg)' });
+  }
+  var top = count ? discs[count - 1] : { x: 0, y: 0 };
+  var bx = o.side < 0 ? -(o.ds / 2 + 5 + o.bs) : o.ds / 2 + 5;
+  return {
+    has: count > 0, discs: discs, topX: top.x, topY: top.y,
+    style: 'transform: rotate(' + (-o.rot) + 'deg)',
+    hiStyle: 'left: ' + top.x + 'px; top: ' + top.y + 'px',
+    badgeStyle: 'left: ' + bx + 'px; top: ' + (2 - o.bs / 2) + 'px',
+    label: '×' + count
+  };
+}
+
+    var n = st.n, phase = st.phase;
+    var open = phase === 'play';
+    var passed = phase === 'played' || phase === 'bidDone';   // 내 차례가 끝남
+    var turnIdx = passed ? 1 : 0;
+    var pos = calc(n, G);
+    var total = 0;
+    var seats = [];
+    var myTop = { x: 0, y: 0 };
+    for (var i = 0; i < n; i++) {
+      var p = P[i], q = pos[i];
+      var count = p.stack + (i === 0 ? st.played : 0);
+      total += count;
+      var pl = pile(BACK[p.color], count, { step: STEP, rot: q.rot, ds: DS, bs: BS, side: q.x > G.cx + 1 ? -1 : 1 });
+      var landed = i === 0 && st.played > 0;
+      var stack = pl.discs.map(function (d, k) {
+        var fresh = landed && k === count - 1;
+        return { src: d.src, imgStyle: d.imgStyle, style: d.style + (fresh ? '; animation: plLand .38s cubic-bezier(.3,.7,.3,1) both' : '') };
+      });
+      if (i === 0) { var kk = count; myTop = { x: kk === 0 ? 0 : (kk % 2 ? 2.5 : -2), y: -kk * STEP }; }   // 다음 원판이 놓일 자리
+      var isTurn = i === turnIdx;
+      seats.push({
+        style: 'left: ' + q.x + 'px; top: ' + q.y + 'px; transform: rotate(' + q.rot + 'deg); transition: left .5s, top .5s, transform .5s',
+        turn: isTurn,
+        board: p.points >= 1 ? BOARDB[p.color] : BOARD[p.color],
+        hasPile: pl.has, pileStyle: pl.style, stack: stack, hiStyle: pl.hiStyle, badgeStyle: pl.badgeStyle, pileLabel: pl.label, landed: landed,
+        tagStyle: 'left: ' + q.lx + 'px; top: ' + q.ly + 'px;' + (isTurn ? ' border-color: rgba(236,210,150,.9);' : ''),
+        avatar: p.photo || SKULL[p.color],
+        avStyle: 'box-shadow: 0 0 0 1.5px ' + TINT[p.color],
+        dotStyle: 'background: ' + TINT[p.color],
+        label: i === 0 ? p.name + ' (나)' : p.name,
+        pip1: p.points >= 1 ? 'background: #c9a45c' : '',
+        pip2: p.points >= 2 ? 'background: #c9a45c' : '',
+        discs: p.discs
+      });
+    }
+
+    var reset = function () { self.resetAll(); };
+    var openHand = function () { self.ac(); self.setState({ phase: 'play' }); };
+
+    // 내 손패: 평소 왼쪽 아래에 작게, "원판 내기"를 누르면 가운데 아래로 커지며 펼쳐진다
+    var me = P[0], list = st.hand, m = list.length;
+    var W = 112, GAP = 22, x0 = 640 - (m * W + (m - 1) * GAP) / 2;
+    var hand = list.map(function (t, j) {
+      var tx = open ? x0 + j * (W + GAP) : 36 + j * 34;
+      var ty = open ? 546 : 632;
+      return {
+        style: 'transform: translate(' + tx + 'px,' + ty + 'px) scale(' + (open ? 1 : 0.5) + ')',
+        capStyle: 'opacity: ' + (open ? 1 : 0),
+        src: t === 'S' ? SKULL[me.color] : FLOWER[me.color],
+        hasPhoto: t === 'S' && !!me.photo,
+        photo: me.photo,
+        label: t === 'S' ? '해골' : '꽃',
+        aria: (t === 'S' ? '해골' : '꽃') + ' 원판',
+        pick: function () {
+          if (phase === 'play') { self.playDisc(j); }
+          else if (phase === 'choose') { openHand(); }
+        }
+      };
+    });
+
+    // 날아가는 원판: 손패 자리(112px) → 내 더미 맨 위(80px). 바깥은 자리 이동, 안쪽은 호·뒤집힘(키프레임)
+    var fly = st.fly, flyStyle = '', flySrc = '', flyHasPhoto = false;
+    if (fly) {
+      var q0 = pos[0], sc = DS / 112;
+      var tx1 = q0.x + myTop.x - DS / 2, ty1 = q0.y + myTop.y - DS / 2;
+      flyStyle = fly.go
+        ? 'transform: translate(' + tx1 + 'px,' + ty1 + 'px) scale(' + sc + '); transition: transform .5s cubic-bezier(.45,0,.3,1)'
+        : 'transform: translate(' + fly.x + 'px,' + fly.y + 'px) scale(1)';
+      flySrc = fly.t === 'S' ? SKULL[me.color] : FLOWER[me.color];
+      flyHasPhoto = fly.t === 'S' && !!me.photo;
+    }
+
+    var nums = [];
+    for (var b = 1; b <= total; b++) {
+      (function (v) { nums.push({ n: v, aria: v + '개 도전', pick: function () { self.setState({ phase: 'bidDone', bid: v }); } }); })(b);
+    }
+    var counts = [2, 3, 4, 5, 6].map(function (v) {
+      return {
+        n: v, aria: v + '명',
+        style: v === n ? 'border-color: #c9a45c; color: #f3ead7; background: rgba(201,164,92,.18)' : '',
+        set: function () { self.resetAll(v); }
+      };
+    });
+
+    var next = P[1].name;
+    var cap = '판 위 원판', num = total, say = me.name + ' 님 차례', sub = '원판을 내거나 도전하세요';
+    if (phase === 'play') { sub = '낼 원판을 고르세요'; }
+    if (phase === 'fly') { sub = '원판을 엎어 놓는 중'; }
+    if (phase === 'bid') { sub = '1부터 ' + total + '까지 부를 수 있습니다'; }
+    if (phase === 'played') { say = next + ' 님 차례'; sub = '원판을 엎어 놓았습니다'; }
+    if (phase === 'bidDone') { cap = '도전'; num = st.bid; say = me.name + ' 님이 ' + st.bid + '개에 도전했습니다'; sub = next + ' 님이 올리거나 패스합니다'; }
+
+    var sndOn = st.snd !== false;
+    return {
+      seats: seats, hand: hand, nums: nums, counts: counts,
+      cap: cap, num: num, say: say, sub: sub,
+      isChoose: phase === 'choose', isPlay: open, isBid: phase === 'bid', isDone: passed,
+      isFly: !!fly, flyStyle: flyStyle, flySrc: flySrc, flyHasPhoto: flyHasPhoto, flyPhoto: me.photo,
+      openHand: openHand,
+      openBid: function () { self.ac(); self.setState({ phase: 'bid' }); },
+      cancel: reset,
+      sndOn: sndOn, sndOff: !sndOn, sndAria: sndOn ? '소리 끄기' : '소리 켜기',
+      toggleSnd: function () { self.toggleSound(); },
+      scrimStyle: 'opacity: ' + (open ? 1 : 0),
+      hcap: '내 원판 ' + m,
+      hcapStyle: 'opacity: ' + (open || fly ? 0 : 1),
+      cancelStyle: 'position: absolute; left: ' + (x0 + m * W + (m - 1) * GAP + 34) + 'px; top: 579px'
+    };
+  }
+}
+</script>
+</body>
+</html>

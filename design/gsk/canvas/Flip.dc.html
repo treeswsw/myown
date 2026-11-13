@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>뒤집기 · 눌러 보기</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&amp;family=Gowun+Batang:wght@400;700&amp;family=IBM+Plex+Sans+KR:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+.gk{--bw:128px;--bh:117px;--ds:80px;--th:5px;--bs:28px;width:1280px;height:720px;position:relative;overflow:hidden;background:#2a1c14 url(/_blob/334cf2e0c7edf16b229c755f2bc9b04f) center / cover no-repeat;font-family:'IBM Plex Sans KR',sans-serif;color:#efe6d2;-webkit-font-smoothing:antialiased}
+.gk *{box-sizing:border-box}
+.gk-vig{position:absolute;left:0;top:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 42%,rgba(0,0,0,0) 28%,rgba(8,5,3,.66) 100%);pointer-events:none}
+.gk-top{position:absolute;left:28px;top:20px;display:flex;align-items:center;gap:12px;font:400 15px/20px 'Gowun Batang',serif;color:#d9ccb0;letter-spacing:.06em}
+.gk-top b{font-weight:700;color:#efe6d2;font-size:17px;letter-spacing:.1em}
+.gk-top i{display:block;width:26px;height:1px;background:#c9a45c;opacity:.7}
+.gk-seat{position:absolute;width:var(--bw);height:var(--bh);margin:calc(var(--bh) / -2) 0 0 calc(var(--bw) / -2)}
+.gk-board{position:absolute;left:0;top:0;width:100%;height:100%;display:block;filter:drop-shadow(0 6px 8px rgba(0,0,0,.55))}
+.gk-pile{position:absolute;left:50%;top:50%;width:0;height:0}
+.gk-dk{position:absolute;width:var(--ds);height:var(--ds);margin:calc(var(--ds) / -2) 0 0 calc(var(--ds) / -2)}
+.gk-dk::before{content:"";position:absolute;left:0;top:var(--th);width:100%;height:100%;border-radius:50%;background:linear-gradient(#523a27 50%,#2a1c12);box-shadow:inset 0 -1.5px 0 rgba(236,210,150,.85),0 2px 3px rgba(0,0,0,.7)}
+.gk-dk img{position:relative;display:block;width:100%;height:100%}
+.gk-hi{position:absolute;width:var(--ds);height:var(--ds);margin:calc(var(--ds) / -2) 0 0 calc(var(--ds) / -2);border-radius:50%;background:radial-gradient(circle at 34% 24%,rgba(255,250,235,.3),rgba(255,250,235,0) 56%);box-shadow:inset 0 0 0 1.5px rgba(243,234,215,.55),0 0 10px rgba(236,210,150,.3);pointer-events:none}
+.gk-n{position:absolute;width:var(--bs);height:var(--bs);display:flex;align-items:center;justify-content:center;font:600 15px/1 'Cormorant Garamond',serif;font-variant-numeric:lining-nums;color:#f3ead7;pointer-events:none}
+.gk-n::before{content:"";position:absolute;left:0;top:0;width:100%;height:100%;transform:rotate(45deg) scale(.86);background:#1c1410;border:1px solid #c9a45c;box-shadow:0 2px 5px rgba(0,0,0,.6)}
+.gk-n span{position:relative}
+.gk-snd{width:44px;height:44px;padding:0;border-radius:50%;border:1px solid rgba(201,164,92,.5);background:rgba(18,12,8,.66);color:#efe6d2;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.gk-snd:hover{background:rgba(40,28,20,.85)}
+.gk-snd svg{display:block}
+.gk-turn{position:absolute;left:-7px;top:-7px;right:-7px;bottom:-7px;border:1.5px solid rgba(236,210,150,.95);border-radius:20px;box-shadow:0 0 18px rgba(236,210,150,.42),inset 0 0 10px rgba(236,210,150,.2)}
+.gk-turn.red{border-color:rgba(214,84,70,.95);box-shadow:0 0 26px rgba(200,50,40,.7),inset 0 0 12px rgba(200,50,40,.35)}
+.gk-tag{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:9px;padding:5px 15px 5px 5px;border-radius:999px;background:rgba(18,12,8,.66);border:1px solid rgba(201,164,92,.3);white-space:nowrap}
+.gk-tag.on{border-color:rgba(236,210,150,.9)}
+.gk-av{width:36px;height:36px;border-radius:50%;object-fit:cover;display:block;background:#1c1410}
+.gk-nm{font-size:14px;font-weight:500;line-height:18px;color:#efe6d2;display:flex;align-items:center;gap:6px}
+.gk-dot{width:6px;height:6px;border-radius:50%;display:block}
+.gk-meta{display:flex;align-items:center;gap:5px;font-size:11px;line-height:14px;color:#c8bca4;margin-top:2px}
+.gk-pip{width:7px;height:7px;transform:rotate(45deg);border:1px solid #c9a45c;display:block}
+.gk-pip.on{background:#c9a45c}
+.gk-meta svg{display:block;margin-left:5px}
+.gk-chip{font-size:11px;line-height:16px;padding:0 7px;border-radius:999px;border:1px solid #c9a45c;color:#ecd296;margin-left:4px}
+.gk-chip.mute{border-color:rgba(200,188,164,.5);color:#c8bca4}
+.gk-mid{position:absolute;left:640px;top:300px;width:270px;transform:translate(-50%,-50%);text-align:center}
+.gk-cap{font-size:11px;line-height:14px;font-weight:500;letter-spacing:.34em;text-indent:.34em;color:#d2b06a}
+.gk-numrow{display:flex;align-items:center;justify-content:center;gap:14px}
+.gk-numrow i{display:block;width:44px;height:1px;background:linear-gradient(90deg,rgba(201,164,92,0),#c9a45c)}
+.gk-numrow i.r{background:linear-gradient(270deg,rgba(201,164,92,0),#c9a45c)}
+.gk-num{font:600 54px/50px 'Cormorant Garamond',serif;font-variant-numeric:lining-nums;color:#f3ead7;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+.gk-host{width:96px;height:96px;object-fit:contain;display:block;margin:2px auto 0;filter:drop-shadow(0 6px 10px rgba(0,0,0,.65))}
+.gk-say{font:700 17px/22px 'Gowun Batang',serif;color:#f3ead7;text-shadow:0 1px 4px rgba(0,0,0,.9);margin-top:4px}
+.gk-sub{font-size:13px;line-height:18px;color:#d9ccb0;text-shadow:0 1px 4px rgba(0,0,0,.9)}
+.gk-acts{position:absolute;left:0;right:0;top:608px;display:flex;align-items:center;justify-content:center;gap:18px}
+.gk-btn{position:relative;height:54px;min-width:188px;padding:0 26px;display:inline-flex;align-items:center;justify-content:center;gap:12px;border:1px solid #c9a45c;border-radius:4px;background:linear-gradient(#f4ecda,#e4d8bd);color:#2a1f17;font:700 18px/1 'Gowun Batang',serif;letter-spacing:.1em;cursor:pointer;box-shadow:0 0 0 3px #1c1410,0 0 0 4px rgba(201,164,92,.6),0 10px 20px rgba(0,0,0,.45);transition:transform .15s,filter .15s}
+.gk-btn::before{content:"";position:absolute;left:4px;top:4px;right:4px;bottom:4px;border:1px solid rgba(150,112,48,.55);border-radius:2px;pointer-events:none}
+.gk-btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.gk-btn:active{transform:translateY(1px)}
+.gk-btn.ink{background:linear-gradient(#30241c,#1c1410);color:#efe6d2}
+.gk-btn.ink::before{border-color:rgba(201,164,92,.5)}
+.gk-btn svg{display:block;flex:none}
+.gk-ghost{height:46px;min-width:92px;padding:0 20px;border:1px solid rgba(201,164,92,.65);border-radius:4px;background:rgba(18,12,8,.6);color:#efe6d2;font:500 14px/1 'IBM Plex Sans KR',sans-serif;letter-spacing:.06em;cursor:pointer}
+.gk-ghost:hover{background:rgba(40,28,20,.8)}
+.gk-coin{width:50px;height:50px;border-radius:50%;padding:0;border:1px solid #c9a45c;background:radial-gradient(circle at 50% 35%,#f6efdf,#e2d5b8);color:#2a1f17;font:600 27px/1 'Cormorant Garamond',serif;font-variant-numeric:lining-nums;cursor:pointer;box-shadow:0 0 0 3px #1c1410,0 0 0 4px rgba(201,164,92,.55),0 6px 12px rgba(0,0,0,.45);transition:transform .15s}
+.gk-coin:hover{transform:translateY(-2px)}
+.gk-coin.sel{background:radial-gradient(circle at 50% 35%,#e6c987,#c9a45c);box-shadow:0 0 0 3px #1c1410,0 0 0 4px #ecd296,0 6px 12px rgba(0,0,0,.45)}
+.gk-ask{position:absolute;left:0;right:0;top:588px;text-align:center;font:400 14px/18px 'Gowun Batang',serif;color:#d9ccb0;letter-spacing:.08em}
+.gk-sep{display:block;width:1px;height:34px;background:rgba(201,164,92,.5);margin:0 6px}
+.gk-scrim{position:absolute;left:0;right:0;bottom:0;height:270px;background:linear-gradient(rgba(10,6,4,0),rgba(10,6,4,.9) 58%);pointer-events:none;transition:opacity .4s}
+.gk-hcap{position:absolute;left:36px;top:610px;font-size:11px;line-height:14px;letter-spacing:.24em;color:#d2b06a;transition:opacity .3s}
+.gk-hd{position:absolute;left:0;top:0;width:112px;padding:0;border:0;background:none;color:#efe6d2;cursor:pointer;transform-origin:0 0;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.gk-hd-face{position:relative;display:block;width:112px;height:112px;border-radius:50%;filter:drop-shadow(0 6px 8px rgba(0,0,0,.6));transition:transform .18s}
+.gk-hd:hover .gk-hd-face{transform:translateY(-6px)}
+.gk-hd-face img{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.gk-hd-face img.gk-ph,.gk-ph{position:absolute;left:10%;top:10%;width:80%;height:80%;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px #17100c}
+.gk-hd-cap{display:block;margin-top:8px;font:400 14px/18px 'Gowun Batang',serif;letter-spacing:.12em;text-align:center;transition:opacity .3s}
+.gk-cnt{position:absolute;right:20px;top:14px;display:flex;align-items:center;gap:2px;padding:2px 2px 2px 12px;border-radius:999px;background:rgba(18,12,8,.66);border:1px solid rgba(201,164,92,.3)}
+.gk-cnt span{font-size:11px;letter-spacing:.2em;color:#d2b06a;margin-right:6px}
+.gk-cnt button{width:44px;height:44px;border-radius:50%;border:1px solid rgba(201,164,92,0);background:none;color:#d9ccb0;font:600 20px/1 'Cormorant Garamond',serif;font-variant-numeric:lining-nums;cursor:pointer}
+.gk-dark{position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(9,3,3,.62);pointer-events:none}
+.gk-red{position:absolute;left:0;top:0;right:0;bottom:0;background:radial-gradient(circle at 50% 41%,rgba(165,32,26,.46),rgba(165,32,26,0) 46%);pointer-events:none}
+
+.fx-ctl{position:absolute;right:20px;top:14px;z-index:40;display:flex;align-items:center;gap:6px;padding:4px 4px 4px 14px;border-radius:999px;background:rgba(18,12,8,.74);border:1px solid rgba(201,164,92,.35)}
+.fx-ctl > span{font-size:11px;letter-spacing:.2em;color:#d2b06a;margin-right:4px}
+.fx-seg{height:44px;min-width:58px;padding:0 14px;border-radius:999px;border:1px solid rgba(201,164,92,0);background:none;color:#d9ccb0;font:700 15px/1 'Gowun Batang',serif;letter-spacing:.08em;cursor:pointer}
+.fx-ctl .gk-ghost{height:44px;min-width:0;padding:0 16px;border-radius:999px}
+.fx-ctl .gk-sep{height:24px}
+.fx-ctl.two{top:76px}
+.fx-seg.n{min-width:44px;padding:0 10px;font:600 20px/1 'Cormorant Garamond',serif;letter-spacing:0}
+.fx-edge{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;box-shadow:inset 0 0 130px 12px rgba(236,196,110,.36);animation:fxEdge 2.2s ease-in-out infinite}
+.fx-warm{position:absolute;width:1000px;height:1000px;margin:-500px 0 0 -500px;z-index:19;border-radius:50%;background:radial-gradient(circle,rgba(255,232,176,.62),rgba(250,200,112,.2) 34%,rgba(250,200,112,0) 62%);pointer-events:none}
+.fx-mid{position:absolute;left:640px;top:196px;width:300px;margin-left:-150px;text-align:center}
+.fx-mid .gk-num small{font:500 26px/1 'Cormorant Garamond',serif;color:#c8bca4;letter-spacing:.04em}
+.fx-slot{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;border:1px dashed rgba(201,164,92,.5);background:rgba(18,12,8,.3)}
+.fx-slot img{position:absolute;left:0;top:0;width:100%;height:100%;display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,.65))}
+.fx-say{position:absolute;left:0;right:0;top:350px;text-align:center;transition:opacity .25s}
+.fx-bd{position:absolute;left:0;top:0;width:100%;height:100%;perspective:700px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.55))}
+.fx-bd-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;-webkit-transform-style:preserve-3d;transition:transform .9s cubic-bezier(.35,.1,.2,1) .45s}
+.fx-bf{position:absolute;left:0;top:0;width:100%;height:100%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.fx-bf.back{transform:rotateY(180deg)}
+.fx-pick{position:absolute;width:108px;height:108px;margin:-54px 0 0 -54px;padding:0;border:0;border-radius:50%;background:none;cursor:pointer;z-index:12}
+.fx-pick::after{content:"";position:absolute;left:4px;top:4px;right:4px;bottom:4px;border-radius:50%;border:1.5px solid rgba(236,210,150,.9);box-shadow:0 0 16px rgba(236,210,150,.45);animation:fxPulse 1.6s ease-in-out infinite}
+.fx-pick:hover::after{border-color:#fff3d2;box-shadow:0 0 22px rgba(236,210,150,.8)}
+.fx-vig2{position:absolute;left:0;top:0;right:0;bottom:0;z-index:18;background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 22%,rgba(4,1,1,.94) 100%);pointer-events:none;transition:opacity .45s ease-out}
+.fx-dark{position:absolute;left:0;top:0;right:0;bottom:0;z-index:20;background:rgba(7,2,2,.8);pointer-events:none}
+.fx-red{position:absolute;width:900px;height:900px;margin:-450px 0 0 -450px;z-index:20;background:radial-gradient(circle,rgba(176,30,22,.62),rgba(150,24,18,.22) 34%,rgba(150,24,18,0) 62%);pointer-events:none}
+.fx-aura{position:absolute;width:320px;height:320px;margin:-160px 0 0 -160px;z-index:22;pointer-events:none}
+.fx-aura svg{position:absolute;left:0;top:0;width:100%;height:100%;display:block;filter:blur(2.5px);animation:fxFlick .9s ease-in-out infinite alternate}
+.fx-aura svg.b{filter:blur(1px);animation:fxFlick2 .7s ease-in-out infinite alternate}
+.fx-demon{position:absolute;width:290px;height:290px;margin:-145px 0 0 -145px;z-index:21;pointer-events:none}
+.fx-demon i{position:absolute;left:19%;top:15%;width:62%;height:62%;border-radius:50%;background:radial-gradient(circle,#ffb070 0%,#ff4a22 26%,#b0160e 58%,rgba(120,10,6,0) 76%);animation:fxEye 1.1s ease-in-out infinite alternate}
+.fx-demon img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;display:block;filter:grayscale(1) brightness(.42) contrast(1.35) drop-shadow(0 0 16px rgba(190,30,20,.9))}
+.fx-demon svg{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.fx-card{position:absolute;left:0;top:0;width:80px;height:80px;z-index:23;pointer-events:none;filter:drop-shadow(0 9px 9px rgba(0,0,0,.65))}
+.fx-trem{width:100%;height:100%}
+.fx-per{width:100%;height:100%;perspective:520px}
+.fx-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;-webkit-transform-style:preserve-3d}
+.fx-b,.fx-f{position:absolute;left:0;top:0;width:100%;height:100%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.fx-f{transform:rotateY(180deg)}
+.fx-f img{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.fx-f img.gk-ph{left:10%;top:10%;width:80%;height:80%}
+.fx-rim{position:absolute;left:-3px;top:-3px;right:-3px;bottom:-3px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(226,84,62,.95),0 0 22px 6px rgba(196,36,26,.85),0 0 60px 14px rgba(150,16,10,.6)}
+.fx-burst{position:absolute;width:0;height:0;z-index:24;pointer-events:none}
+.fx-p{position:absolute;left:0;top:0;width:0;height:0}
+.fx-pet{position:absolute;left:-5px;top:-8px;width:10px;height:16px;border-radius:50% 50% 50% 50% / 62% 62% 38% 38%;background:linear-gradient(#f6c453,#e8872a 62%,#c9621c);box-shadow:0 0 6px rgba(240,160,60,.5)}
+.fx-spk{position:absolute;left:-3px;top:-3px;width:6px;height:6px;transform:rotate(45deg);background:#fff1c9;box-shadow:0 0 8px 2px rgba(240,206,130,.9)}
+.fx-spk-w{position:absolute;left:0;top:0;width:0;height:0}
+.fx-glow{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(255,236,186,.9),rgba(240,190,96,.4) 38%,rgba(240,190,96,0) 68%)}
+.fx-ring{position:absolute;border-radius:50%;border:1.5px solid rgba(240,214,150,.95);box-shadow:0 0 12px rgba(240,206,130,.6)}
+.fx-doomtxt{position:absolute;left:0;right:0;top:268px;z-index:25;text-align:center;pointer-events:none}
+.fx-doomtxt b{display:block;font:700 76px/88px 'Gowun Batang',serif;letter-spacing:.34em;text-indent:.34em;color:#f3c4b8;text-shadow:0 0 26px rgba(206,40,28,.95),0 0 70px rgba(170,20,12,.8),0 4px 10px rgba(0,0,0,.9)}
+.fx-doomtxt span{display:block;margin-top:2px;font:400 17px/24px 'Gowun Batang',serif;letter-spacing:.06em;color:#f0e2cf;text-shadow:0 1px 6px rgba(0,0,0,.95)}
+.fx-wtxt{position:absolute;left:0;right:0;top:344px;z-index:25;text-align:center;pointer-events:none}
+.fx-wtxt b{display:block;font:700 44px/52px 'Gowun Batang',serif;letter-spacing:.4em;text-indent:.4em;color:#f8e7b8;text-shadow:0 0 22px rgba(240,200,110,.85),0 3px 8px rgba(0,0,0,.8)}
+.fx-wtxt span{display:block;font-size:14px;line-height:20px;color:#efe6d2;text-shadow:0 1px 4px rgba(0,0,0,.9)}
+.fx-acts{z-index:40}
+@keyframes fxEdge{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
+@keyframes fxLast{0%{transform:scale(.94);box-shadow:0 0 8px rgba(240,200,110,.35)}50%{transform:scale(1.08);box-shadow:0 0 24px rgba(240,200,110,.9)}100%{transform:scale(.94);box-shadow:0 0 8px rgba(240,200,110,.35)}}
+@keyframes fxPulse{0%{opacity:.35;transform:scale(.94)}50%{opacity:1;transform:scale(1.03)}100%{opacity:.35;transform:scale(.94)}}
+@keyframes fxTrem{0%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(-1.6px,.6px) rotate(-1.4deg)}50%{transform:translate(1.2px,-.8px) rotate(.9deg)}75%{transform:translate(-.8px,-.5px) rotate(-.7deg)}100%{transform:translate(0,0) rotate(0deg)}}
+@keyframes fxFlick{0%{transform:scale(.94) rotate(-4deg);opacity:.75}100%{transform:scale(1.08) rotate(5deg);opacity:1}}
+@keyframes fxFlick2{0%{transform:scale(1.04) rotate(6deg);opacity:.9}100%{transform:scale(.92) rotate(-5deg);opacity:.6}}
+@keyframes fxEye{0%{opacity:.72}100%{opacity:1}}
+@keyframes fxPop{0%{transform:scale(1.3)}60%{transform:scale(.95)}100%{transform:scale(1)}}
+@keyframes fxHop{0%{transform:translateY(0)}40%{transform:translateY(-14px)}100%{transform:translateY(0)}}
+
+@keyframes fxPet0A{0%{opacity:0;transform:translateY(-16px) scale(.4) rotate(0deg)}18%{opacity:1}100%{opacity:0;transform:translateY(-58px) scale(1) rotate(50deg)}}
+@keyframes fxPet1A{0%{opacity:0;transform:translateY(-16px) scale(.4) rotate(0deg)}18%{opacity:1}100%{opacity:0;transform:translateY(-78px) scale(1.05) rotate(-60deg)}}
+@keyframes fxPet2A{0%{opacity:0;transform:translateY(-16px) scale(.4) rotate(0deg)}18%{opacity:1}100%{opacity:0;transform:translateY(-100px) scale(.9) rotate(80deg)}}
+@keyframes fxSpkA{0%{opacity:0;transform:translateY(-20px) scale(.2)}30%{opacity:1;transform:translateY(-52px) scale(1)}100%{opacity:0;transform:translateY(-88px) scale(.3)}}
+@keyframes fxGlowA{0%{opacity:0;transform:scale(.35)}25%{opacity:.95}100%{opacity:0;transform:scale(1.15)}}
+@keyframes fxRingA{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(1.2)}}
+@keyframes fxBumpA{0%{transform:scale(1)}35%{transform:scale(1.28)}100%{transform:scale(1)}}
+@keyframes fxShakeA{0%{transform:translate(0,0)}10%{transform:translate(-9px,5px)}22%{transform:translate(8px,-6px)}36%{transform:translate(-6px,-3px)}52%{transform:translate(5px,4px)}70%{transform:translate(-3px,1px)}100%{transform:translate(0,0)}}
+@keyframes fxInA{0%{opacity:0}100%{opacity:1}}
+@keyframes fxSlamA{0%{opacity:0;transform:scale(1.5)}60%{opacity:1;transform:scale(.97)}100%{opacity:1;transform:scale(1)}}
+@keyframes fxWarmA{0%{opacity:0;transform:scale(.5)}22%{opacity:1}100%{opacity:0;transform:scale(1.15)}}
+@keyframes fxRiseA{0%{opacity:0;transform:translateY(34px) scale(.82)}100%{opacity:.62;transform:translateY(0) scale(1)}}
+@keyframes fxPet0B{0%{opacity:0;transform:translateY(-16px) scale(.4) rotate(0deg)}18%{opacity:1}100%{opacity:0;transform:translateY(-58px) scale(1) rotate(50deg)}}
+@keyframes fxPet1B{0%{opacity:0;transform:translateY(-16px) scale(.4) rotate(0deg)}18%{opacity:1}100%{opacity:0;transform:translateY(-78px) scale(1.05) rotate(-60deg)}}
+@keyframes fxPet2B{0%{opacity:0;transform:translateY(-16px) scale(.4) rotate(0deg)}18%{opacity:1}100%{opacity:0;transform:translateY(-100px) scale(.9) rotate(80deg)}}
+@keyframes fxSpkB{0%{opacity:0;transform:translateY(-20px) scale(.2)}30%{opacity:1;transform:translateY(-52px) scale(1)}100%{opacity:0;transform:translateY(-88px) scale(.3)}}
+@keyframes fxGlowB{0%{opacity:0;transform:scale(.35)}25%{opacity:.95}100%{opacity:0;transform:scale(1.15)}}
+@keyframes fxRingB{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(1.2)}}
+@keyframes fxBumpB{0%{transform:scale(1)}35%{transform:scale(1.28)}100%{transform:scale(1)}}
+@keyframes fxShakeB{0%{transform:translate(0,0)}10%{transform:translate(-9px,5px)}22%{transform:translate(8px,-6px)}36%{transform:translate(-6px,-3px)}52%{transform:translate(5px,4px)}70%{transform:translate(-3px,1px)}100%{transform:translate(0,0)}}
+@keyframes fxInB{0%{opacity:0}100%{opacity:1}}
+@keyframes fxSlamB{0%{opacity:0;transform:scale(1.5)}60%{opacity:1;transform:scale(.97)}100%{opacity:1;transform:scale(1)}}
+@keyframes fxWarmB{0%{opacity:0;transform:scale(.5)}22%{opacity:1}100%{opacity:0;transform:scale(1.15)}}
+@keyframes fxRiseB{0%{opacity:0;transform:translateY(34px) scale(.82)}100%{opacity:.62;transform:translateY(0) scale(1)}}</style>
+</helmet>
+<div class="gk" style="{{rootStyle}}">
+  <div class="gk-vig"></div>
+  <div class="gk-top"><b>갱스껄</b><i></i><span>3라운드 · 뒤집기</span></div>
+  <sc-if value="{{isEdge}}" hint-placeholder-val="{{ false }}"><div class="fx-edge"></div></sc-if>
+  <sc-for list="{{seats}}" as="s" hint-placeholder-count="4">
+    <div class="gk-seat" style="{{s.style}}">
+      <sc-if value="{{s.ring}}" hint-placeholder-val="{{ false }}"><div class="gk-turn" style="{{s.ringStyle}}"></div></sc-if>
+      <div class="fx-bd"><div class="fx-bd-in" style="{{s.bdStyle}}">
+        <img class="fx-bf" src="{{s.board}}" alt="" />
+        <sc-if value="{{s.me}}" hint-placeholder-val="{{ false }}"><img class="fx-bf back" src="/_blob/93fb461e3d123382d0967449072e63ee" alt="" /></sc-if>
+      </div></div>
+      <sc-if value="{{s.hasPile}}" hint-placeholder-val="{{ true }}">
+        <div class="gk-pile" style="{{s.pileStyle}}">
+          <sc-for list="{{s.stack}}" as="d" hint-placeholder-count="2"><div class="gk-dk" style="{{d.style}}"><img src="{{d.src}}" style="{{d.imgStyle}}" alt="" /></div></sc-for>
+          <i class="gk-hi" style="{{s.hiStyle}}"></i>
+          <div class="gk-n" style="{{s.badgeStyle}}"><span>{{s.pileLabel}}</span></div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-for>
+  <sc-for list="{{seats}}" as="s" hint-placeholder-count="4">
+    <div class="gk-tag" style="{{s.tagStyle}}">
+      <img class="gk-av" src="{{s.avatar}}" style="{{s.avStyle}}" alt="" />
+      <div>
+        <div class="gk-nm"><span>{{s.label}}</span><i class="gk-dot" style="{{s.dotStyle}}"></i><sc-if value="{{s.hasChip}}" hint-placeholder-val="{{ false }}"><span class="gk-chip" style="{{s.chipStyle}}">{{s.chip}}</span></sc-if></div>
+        <div class="gk-meta"><i class="gk-pip" style="{{s.pip1}}"></i><i class="gk-pip" style="{{s.pip2}}"></i><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#c8bca4" stroke-width="1.3" aria-hidden="true"><circle cx="6" cy="6" r="4.6"></circle><circle cx="6" cy="6" r="1.5"></circle></svg><span>{{s.discs}}</span></div>
+      </div>
+    </div>
+  </sc-for>
+  <div class="fx-mid">
+    <div class="gk-cap">뒤집은 꽃</div>
+    <div class="gk-numrow"><i></i><span class="gk-num" style="{{numStyle}}">{{count}}<small> / {{need}}</small></span><i class="r"></i></div>
+  </div>
+  <sc-for list="{{slots}}" as="t" hint-placeholder-count="5">
+    <div class="fx-slot" style="{{t.style}}"><sc-if value="{{t.on}}" hint-placeholder-val="{{ false }}"><img src="{{t.src}}" style="{{t.imgStyle}}" alt="" /></sc-if></div>
+  </sc-for>
+  <div class="fx-say" style="{{sayStyle}}"><div class="gk-say">{{say}}</div><div class="gk-sub">{{sub}}</div></div>
+  <sc-for list="{{picks}}" as="b" hint-placeholder-count="3">
+    <button type="button" class="fx-pick" style="{{b.style}}" onClick="{{ b.flip }}" aria-label="{{b.aria}}"></button>
+  </sc-for>
+  <div class="fx-vig2" style="{{vigStyle}}"></div>
+  <sc-if value="{{hasWarm}}" hint-placeholder-val="{{ false }}"><div class="fx-warm" style="{{warmStyle}}"></div></sc-if>
+  <sc-if value="{{isLost}}" hint-placeholder-val="{{ false }}">
+    <div class="fx-dark" style="{{darkStyle}}"></div>
+    <div class="fx-red" style="{{redStyle}}"></div>
+    <div class="fx-demon" style="{{demonStyle}}"><svg viewBox="0 0 290 290" aria-hidden="true" fill="#160505" stroke="#b02a1c" stroke-width="1.6" stroke-linejoin="round"><path d="M84 96 C58 92 34 70 30 22 C52 50 78 60 104 66 Z"></path><path d="M206 96 C232 92 256 70 260 22 C238 50 212 60 186 66 Z"></path></svg><i></i><img src="/_blob/a2c0e1d07fb93fdf99e90cd6a0a2d3be" alt="" /></div>
+    <div class="fx-aura" style="{{auraStyle}}"><svg class="a" viewBox="0 0 320 320" fill="#5a0d09" aria-hidden="true"><path transform="rotate(-3 160 160)" d="M145 90 C141 64.96512 155 51.195935999999996 160 27.412799999999997 C167 53.699424 180 67.468608 175 90 Z"></path><path transform="rotate(26.5 160 160)" d="M145 90 C141 58.8 155 41.64 160 12 C167 44.760000000000005 180 61.92 175 90 Z"></path><path transform="rotate(42 160 160)" d="M145 90 C141 68.78399999999999 155 57.115199999999994 160 36.959999999999994 C167 59.2368 180 70.90559999999999 175 90 Z"></path><path transform="rotate(71.5 160 160)" d="M145 90 C141 53.184000000000005 155 32.9352 160 -2.039999999999992 C167 36.616800000000005 180 56.8656 175 90 Z"></path><path transform="rotate(87 160 160)" d="M145 90 C141 68.78399999999999 155 57.115199999999994 160 36.959999999999994 C167 59.2368 180 70.90559999999999 175 90 Z"></path><path transform="rotate(116.5 160 160)" d="M145 90 C141 58.8 155 41.64 160 12 C167 44.760000000000005 180 61.92 175 90 Z"></path><path transform="rotate(132 160 160)" d="M145 90 C141 64.96512 155 51.195935999999996 160 27.412799999999997 C167 53.699424 180 67.468608 175 90 Z"></path><path transform="rotate(161.5 160 160)" d="M145 90 C141 58.8 155 41.64 160 12 C167 44.760000000000005 180 61.92 175 90 Z"></path><path transform="rotate(177 160 160)" d="M145 90 C141 68.78399999999999 155 57.115199999999994 160 36.959999999999994 C167 59.2368 180 70.90559999999999 175 90 Z"></path><path transform="rotate(206.5 160 160)" d="M145 90 C141 53.184000000000005 155 32.9352 160 -2.039999999999992 C167 36.616800000000005 180 56.8656 175 90 Z"></path><path transform="rotate(222 160 160)" d="M145 90 C141 68.78399999999999 155 57.115199999999994 160 36.959999999999994 C167 59.2368 180 70.90559999999999 175 90 Z"></path><path transform="rotate(251.5 160 160)" d="M145 90 C141 58.8 155 41.64 160 12 C167 44.760000000000005 180 61.92 175 90 Z"></path><path transform="rotate(267 160 160)" d="M145 90 C141 64.96512 155 51.195935999999996 160 27.412799999999997 C167 53.699424 180 67.468608 175 90 Z"></path><path transform="rotate(296.5 160 160)" d="M145 90 C141 58.8 155 41.64 160 12 C167 44.760000000000005 180 61.92 175 90 Z"></path><path transform="rotate(312 160 160)" d="M145 90 C141 68.78399999999999 155 57.115199999999994 160 36.959999999999994 C167 59.2368 180 70.90559999999999 175 90 Z"></path><path transform="rotate(341.5 160 160)" d="M145 90 C141 53.184000000000005 155 32.9352 160 -2.039999999999992 C167 36.616800000000005 180 56.8656 175 90 Z"></path></svg><svg class="b" viewBox="0 0 320 320" fill="#c8381f" aria-hidden="true"><path transform="rotate(-3 160 160)" d="M151 90 C147 75.23584 155 67.115552 160 53.0896 C167 68.59196800000001 174 76.712256 169 90 Z"></path><path transform="rotate(26.5 160 160)" d="M151 90 C147 71.6 155 61.480000000000004 160 44 C167 63.32 174 73.44 169 90 Z"></path><path transform="rotate(42 160 160)" d="M151 90 C147 77.488 155 70.60640000000001 160 58.72 C167 71.8576 174 78.7392 169 90 Z"></path><path transform="rotate(71.5 160 160)" d="M151 90 C147 68.288 155 56.3464 160 35.720000000000006 C167 58.5176 174 70.45920000000001 169 90 Z"></path><path transform="rotate(87 160 160)" d="M151 90 C147 77.488 155 70.60640000000001 160 58.72 C167 71.8576 174 78.7392 169 90 Z"></path><path transform="rotate(116.5 160 160)" d="M151 90 C147 71.6 155 61.480000000000004 160 44 C167 63.32 174 73.44 169 90 Z"></path><path transform="rotate(132 160 160)" d="M151 90 C147 75.23584 155 67.115552 160 53.0896 C167 68.59196800000001 174 76.712256 169 90 Z"></path><path transform="rotate(161.5 160 160)" d="M151 90 C147 71.6 155 61.480000000000004 160 44 C167 63.32 174 73.44 169 90 Z"></path><path transform="rotate(177 160 160)" d="M151 90 C147 77.488 155 70.60640000000001 160 58.72 C167 71.8576 174 78.7392 169 90 Z"></path><path transform="rotate(206.5 160 160)" d="M151 90 C147 68.288 155 56.3464 160 35.720000000000006 C167 58.5176 174 70.45920000000001 169 90 Z"></path><path transform="rotate(222 160 160)" d="M151 90 C147 77.488 155 70.60640000000001 160 58.72 C167 71.8576 174 78.7392 169 90 Z"></path><path transform="rotate(251.5 160 160)" d="M151 90 C147 71.6 155 61.480000000000004 160 44 C167 63.32 174 73.44 169 90 Z"></path><path transform="rotate(267 160 160)" d="M151 90 C147 75.23584 155 67.115552 160 53.0896 C167 68.59196800000001 174 76.712256 169 90 Z"></path><path transform="rotate(296.5 160 160)" d="M151 90 C147 71.6 155 61.480000000000004 160 44 C167 63.32 174 73.44 169 90 Z"></path><path transform="rotate(312 160 160)" d="M151 90 C147 77.488 155 70.60640000000001 160 58.72 C167 71.8576 174 78.7392 169 90 Z"></path><path transform="rotate(341.5 160 160)" d="M151 90 C147 68.288 155 56.3464 160 35.720000000000006 C167 58.5176 174 70.45920000000001 169 90 Z"></path></svg></div>
+    <div class="fx-doomtxt" style="{{doomTxtStyle}}"><b>해골</b><span>{{doomLine}}</span></div>
+  </sc-if>
+  <sc-if value="{{hasAct}}" hint-placeholder-val="{{ false }}">
+    <div class="fx-card" style="{{cardStyle}}">
+      <div class="fx-trem" style="{{tremStyle}}">
+        <sc-if value="{{isLost}}" hint-placeholder-val="{{ false }}"><div class="fx-rim" style="{{rimStyle}}"></div></sc-if>
+        <div class="fx-per"><div class="fx-in" style="{{turnStyle}}">
+          <img class="fx-b" src="{{cardBack}}" alt="" />
+          <div class="fx-f"><img src="{{cardFace}}" alt="" /><sc-if value="{{cardHasPhoto}}" hint-placeholder-val="{{ false }}"><img class="gk-ph" src="{{cardPhoto}}" alt="" /></sc-if></div>
+        </div></div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{hasBurst}}" hint-placeholder-val="{{ false }}">
+    <div class="fx-burst" style="{{burstStyle}}">
+      <div class="fx-glow" style="{{glowStyle}}"></div>
+      <div class="fx-ring" style="{{ringStyle}}"></div>
+      <sc-for list="{{petals}}" as="p" hint-placeholder-count="8"><i class="fx-p" style="{{p.rot}}"><i class="fx-pet" style="{{p.anim}}"></i></i></sc-for>
+      <sc-for list="{{sparks}}" as="p" hint-placeholder-count="6"><i class="fx-p" style="{{p.rot}}"><i class="fx-spk-w" style="{{p.anim}}"><i class="fx-spk"></i></i></i></sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{isWin}}" hint-placeholder-val="{{ false }}">
+    <div class="fx-wtxt" style="{{winTxtStyle}}"><b>성공</b><span>{{winLine}}</span></div>
+  </sc-if>
+  <sc-if value="{{isIdle}}" hint-placeholder-val="{{ true }}">
+    <div class="gk-acts fx-acts"><button type="button" class="gk-btn" onClick="{{ start }}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M5 0.8 L9.2 5 L5 9.2 L0.8 5 Z"></path></svg><span>뒤집기 시작</span><svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M5 0.8 L9.2 5 L5 9.2 L0.8 5 Z"></path></svg></button></div>
+  </sc-if>
+  <sc-if value="{{isOver}}" hint-placeholder-val="{{ false }}">
+    <div class="gk-acts fx-acts" style="top: 614px;"><button type="button" class="gk-ghost" onClick="{{ restart }}">처음부터 다시 보기</button></div>
+  </sc-if>
+  <div class="fx-ctl">
+    <span>도전 숫자</span>
+    <sc-for list="{{needs}}" as="n" hint-placeholder-count="3"><button type="button" class="fx-seg n" style="{{n.style}}" onClick="{{ n.set }}" aria-label="{{n.aria}}">{{n.label}}</button></sc-for>
+    <i class="gk-sep"></i>
+    <button type="button" class="gk-ghost" onClick="{{ restart }}">처음부터</button>
+    <button type="button" class="gk-snd" onClick="{{ toggleSnd }}" aria-label="{{sndAria}}"><sc-if value="{{sndOn}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"></path><path d="M15.5 9a4.2 4.2 0 0 1 0 6"></path><path d="M18.2 6.5a7.8 7.8 0 0 1 0 11"></path></svg></sc-if><sc-if value="{{sndOff}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"></path><path d="M16 9.5l5 5"></path><path d="M21 9.5l-5 5"></path></svg></sc-if></button>
+  </div>
+  <div class="fx-ctl two">
+    <span>다음 장</span>
+    <button type="button" class="fx-seg" style="{{segF}}" onClick="{{ setF }}" aria-label="다음 장은 꽃">꽃</button>
+    <button type="button" class="fx-seg" style="{{segT}}" onClick="{{ setT }}" aria-label="다음 장은 멈칫한 뒤 꽃">꽃(멈칫)</button>
+    <button type="button" class="fx-seg" style="{{segS}}" onClick="{{ setS }}" aria-label="다음 장은 해골">해골</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  state = { phase: 'idle', need: 5, piles: [2, 2, 3, 1], row: [], act: null, next: 'F', fxk: 'A', snd: true };
+
+  // ── 타이머: 전부 모아 두었다가 치울 때 한 번에 지운다
+  later(fn, ms) {
+    var self = this;
+    if (!this._t) this._t = [];
+    var id = setTimeout(function () { fn.call(self); }, ms);
+    this._t.push(id);
+    return id;
+  }
+  clearTimers() {
+    var t = this._t || [];
+    for (var i = 0; i < t.length; i++) clearTimeout(t[i]);
+    this._t = [];
+  }
+  componentWillUnmount() {
+    this.clearTimers();
+    if (this._ac && this._ac.close) { try { this._ac.close(); } catch (e) {} }
+    this._ac = null;
+  }
+
+  // ── 소리(WebAudio 합성). 첫 누름 때 만든다.
+  ac(force) {
+    if (!force && this.state && this.state.snd === false) return null;
+    if (!this._ac) {
+      var A = null;
+      if (typeof AudioContext !== 'undefined') A = AudioContext;
+      else if (typeof webkitAudioContext !== 'undefined') A = webkitAudioContext;
+      if (!A) return null;
+      try {
+        this._ac = new A();
+        this._out = this._ac.createGain();
+        this._out.gain.value = 0.7;
+        this._out.connect(this._ac.destination);
+      } catch (e) { this._ac = null; return null; }
+    }
+    if (this._ac.state === 'suspended' && this._ac.resume) { try { this._ac.resume(); } catch (e) {} }
+    return this._ac;
+  }
+  // 여러 음을 한꺼번에. opt = { to: 끝 음높이 배수, lp: 저역 통과(Hz), att: 올라오는 시간 }
+  tone(freqs, dur, type, gain, delay, opt) {
+    var ac = this.ac(); if (!ac) return;
+    var o = opt || {}, t = ac.currentTime + (delay || 0) + 0.01, out = this._out;
+    if (o.lp) {
+      var lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.lp;
+      lp.connect(this._out); out = lp;
+    }
+    for (var i = 0; i < freqs.length; i++) {
+      var osc = ac.createOscillator(), g = ac.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freqs[i], t);
+      if (o.to) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freqs[i] * o.to), t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + (o.att || 0.008));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g); g.connect(out);
+      osc.start(t); osc.stop(t + dur + 0.05);
+    }
+  }
+  // 걸러 낸 잡음 한 번
+  noise(dur, gain, delay, freq, kind) {
+    var ac = this.ac(); if (!ac) return;
+    var t = ac.currentTime + (delay || 0) + 0.01;
+    var len = Math.max(1, Math.floor(ac.sampleRate * dur));
+    var buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    var src = ac.createBufferSource(); src.buffer = buf;
+    var f = ac.createBiquadFilter(); f.type = kind || 'bandpass'; f.frequency.value = freq || 1800;
+    var g = ac.createGain();
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(this._out);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+  // 놓기 "탁": 짧은 잡음 + 떨어지는 저음
+  sfxTak() {
+    this.noise(0.05, 0.3, 0, 1900, 'bandpass');
+    this.tone([150], 0.1, 'sine', 0.4, 0, { to: 0.45 });
+    this.tone([420], 0.04, 'triangle', 0.08, 0);
+  }
+  // 꽃 단계음 1~5: 한 장마다 음이 오르고(도 레 미 솔 라) 화음 겹이 하나씩 늘어난다
+  sfxFlower(n, d) {
+    var steps = [0, 2, 4, 7, 9, 12, 14, 16];
+    var f = 523.25 * Math.pow(2, steps[Math.max(1, Math.min(n, 8)) - 1] / 12);
+    this.tone([f], 0.55, 'sine', 0.2, d);                 // 마림바 몸통
+    this.tone([f * 4], 0.14, 'sine', 0.05, d);            // 두드리는 맑은 끝
+    this.tone([f * 2], 0.3, 'triangle', 0.04, d);
+    if (n >= 2) this.tone([f * 1.5], 0.5, 'sine', 0.1, d + 0.07);          // + 5도
+    if (n >= 3) this.tone([f * 2], 0.6, 'sine', 0.09, d + 0.14);           // + 옥타브
+    if (n >= 4) { this.tone([f * 2.5], 0.7, 'sine', 0.07, d + 0.21); this.noise(0.35, 0.03, d + 0.05, 7000, 'highpass'); }   // + 3도, 반짝임
+    if (n >= 5) { this.tone([f * 3, f * 4], 0.9, 'triangle', 0.045, d + 0.28); this.tone([f / 2], 0.9, 'sine', 0.12, d); }    // + 높은 겹, 낮은 받침
+  }
+  // 성공 피날레: 큰 장조 화음 + 위로 흩어지는 음 + 반짝임
+  sfxWin() {
+    this.tone([261.63, 329.63, 392, 523.25, 659.25, 783.99], 2.4, 'sine', 0.085, 0, { att: 0.02 });
+    this.tone([130.81], 2.4, 'triangle', 0.13, 0, { att: 0.02 });
+    var a = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568, 2093];
+    for (var i = 0; i < a.length; i++) this.tone([a[i]], 0.9, 'sine', 0.09, 0.08 + i * 0.07);
+    this.noise(1.4, 0.035, 0.1, 6500, 'highpass');
+  }
+  // 해골 애태우기: 심장 박동 한 번(쿵-쿵)
+  sfxBeat(d) {
+    this.tone([62], 0.2, 'sine', 0.6, d, { to: 0.6 });
+    this.tone([124], 0.1, 'triangle', 0.1, d, { to: 0.5 });
+    this.tone([54], 0.24, 'sine', 0.42, d + 0.16, { to: 0.6 });
+    this.tone([108], 0.1, 'triangle', 0.06, d + 0.16, { to: 0.5 });
+    this.noise(0.06, 0.07, d, 180, 'lowpass');
+  }
+  // 해골 등장: 낮은 쿵 + 디튠된 불협 화음(증4도) + 아래로 일그러지는 소리
+  sfxDoom() {
+    this.tone([72], 1.6, 'sine', 0.8, 0, { to: 0.38 });
+    this.tone([110], 0.5, 'triangle', 0.22, 0, { to: 0.45 });
+    this.noise(0.7, 0.5, 0, 320, 'lowpass');
+    this.tone([55, 58.6, 77.8], 1.9, 'sawtooth', 0.11, 0.02, { lp: 520, att: 0.03 });
+    this.tone([233.1, 246.9], 1.5, 'sawtooth', 0.045, 0.05, { lp: 1400, to: 0.5, att: 0.05 });
+  }
+  toggleSound() {
+    var on = !(this.state && this.state.snd === false);
+    this.setState({ snd: !on });
+    if (!on) this.ac(true);
+  }
+
+  // ── 고조 단계: "몇 번째 장"이 아니라 "이 장을 뒤집고 나면 몇 장 더 필요한가(r)"로 정한다.
+  //    r>=4 → 1(기본) · r=3 → 2 · r=2 → 3 · r=1 → 4(다음 장이면 끝) · r=0 → 5(피날레). 도전 숫자가 작으면 바로 높은 단계에서 시작한다.
+  levelFor(r) { return r <= 0 ? 5 : (r >= 4 ? 1 : 5 - r); }
+  // 시안용 더미 장수(도전 9 는 끝까지 갈 수 있게 상대 더미를 늘린다: 내 2 + 상대 9)
+  pilesFor(need) { return need >= 9 ? [2, 3, 3, 3] : [2, 2, 3, 1]; }
+
+  // 서서히 올라오는 잡음(심벌 스웰)
+  sfxSwell(dur, gain, delay, freq) {
+    var ac = this.ac(); if (!ac) return;
+    var t = ac.currentTime + (delay || 0) + 0.01;
+    var len = Math.max(1, Math.floor(ac.sampleRate * dur));
+    var buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    var src = ac.createBufferSource(); src.buffer = buf;
+    var f = ac.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = freq || 6000;
+    var g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + dur * 0.78);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(this._out);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+  // 꽃 단계음. 1: 도/레 한 음(번갈아) · 2: 미 + 5도 · 3: 솔 + 5도 + 옥타브 + 반짝임
+  // 4: 시 + 레·파(풀리지 않은 화음) + 심벌 스웰 + 길게 남는 높은 음 → "다음 장이면 끝" · 5: 높은 도로 풀림(이어서 성공 피날레)
+  // cool = 멈칫 뒤의 꽃: 조금 더 크고 맑게
+  sfxStage(lv, n, d, cool) {
+    var semi = [0, 4, 7, 11, 12][Math.max(1, Math.min(lv, 5)) - 1];
+    if (lv <= 1) semi = n % 2 ? 0 : 2;
+    var f = 523.25 * Math.pow(2, semi / 12), g = cool ? 1.25 : 1;
+    this.tone([f], 0.55, 'sine', 0.2 * g, d);                 // 마림바 몸통
+    this.tone([f * 4], 0.14, 'sine', 0.05 * g, d);            // 두드리는 맑은 끝
+    this.tone([f * 2], 0.3, 'triangle', 0.04, d);
+    if (lv === 2 || lv === 3 || lv === 5) this.tone([f * 1.5], 0.5, 'sine', 0.1, d + 0.07);
+    if (lv === 3 || lv === 5) { this.tone([f * 2], 0.6, 'sine', 0.09, d + 0.14); this.noise(0.35, 0.03, d + 0.05, 7000, 'highpass'); }
+    if (lv === 4) {
+      this.tone([f * 1.189, f * 1.414], 1.5, 'sine', 0.065, d + 0.12, { att: 0.03 });   // 레·파: 시와 만나 풀리지 않는 소리
+      this.tone([f * 2], 2.6, 'sine', 0.034, d + 0.2, { att: 0.9 });                     // 길게 남는 높은 음
+      this.tone([98], 2.2, 'sine', 0.11, d + 0.1, { att: 0.3 });                         // 낮은 솔 받침
+      this.sfxSwell(1.5, 0.085, d + 0.1, 6000);
+    }
+    if (lv === 5) { this.tone([f * 1.25, f * 3], 0.9, 'triangle', 0.05, d + 0.21); this.tone([f / 4], 0.9, 'sine', 0.13, d); }
+    if (cool) { this.tone([f * 3], 0.5, 'sine', 0.04, d + 0.1); this.noise(0.4, 0.035, d + 0.04, 7500, 'highpass'); }
+  }
+  // 멈칫 뒤 꽃: "휴" — 숨 내쉬는 잡음 + 살짝 내려앉는 따뜻한 두 음
+  sfxRelief() {
+    this.noise(0.55, 0.16, 0, 700, 'bandpass');
+    this.noise(0.4, 0.05, 0.05, 2400, 'bandpass');
+    this.tone([392, 493.88], 0.7, 'sine', 0.05, 0.02, { to: 0.94, att: 0.05 });
+  }
+
+  // ── 진행. phase: idle(시작 전) → auto(내 더미 자동) → pick(상대 더미 고르기) ⇄ busy(뒤집는 중) → win / lost
+  fresh(n) {
+    var need = n || (this.state && this.state.need) || 5;
+    return { phase: 'idle', need: need, piles: this.pilesFor(need), row: [], act: null, fxk: 'A' };
+  }
+  setNeed(n) { this.clearTimers(); this.setState(this.fresh(n)); }
+  stageOf(a, name) { return { seat: a.seat, color: a.color, type: a.type, k: a.k, n: a.n, lv: a.lv, tease: a.tease, stage: name }; }
+  begin() {
+    this.clearTimers();
+    this.ac();
+    var s = this.fresh(); s.phase = 'auto';
+    this.setState(s);
+    this.later(function () { this.flipTop(0, 0, 'F'); }, 600);
+  }
+  setStage(name) {
+    var a = this.state.act; if (!a) return;
+    this.setState({ act: this.stageOf(a, name) });
+  }
+  // 그 자리 더미의 맨 위 한 장을 그 판 위에서 뒤집는다
+  // tease: 꽃인데도 멈칫(실제 게임에서는 서버가 이벤트에 tease:1 로 알려 준다. 해골은 늘 멈칫, 꽃은 약 1/3)
+  flipTop(seat, color, type, tease) {
+    var st = this.state, piles = st.piles.slice();
+    if (st.act || piles[seat] <= 0) return;
+    var k = piles[seat] - 1; piles[seat] = k;
+    var n = st.row.length + 1;                       // 이번이 몇 번째 장인지
+    var lv = this.levelFor((st.need || 5) - n);      // 고조 단계(남은 장수 기준)
+    var tz = type === 'S' || !!tease;
+    this.setState({ phase: seat === 0 ? 'auto' : 'busy', piles: piles, fxk: st.fxk === 'A' ? 'B' : 'A',
+      act: { seat: seat, color: color, type: type, k: k, n: n, lv: lv, tease: tz, stage: 'ready' } });
+    this.later(function () { this.setStage('up'); }, 40);                      // 들림 0.26초
+    if (!tz) {
+      this.later(function () { this.setStage('turn'); this.sfxStage(lv, n, 0.2, false); }, 300);   // 뒤집힘 0.42초, 면이 보일 때 단계음
+      this.later(function () { this.setStage('bloom'); }, 520);                // 꽃잎·빛
+      this.later(function () { this.setStage('fly'); }, 1150);                 // 가운데로 0.5초
+      this.later(function () { this.land(); }, 1670);
+    } else {
+      // 멈칫: 여기부터 1.76초까지는 꽃·해골이 완전히 같다(움직임·떨림·어두워짐·심장 박동)
+      this.later(function () { this.setStage('tease1'); this.sfxBeat(0.05); }, 300);    // 반쯤 돌다 멈칫
+      this.later(function () { this.setStage('tease2'); this.sfxBeat(0); }, 850);       // 도로 물러남
+      this.later(function () { this.setStage('tease3'); this.sfxBeat(0); }, 1300);      // 다시, 더 깊이
+      if (type === 'S') {
+        this.later(function () {
+          var a = this.state.act; if (!a) return;
+          this.setState({ phase: 'lost', act: this.stageOf(a, 'doom') });
+          this.sfxDoom();
+        }, 1760);   // 해골 등장
+      } else {
+        this.later(function () { this.setStage('relief'); this.sfxRelief(); this.sfxStage(lv, n, 0.06, true); }, 1760);   // 휴 — 꽃: 확 넘어가며 어둠이 걷힌다
+        this.later(function () { this.setStage('fly'); }, 2520);
+        this.later(function () { this.land(); }, 3040);
+      }
+    }
+  }
+  land() {
+    var st = this.state, a = st.act; if (!a) return;
+    var row = st.row.concat([a.color]);
+    if (row.length >= (st.need || 5)) { this.setState({ row: row, act: null, phase: 'win' }); this.sfxWin(); return; }
+    if (st.phase === 'auto' && st.piles[0] > 0) {
+      this.setState({ row: row, act: null });
+      this.later(function () { this.flipTop(0, 0, 'F'); }, 280);
+    } else {
+      this.setState({ row: row, act: null, phase: 'pick' });
+    }
+  }
+
+  renderVals() {
+    var st = this.state || { phase: 'idle', need: 5, piles: [2, 2, 3, 1], row: [], act: null, next: 'F', fxk: 'A', snd: true };
+    var self = this;
+    var BACK = ["/_blob/d836973ee4412f6e5a8e9eb83effc300","/_blob/8ca2c56e56837d55480d5122d002a9cd","/_blob/87a0e01399d3495a7b929b68f8bb26e3","/_blob/1c0fe4c2386ec8bcc4bad6633ebc325a","/_blob/c7818f700734310390e22bff425bf55c","/_blob/a7bccbcd64bb1a02985a223852850c45"];
+    var FLOWER = ["/_blob/f49b820f8f6564bf4ee15b913af814f3","/_blob/6b5b129f2f5f3190bf9f714c87a84ac9","/_blob/32550dc6dd7da1a696f7ee90e829fed1","/_blob/bf3cb2c46153bd6f1e0e96d8b1d7e960","/_blob/05e881cc7d4e86732293c1d8529ed139","/_blob/81ca634b1142a8e2625b7eab295897bd"];
+    var SKULL = ["/_blob/9384ced753ae211e8d9ad90457519ea5","/_blob/c889980fa2f348c27cfa14f27f453fb0","/_blob/c3e91ed0f2ea42ff557ac0cbe794c28d","/_blob/c78961ee4dc25e12771173f71d135b90","/_blob/0969c065e1b926c54af5438f87f8a5c2","/_blob/d11cd5edc660da84a9a6fb226e6580fd"];
+    var BOARD = ["/_blob/dd453f6ef62cbd8e24725e5a6cb105b8","/_blob/d2652663cb049c68e7c6851c16e0a40b","/_blob/13623d4575f0f2a14f610e7adf4b4fa7","/_blob/9c5376f9fd3a48021ccad1214849bb39","/_blob/6ec4d24bafbacca722d580ab500274b1","/_blob/3503ea554522770918179c8c5e3d6765"];
+    var BOARDB = ["/_blob/93fb461e3d123382d0967449072e63ee","/_blob/a7f0cfc8f0fec64e7b1c124e15e8168a","/_blob/7a1bbaf5f899aea78ce1727adde7f67d","/_blob/5bf7aaae7a4394d87cc8e2b8d74f3b26","/_blob/ef71a9b09e1eb209c6ea1964885fd9b5","/_blob/785a0a01f3f08396177d41290451a9c8"];
+    var TINT = ["#7fb56a","#a98bd0","#dcae45","#d0655a","#62aecb","#de8b4c"];
+    var P = [{"name":"하린","color":0,"photo":"/_blob/a21a69b43c748544081763c67891950e","points":0,"discs":4},{"name":"서아","color":2,"photo":null,"points":0,"discs":3},{"name":"지호","color":3,"photo":"/_blob/297556fb8e4a4587041a1f65d1ff8627","points":1,"discs":4},{"name":"민서","color":4,"photo":"/_blob/bb2bba731b76918c14139a7b8a0449cf","points":0,"discs":4}];
+    var G = {"cx":640,"cy":300,"rx":235,"ry":180,"gap":66,"lw":82,"lh":20};
+    var NEED = st.need || 5, STEP = 6, DS = 80, BS = 28, ROWY = 306;
+    // 펼친 줄: 도전 숫자가 커지면 간격·크기를 줄여 양옆 개인판 사이(약 300px)에 들어가게 한다
+    var GAPX = Math.min(58, Math.round(272 / Math.max(1, NEED - 1))), SS = Math.min(64, GAPX + 8);
+    function calc(n, G) {
+  var out = [];
+  for (var i = 0; i < n; i++) {
+    var deg = 90 + i * 360 / n;
+    var a = deg * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a);
+    var x = G.cx + G.rx * ux, y = G.cy + G.ry * uy;
+    var d = G.gap + Math.abs(ux) * G.lw + Math.abs(uy) * G.lh;
+    var r = function (v) { return Math.round(v * 10) / 10; };
+    out.push({ x: r(x), y: r(y), rot: r(deg - 90), lx: r(x + ux * d), ly: r(y + uy * d) });
+  }
+  return out;
+}
+    function pile(src, count, o) {
+  var discs = [];
+  for (var k = 0; k < count; k++) {
+    var dx = k === 0 ? 0 : (k % 2 ? 2.5 : -2);
+    discs.push({ src: src, x: dx, y: -k * o.step, style: 'left: ' + dx + 'px; top: ' + (-k * o.step) + 'px', imgStyle: 'transform: rotate(' + ((k * 37 + 11) % 360) + 'deg)' });
+  }
+  var top = count ? discs[count - 1] : { x: 0, y: 0 };
+  var bx = o.side < 0 ? -(o.ds / 2 + 5 + o.bs) : o.ds / 2 + 5;
+  return {
+    has: count > 0, discs: discs, topX: top.x, topY: top.y,
+    style: 'transform: rotate(' + (-o.rot) + 'deg)',
+    hiStyle: 'left: ' + top.x + 'px; top: ' + top.y + 'px',
+    badgeStyle: 'left: ' + bx + 'px; top: ' + (2 - o.bs / 2) + 'px',
+    label: '×' + count
+  };
+}
+
+    var phase = st.phase, act = st.act, k = st.fxk || 'A';
+    var lost = phase === 'lost', win = phase === 'win';
+    var count = st.row.length;
+    var rem = NEED - count;                                    // 앞으로 필요한 장수
+    var heat = count === 0 ? 0 : self.levelFor(rem);           // 지금까지 쌓인 긴장(0~5)
+    var edge = !win && !lost && phase !== 'idle' && rem === 1; // 한 장만 더: 가장자리 금빛 숨 + 마지막 칸 맥박
+    var pos = calc(4, G);
+    var me = P[0];
+    var owner = lost && act ? act.seat : -1;
+
+    var seats = P.map(function (p, i) {
+      var q = pos[i];
+      var pl = pile(BACK[p.color], st.piles[i], { step: STEP, rot: q.rot, ds: DS, bs: BS, side: q.x > G.cx + 1 ? -1 : 1 });
+      var flinch = lost && i === 0;
+      var isOwner = i === owner;
+      var pts = p.points + (win && i === 0 ? 1 : 0);
+      return {
+        me: i === 0,
+        style: 'left: ' + q.x + 'px; top: ' + q.y + 'px; transform: rotate(' + q.rot + 'deg)' + (flinch ? ' translateY(8px) scale(.94)' : '') +
+          '; transition: transform .28s cubic-bezier(.3,1.5,.5,1), opacity .3s' + (flinch ? '; opacity: .72' : '') + (isOwner ? '; z-index: 21' : ''),
+        ring: i === 0 || isOwner,
+        ringStyle: isOwner ? 'border-color: rgba(214,84,70,.95); box-shadow: 0 0 26px rgba(200,50,40,.7), inset 0 0 12px rgba(200,50,40,.35)' : '',
+        board: p.points >= 1 ? BOARDB[p.color] : BOARD[p.color],
+        bdStyle: i === 0 && win ? 'transform: rotateY(180deg)' : 'transform: rotateY(0deg)',
+        hasPile: pl.has, pileStyle: pl.style, stack: pl.discs, hiStyle: pl.hiStyle, badgeStyle: pl.badgeStyle, pileLabel: pl.label,
+        tagStyle: 'left: ' + q.lx + 'px; top: ' + q.ly + 'px;' + (isOwner ? ' border-color: rgba(214,84,70,.95); z-index: 24;' : (i === 0 ? ' border-color: rgba(236,210,150,.9);' : '')),
+        avatar: p.photo || SKULL[p.color],
+        avStyle: 'box-shadow: 0 0 0 1.5px ' + TINT[p.color],
+        dotStyle: 'background: ' + TINT[p.color],
+        label: i === 0 ? p.name + ' (나)' : p.name,
+        hasChip: i === 0 || isOwner,
+        chip: isOwner ? '해골' : (lost ? '도전 실패' : (win ? '성공' : '도전 ' + NEED)),
+        chipStyle: isOwner ? 'border-color: rgba(214,84,70,.95); color: #f0b9ae' : (lost ? 'border-color: rgba(200,188,164,.5); color: #c8bca4' : ''),
+        pip1: pts >= 1 ? 'background: #c9a45c; transition: background .4s 1.2s' : '',
+        pip2: pts >= 2 ? 'background: #c9a45c; transition: background .4s 1.2s' : '',
+        discs: p.discs
+      };
+    });
+
+    // 가운데 "펼친 줄": 살아남은 꽃이 왼쪽부터 쌓인다
+    var slotX = function (i) { return G.cx - (NEED - 1) * GAPX / 2 + i * GAPX; };
+    var slots = [];
+    for (var i = 0; i < NEED; i++) {
+      var on = i < count;
+      slots.push({
+        on: on,
+        src: on ? FLOWER[st.row[i]] : '',
+        style: 'left: ' + slotX(i) + 'px; top: ' + ROWY + 'px; width: ' + SS + 'px; height: ' + SS + 'px; margin: ' + (-SS / 2) + 'px 0 0 ' + (-SS / 2) + 'px' +
+          (on ? '; border-color: rgba(201,164,92,0); background: none; box-shadow: 0 0 ' + (6 + heat * 5) + 'px rgba(240,200,110,' + (0.12 + heat * 0.07).toFixed(2) + ')' :
+            (edge && i === count ? '; border: 1.5px solid rgba(240,206,130,.95); animation: fxLast 1.1s ease-in-out infinite' : '')),
+        imgStyle: win ? 'animation: fxHop .5s ease-out ' + (0.1 + i * 0.08) + 's both' : 'animation: fxPop .32s ease-out both'
+      });
+    }
+
+    // 뒤집는 한 장(판 위에서 들림 → 뒤집힘 → 가운데로 / 해골이면 제자리에서 커짐)
+    var hasAct = !!act, cardStyle = '', turnStyle = '', tremStyle = '', cardBack = '', cardFace = '', cardHasPhoto = false, cardPhoto = '';
+    var vig = 0, cx = 0, cy = 0, dcx = 0, dcy = 0, hasBurst = false, stage = '', lvl = 1;
+    if (act) {
+      var q = pos[act.seat], ap = P[act.seat], s = act.stage;
+      stage = s; lvl = (act.lv || 1) + (act.tease && act.type === 'F' ? 0.7 : 0);   // 멈칫 뒤 꽃은 한 단계쯤 더 시원하게
+      var dx = act.k === 0 ? 0 : (act.k % 2 ? 2.5 : -2);
+      var X = q.x + dx - DS / 2, Y = q.y - act.k * STEP - DS / 2, UP = Y - 24;
+      var DY = Math.max(UP, 136);
+      cx = X + DS / 2; cy = UP + DS / 2; dcx = cx; dcy = DY + DS / 2;
+      var tr = 'translate(' + X + 'px,' + UP + 'px) scale(1.4)', tt = 'transform .26s cubic-bezier(.3,.8,.3,1)';
+      var ry = 0, rt = 'none';
+      if (s === 'ready') { tr = 'translate(' + X + 'px,' + Y + 'px) scale(1)'; tt = 'none'; }
+      if (s === 'turn' || s === 'bloom') { ry = 180; rt = 'transform .42s cubic-bezier(.45,.05,.3,1)'; }
+      if (s === 'fly') {
+        tr = 'translate(' + (slotX(count) - DS / 2) + 'px,' + (ROWY - DS / 2) + 'px) scale(' + (SS / DS) + ')'; tt = 'transform .5s cubic-bezier(.5,0,.2,1)';
+        ry = 180; rt = 'transform .42s';
+      }
+      if (s === 'tease1') { tr = 'translate(' + X + 'px,' + UP + 'px) scale(1.46)'; tt = 'transform .5s ease-out'; ry = 76; rt = 'transform .5s cubic-bezier(.2,.7,.3,1)'; vig = 0.34; }
+      if (s === 'tease2') { tr = 'translate(' + X + 'px,' + UP + 'px) scale(1.44)'; tt = 'transform .3s ease-out'; ry = 54; rt = 'transform .32s ease-in-out'; vig = 0.54; }
+      if (s === 'tease3') { tr = 'translate(' + X + 'px,' + UP + 'px) scale(1.52)'; tt = 'transform .4s ease-out'; ry = 86; rt = 'transform .42s cubic-bezier(.2,.7,.3,1)'; vig = 0.72; }
+      if (s === 'relief') { tr = 'translate(' + X + 'px,' + UP + 'px) scale(1.6)'; tt = 'transform .34s cubic-bezier(.2,1.6,.4,1)'; ry = 180; rt = 'transform .16s ease-out'; }
+      if (s === 'doom') { tr = 'translate(' + X + 'px,' + DY + 'px) scale(1.95)'; tt = 'transform .3s cubic-bezier(.2,1.8,.4,1)'; ry = 180; rt = 'transform .13s ease-in'; }
+      cardStyle = 'transform: ' + tr + '; transition: ' + tt;
+      turnStyle = 'transform: rotateY(' + ry + 'deg); transition: ' + rt;
+      if (s === 'tease1' || s === 'tease2') tremStyle = 'animation: fxTrem .12s linear infinite';
+      if (s === 'tease3') tremStyle = 'animation: fxTrem .07s linear infinite';
+      cardBack = BACK[ap.color];
+      cardFace = act.type === 'S' ? SKULL[ap.color] : FLOWER[ap.color];
+      cardHasPhoto = act.type === 'S' && !!ap.photo;
+      cardPhoto = ap.photo || '';
+      hasBurst = act.type === 'F' && (s === 'bloom' || s === 'fly' || s === 'relief');
+    }
+
+    // 꽃 효과: 단계(lvl 1~5, 남은 장수 기준)가 오를수록 꽃잎·반짝임이 많아지고 빛이 커진다. 성공하면 가운데에서 크게 한 번 더.
+    var burstStyle = '', glowStyle = '', ringStyle = '', petals = [], sparks = [];
+    var mk = function (np, ns, size, spread, k) {
+      var gs = size, rs = size * 0.74;
+      glowStyle = 'left: ' + (-gs / 2) + 'px; top: ' + (-gs / 2) + 'px; width: ' + gs + 'px; height: ' + gs + 'px; animation: fxGlow' + k + ' .85s ease-out both';
+      ringStyle = 'left: ' + (-rs / 2) + 'px; top: ' + (-rs / 2) + 'px; width: ' + rs + 'px; height: ' + rs + 'px; animation: fxRing' + k + ' .7s ease-out both';
+      for (var i = 0; i < np; i++) {
+        petals.push({ rot: 'transform: rotate(' + Math.round(i * 360 / np + (i % 2 ? 9 : -7)) + 'deg) scale(' + spread + ')',
+          anim: 'animation: fxPet' + (i % 3) + k + ' ' + (0.7 + (i % 4) * 0.08) + 's cubic-bezier(.15,.7,.3,1) ' + ((i % 5) * 0.03) + 's both' });
+      }
+      for (var j = 0; j < ns; j++) {
+        sparks.push({ rot: 'transform: rotate(' + Math.round(j * 360 / ns + 17) + 'deg) scale(' + (spread * (j % 2 ? 1.15 : 0.85)) + ')',
+          anim: 'animation: fxSpk' + k + ' ' + (0.6 + (j % 3) * 0.1) + 's ease-out ' + (0.05 + (j % 4) * 0.04) + 's both' });
+      }
+    };
+    if (hasBurst) {
+      burstStyle = 'left: ' + cx + 'px; top: ' + cy + 'px';
+      mk(Math.round(5 + lvl * 3), Math.round(2 + lvl * 2), Math.round(130 + lvl * 38), +(0.85 + lvl * 0.09).toFixed(2), k);
+    }
+    if (win) {
+      hasBurst = true;
+      burstStyle = 'left: ' + G.cx + 'px; top: ' + ROWY + 'px';
+      mk(26, 18, 620, 2.5, k === 'A' ? 'B' : 'A');   // 직전 꽃 효과와 다른 이름 → 처음부터 다시 돈다
+    }
+
+    // 상대 더미 누르기(고르는 동안에만)
+    var picks = [];
+    if (phase === 'pick') {
+      for (var i2 = 1; i2 < P.length; i2++) {
+        (function (i) {
+          if (st.piles[i] <= 0) return;
+          var q = pos[i];
+          picks.push({
+            style: 'left: ' + q.x + 'px; top: ' + (q.y - (st.piles[i] - 1) * STEP / 2) + 'px',
+            aria: P[i].name + ' 님 더미 뒤집기',
+            flip: function () { var nx = self.state.next; self.ac(); self.flipTop(i, P[i].color, nx === 'S' ? 'S' : 'F', nx === 'T'); }
+          });
+        })(i2);
+      }
+    }
+
+    var left = rem === 1 ? '마지막 한 장' : '앞으로 ' + rem + '장';
+    var say = me.name + ' 님이 ' + NEED + '개에 도전했습니다', sub = '시작을 누르면 내 원판부터 뒤집습니다';
+    if (phase === 'auto') { say = '내 원판부터 뒤집습니다'; sub = count > 0 ? '꽃 ' + count + '장 · ' + left : '맨 위부터 한 장씩'; }
+    if (phase === 'pick') { say = '상대 더미를 눌러 뒤집으세요'; sub = '꽃 ' + count + '장 · ' + left; }
+    if (phase === 'busy' && act) { say = P[act.seat].name + ' 님의 원판'; sub = stage.indexOf('tease') === 0 ? '…' : (stage === 'relief' ? '휴 — 꽃입니다' : '꽃 ' + count + '장 · ' + left); }
+
+    var segOn = 'border-color: #c9a45c; color: #f3ead7; background: rgba(201,164,92,.2)';
+    var sndOn = st.snd !== false;
+    var gold = heat / 5;
+    var needs = [2, 5, 9].map(function (n) {
+      return { label: '' + n, aria: '도전 숫자 ' + n, style: n === NEED ? segOn : '', set: function () { self.setNeed(n); } };
+    });
+    return {
+      rootStyle: lost ? 'animation: fxShake' + k + ' .5s cubic-bezier(.3,.6,.3,1) both' : '',
+      seats: seats, slots: slots, picks: picks,
+      count: count, need: NEED,
+      numStyle: 'display: inline-block; animation: fxBump' + (count % 2 ? 'A' : 'B') + ' .42s ease-out both; text-shadow: 0 2px 8px rgba(0,0,0,.7), 0 0 ' + Math.round(gold * 26) + 'px rgba(240,200,110,' + (gold * 0.8).toFixed(2) + ')',
+      say: say, sub: sub, sayStyle: 'opacity: ' + (win || lost ? 0 : 1),
+      hasAct: hasAct, cardStyle: cardStyle, turnStyle: turnStyle, tremStyle: tremStyle,
+      cardBack: cardBack, cardFace: cardFace, cardHasPhoto: cardHasPhoto, cardPhoto: cardPhoto,
+      vigStyle: 'opacity: ' + vig + (stage === 'relief' ? '; transition: opacity .22s ease-out' : ''),   // 꽃이면 어둠이 확 걷힌다
+      isEdge: edge, hasWarm: stage === 'relief',
+      warmStyle: 'left: ' + cx + 'px; top: ' + cy + 'px; animation: fxWarm' + k + ' .95s ease-out both',
+      hasBurst: hasBurst, burstStyle: burstStyle, glowStyle: glowStyle, ringStyle: ringStyle, petals: petals, sparks: sparks,
+      isLost: lost, isWin: win, isIdle: phase === 'idle', isOver: win || lost,
+      darkStyle: 'animation: fxIn' + k + ' .22s ease-out both',
+      redStyle: 'left: ' + dcx + 'px; top: ' + dcy + 'px; animation: fxIn' + k + ' .5s ease-out both',
+      auraStyle: 'left: ' + dcx + 'px; top: ' + dcy + 'px; animation: fxIn' + k + ' .35s ease-out .08s both',
+      demonStyle: 'left: ' + dcx + 'px; top: ' + (dcy - 72) + 'px; animation: fxRise' + k + ' .9s cubic-bezier(.2,.7,.3,1) .12s both',
+      rimStyle: 'animation: fxIn' + k + ' .25s ease-out both',
+      doomTxtStyle: 'animation: fxSlam' + k + ' .45s cubic-bezier(.2,.8,.3,1) .32s both',
+      doomLine: owner >= 0 ? P[owner].name + ' 님의 해골 · ' + me.name + ' 님 도전 실패' : '',
+      winTxtStyle: 'animation: fxSlam' + k + ' .5s cubic-bezier(.2,.8,.3,1) .25s both',
+      winLine: me.name + ' 님이 꽃 ' + NEED + '장을 모두 뒤집었습니다 · 1점',
+      start: function () { self.begin(); },
+      restart: function () { self.begin(); },
+      needs: needs,
+      segF: st.next === 'S' || st.next === 'T' ? '' : segOn,
+      segT: st.next === 'T' ? segOn : '',
+      segS: st.next === 'S' ? 'border-color: rgba(214,84,70,.95); color: #f3c4b8; background: rgba(170,40,30,.28)' : '',
+      setF: function () { self.setState({ next: 'F' }); },
+      setT: function () { self.setState({ next: 'T' }); },
+      setS: function () { self.setState({ next: 'S' }); },
+      sndOn: sndOn, sndOff: !sndOn, sndAria: sndOn ? '소리 끄기' : '소리 켜기',
+      toggleSnd: function () { self.toggleSound(); }
+    };
+  }
+}
+</script>
+</body>
+</html>

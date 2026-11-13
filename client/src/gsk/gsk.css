@@ -1,0 +1,15 @@
+/* 갱스껄 화면 뼈대 (.gk-). 모듈 클래스(.gk-tb- .gk-hd- .gk-rs- .gk-wt- .gk-fx-)는 이 파일에서 다시 정의하지 않는다.
+   화면 전체를 나무 바닥으로 덮고, 안에 시안 크기(PC 1280x720 / 휴대폰 844x390)의 상자(.gk-stage)를 가운데 놓은 뒤
+   창 크기에 맞게 통째로 scale 한다(transform: scale(var(--gk-s))). 세로 화면은 사이트 #rotate 안내가 덮는다. */
+.gk-root {
+  position: fixed; inset: 0; z-index: 5; overflow: hidden;
+  background: #2a1c14 center / cover no-repeat;
+  pointer-events: auto; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  font-family: 'IBM Plex Sans KR', sans-serif; color: #efe6d2; -webkit-font-smoothing: antialiased;
+}
+.gk-root[hidden] { display: none; }
+.gk-root *, .gk-root *::before, .gk-root *::after { box-sizing: border-box; }
+.gk-vig { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 42%, rgba(0, 0, 0, 0) 28%, rgba(8, 5, 3, .66) 100%); pointer-events: none; }
+.gk-stage { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(var(--gk-s, 1)); transform-origin: 50% 50%; }
+.gk-stage[data-lay="pc"] { width: 1280px; height: 720px; }
+.gk-stage[data-lay="phone"] { width: 844px; height: 390px; }

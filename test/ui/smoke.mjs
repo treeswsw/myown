@@ -140,7 +140,7 @@ async function runContext(browser, server, name, cfg) {
   const meId = uid('ui');
   let holdemCode = null;
   try {
-    await page.goto(`${server.http}/?nogl=1&draw=1`);
+    await page.goto(`${server.http}/?nogl=1&draw=1&gsk=1`);
 
     /* ---------- login ---------- */
     await step('login screen shows', () => visible('.lb-field'));
@@ -651,6 +651,30 @@ async function runContext(browser, server, name, cfg) {
       await gone('.lgbar-code');
       await gone('.dr-root');
     });
+
+    /* ---------- gsk game 갱스껄 (server GSK=test, page ?gsk=1) ---------- */
+    await step('gsk: lobby shows the 갱스껄 choice with its caption', async () => {
+      await press('.lb-seg-item:has-text("갱스껄")');
+      await page.waitForSelector('.lb-cap:has-text("3~6명 · 해골을 피해 꽃 뒤집기")', { state: 'attached', timeout: T });
+    });
+    await step('gsk: create a room → room code appears in the top bar', async () => {
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.gkbar-code');
+      await page.waitForFunction(() => /방 코드 [A-Z0-9]{4,}/.test(document.querySelector('.gkbar-code')?.textContent ?? ''), null, { timeout: T });
+    });
+    await step('gsk: in the room, color-0 shows and can be pressed (임시 화면 data-gk)', async () => {
+      await visible('[data-gk="color-0"]');
+      await press('[data-gk="color-0"]');
+      await page.waitForFunction(() => /초록/.test(document.querySelector('[data-gk-seat]')?.textContent ?? ''), null, { timeout: T });
+    });
+    await step('gsk: 방장에게 시작 버튼이 보인다(3명 전에는 흐림). 원판 내기·도전 버튼(choose-place)은 3명 판이 필요해 gsk-round.mjs 가 본다', async () => {
+      await visible('[data-gk="start"]');
+    });
+    await step('gsk: 나가기 returns to the lobby, bar disappears', async () => {
+      await press('button.gkbar-btn:has-text("나가기")');
+      await visible('button:has-text("방 만들기")');
+      await gone('.gkbar-code');
+    });
   } catch (e) {
     if (!(e instanceof StepFailed)) check('unexpected error', false, String(e.stack || e).split('\n').slice(0, 3).join(' | '));
     const shot = path.join(os.tmpdir(), `smoke-fail-${name}.png`);
@@ -665,7 +689,7 @@ async function runContext(browser, server, name, cfg) {
 let server;
 let browser;
 try {
-  server = await startServer({ LIAR: 'on', YACHT: 'on', DRAW: 'test', ROOM_LIST_MS: '100', RESULT_MS: '60', RESULT_FOLD_MS: '60', STREET_MS: '30', REVEAL_MS: '80' });
+  server = await startServer({ LIAR: 'on', YACHT: 'on', DRAW: 'test', GSK: 'test', ROOM_LIST_MS: '100', RESULT_MS: '60', RESULT_FOLD_MS: '60', STREET_MS: '30', REVEAL_MS: '80' });
   browser = await chromium.launch();
   for (const [name, cfg] of Object.entries(CONTEXTS)) await runContext(browser, server, name, cfg);
 } catch (e) {
@@ -676,7 +700,7 @@ try {
   await server?.stop().catch(() => {});
 }
 /* ---------- LIAR switch: off hides everything, test only with ?liar=1 ---------- */
-async function gateCheck(browser, env, query, expectVisible, label, expectDraw = false) {
+async function gateCheck(browser, env, query, expectVisible, label, expectDraw = false, expectGsk = false) {
   const srv = await startServer({ ROOM_LIST_MS: '100', ...env });
   const ctx = await browser.newContext({ viewport: { width: 844, height: 390 } });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
@@ -692,8 +716,8 @@ async function gateCheck(browser, env, query, expectVisible, label, expectDraw =
     await page.click('button.lb-primary:has-text("입장")');
     await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
     await page.waitForTimeout(300);
-    const seen = await page.evaluate(() => ({ rank: !!document.querySelector('.lb-rank-btn') && !document.querySelector('.lb-rank-btn').hidden && document.querySelector('.lb-rank-btn').offsetParent !== null, pick: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('라이어게임') && e.offsetParent !== null), draw: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('갱식마인드') && e.offsetParent !== null) }));
-    ok = seen.rank === expectVisible && seen.pick === expectVisible && seen.draw === expectDraw && errors.length === 0;
+    const seen = await page.evaluate(() => ({ rank: !!document.querySelector('.lb-rank-btn') && !document.querySelector('.lb-rank-btn').hidden && document.querySelector('.lb-rank-btn').offsetParent !== null, pick: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('라이어게임') && e.offsetParent !== null), draw: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('갱식마인드') && e.offsetParent !== null), gsk: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('갱스껄') && e.offsetParent !== null) }));
+    ok = seen.rank === expectVisible && seen.pick === expectVisible && seen.draw === expectDraw && seen.gsk === expectGsk && errors.length === 0;
     detail = JSON.stringify({ ...seen, errors });
   } catch (e) { detail = String(e.message || e).split('\n')[0]; }
   results.push({ ctx: 'gate', what: label, ok, detail });
@@ -703,14 +727,19 @@ async function gateCheck(browser, env, query, expectVisible, label, expectDraw =
 }
 try {
   const gb = await chromium.launch();
-  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '', false, 'LIAR=off: no 라이어 choice, no 랭킹 button');
-  await gateCheck(gb, { DRAW: 'off' }, '', true, 'LIAR unset (default on): visible');
-  await gateCheck(gb, { LIAR: 'test', DRAW: 'off' }, '', false, 'LIAR=test without ?liar=1: hidden');
-  await gateCheck(gb, { LIAR: 'test', DRAW: 'off' }, '&liar=1', true, 'LIAR=test with ?liar=1: visible');
-  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '&draw=1', false, 'DRAW=off: no 갱식마인드 choice');
-  await gateCheck(gb, { LIAR: 'off' }, '', false, 'DRAW unset (default on): 갱식마인드 visible', true);
-  await gateCheck(gb, { LIAR: 'off', DRAW: 'test' }, '', false, 'DRAW=test without ?draw=1: hidden');
-  await gateCheck(gb, { LIAR: 'off', DRAW: 'test' }, '&draw=1', false, 'DRAW=test with ?draw=1: visible', true);
+  await gateCheck(gb, { GSK: 'off', LIAR: 'off', DRAW: 'off' }, '', false, 'LIAR=off: no 라이어 choice, no 랭킹 button');
+  await gateCheck(gb, { GSK: 'off', DRAW: 'off' }, '', true, 'LIAR unset (default on): visible');
+  await gateCheck(gb, { GSK: 'off', LIAR: 'test', DRAW: 'off' }, '', false, 'LIAR=test without ?liar=1: hidden');
+  await gateCheck(gb, { GSK: 'off', LIAR: 'test', DRAW: 'off' }, '&liar=1', true, 'LIAR=test with ?liar=1: visible');
+  await gateCheck(gb, { GSK: 'off', LIAR: 'off', DRAW: 'off' }, '&draw=1', false, 'DRAW=off: no 갱식마인드 choice');
+  await gateCheck(gb, { GSK: 'off', LIAR: 'off' }, '', false, 'DRAW unset (default on): 갱식마인드 visible', true);
+  await gateCheck(gb, { GSK: 'off', LIAR: 'off', DRAW: 'test' }, '', false, 'DRAW=test without ?draw=1: hidden');
+  await gateCheck(gb, { GSK: 'off', LIAR: 'off', DRAW: 'test' }, '&draw=1', false, 'DRAW=test with ?draw=1: visible', true);
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off', GSK: 'off' }, '&gsk=1', false, 'GSK=off: no 갱스껄 choice');
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off', GSK: 'test' }, '', false, 'GSK=test without ?gsk=1: hidden');
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off', GSK: 'test' }, '&gsk=1', false, 'GSK=test with ?gsk=1: visible', false, true);
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '', false, 'GSK unset (default on): visible for everyone', false, true);
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off', GSK: 'on' }, '', false, 'GSK=on: visible for everyone', false, true);
   await gb.close();
 } catch (e) {
   results.push({ ctx: 'gate', what: 'gate setup', ok: false, detail: String(e.message || e) });

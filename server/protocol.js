@@ -15,7 +15,7 @@ const TOK_RE = /^[0-9a-f]{64}$/;
 const CODE_RE = /^[A-HJ-NP-Z]{4}$/;
 const JPEG_MAGIC = '/9j/'; // base64 of FF D8 FF
 const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
-const MODES = ['holdem', 'bluff', 'liar', 'yacht', 'draw'];
+const MODES = ['holdem', 'bluff', 'liar', 'yacht', 'draw', 'gsk'];
 const ACTIONS = ['fold', 'check', 'call', 'raise', 'allin'];
 
 // Account key (case-insensitive) and display name, or null if the ID breaks the rules.
@@ -122,7 +122,8 @@ export function parseMessage(raw) {
     case 'dr':
     case 'lg':
     case 'yt':
-      // Only the envelope is checked here; the liar / yacht / draw room validates the contents.
+    case 'gk':
+      // Only the envelope is checked here; the liar / yacht / draw / gsk room validates the contents.
       return typeof m.a === 'string' && m.a.length > 0 && m.a.length <= 20 ? good(m) : bad('잘못된 메시지 형식입니다.');
     case 'act': {
       if (!ACTIONS.includes(m.a)) return bad('알 수 없는 행동입니다.');

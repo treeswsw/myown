@@ -1,0 +1,51 @@
+/* 갱스껄 손패·버튼 (.gk-hd-). 디자인 캔버스 Main/Bid 의 값 그대로. 무대 1280×720 을 --k 로 줄여 쓴다. */
+.gk-hd-root { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; z-index: 20; }
+.gk-hd-stage { position: absolute; left: 50%; bottom: 0; width: 1280px; height: 720px; margin-left: -640px; transform-origin: 50% 100%; transform: scale(var(--k, 1)); font-family: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif; color: #efe6d2; -webkit-font-smoothing: antialiased; }
+.gk-hd-scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 270px; background: linear-gradient(rgba(10,6,4,0), rgba(10,6,4,.9) 58%); pointer-events: none; transition: opacity .4s; opacity: 0; }
+.gk-hd-scrim.gk-hd-on { opacity: 1; }
+.gk-hd-cap { position: absolute; left: 36px; top: 610px; font-size: 11px; line-height: 14px; letter-spacing: .24em; color: #d2b06a; transition: opacity .3s; pointer-events: none; }
+.gk-hd-ask { position: absolute; left: 0; right: 0; top: 588px; text-align: center; font: 400 14px/18px 'Gowun Batang', serif; color: #d9ccb0; letter-spacing: .08em; pointer-events: none; animation: gkHdIn .3s ease-out both; }
+.gk-hd-acts { position: absolute; left: 0; right: 0; top: 608px; display: flex; align-items: center; justify-content: center; gap: 18px; animation: gkHdIn .3s ease-out both; }
+.gk-hd-acts.coins { top: 616px; gap: 14px; }
+.gk-hd-acts.coins.two { top: 604px; flex-direction: column; gap: 10px; }
+.gk-hd-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.gk-hd-btn { position: relative; height: 54px; min-width: 188px; padding: 0 26px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; border: 1px solid #c9a45c; border-radius: 4px; background: linear-gradient(#f4ecda, #e4d8bd); color: #2a1f17; font: 700 18px/1 'Gowun Batang', serif; letter-spacing: .1em; cursor: pointer; pointer-events: auto; box-shadow: 0 0 0 3px #1c1410, 0 0 0 4px rgba(201,164,92,.6), 0 10px 20px rgba(0,0,0,.45); transition: transform .15s, filter .15s; }
+.gk-hd-btn::before { content: ""; position: absolute; left: 4px; top: 4px; right: 4px; bottom: 4px; border: 1px solid rgba(150,112,48,.55); border-radius: 2px; pointer-events: none; }
+.gk-hd-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.gk-hd-btn:active { transform: translateY(1px); }
+.gk-hd-btn.ink { background: linear-gradient(#30241c, #1c1410); color: #efe6d2; }
+.gk-hd-btn.ink::before { border-color: rgba(201,164,92,.5); }
+.gk-hd-btn.pass { min-width: 132px; height: 46px; font-size: 16px; }
+.gk-hd-btn svg { display: block; flex: none; }
+.gk-hd-ghost { height: 46px; min-width: 92px; padding: 0 20px; border: 1px solid rgba(201,164,92,.65); border-radius: 4px; background: rgba(18,12,8,.6); color: #efe6d2; font: 500 14px/1 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif; letter-spacing: .06em; cursor: pointer; pointer-events: auto; }
+.gk-hd-ghost:hover { background: rgba(40,28,20,.8); }
+.gk-hd-ghost.abs { position: absolute; left: 574px; top: 676px; }
+.gk-hd-coin { width: 50px; height: 50px; border-radius: 50%; padding: 0; border: 1px solid #c9a45c; background: radial-gradient(circle at 50% 35%, #f6efdf, #e2d5b8); color: #2a1f17; font: 600 27px/1 'Cormorant Garamond', 'Gowun Batang', serif; font-variant-numeric: lining-nums; cursor: pointer; pointer-events: auto; box-shadow: 0 0 0 3px #1c1410, 0 0 0 4px rgba(201,164,92,.55), 0 6px 12px rgba(0,0,0,.45); transition: transform .15s; }
+.gk-hd-coin:hover { transform: translateY(-2px); }
+.gk-hd-coin:active { background: radial-gradient(circle at 50% 35%, #e6c987, #c9a45c); }
+.gk-hd-sep { display: block; width: 1px; height: 34px; background: rgba(201,164,92,.5); margin: 0 6px; }
+.gk-hd-disc { position: absolute; left: 0; top: 0; width: 112px; padding: 0; border: 0; background: none; color: #efe6d2; cursor: default; pointer-events: none; transform-origin: 0 0; transition: transform .5s cubic-bezier(.2,.8,.2,1); }
+.gk-hd-disc.gk-hd-hit { cursor: pointer; pointer-events: auto; }
+.gk-hd-face { position: relative; display: block; width: 112px; height: 112px; border-radius: 50%; filter: drop-shadow(0 6px 8px rgba(0,0,0,.6)); transition: transform .18s; }
+.gk-hd-disc.gk-hd-hit:hover .gk-hd-face { transform: translateY(-6px); }
+.gk-hd-face img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+.gk-hd-dcap { display: block; margin-top: 8px; font: 400 14px/18px 'Gowun Batang', serif; letter-spacing: .12em; text-align: center; transition: opacity .3s; }
+.gk-hd-fly { position: absolute; left: 0; top: 0; width: 112px; height: 112px; transform-origin: 0 0; z-index: 5; pointer-events: none; filter: drop-shadow(0 14px 12px rgba(0,0,0,.55)); }
+.gk-hd-arc { width: 100%; height: 100%; perspective: 600px; animation: gkHdArc .54s cubic-bezier(.3,0,.5,1) both; }
+.gk-hd-in { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; -webkit-transform-style: preserve-3d; animation: gkHdTurn .54s cubic-bezier(.4,0,.4,1) both; }
+.gk-hd-f, .gk-hd-b { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.gk-hd-f img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+.gk-hd-b { transform: rotateY(180deg); }
+.gk-hd-land { position: absolute; width: 0; height: 0; z-index: 4; pointer-events: none; }
+.gk-hd-shade { position: absolute; left: -46px; top: -34px; width: 92px; height: 92px; border-radius: 50%; background: radial-gradient(circle, rgba(0,0,0,.75), rgba(0,0,0,0) 68%); animation: gkHdShade .5s ease-out both; }
+.gk-hd-dust { position: absolute; left: -52px; top: -48px; width: 104px; height: 104px; border-radius: 50%; border: 1.5px solid rgba(236,210,150,.75); box-shadow: 0 0 14px rgba(236,210,150,.45), inset 0 0 12px rgba(236,210,150,.3); animation: gkHdDust .55s ease-out both; }
+.gk-hd-puff { position: absolute; left: -60px; top: -56px; width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(circle, rgba(255,244,214,.5), rgba(255,244,214,0) 62%); animation: gkHdPuff .45s ease-out both; }
+@keyframes gkHdIn { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes gkHdArc { 0% { transform: translateY(0); } 48% { transform: translateY(-58px); } 100% { transform: translateY(0); } }
+@keyframes gkHdTurn { 0% { transform: rotateY(0deg) rotateZ(0deg); } 100% { transform: rotateY(180deg) rotateZ(-14deg); } }
+@keyframes gkHdShade { 0% { opacity: 0; transform: scale(.7); } 40% { opacity: .9; transform: scale(1.08); } 100% { opacity: .55; transform: scale(1); } }
+@keyframes gkHdDust { 0% { opacity: .9; transform: scale(.72); } 100% { opacity: 0; transform: scale(1.34); } }
+@keyframes gkHdPuff { 0% { opacity: .8; transform: scale(.6); } 100% { opacity: 0; transform: scale(1.25); } }
+.gk-hd-coin.gk-hd-sel { background: radial-gradient(circle at 50% 35%, #e6c987, #c9a45c); box-shadow: 0 0 0 3px #1c1410, 0 0 0 4px #ecd296, 0 6px 12px rgba(0,0,0,.45); }
+.gk-hd-btn.gk-hd-confirm { min-width: 160px; }
+.gk-hd-btn:disabled { opacity: .4; filter: grayscale(.4); cursor: default; pointer-events: none; }

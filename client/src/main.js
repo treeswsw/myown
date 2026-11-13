@@ -40,13 +40,18 @@ let draw = null;
 let drawQ = Promise.resolve();
 const withDraw = (fn) => { drawQ = drawQ.then(async () => { if (draw) fn(draw); }).catch((e) => console.error(e)); };
 const inDraw = () => state.room?.mode === 'draw';
+/* gsk game (갱스껄): same pattern, own chunk and own queue */
+let gsk = null;
+let gskQ = Promise.resolve();
+const withGsk = (fn) => { gskQ = gskQ.then(async () => { if (gsk) fn(gsk); }).catch((e) => console.error(e)); };
+const inGsk = () => state.room?.mode === 'gsk';
 const liarAnchor = (id) => (liar && inLiar() ? liar.anchorOf(id) : null);
 /* yacht game: same idea, own chunk */
 let yacht = null;
 const withYacht = (fn) => { liarQ = liarQ.then(async () => { if (yacht) fn(yacht); }).catch((e) => console.error(e)); };
 const inYacht = () => state.room?.mode === 'yacht';
 const yachtAnchor = (id) => (yacht && inYacht() ? yacht.anchorOf(id) : null);
-const anchorOf = (id) => (inLiar() ? liarAnchor(id) : inYacht() ? yachtAnchor(id) : inDraw() ? null : pins.anchor(id));
+const anchorOf = (id) => (inLiar() ? liarAnchor(id) : inYacht() ? yachtAnchor(id) : inDraw() || inGsk() ? null : pins.anchor(id));
 
 const table = createTable(stage);
 table.reset();
@@ -153,6 +158,18 @@ const lgBar = h('div', 'lgbar', lgCode, h('span', 'lgbar-sp'), lgEmote, lgStart,
 lgBar.hidden = true;
 ui.append(lgBar);
 
+/* gsk room top bar (.gkbar, style.css): room code / emote / start / leave */
+const gkCode = h('span', 'gkbar-code');
+const gkStart = lgBtn('gkbar-btn main', '시작', () => send({ t: 'start' }));
+gkStart.dataset.gk = 'bar-start';
+const gkEmote = lgBtn('gkbar-btn', '이모티콘', () => toggleLiarPanel());
+gkEmote.dataset.gk = 'bar-emote';
+const gkLeave = lgBtn('gkbar-btn', '나가기', () => send({ t: 'leave' }));
+gkLeave.dataset.gk = 'bar-leave';
+const gkBar = h('div', 'gkbar', gkCode, h('span', 'gkbar-sp'), gkEmote, gkStart, gkLeave);
+gkBar.hidden = true;
+ui.append(gkBar);
+
 /* yacht room top bar (.ytbar, style.css): room code / sound / emote / start / leave. Sits to the right of the score sheet (--yt-sheet-w) */
 const ytCode = h('span', 'ytbar-code');
 const ytSound = lgBtn('ytbar-btn', '', () => { setMuted(!isMuted()); syncYtSound(); });
@@ -194,6 +211,7 @@ let emphasized = false; // showdown emphasis is on screen
 let liarShown = false; // the screen currently shows a liar room (poker parts are cleared)
 let yachtShown = false; // the screen currently shows a yacht room (poker parts are cleared)
 let drawShown = false; // the screen currently shows a draw room (poker parts are cleared)
+let gskShown = false; // the screen currently shows a gsk room (poker parts are cleared)
 let lastDrawToast = 0;
 const drawToast = (msg) => { lastDrawToast = Date.now(); toast(msg); };
 // Phone landscape: the draw screen uses its own top row, so the site bar is hidden there except in the waiting room.
@@ -221,6 +239,30 @@ function applyDrawRoom(room) {
   withDraw((d) => d.room(state.room));
 }
 addEventListener('resize', () => { if (drawShown && state.room?.mode === 'draw') lgBar.hidden = drawBarHidden(state.room); });
+function applyGskRoom(room) {
+  shown = room;
+  if (!gskShown) {
+    gskShown = true;
+    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null);
+    cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
+    wasMyTurn = false;
+  }
+  lobby.hide();
+  gkBar.hidden = false;
+  gkCode.textContent = `방 코드 ${room.code}`;
+  gkStart.hidden = room.hostId !== room.you || (room.phase !== 'lobby' && room.phase !== 'result');
+  chat.setEnabled(true);
+  chat.button.hidden = false;
+  chat.setMode('game');
+  if (!gsk) {
+    gskQ = gskQ.then(async () => {
+      if (gsk) return;
+      const { mountGsk } = await import('./gsk/index.js');
+      gsk = mountGsk({ ui, send, getMe: () => state.me, toast, leave: () => send({ t: 'leave' }), openEmote: () => { if (!liarPanel) toggleLiarPanel(); } });
+    }).catch((e) => console.error(e));
+  }
+  withGsk((g) => (g.update ?? g.room).call(g, state.room));
+}
 function applyLiarRoom(room) {
   shown = room;
   if (!liarShown) {
@@ -277,6 +319,12 @@ function applyRoom(room) {
     closeLiarPanel();
     withYacht((y) => y.applyRoom(null));
   }
+  if (gskShown && room?.mode !== 'gsk') {
+    gskShown = false;
+    gkBar.hidden = true;
+    closeLiarPanel();
+    withGsk((g) => (g.update ?? g.room).call(g, null));
+  }
   if (drawShown && room?.mode !== 'draw') {
     drawShown = false;
     lgBar.hidden = true;
@@ -293,6 +341,7 @@ function applyRoom(room) {
   if (room?.mode === 'yacht') { applyYachtRoom(room); return; }
   if (room?.mode === 'liar') { applyLiarRoom(room); return; }
   if (room?.mode === 'draw') { applyDrawRoom(room); return; }
+  if (room?.mode === 'gsk') { applyGskRoom(room); return; }
   shown = room;
   if (!room) {
     table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null); emotePanel.clearRoom(); chat.close(); chat.setEnabled(false); chat.button.hidden = true;
@@ -359,6 +408,7 @@ function handle(msg) {
       lobby.setLiar(msg.liar === 'on' || (msg.liar === 'test' && new URLSearchParams(location.search).get('liar') === '1'));
       lobby.setYacht(msg.yacht === 'on' || (msg.yacht === 'test' && new URLSearchParams(location.search).get('yacht') === '1'));
       lobby.setDraw(msg.draw === 'on' || (msg.draw === 'test' && new URLSearchParams(location.search).get('draw') === '1'));
+      lobby.setGsk(msg.gsk === 'on' || (msg.gsk === 'test' && new URLSearchParams(location.search).get('gsk') === '1'));
       if (pendingAvatar && !msg.user.avatar) send({ t: 'avatar', data: pendingAvatar });
       pendingAvatar = null;
       break;
@@ -367,8 +417,8 @@ function handle(msg) {
       if (msg.state?.code !== state.room?.code) { chat.setLog([]); emotePanel.clearRoom(); }
       state.room = msg.state;
       admin.refresh();
-      if ((msg.state?.mode === 'liar' && !liarShown) || (msg.state?.mode === 'yacht' && !yachtShown) || (msg.state?.mode === 'draw' && !drawShown)) { animator.flush(); special.skipAll(); }
-      if (msg.state?.mode === 'liar' || msg.state?.mode === 'yacht' || msg.state?.mode === 'draw' || !animator.busy()) applyRoom(msg.state);
+      if ((msg.state?.mode === 'liar' && !liarShown) || (msg.state?.mode === 'yacht' && !yachtShown) || (msg.state?.mode === 'draw' && !drawShown) || (msg.state?.mode === 'gsk' && !gskShown)) { animator.flush(); special.skipAll(); }
+      if (msg.state?.mode === 'liar' || msg.state?.mode === 'yacht' || msg.state?.mode === 'draw' || msg.state?.mode === 'gsk' || !animator.busy()) applyRoom(msg.state);
       break;
     case 'resetAsk': loginId = null; lobby.showResetConfirm(); break;
     case 'resetDone':
@@ -404,6 +454,19 @@ function handle(msg) {
         else if (e.k === 'sndDel') emotePanel.removeRoomSound(e.sid);
         else if (e.k === 'sndRename') emotePanel.renameRoomSound(e.sid, e.name);
         else withDraw((d) => d.event(e)); // includes emote, faces, chat, chatLog, left, drSt ...
+        break;
+      }
+      if (inGsk()) { // gsk rooms never use the poker animator; chat goes to the site chat
+        const e = msg.e;
+        if (e.k === 'pemote') emotePanel.showPhoto(e.id, e.data);
+        else if (e.k === 'snd') emotePanel.playSound(e.id, e.sid);
+        else if (e.k === 'sndAdd') emotePanel.addRoomSound(e);
+        else if (e.k === 'sndList') { emotePanel.setRoomSounds(e.items); emotePanel.syncMine(); }
+        else if (e.k === 'sndDel') emotePanel.removeRoomSound(e.sid);
+        else if (e.k === 'sndRename') emotePanel.renameRoomSound(e.sid, e.name);
+        else if (e.k === 'chat') chat.push(e, { mine: e.id === state.room?.you });
+        else if (e.k === 'chatLog') chat.setLog(e.items, state.room?.you);
+        else withGsk((g) => g.event(e)); // includes emote, faces, gk* ...
         break;
       }
       if (inYacht()) { // yacht rooms never use the poker animator either
@@ -480,7 +543,8 @@ function handle(msg) {
         else lobby.setError(msg.msg);
         break;
       }
-      if (inLiar() || inYacht() || inDraw() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
+      if (typeof msg.code === 'string' && msg.code.startsWith('gk_')) withGsk((g) => g.error?.(msg));
+      if (inLiar() || inYacht() || inDraw() || inGsk() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
       break;
     default: break;
   }
