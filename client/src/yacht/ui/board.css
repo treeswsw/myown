@@ -1,0 +1,75 @@
+/* 요트다이스 주사위 판. 접두사 .yt-bd-  (참고: design/yacht/mock.html 의 판 부분, 확정 시안 그대로) */
+.yt-bd-root { position: absolute; inset: 0; overflow: hidden; min-width: 0; color: #fff; --t: 300px; --tx: 0px; --ty: 52px; --hud: 52px;
+  font-family: "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+.yt-bd-root * { box-sizing: border-box; }
+.yt-bd-root [hidden] { display: none !important; }
+
+/* 위 줄: 차례인 사람, N left */
+.yt-bd-hud { position: absolute; left: 0; right: 0; top: 0; height: var(--hud); padding: 0 10px; display: flex; align-items: center; gap: 8px; z-index: 6; pointer-events: none; }
+.yt-bd-grow { flex: 1; }
+.yt-bd-turn { display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 13px 0 3px; border-radius: 999px; background: rgba(20, 18, 16, .78); border: 1px solid rgba(255, 255, 255, .2); font-size: 14px; font-weight: 700; white-space: nowrap; max-width: 62%; }
+.yt-bd-turn-name { overflow: hidden; text-overflow: ellipsis; }
+.yt-bd-turn-end { padding-left: 10px; }
+.yt-bd-av { width: 28px; height: 28px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #fff; font-weight: 700; font-size: 13px; line-height: 1; border: 2px solid #ffc62a; }
+.yt-bd-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.yt-bd-left { display: flex; align-items: baseline; gap: 5px; font-size: 17px; font-weight: 700; white-space: nowrap; text-shadow: 0 2px 5px rgba(0, 0, 0, .8); }
+.yt-bd-left-ico { align-self: center; display: flex; }
+.yt-bd-left-ico svg { width: 24px; height: 24px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)); }
+.yt-bd-left b { font-size: 28px; font-weight: 900; line-height: 1; }
+
+/* 트레이(검은 계단 테두리, 빨간 펠트, 보관 칸 5개) */
+.yt-bd-view { position: absolute; inset: 0; pointer-events: none; }
+.yt-bd-tray { position: absolute; left: var(--tx); top: var(--ty); width: var(--t); height: var(--t); border-radius: calc(var(--t) * .075); background: #151515;
+  box-shadow: inset 0 0 0 calc(var(--t) * .011) #3a3a3a, inset 0 0 0 calc(var(--t) * .020) #0c0c0c, inset 0 0 0 calc(var(--t) * .031) #333, inset 0 0 0 calc(var(--t) * .040) #0c0c0c,
+    inset 0 0 0 calc(var(--t) * .051) #2d2d2d, inset 0 0 0 calc(var(--t) * .060) #0a0a0a, inset 0 0 0 calc(var(--t) * .071) #272727,
+    0 calc(var(--t) * .03) calc(var(--t) * .06) rgba(0, 0, 0, .65), 0 2px 0 #000; }
+.yt-bd-slots { position: absolute; left: 8%; right: 8%; top: 8%; height: 16.2%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.6%; }
+.yt-bd-slot { background: linear-gradient(180deg, #050505, #1c1c1c 70%); border-radius: 4%; box-shadow: inset 0 calc(var(--t) * .012) calc(var(--t) * .02) #000, 0 0 0 calc(var(--t) * .006) #2e2e2e; }
+.yt-bd-felt { position: absolute; left: 8%; right: 8%; top: 26.6%; bottom: 8%; border-radius: 1.5%;
+  background: radial-gradient(ellipse at 45% 40%, rgba(255, 120, 110, .22), transparent 65%), repeating-linear-gradient(45deg, rgba(0, 0, 0, .05) 0 1px, transparent 1px 3px), repeating-linear-gradient(-45deg, rgba(255, 255, 255, .03) 0 1px, transparent 1px 3px), #b4141b;
+  box-shadow: inset 0 calc(var(--t) * .03) calc(var(--t) * .05) rgba(0, 0, 0, .6), inset calc(var(--t) * .012) 0 calc(var(--t) * .03) rgba(0, 0, 0, .35), inset calc(var(--t) * -.012) 0 calc(var(--t) * .03) rgba(0, 0, 0, .35); }
+
+/* 주사위(흰색, 검은 눈) */
+.yt-bd-die { position: absolute; border-radius: 17%; background: linear-gradient(145deg, #fff 55%, #e4e1da); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 0; will-change: left, top, transform;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1), inset -2px -3px 4px rgba(0, 0, 0, .14), calc(var(--t) * .008) calc(var(--t) * .014) calc(var(--t) * .012) rgba(0, 0, 0, .5); }
+.yt-bd-incup { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1), 2px 4px 5px rgba(0, 0, 0, .55); }
+.yt-bd-die i { width: 74%; height: 74%; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #333, #0b0b0b 70%); place-self: center; }
+.yt-bd-die i.yt-bd-x { visibility: hidden; }
+
+/* 컵: 위에서 본 모습(주사위가 들어 있을 때)과 옆으로 누운 모습(쉴 때) */
+.yt-bd-cup { position: absolute; left: 74%; top: 51%; width: calc(var(--t) * .5); height: calc(var(--t) * .5); transform: translate(-50%, -50%); border-radius: 50%; z-index: 3;
+  background: radial-gradient(circle, #7a0d12 0 38%, #a81419 58%, #8d1015 66.5%, #1c1c1c 67.5%, #2c2c2c 69%, #0d0d0d 71%);
+  box-shadow: 0 calc(var(--t) * .03) calc(var(--t) * .05) rgba(0, 0, 0, .7), inset 0 0 0 calc(var(--t) * .004) #3a3a3a; }
+.yt-bd-cupside { position: absolute; left: 83%; top: 30%; width: calc(var(--t) * .62); height: calc(var(--t) * .4); z-index: 3; transform: rotate(-5deg); border-radius: 9% 6% 6% 9% / 14% 10% 10% 14%;
+  background: linear-gradient(180deg, #3b3b3b, #1c1c1c 22%, #0a0a0a 60%, #000); box-shadow: calc(var(--t) * -.02) calc(var(--t) * .04) calc(var(--t) * .05) rgba(0, 0, 0, .65); }
+.yt-bd-cupside::before { content: ''; position: absolute; left: -7%; top: 0; width: 20%; height: 100%; border-radius: 50%; background: radial-gradient(ellipse at 60% 50%, #6d0b10, #a81419 72%, #1a1a1a 74%, #303030 86%, #0c0c0c 88%); }
+
+/* 트레이 위에 얹는 글·버튼 */
+.yt-bd-fx { position: absolute; left: var(--tx); top: var(--ty); width: var(--t); height: var(--t); z-index: 5; pointer-events: none; }
+.yt-bd-wait { position: absolute; left: 50%; top: 31%; transform: translateX(-50%); max-width: 90%; padding: 8px 14px; border-radius: 999px; background: rgba(20, 18, 16, .88); border: 1px solid rgba(255, 255, 255, .25); font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.yt-bd-idle { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); max-width: 88%; padding: 8px 14px; border-radius: 14px; background: rgba(20, 18, 16, .8); border: 1px solid rgba(255, 255, 255, .18); font-size: 14px; font-weight: 500; text-align: center; word-break: keep-all; }
+.yt-bd-combo { position: absolute; left: 0; right: 0; top: 40%; text-align: center; line-height: 1; font-size: calc(var(--t) * .13); font-weight: 900; color: #fff; letter-spacing: -.02em; text-shadow: 0 calc(var(--t) * .008) 0 rgba(0, 0, 0, .35), 0 calc(var(--t) * .02) calc(var(--t) * .04) rgba(0, 0, 0, .55); }
+.yt-bd-combo[data-combo="yacht"] { color: #ffc62a; font-size: calc(var(--t) * .2); }
+.yt-bd-pop { animation: yt-bd-pop .6s cubic-bezier(.3, 1.7, .5, 1) both; }
+@keyframes yt-bd-pop { from { transform: scale(.3); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .yt-bd-pop { animation: none; } }
+.yt-bd-act { position: absolute; right: 4.5%; bottom: 3.6%; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.yt-bd-hint { font-size: 13px; font-weight: 500; padding: 7px 13px; border-radius: 999px; background: rgba(20, 18, 16, .8); border: 1px solid rgba(255, 255, 255, .18); white-space: nowrap; }
+.yt-bd-btn { pointer-events: auto; min-height: 48px; padding: 0 22px; border-radius: 999px; background: #ffc62a; color: #1c1608; font: inherit; font-size: 17px; font-weight: 700; white-space: nowrap; border: 0; margin: 0;
+  cursor: pointer; touch-action: manipulation; box-shadow: 0 4px 0 #a67a00, 0 8px 16px rgba(0, 0, 0, .5); }
+.yt-bd-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #a67a00; }
+
+/* 주사위 위 투명 버튼 */
+.yt-bd-hits { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.yt-bd-dieb { position: absolute; pointer-events: auto; padding: 0; margin: 0; border: 0; background: transparent; border-radius: 12%; cursor: pointer; touch-action: manipulation; }
+.yt-bd-dieb:focus-visible { outline: 3px solid #ffc62a; }
+
+@media (max-height: 719px) {
+  .yt-bd-turn { font-size: 13px; height: 32px; }
+  .yt-bd-av { width: 24px; height: 24px; font-size: 12px; }
+  .yt-bd-left { font-size: 15px; } .yt-bd-left b { font-size: 24px; } .yt-bd-left-ico svg { width: 20px; height: 20px; }
+  .yt-bd-btn { font-size: 15px; padding: 0 16px; min-height: 46px; }
+  .yt-bd-wait, .yt-bd-idle { font-size: 12px; padding: 6px 10px; }
+  .yt-bd-hint { font-size: 12px; padding: 5px 10px; }
+}
