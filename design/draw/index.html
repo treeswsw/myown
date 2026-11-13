@@ -332,7 +332,7 @@ function game(o) {
          ${o.pick && me ? `<div class="dr-over"><h3>그릴 단어를 고르세요</h3><div class="dr-picks">
             <button class="dr-pick"><small>음식</small><b>짜장면</b></button><button class="dr-pick"><small>동물</small><b>기린</b></button><button class="dr-pick"><small>탈것</small><b>잠수함</b></button></div>
             <span class="dr-count">7초 뒤 자동으로 고릅니다</span><p>글자·숫자는 쓰지 않고 그림으로만 설명해요</p></div>` : ''}
-         ${o.rev ? `<div class="dr-rev"><small>정답 · 5명 중 3명이 맞혔어요</small><b>짜장면</b><span>민수 <em>+112</em> · 태양 <em>+74</em> · 강식 <em>+61</em> · 그린 사람 지호 <em>+60</em></span><small>3초 뒤 다음 문제 · 다음 차례 민수</small></div>` : ''}
+         ${o.rev ? `<div class="dr-rev"><small>정답 · 5명 중 3명이 맞혔어요</small><b>짜장면</b><span>민수 <em>+112</em> · 태양 <em>+51</em> · 강식 <em>+46</em> · 그린 사람 지호 <em>+60</em></span><small>3초 뒤 다음 문제 · 다음 차례 민수</small></div>` : ''}
        </div>
        <div class="dr-under">${tools ? `
           <div class="dr-sizes" role="radiogroup" aria-label="굵기">
@@ -358,7 +358,7 @@ const VIEWS = {
   draw: () => game({ me: 1, turn: 1, time: '0:26', bar: 19, says, hits: [2] }),
   guess: () => game({ turn: 1, time: '0:26', bar: 19, says, hits: [2] }),
   kb: () => game({ turn: 1, time: '0:26', bar: 19, says, kb: 1, hits: [2] }),
-  reveal: () => game({ turn: 1, rev: 1, time: '0:00', bar: 0, says, gain: { 2: 112, 4: 74, 0: 61, 1: 60 } }),
+  reveal: () => game({ turn: 1, rev: 1, time: '0:00', bar: 0, says, gain: { 2: 112, 4: 51, 0: 46, 1: 60 } }),
   lobby: () => `<div class="dr-center">
     <section class="dr-panel"><h1>♠ 갱식 클럽</h1>
       <div class="dr-row"><span class="dr-av" style="background:#b5651d;width:64px;height:64px;font-size:26px">강</span><div><h2>강식</h2><p class="dr-cap">칩 12,400 · 그림 1등 4번</p></div></div>
