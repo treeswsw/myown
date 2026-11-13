@@ -123,7 +123,7 @@ function loadCoin() {
   import('./coin/index.js').then(({ createCoin }) => {
     coin = createCoin({ send, root: document.body }); // body, not #ui: #ui is a stacking context under the lobby (z 20), so windows would sit behind it
     const buf = coinBuf; coinBuf = [];
-    if (state.me?.wallet) coin.onMe({ wallet: state.me.wallet });
+    if (state.me?.wallet) coin.onMe({ user: state.me, wallet: state.me.wallet });
     for (const m of buf) coin.onMsg(m);
     if (pendingCoin) { const k = pendingCoin; pendingCoin = null; coin.open(k); }
   }).catch((e) => { coinLoading = false; console.error(e); });
