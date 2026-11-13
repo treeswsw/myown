@@ -10,27 +10,32 @@ const nameOf = (state, id) => ((state && state.players) || []).find((p) => p.id 
 
 // GDD 4-4 표. 글(채팅)을 쓸 수 있는가. 순수 함수.
 export function chatLockFor(state) {
-  const open = { locked: false, hint: '' };
+  const open = { locked: false, hint: '', hot: false };
   if (!state || !state.phase) return open;
   const phase = state.phase;
   if (phase === 'lobby' || phase === 'result') return open;
   const me = meOf(state);
-  if (me && me.spectating) return { locked: true, hint: '구경 중에는 다음 판부터 글을 쓸 수 있어요' };
+  if (me && me.spectating) return { locked: true, hint: '구경 중에는 다음 판부터 글을 쓸 수 있어요', hot: false };
   switch (phase) {
     case 'reveal':
     case 'discuss':
     case 'revote':
       return open;
     case 'speak':
-      return state.speaker === state.you ? open : { locked: true, hint: '첫 설명 중에는 차례인 사람만 쓸 수 있어요' };
+      if (state.speakDone) return { locked: true, hint: '곧 다음 차례로 넘어가요', hot: false };
+      return state.speaker === state.you
+        ? { locked: false, hint: '첫 발언을 입력하세요', hot: true }
+        : { locked: true, hint: '첫 설명 중에는 차례인 사람만 쓸 수 있어요', hot: false };
     case 'defense':
     case 'judge':
     case 'judged':
-      return state.accused === state.you ? open : { locked: true, hint: '변론·찬반 중에는 지목된 사람만 쓸 수 있어요' };
+      return state.accused === state.you
+        ? { locked: false, hint: '최후 변론을 입력하세요', hot: true }
+        : { locked: true, hint: '변론·찬반 중에는 지목된 사람만 쓸 수 있어요', hot: false };
     case 'unmask':
-      return { locked: true, hint: '정체 공개 중에는 글을 쓸 수 없어요' };
+      return { locked: true, hint: '정체 공개 중에는 글을 쓸 수 없어요', hot: false };
     case 'guess':
-      return { locked: true, hint: '정답 맞히기 중에는 글을 쓸 수 없어요' };
+      return { locked: true, hint: '정답 맞히기 중에는 글을 쓸 수 없어요', hot: false };
     default:
       return open;
   }
@@ -43,6 +48,7 @@ function textsFor(state) {
     case 'reveal':
       return { title: '역할 확인', alert: [], plain: true, timed: false };
     case 'speak': {
+      if (state.speakDone) return { title: '첫 설명', alert: [], plain: true, timed: false };   // 쓴 뒤 잠깐 머묾
       if (state.speaker === state.you) {
         return { title: '남은 발언시간', alert: ['당신의 발언시간입니다', '라이어가 눈치채지 못하게 발언하세요'], plain: false, timed: true };
       }
@@ -203,6 +209,8 @@ export function createHud(ctx) {
     drawSecs();
 
     if (!SAID_PHASES.includes(state.phase) && !(state.phase === 'discuss' && saidKind === 'say')) hideSaid();
+    // 다음 차례로 넘어가면 앞사람의 큰 글을 내린다(다음 사람이 말한 것처럼 보이지 않게)
+    if (prev && prev.phase === 'speak' && state.phase === 'speak' && prev.speaker !== state.speaker) hideSaid();
 
     const canEnd = state.hostId === state.you && IN_GAME.includes(state.phase);
     endBox.hidden = !canEnd;

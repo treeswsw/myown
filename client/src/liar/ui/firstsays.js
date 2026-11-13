@@ -18,6 +18,7 @@ export function canLate(state) {
   const me = (state.players || []).find((p) => p.id === state.you);
   if (!me || me.spectating) return false;
   if (state.speaker === state.you) return false;
+  if (state.phase === 'speak' && state.speakDone) return false;   // 곧 다음 차례(서버가 받지 않는다)
   const mine = (state.firstSays || []).find((f) => f && f.id === state.you);
   return !!mine && mine.text === null;
 }

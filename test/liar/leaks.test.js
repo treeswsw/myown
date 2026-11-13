@@ -54,6 +54,14 @@ function assertIndistinguishable(g, label) {
   for (const c of citizens) assert.ok(!JSON.stringify(c).includes(DRAW.liarWord), `${label}: 시민이 라이어 단어를 받음`);
 }
 
+
+// 첫 설명을 쓰고 3초 머무는 시간까지 넘긴다(알림은 합쳐서 돌려준다)
+function sayT(g, by, text, t) {
+  const r = act(g, { type: 'say', by, text }, t);
+  if (r.ok && g.speakHold) r.events = [...r.events, ...tick(g, g.phaseEndsAt).events];
+  return r;
+}
+
 for (const N of [3, 8]) {
   for (const liarIdx of [0, N - 1]) {
     test(`[${N}명, 라이어 p${liarIdx}] word 방식: reveal·speak·discuss·revote 마다 라이어/시민 view 모양이 같다`, () => {
@@ -64,12 +72,14 @@ for (const N of [3, 8]) {
       assertIndistinguishable(g, 'speak 시작');
       // 한 명은 쓰고 한 명은 못 쓰고 지나가는 등 여러 순간
       act(g, { type: 'say', by: g.order[0], text: '조용한 곳' }, g.phaseStartedAt + S);
-      assertIndistinguishable(g, 'speak 첫 설명 뒤');
+      assertIndistinguishable(g, 'speak 첫 설명 뒤(3초 머묾)');
+      tick(g, g.phaseEndsAt);
+      assertIndistinguishable(g, 'speak 머문 뒤 다음 차례');
       tick(g, g.phaseEndsAt);
       assertIndistinguishable(g, 'speak 시간 초과 뒤');
       act(g, { type: 'say', by: g.order[0], text: '이미 씀' }, g.phaseStartedAt);   // 거절돼도 상태 변화 없음
       assertIndistinguishable(g, 'speak 거절 뒤');
-      for (const id of g.order.slice(2)) act(g, { type: 'say', by: id, text: `${id}의 설명` }, g.phaseStartedAt);
+      for (const id of g.order.slice(2)) sayT(g, id, `${id}의 설명`, g.phaseStartedAt);
       assert.equal(g.phase, 'discuss');
       assertIndistinguishable(g, 'discuss 시작');
       act(g, { type: 'say', by: g.order[1], text: '늦은 설명' }, g.phaseStartedAt + S);
@@ -135,7 +145,7 @@ for (const N of [3, 8]) {
     const events = [];
     const push = (r) => events.push(...r.events);
     push(tick(g, g.phaseEndsAt));
-    for (const id of g.order) push(act(g, { type: 'say', by: id, text: `${id}: 설명` }, g.phaseStartedAt));
+    for (const id of g.order) push(sayT(g, id, `${id}: 설명`, g.phaseStartedAt));
     push(act(g, { type: 'vote', by: 'p0', target: 'p1' }, g.phaseStartedAt));
     push(act(g, { type: 'vote', by: 'p1', target: 'p0' }, g.phaseStartedAt));
     push(tick(g, g.phaseEndsAt));
@@ -156,7 +166,7 @@ for (const N of [3, 8]) {
     const drive = (g) => {
       const ev = [];
       ev.push(...tick(g, g.phaseEndsAt).events);
-      for (const id of g.order) ev.push(...act(g, { type: 'say', by: id, text: '같은 글' }, g.phaseStartedAt).events);
+      for (const id of g.order) ev.push(...sayT(g, id, '같은 글', g.phaseStartedAt).events);
       return ev.map((e) => ({ ...e, id: undefined })).map((e) => Object.keys(e).join(','));
     };
     assert.deepEqual(drive(g1), drive(g2));

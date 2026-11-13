@@ -29,6 +29,8 @@ export function createLiarScene() {
   });
   const reveal = createReveal({ scene, spot: table.spot, hemi: table.hemi, seats });
   const judge = createJudge({ scene, seats });
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
   let you = null;
   let lastVotes = {};
   let disposed = false;
@@ -75,6 +77,43 @@ export function createLiarScene() {
       return { arrows: arrows.count, beam: reveal.beamVisible, beamOn: reveal.active, judge: judge.count, yes: judge.yes, no: judge.no };
     },
     screenPos(id) { return disposed ? null : seats.screenPos(id); },
+    // 화면 점(CSS px) → 사람 id | null. 마네킹을 직접 맞히거나, 빗나가면 머리 중심 48px 안의 가장 가까운 사람
+    pick(x, y) {
+      if (disposed || !seats.count) return null;
+      const { w, h } = rig.size;
+      scene.updateMatrixWorld(true);
+      camera.updateMatrixWorld(true);
+      ndc.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      let best = null, bestD = Infinity;
+      for (const id of seats.order) {
+        const e = seats.get(id);
+        if (!e) continue;
+        const hit = ray.intersectObject(e.body, true)[0];
+        if (hit && hit.distance < bestD) { best = id; bestD = hit.distance; }
+      }
+      if (best) return best;
+      let near = null, nearD = 48;
+      for (const id of seats.order) {
+        const e = seats.get(id);
+        const p = e && project(e.face.x, e.face.y, e.face.z);
+        if (!p) continue;
+        const d = Math.hypot(p.x - x, p.y - y);
+        if (d <= nearD) { near = id; nearD = d; }
+      }
+      return near;
+    },
+    // 이름표 자리. 클로즈업된 사람이면 턱 바로 밑(below:true), 아니면 screenPos 와 같다
+    tagPos(id) {
+      if (disposed) return null;
+      const e = seats.get(id);
+      const view = rig.view;
+      if (e && rig.focusing && view.mode === 'focus' && view.id === id) {
+        const p = project(e.face.x, e.face.y - e.body.userData.faceR * 1.3, e.face.z);
+        if (p) return { x: p.x, y: p.y, below: true };
+      }
+      return seats.screenPos(id);
+    },
     seatPos(id) { return disposed ? null : seats.seatPos(id); },
     frame(dt) {
       if (disposed) return;

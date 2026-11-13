@@ -20,7 +20,7 @@ export const PHASES = Object.freeze({
 
 // 방장이 바꿀 수 있는 시간의 기본값 (GDD 4-2)
 export const DEFAULT_TIMES = Object.freeze({
-  speak: 30, discuss: 90, rediscuss: 60, defense: 20, judge: 10, guess: 15,
+  speak: 30, discuss: 90, rediscuss: 60, defense: 20, judge: 15, guess: 15,
 });
 
 // 고를 수 있는 값 (GDD 4-2)
@@ -42,6 +42,9 @@ export const FIXED_TIMES = Object.freeze({
   unmaskCitizen: 11,  // 시민 처형 (두 줄 6초 + 라이어 클로즈업 5초)
   unmaskFail: 5,      // 지목 실패 (라이어 클로즈업만)
 });
+
+// 첫 설명을 쓴 뒤 다음 차례로 넘어가기 전에 그 사람과 글을 보여 주는 시간(초). 사용자 요청 (GDD 4-1)
+export const SPEAK_HOLD = 3;
 
 // 글자 수 제한 (GDD 9-1)
 export const LIMITS = Object.freeze({ say: 80, chat: 80, guess: 30 });

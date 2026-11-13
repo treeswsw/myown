@@ -29,8 +29,10 @@ const check = (who, what, ok, detail = '') => {
 class StepFailed extends Error {}
 
 const wins = [];
+// 화면 크기: 기본 가로 폰(844×390). LG_VP=1000x750 이면 iPad 가로.
+const VP = (() => { const m = /^(\d+)x(\d+)$/.exec(process.env.LG_VP || ''); return m ? { width: +m[1], height: +m[2] } : { width: 844, height: 390 }; })();
 async function openPage(browser, url, who) {
-  const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: false, deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport: VP, hasTouch: false, deviceScaleFactor: 1 });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   const page = await ctx.newPage();
   page.setDefaultTimeout(T);
@@ -89,6 +91,27 @@ async function occlusion(w, state, skip = '') {
     }
     return out;
   }, skip);
+  // 고정 자리끼리 겹침(1절 자리 약속): 상단 줄·끝내기·최근 기록·현황판·채팅 칸·조작 줄 내용
+  const overlaps = await w.page.evaluate(() => {
+    const sels = ['.lgbar', '.lg-hud-endbox', '.chat-feed', '.chat-sheet', '.lg-vt-board', '.chat-bar', '.lg-action > *'];
+    const boxes = [];
+    for (const sel of sels) for (const el of document.querySelectorAll(sel)) {
+      if (el.closest('[hidden]') || !el.getClientRects().length) continue;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || !el.textContent.trim() && !el.querySelector('input')) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      boxes.push({ sel, r });
+    }
+    const out = [];
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i].r, b = boxes[j].r;
+      if (boxes[i].sel === boxes[j].sel) continue;
+      if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) out.push(`${boxes[i].sel} × ${boxes[j].sel}`);
+    }
+    return out;
+  });
+  bad.push(...overlaps.map((o) => `겹침 ${o}`));
   // 알려진 결함은 한 번만 따로 FAIL 로 적고 한 판은 계속 돌린다(끝날 때 실패로 끝남).
   const hard = [];
   for (const b of bad) {
@@ -106,16 +129,25 @@ const noErrors = (state) => {
   for (const w of wins) if (w.errors.length) throw new Error(`콘솔 오류(${w.who}, ${state}): ${w.errors.join(' | ')}`);
 };
 
-// 게임 중 채팅 칸은 접혀 있다: 채팅 버튼으로 연다. 보낸 뒤 다시 접는다.
+// 게임 중 채팅 칸은 아래에 늘 보인다(채팅 버튼 없음).
 async function say(w, text) {
-  const btn = w.page.locator('.chat-btn');
-  if (!(await w.page.locator('.chat-in').isVisible())) await btn.click();
   const box = w.page.locator('.chat-in');
   await box.waitFor({ state: 'visible' });
   await box.fill(text);
   await box.press('Enter');
-  if (await box.isVisible()) await btn.click();
+  await w.page.locator('.chat-feed', { hasText: text }).first().waitFor({ state: 'attached', timeout: 5000 }).catch(() => {
+    throw new Error(`${w.who}: 보낸 글이 .chat-feed 에 없음(${text})`);
+  });
 }
+const chatBarOk = async (w, state) => {
+  const r = await w.page.evaluate(() => {
+    const b = document.querySelector('.chat-btn'), i = document.querySelector('.chat-in');
+    const vis = (e) => e && !e.hidden && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
+    return { btn: vis(b), input: vis(i) };
+  });
+  if (r.btn) throw new Error(`${w.who} ${state}: 게임 중인데 .chat-btn 이 보임`);
+  if (!r.input) throw new Error(`${w.who} ${state}: .chat-in 이 안 보임`);
+};
 const title = (w) => w.page.locator('[data-lg="hud-title"]');
 const waitTitle = async (w, text, timeout = T) => {
   await w.page.locator('[data-lg="hud-title"]', { hasText: text }).first().waitFor({ state: 'visible', timeout });
@@ -211,18 +243,18 @@ try {
         const dis = await w.page.locator('.chat-in').evaluate((e) => e.disabled || e.readOnly).catch(() => true);
         if (!dis) throw new Error(`차례가 아닌 ${w.who} 창의 채팅 칸이 잠기지 않음`);
       }
+      if (!(await sp.page.locator('.chat-bar.chat-hot').count())) throw new Error(`내 발언 차례인데 .chat-bar.chat-hot 이 없음(${sp.who})`);
       const text = `설명${n}번입니다`;
       said.push({ id: sp.who, text });
       await say(sp, text);
-      if (n < 3) {
-        for (const w of wins) await w.page.locator('[data-lg="hud-said"]', { hasText: text }).waitFor({ state: 'visible' });
-      } else {
-        // 마지막 설명은 말하자마자 토론으로 넘어가므로 큰 글이 뜨는지 따로 본다(discuss 에서도 say 는 4초 보인다). 판은 계속 돌린다.
-        for (const w of wins) {
-          const ok = await w.page.locator('[data-lg="hud-said"]', { hasText: text }).waitFor({ state: 'visible', timeout: 2500 }).then(() => true, () => false);
-          if (!ok) check(w.who, '마지막(3번째) 첫 설명이 hud 큰 글에 뜸', false, '토론 단계로 넘어가 큰 글이 뜨지 않음');
-        }
+      // 쓴 뒤 3초(SPEAK_HOLD)는 그 사람에 머문다: 큰 글이 뜨고, 제목은 "첫 설명", 남은 시간 숫자는 없다
+      for (const w of wins) {
+        await w.page.locator('[data-lg="hud-said"]', { hasText: text }).waitFor({ state: 'visible', timeout: 2500 });
+        await waitTitle(w, '첫 설명', 2500);
+        const secsShown = await w.page.locator('[data-lg="hud-secs"]').isVisible().catch(() => false);
+        if (secsShown) check(w.who, `첫 설명 ${n}번째 뒤 머무는 동안 남은 시간 숨김`, false, '남은 시간 숫자가 보임');
       }
+      for (const w of wins) await chatBarOk(w, `speak ${n}`);
       noErrors(`speak ${n}`);
     });
     await step(`첫 설명 ${n}번째: 눌림 검사`, async () => { await occAll(`speak ${n}`); });
@@ -243,6 +275,7 @@ try {
   await step('토론 단계: 이름 버튼으로 지목 (B·C → A, A → B)', async () => {
     for (const w of wins) await waitTitle(w, '투표 결과까지', 20000);
     await occAll('discuss');
+    for (const w of wins) await chatBarOk(w, 'discuss');
     const idOf = async (w, name) => w.page.locator('[data-lg="tag"]', { hasText: name }).first().getAttribute('data-id');
     for (const [w, target] of [[B, 'A'], [C, 'A'], [A, 'B']]) {
       await w.page.locator('[data-lg="tag"]', { hasText: names[target] }).first().click();
@@ -275,12 +308,20 @@ try {
   await step('찬반: 글자 버튼 "맞다" (B·C)', async () => {
     for (const w of wins) await waitTitle(w, '찬반 투표', 40000);
     await occAll('judge');
-    for (const w of [B, C]) await w.page.locator('[data-lg="judge"][data-v="yes"]').click();
+    for (const w of [B, C]) {
+      const hs = await w.page.locator('[data-lg="judge"]').evaluateAll((bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return { h: r.height, lines: Math.round(r.height / parseFloat(getComputedStyle(b).lineHeight || '20')) }; }));
+      if (hs.length !== 2 || Math.abs(hs[0].h - hs[1].h) > 1 || hs[0].h > 80) throw new Error(`${w.who}: 찬반 버튼 높이 이상 ${JSON.stringify(hs)}`);
+    }
+    await B.page.locator('[data-lg="judge"][data-v="yes"]').click(); // C 는 일부러 안 고른다(기권)
     noErrors('judge');
   });
 
   await step('판정(처형) → 정체 공개 글', async () => {
     for (const w of wins) await waitTitle(w, '처형', 20000);
+    for (const w of wins) {
+      const n = await w.page.locator('.lg-vt-jv', { hasText: '기권' }).count();
+      if (n < 1) throw new Error(`${w.who}: 안 고른 사람의 딱지에 "기권"이 없음`);
+    }
     for (const w of wins) await waitTitle(w, '정체 공개', 20000);
     for (const w of wins) await w.page.locator('[data-lg="unmask"]').first().waitFor({ state: 'attached' });
     await occAll('unmask', '.lg-hud-end'); // 정체 공개는 화면 전체를 어둡게 덮는 것이 약속이라 "이 판 끝내기"는 제외

@@ -7,7 +7,7 @@
 
 import {
   PHASES as P, MIN_PLAYERS, DEFAULT_TIMES, FIXED_TIMES, LIMITS,
-  DISCUSS_FLOOR, SHORTEN_TO, LIAR_MODES,
+  DISCUSS_FLOOR, SHORTEN_TO, LIAR_MODES, SPEAK_HOLD,
 } from './constants.js';
 
 const ms = (sec) => sec * 1000;
@@ -79,6 +79,7 @@ export function createGame({ players, settings = {}, draw, rng = defaultRng, now
     phaseEndsAt: now + ms(FIXED_TIMES.reveal),
     accuseNo: 1,
     speakerIdx: -1,
+    speakHold: false,   // 차례인 사람이 첫 설명을 쓴 뒤 SPEAK_HOLD 초 동안 그 사람에 머무는 중
     firstSays,
     votes: {},
     candidates: null,
@@ -131,6 +132,7 @@ function startSpeak(g, now, events) {
 
 // 다음 차례로. away/빠진 사람은 건너뛴다(빈 채로 남아 나중에 추가할 수 있다). 다 돌았으면 토론·투표.
 function nextSpeaker(g, now, events) {
+  g.speakHold = false;
   do { g.speakerIdx++; }
   while (g.speakerIdx < g.order.length &&
          (g.away.includes(g.order[g.speakerIdx]) || g.dropped.includes(g.order[g.speakerIdx])));
@@ -244,11 +246,12 @@ function startJudge(g, now, events) {
   enter(g, P.JUDGE, now, g.times.judge, events);
 }
 
-// 찬반 마감: yes 수 > no 수(안 고른 사람 = no)면 처형. 동수는 살림.
+// 찬반 마감: yes 수 > no 수면 처형. 안 고른 사람은 기권(어느 쪽에도 안 넣음). 동수·전원 기권은 살림.
 function endJudge(g, now, events) {
   const voters = judgeVoters(g);
   const yes = voters.filter((id) => g.judge.picks[id] === 'yes').length;
-  const executed = yes > voters.length - yes;
+  const no = voters.filter((id) => g.judge.picks[id] === 'no').length;
+  const executed = yes > no;
   g.judge.executed = executed;
   const log = g.voteLog[g.voteLog.length - 1];
   log.picks = { ...g.judge.picks };
@@ -362,11 +365,12 @@ function actSay(g, { by, text }, now) {
   if (c.error) return fail(c.error);
   const mine = g.firstSays[by];
 
-  if (g.phase === P.SPEAK && speakerOf(g) === by) {          // 차례인 사람: 기록하고 바로 다음 차례
+  if (g.phase === P.SPEAK && g.speakHold) return fail('곧 다음 차례로 넘어갑니다.');
+  if (g.phase === P.SPEAK && speakerOf(g) === by) {          // 차례인 사람: 기록하고 SPEAK_HOLD 초 머문 뒤 다음 차례
     mine.text = c.text;
-    const events = [{ k: 'chat', id: by, text: c.text, ts: now, kind: 'say' }];
-    nextSpeaker(g, now, events);
-    return { ok: true, events };
+    g.speakHold = true;
+    g.phaseEndsAt = now + ms(SPEAK_HOLD);
+    return { ok: true, events: [{ k: 'chat', id: by, text: c.text, ts: now, kind: 'say' }] };
   }
   if (mine.text != null) return fail('이미 첫 설명을 썼습니다.');
   if (g.phase === P.SPEAK && g.order.indexOf(by) > g.speakerIdx) return fail('아직 차례가 아닙니다.');
@@ -519,6 +523,7 @@ export function viewFor(g, playerId) {
     my: { word, role },
     order: g.order.slice(),
     speaker: speakerOf(g),
+    speakDone: g.phase === P.SPEAK && g.speakHold,   // 차례인 사람이 이미 썼다(곧 다음 차례). 모두에게 같다
     firstSays: g.order.slice(0, shown).map((id) => ({ id, text: g.firstSays[id].text, late: g.firstSays[id].late })),
     votes: { ...g.votes },
     candidates: g.candidates ? g.candidates.slice() : null,
@@ -548,7 +553,9 @@ export function score(g) {
   if (last?.executed) {
     for (const id of active(g)) {
       if (id === g.liarId || id === last.accused) continue;
-      const yes = last.picks[id] === 'yes';
+      const v = last.picks[id];
+      if (v !== 'yes' && v !== 'no') continue;   // 기권 0점
+      const yes = v === 'yes';
       delta[id] = o.reason === 'executedLiar' ? (yes ? 2 : 1) : (yes ? -1 : 0);
     }
   }

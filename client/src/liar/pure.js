@@ -3,7 +3,7 @@
 
 // 채팅 칸에 친 글이 어디로 가는가: 내 첫 설명 차례면 say, 아니면 일반 채팅.
 export function chatMsgFor(state, text) {
-  if (state?.phase === 'speak' && state.speaker != null && state.speaker === state.you) return { t: 'lg', a: 'say', text };
+  if (state?.phase === 'speak' && state.speaker != null && state.speaker === state.you && !state.speakDone) return { t: 'lg', a: 'say', text };
   return { t: 'chat', text };
 }
 

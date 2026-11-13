@@ -3,7 +3,7 @@
 
 const PICK_PHASES = ['discuss', 'revote'];
 const TAG_PHASES = ['speak', 'discuss', 'revote', 'defense', 'judge', 'judged'];
-const JUDGE_LABEL = { no: '아니다', yes: '맞다' };
+const JUDGE_LABEL = { no: '아니다', yes: '맞다', abs: '기권' };
 
 const seated = (p) => p && typeof p.seat === 'number' && !p.spectating;
 
@@ -33,6 +33,19 @@ export function tallyOf(picks) {
   return out;
 }
 
+// 기권 수: 앉아 있는 사람 중 지목된 사람을 뺀 수 − 낸 표 수. 순수 함수.
+export function absentOf(players, accused, picks) {
+  const n = (players || []).filter((p) => seated(p) && p.id !== accused).length;
+  const t = tallyOf(picks);
+  return Math.max(0, n - t.yes - t.no);
+}
+
+// 집계 글. judged 에서 기권이 있으면 " · 기권 K"
+export function tallyText(picks, absent, showAbsent) {
+  const t = tallyOf(picks);
+  return '맞다 ' + t.yes + ' · 아니다 ' + t.no + (showAbsent && absent > 0 ? ' · 기권 ' + absent : '');
+}
+
 const el = (tag, cls, attrs) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -49,12 +62,13 @@ export function createVote(ctx) {
   const tally = el('div', 'lg-vt-tally', { 'data-lg': 'tally', role: 'status' });
   const voteStatus = el('div', 'lg-vt-status', { 'data-lg': 'vote-status', role: 'status' });
   const judgeStatus = el('div', 'lg-vt-status', { 'data-lg': 'judge-status', role: 'status' });
-  board.append(tally, voteStatus, judgeStatus);
+  board.append(voteStatus, judgeStatus);
   root.append(layer, list, board);
   ctx.root.appendChild(root);
 
   // 조작 줄에 붙이는 것: 투표 수, 찬반 버튼
   const voted = el('div', 'lg-vt-count', { 'data-lg': 'voted' });
+  const judgebox = el('div', 'lg-vt-judgebox');
   const verdicts = el('div', 'lg-vt-verdicts');
   const verdictBtns = {};
   for (const v of ['no', 'yes']) {
@@ -69,7 +83,9 @@ export function createVote(ctx) {
   }
   voted.hidden = true;
   verdicts.hidden = true;
-  ctx.action.append(voted, verdicts);
+  judgebox.hidden = true;
+  judgebox.append(tally, verdicts);
+  ctx.action.append(voted, judgebox);
 
   let state = null;
   const tags = new Map();   // id → { btn, name, who, away, av, avKey, chip, inList, w, h, x, y }
@@ -136,7 +152,7 @@ export function createVote(ctx) {
     const s = state;
     const on = !!s && s.phase !== 'lobby';
     if (!on) {
-      root.hidden = true; voted.hidden = true; verdicts.hidden = true;
+      root.hidden = true; voted.hidden = true; verdicts.hidden = true; judgebox.hidden = true;
       return;
     }
     const phase = s.phase;
@@ -172,7 +188,7 @@ export function createVote(ctx) {
       t.btn.dataset.mark = picked ? '지목' : accused ? '지목됨' : '';
       // 찬반 딱지 (judge·judged 에서만, 지목된 사람은 없음)
       let chipV = '';
-      if (judgeOn && p.id !== s.accused) chipV = picks[p.id] || (phase === 'judge' ? 'wait' : 'no');
+      if (judgeOn && p.id !== s.accused) chipV = picks[p.id] || (phase === 'judge' ? 'wait' : 'abs');
       const chipText = !chipV ? '' : chipV === 'wait' ? '고르는 중' : JUDGE_LABEL[chipV];
       if (t.chip.textContent !== chipText) t.chip.textContent = chipText;
       if (chipV) t.chip.dataset.v = chipV; else delete t.chip.dataset.v;
@@ -203,9 +219,9 @@ export function createVote(ctx) {
     voted.hidden = !showVotes;
 
     // 찬반
-    const tl = tallyOf(picks);
     tally.hidden = !judgeOn;
-    tally.textContent = judgeOn ? '맞다 ' + tl.yes + ' · 아니다 ' + tl.no : '';
+    judgebox.hidden = !judgeOn;
+    tally.textContent = judgeOn ? tallyText(picks, absentOf(players, s.accused, picks), phase === 'judged') : '';
     judgeStatus.hidden = !judgeOn;
     if (judgeOn) {
       const rows = [];
@@ -235,16 +251,19 @@ export function createVote(ctx) {
     const H = root.clientHeight || ctx.root.clientHeight || 0;
     let anyList = false;
     for (const [id, t] of tags) {
-      const a = ctx.nogl ? null : ctx.anchor(id);
+      const a = ctx.nogl ? null : (ctx.tagAnchor || ctx.anchor)(id);
       if (!a) { put(t, true); anyList = true; continue; }
       put(t, false);
       if (measure || !t.w) { t.w = t.btn.offsetWidth || 44; t.h = t.btn.offsetHeight || 44; }
       const mx = t.w / 2 + 8;
       const x = Math.min(Math.max(a.x, mx), Math.max(mx, W - mx));
-      const y = Math.min(Math.max(a.y, t.h + 4), Math.max(t.h + 4, H - 4));
-      if (t.x !== x || t.y !== y) {
-        t.x = x; t.y = y;
-        t.btn.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) translate(-50%,-100%)';
+      const below = !!a.below;
+      const y = below
+        ? Math.min(Math.max(a.y, 4), Math.max(4, H - t.h - 4))
+        : Math.min(Math.max(a.y, t.h + 4), Math.max(t.h + 4, H - 4));
+      if (t.x !== x || t.y !== y || t.below !== below) {
+        t.x = x; t.y = y; t.below = below;
+        t.btn.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) translate(-50%,' + (below ? '0' : '-100%') + ')';
       }
     }
     list.hidden = !anyList;
@@ -273,6 +292,7 @@ export function createVote(ctx) {
 
   return {
     el: root,
+    pick(id) { onTag(id); },
     update(s) { state = s || null; render(); tickAway(); },
     frame() { place(false); tickAway(); },
     // 이름표 가운데(root 기준 CSS px). 안 보이면 null
@@ -287,7 +307,7 @@ export function createVote(ctx) {
       return { x: r.left - base.left + r.width / 2, y: r.top - base.top + r.height / 2 };
     },
     dispose() {
-      root.remove(); voted.remove(); verdicts.remove(); tags.clear(); state = null;
+      root.remove(); voted.remove(); judgebox.remove(); tags.clear(); state = null;
     },
   };
 }

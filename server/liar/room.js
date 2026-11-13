@@ -5,7 +5,7 @@
 // The sound/emote/chat code below is copied from myown server/rooms.js (1b9da83) Room.
 
 import { readFileSync } from 'node:fs';
-import { COLORS, MAX_PLAYERS, TIME_CHOICES, GOAL_CHOICES, LIAR_MODES } from '../../shared/liar/constants.js';
+import { COLORS, DEFAULT_TIMES, MAX_PLAYERS, TIME_CHOICES, GOAL_CHOICES, LIAR_MODES } from '../../shared/liar/constants.js';
 import { listTopics, drawWords, isCorrect } from '../../shared/liar/words.js';
 import { createGame, tick, wakeAt, act, viewFor } from '../../shared/liar/game.js';
 import { checkLg } from '../../shared/liar/protocol.js';
@@ -46,7 +46,7 @@ export function intRng(rng) {
 
 export const DEFAULT_SETTINGS = () => ({
   liarMode: 'word',
-  times: { speak: 30, discuss: 90, rediscuss: 60, defense: 20, judge: 10, guess: 15 },
+  times: { ...DEFAULT_TIMES },
   wordSet: 'mine',
   topicMode: 'random',
   topics: topicsAllOn('mine'),
@@ -530,6 +530,7 @@ class LiarRoom {
       my: v ? v.my : { word: null, role: null },
       order: v ? v.order : [],
       speaker: v ? v.speaker : null,
+      speakDone: v ? v.speakDone : false,
       firstSays: v ? v.firstSays : [],
       votes: v ? v.votes : {},
       candidates: v ? v.candidates : null,

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createGame, act, tick, viewFor, wakeAt, defaultRng } from '../../shared/liar/game.js';
-import { DEFAULT_TIMES, FIXED_TIMES, DISCUSS_FLOOR, SHORTEN_TO, COLORS, GOAL_CHOICES, TIME_CHOICES, LIMITS } from '../../shared/liar/constants.js';
+import { DEFAULT_TIMES, FIXED_TIMES, DISCUSS_FLOOR, SHORTEN_TO, SPEAK_HOLD, COLORS, GOAL_CHOICES, TIME_CHOICES, LIMITS } from '../../shared/liar/constants.js';
 
 const S = 1000;
 const T0 = 1_000_000;
@@ -12,6 +12,13 @@ const ids = (n) => Array.from({ length: n }, (_, i) => `p${i}`);
 const identity = (n) => Array.from({ length: n - 1 }, (_, i) => n - 1 - i);
 const seqRng = (values) => { let i = 0; return (n) => { const v = values[i++]; assert.ok(v >= 0 && v < n, `rng(${n}) 에 ${v}`); return v; }; };
 const DRAW = { topic: '장소', citizenWord: '도서관', liarWord: '놀이공원' };
+
+// 첫 설명을 쓰고 3초 머무는 시간까지 넘긴다(알림은 합쳐서 돌려준다)
+function sayT(g, by, text, t) {
+  const r = act(g, { type: 'say', by, text }, t);
+  if (r.ok && g.speakHold) r.events = [...r.events, ...tick(g, g.phaseEndsAt).events];
+  return r;
+}
 
 // liarIdx 번째 사람이 라이어, 발언 순서·자리는 그대로
 function make(n, { liarIdx = 0, settings = {}, draw = DRAW, now = T0 } = {}) {
@@ -24,7 +31,10 @@ function toSpeak(g) { const t = g.phaseEndsAt; tick(g, t); return t; }
 function toDiscuss(g, now = g.phaseEndsAt) {
   let t = now;
   tick(g, t);
-  for (const id of g.order) { const r = act(g, { type: 'say', by: id, text: `${id} 설명` }, t); assert.ok(r.ok, r.error); }
+  for (const id of g.order) {
+    const r = act(g, { type: 'say', by: id, text: `${id} 설명` }, t); assert.ok(r.ok, r.error);
+    t += SPEAK_HOLD * S; tick(g, t);   // 쓴 뒤 3초 머문 다음 차례
+  }
   assert.equal(g.phase, 'discuss');
   return t;
 }
@@ -77,17 +87,26 @@ for (const N of [3, 8]) {
     assert.equal(viewFor(g, notYet).firstSays.some((f) => f.id === notYet), false);
   });
 
-  test(`[${N}명] 첫 설명: 차례인 사람의 한 줄은 기록되고 즉시 다음 차례`, () => {
+  test(`[${N}명] 첫 설명: 차례인 사람의 한 줄은 기록되고 3초 머문 뒤 다음 차례`, () => {
     const g = make(N); const t = toSpeak(g);
     const r = act(g, { type: 'say', by: g.order[0], text: '  넓고 조용해요  ' }, t + 3 * S);
     assert.equal(r.ok, true);
     assert.deepEqual(r.events, [
       { k: 'chat', id: g.order[0], text: '넓고 조용해요', ts: t + 3 * S, kind: 'say' },
-      { k: 'turn', id: g.order[1] },
     ]);
+    const held = t + 3 * S + SPEAK_HOLD * S;
+    let h = viewFor(g, 'p0');
+    assert.equal(h.speaker, g.order[0]);                 // 머무는 동안 차례는 그 사람
+    assert.equal(h.speakDone, true);
+    assert.equal(h.phaseEndsAt, held);
+    assert.equal(act(g, { type: 'say', by: g.order[0], text: '또' }, held - 1).ok, false);   // 머무는 동안 say 는 거절
+    assert.equal(act(g, { type: 'say', by: g.order[1], text: '먼저' }, held - 1).ok, false);
+    assert.deepEqual(tick(g, held - 1).events, []);
+    assert.deepEqual(tick(g, held).events, [{ k: 'turn', id: g.order[1] }]);
     const v = viewFor(g, 'p0');
     assert.equal(v.speaker, g.order[1]);
-    assert.equal(g.phaseEndsAt, t + 3 * S + DEFAULT_TIMES.speak * S);   // 새 차례는 30초를 새로 받는다
+    assert.equal(v.speakDone, false);
+    assert.equal(g.phaseEndsAt, held + DEFAULT_TIMES.speak * S);   // 새 차례는 머문 뒤 30초를 새로 받는다
     assert.deepEqual(v.firstSays, [
       { id: g.order[0], text: '넓고 조용해요', late: false },
       { id: g.order[1], text: null, late: false },
@@ -160,7 +179,7 @@ for (const N of [3, 8]) {
     const g = make(N); toSpeak(g);
     // 다음 과제(away)가 채울 자리를 직접 채워 건너뛰기만 확인
     g.away.push(g.order[1]);
-    act(g, { type: 'say', by: g.order[0], text: '첫째' }, g.phaseStartedAt + S);
+    sayT(g, g.order[0], '첫째', g.phaseStartedAt + S);
     assert.equal(viewFor(g, 'p0').speaker, g.order[2]);          // 둘째는 건너뜀
     assert.equal(viewFor(g, 'p0').firstSays[1].text, null);
     assert.equal(act(g, { type: 'say', by: g.order[1], text: '복귀' }, g.phaseStartedAt + 2 * S).events[0].kind, 'late');
@@ -168,7 +187,7 @@ for (const N of [3, 8]) {
 
   test(`[${N}명] 늦은 추가(첫 discuss): 빈 사람만 한 번, 쓴 사람은 거절, 시각 그대로`, () => {
     const g = make(N); let t = toSpeak(g);
-    for (let i = 0; i < N; i++) { if (i !== 1) act(g, { type: 'say', by: g.order[i], text: `s${i}` }, t); else tick(g, g.phaseEndsAt); t = g.phaseStartedAt; }
+    for (let i = 0; i < N; i++) { if (i !== 1) sayT(g, g.order[i], `s${i}`, t); else tick(g, g.phaseEndsAt); t = g.phaseStartedAt; }
     assert.equal(g.phase, 'discuss');
     const ends = g.phaseEndsAt;
     const r = act(g, { type: 'say', by: g.order[1], text: '토론 중 추가' }, g.phaseStartedAt + 10 * S);
@@ -182,7 +201,7 @@ for (const N of [3, 8]) {
   test(`[${N}명] 늦은 추가: 재투표에서도 가능, 지목이 결정된 뒤(defense)나 두 번째 지목부터는 거절`, () => {
     const g = make(N); toSpeak(g);
     tick(g, g.phaseEndsAt);                                  // 첫 사람 못 씀
-    for (let i = 1; i < N; i++) act(g, { type: 'say', by: g.order[i], text: 'x' }, g.phaseStartedAt);
+    for (let i = 1; i < N; i++) sayT(g, g.order[i], 'x', g.phaseStartedAt);
     assert.equal(g.phase, 'discuss');
     // 동점 상황(두 명이 한 표씩)을 만들어 재투표로
     vote(g, 'p0', 'p1', g.phaseStartedAt); vote(g, 'p1', 'p0', g.phaseStartedAt);
@@ -488,7 +507,7 @@ test('엔진 소스에 Math.random / Date.now / new Date 가 없다', () => {
 
 test('상수: 시간 기본값이 선택지 안에 있고 고정값·색·목표 점수가 GDD 와 같다', () => {
   for (const k of Object.keys(DEFAULT_TIMES)) assert.ok(TIME_CHOICES[k].includes(DEFAULT_TIMES[k]), k);
-  assert.deepEqual(DEFAULT_TIMES, { speak: 30, discuss: 90, rediscuss: 60, defense: 20, judge: 10, guess: 15 });
+  assert.deepEqual(DEFAULT_TIMES, { speak: 30, discuss: 90, rediscuss: 60, defense: 20, judge: 15, guess: 15 });
   assert.deepEqual(FIXED_TIMES, { reveal: 8, revote: 30, judged: 3, unmaskLiar: 6, unmaskCitizen: 11, unmaskFail: 5 });
   assert.deepEqual(LIMITS, { say: 80, chat: 80, guess: 30 });
   assert.equal(DISCUSS_FLOOR, 30);
@@ -561,14 +580,14 @@ for (const N of [3, 8]) {
     assert.equal(wakeAt(g), g.phaseEndsAt);
   });
 
-  test(`[${N}명] judge 마감: yes > no 면 처형, 안 고른 사람은 no, 동수는 살림`, () => {
+  test(`[${N}명] judge 마감: yes > no 면 처형, 안 고른 사람은 기권, 동수는 살림`, () => {
     const voters = ids(N).filter((p) => p !== 'p1');   // N-1 명
-    // 안 고름 = no: yes 가 과반 미만
+    // 안 고름 = 기권: 맞다 1 · 기권 나머지 → 처형
     let g = make(N, { liarIdx: 0 }); toJudge(g, 'p1');
     judgeAct(g, voters[0], 'yes', g.phaseStartedAt);
     let r = tick(g, g.phaseEndsAt);
     const ev = r.events.find((e) => e.k === 'judged');
-    assert.equal(ev.executed, false);       // yes 1 뿐, 나머지는 안 고름 = no
+    assert.equal(ev.executed, true);        // yes 1 > no 0
     assert.deepEqual(ev.picks, { [voters[0]]: 'yes' });
     // 전원 yes → 처형
     g = make(N, { liarIdx: 0 }); toJudge(g, 'p1'); judgeAll(g, 'p1', 'yes');
@@ -591,6 +610,29 @@ for (const N of [3, 8]) {
       vs.forEach((id, i) => judgeAct(g, id, i < 4 ? 'yes' : 'no', g.phaseStartedAt));
       pastJudge(g); assert.equal(g.judge.executed, true);
     }
+  });
+
+  test(`[${N}명] 기권: 전원 기권 살림 / 맞다1·아니다1·기권 살림 / 기권자 점수 0`, () => {
+    let g = make(N, { liarIdx: 0 }); toJudge(g, 'p1'); pastJudge(g);
+    assert.equal(g.judge.executed, false);
+    const vs = ids(N).filter((p) => p !== 'p1');
+    g = make(N, { liarIdx: 0 }); toJudge(g, 'p1');
+    judgeAct(g, vs[0], 'yes', g.phaseStartedAt); judgeAct(g, vs[1], 'no', g.phaseStartedAt); pastJudge(g);
+    assert.equal(g.judge.executed, false);
+    // 라이어 처형: 맞다 1 · 기권 나머지. 기권자 0, 맞다 +2
+    g = make(N, { liarIdx: 0 }); toJudge(g, liar);
+    const cs = ids(N).filter((p) => p !== liar);
+    judgeAct(g, cs[0], 'yes', g.phaseStartedAt); pastJudge(g); tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
+    act(g, { type: 'guess', by: liar, text: 'x', correct: false }, g.phaseStartedAt);
+    assert.equal(g.result.delta[cs[0]], 2);
+    assert.equal(g.result.delta[cs[1]], 0);
+    // 시민 처형: 맞다 1 · 기권 나머지. 기권자 0, 맞다 −1
+    g = make(N, { liarIdx: 0 }); toJudge(g, 'p1');
+    const c2 = vs.filter((p) => p !== liar);   // 지목 안 된 시민
+    judgeAct(g, c2[0], 'yes', g.phaseStartedAt); pastJudge(g); tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
+    act(g, { type: 'guess', by: liar, text: 'x', correct: false }, g.phaseStartedAt);
+    assert.equal(g.result.delta[c2[0]], -1);
+    if (c2[1]) assert.equal(g.result.delta[c2[1]], 0);
   });
 
   test(`[${N}명] 살림: 3초 뒤 accuseNo+1, 표·후보·지목·찬반을 비우고 rediscuss 60초 토론`, () => {
