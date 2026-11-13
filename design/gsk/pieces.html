@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>갱스껄 조각 확인</title>
+<style>
+  html,body{margin:0;background:#2a1b13}
+  #wrap{padding:14px 18px;box-sizing:border-box;display:grid;grid-template-columns:repeat(6,auto);gap:10px 18px;justify-content:start;align-items:center}
+  #wrap img{display:block}
+  h1{margin:0 0 6px;font:600 14px sans-serif;color:#e8d5b5;grid-column:1/-1}
+  .head{font:12px sans-serif;color:#cdb892}
+  #tiletest{margin-top:16px;height:300px;border:1px solid #000}
+</style>
+</head>
+<body>
+<div id="wrap"></div>
+<div id="tiletest"></div>
+<script type="module">
+import { COLORS, discBackUrl, discFlowerUrl, discSkullUrl, matUrl, floorUrl, floorTileUrl, skullPhotoUrl, preload } from '../../client/src/gsk/art.js';
+
+// 가짜 사진(사람 사진 아님): 가로로 긴 그라데이션 + 도형
+function fakePhoto(seed) {
+  const cv = document.createElement('canvas');
+  cv.width = 400; cv.height = 300;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 400, 300);
+  grad.addColorStop(0, `hsl(${seed * 60},80%,60%)`);
+  grad.addColorStop(1, `hsl(${seed * 60 + 140},70%,35%)`);
+  g.fillStyle = grad; g.fillRect(0, 0, 400, 300);
+  g.fillStyle = 'rgba(255,255,255,.85)';
+  g.beginPath(); g.arc(200, 150, 70, 0, 7); g.fill();
+  g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(0, 0, 40, 300); g.fillRect(360, 0, 40, 300);
+  g.strokeStyle = '#fff'; g.lineWidth = 6; g.strokeRect(3, 3, 394, 294);
+  return cv.toDataURL('image/png');
+}
+
+document.body.style.backgroundImage = `url(${floorUrl()})`;
+document.body.style.backgroundSize = '1920px 1080px';
+document.getElementById('tiletest').style.background = `url(${floorTileUrl()}) 0 0/400px 280px`;
+
+const wrap = document.getElementById('wrap');
+const heads = ['개인판 앞', '개인판 뒤', '원판 뒷면', '꽃', '해골', '사진 해골'];
+const h1 = document.createElement('h1'); h1.textContent = '갱스껄 조각 (아래 띠는 바닥 타일 반복)'; wrap.append(h1);
+for (const t of heads) { const d = document.createElement('div'); d.className = 'head'; d.textContent = t; wrap.append(d); }
+await preload();
+for (const c of COLORS) {
+  const mk = (src, w, h) => { const im = new Image(); im.src = src; im.width = w; im.height = h; wrap.append(im); return im; };
+  mk(matUrl(c.id, false), 156, 143);
+  mk(matUrl(c.id, true), 156, 143);
+  mk(discBackUrl(c.id), 150, 150);
+  mk(discFlowerUrl(c.id), 150, 150);
+  mk(discSkullUrl(c.id), 150, 150);
+  const ph = mk(discSkullUrl(c.id), 150, 150);
+  skullPhotoUrl(c.id, fakePhoto(c.id)).then((u) => { ph.src = u; });
+}
+window.__done = true;
+</script>
+</body>
+</html>
