@@ -1,0 +1,73 @@
+/* 공통 방 틀 (COMMON-CONTRACT 4-1): 대기실 .wr- (시안 design/waiting-room 그대로, 로비 .lb- 값), 상단 줄 .rm-bar, 이모티콘 .rm-em, 게임 판 자리 .rm-game.
+   로비 클래스(.lb-panel 등)는 요소에 붙여 쓰기만 하고 여기 선택자에는 쓰지 않는다(test/css.test.js: 한 클래스는 한 파일). */
+
+/* ---- 게임 판 자리(#ui 안). 눌러야 하는 요소는 게임이 스스로 pointer-events 를 켠다 */
+.rm-game { position: absolute; inset: 0; pointer-events: none; }
+.rm-game[hidden] { display: none; }
+
+/* ---- 대기실 */
+.wr-root.wr-root { z-index: 33; pointer-events: auto; padding: 12px;
+  background: radial-gradient(ellipse at 50% 42%, rgba(58, 47, 39, .55) 0%, rgba(26, 21, 18, .7) 46%, rgba(11, 10, 9, .85) 100%); }
+.wr-root[hidden] { display: none; }
+.wr-grid { display: grid; grid-template-columns: minmax(0, 1.32fr) minmax(0, 1.08fr) minmax(0, .9fr); gap: 16px; width: 100%; max-width: 1220px; height: min(100%, 780px); }
+.wr-grid > .wr-panel { width: auto; min-height: 0; max-height: none; overflow: hidden; }
+.wr-grid > .wr-left { overflow-y: auto; gap: 12px; }
+.wr-head { display: flex; align-items: center; gap: 8px; flex: none; }
+.wr-game { font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: -.01em; }
+.wr-sp { flex: 1; }
+.wr-code { height: 32px; border-radius: 16px; border: 0; background: var(--fill); padding: 0 12px; font-size: 13px; color: var(--ink2); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.wr-code b { color: var(--ink); font-weight: 700; letter-spacing: .06em; font-size: 15px; }
+.wr-ic { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--fill); display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; flex: none; color: var(--ink); }
+.wr-ic svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wr-titlebox { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.wr-desc { margin: 0; font-size: 14px; color: var(--ink2); line-height: 1.45; word-break: keep-all; }
+.wr-sets { display: flex; flex-direction: column; gap: 12px; flex: none; }
+.wr-sec { display: flex; align-items: baseline; gap: 8px; flex: none; font-size: 13px; font-weight: 700; color: var(--ink); flex-wrap: wrap; }
+.wr-sec small { font-weight: 400; color: var(--ink2); font-size: 12px; }
+.wr-lock { display: inline-flex; align-items: center; gap: 4px; }
+.wr-lock svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wr-set { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.wr-f { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 8px; align-items: center; }
+.wr-f.wr-top { align-items: start; }
+.wr-f.wr-top > .wr-l { padding-top: 9px; }
+.wr-l { font-size: 13px; color: var(--ink2); word-break: keep-all; line-height: 1.25; }
+.wr-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+.wr-seg.wr-wrap { display: flex; flex-wrap: wrap; }
+.wr-seg .wr-opt { min-height: 33px; font-size: 13.5px; padding: 4px 6px; border-radius: 11px; }
+.wr-seg.wr-wrap .wr-opt { flex: 1 0 auto; padding: 4px 10px; }
+.wr-ro .wr-opt.wr-opt { cursor: default; }
+.wr-ro .wr-opt.wr-opt:not([aria-checked=true]) { opacity: .45; }
+.wr-info { flex: none; }
+
+.wr-mid { gap: 12px; }
+.wr-players { flex: 0 1 auto; }
+.wr-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 15px; font-weight: 500; }
+.wr-kick { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .1); color: var(--ink2); font-size: 15px; line-height: 1; cursor: pointer; flex: none; padding: 0; }
+.wr-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .5); }
+.wr-speccap { margin-top: 4px; }
+.wr-specs { flex: none; }
+.wr-eye { width: 15px; height: 15px; fill: none; stroke: var(--ink2); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.wr-why { margin: 0; font-size: 13px; text-align: center; color: var(--accent); min-height: 1.3em; }
+.wr-guest { padding: 14px 0; }
+
+.wr-chat.wr-chat { gap: 12px; padding: 24px 16px 16px; }
+.wr-chat .wr-head { padding: 0 8px; }
+
+@media (max-width: 1100px) {
+  .wr-grid { gap: 12px; }
+  .wr-grid > .wr-panel { padding: 20px; }
+  .wr-chat.wr-chat { padding: 20px 12px 12px; }
+}
+
+/* ---- 게임 중 상단 줄(방 코드 · 소리 · 이모티콘 · 나가기). 왼쪽 자리는 게임이 정한다(CLIENT_GAMES[mode].bar.leftVar) */
+.rm-bar { position: fixed; left: 0; right: 0; top: 0; z-index: 32; height: 54px; display: flex; gap: 6px; align-items: center; padding: 6px 10px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); box-sizing: border-box; pointer-events: none; }
+.rm-bar[hidden] { display: none; }
+.rm-code { font-weight: 700; font-size: 14px; padding: 0 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-sp { flex: 1; min-width: 0; }
+.rm-btn { pointer-events: auto; flex: none; min-height: 40px; min-width: 40px; padding: 0 12px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); font-weight: 700; white-space: nowrap; display: flex; align-items: center; justify-content: center; }
+.rm-btn.rm-ic { padding: 0 8px; }
+.rm-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- 머리 위 기본 이모티콘(2초) */
+.rm-em { position: fixed; z-index: 40; transform: translate(-50%, -100%); font-size: 44px; line-height: 1; pointer-events: none; animation: rm-em-pop .4s cubic-bezier(.3, 1.8, .5, 1); }
+@keyframes rm-em-pop { from { transform: translate(-50%, -100%) scale(.2); opacity: 0; } }

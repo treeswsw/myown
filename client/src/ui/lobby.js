@@ -1,8 +1,7 @@
 import './lobby.css';
 import { openAvatarCrop } from './avatarCrop.js';
 import { h, svg, avatar, fmt } from './dom.js';
-import { GAME_NAME as GSK_NAME } from '../../../shared/gsk/name.js';
-import { GAME_NAME as DRAW_NAME } from '../../../shared/draw/name.js';
+import { GAMES as MODES, visibleModes } from '../games.js';
 import { NAMES as MINI_NAMES, GAME_IDS as MINI_IDS } from '../../../shared/mini/index.js';
 import { item as shopItem, GRADES } from '../../../shared/coin/shop.js';
 
@@ -11,7 +10,8 @@ const SHOW_DRAW = true;
 
 // createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
-// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), setYacht(visible), setDraw(visible), setGsk(visible), setMini(visible), showRank({top, mine}) }
+// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setFlags(me), showRank({top, mine}) }
+// setFlags(me): 서버 'me' 메시지의 스위치 값으로 보일 게임을 정한다(games.js visibleModes).
 // onRank() -> ask the server for the liar ranking, then call showRank.
 // onResetConfirm(adminPw) is called when the user confirms 전체 초기화 (adminPw: string|undefined).
 // onLogin(id, avatar, adminPw, {pin, newPin}) - 4th arg fields are undefined when empty.
@@ -20,18 +20,7 @@ const SHOW_DRAW = true;
 // resetError(msg) shows an error inside the reset confirm sheet (adm_pw/adm_lock).
 //    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
 
-const MODES = {
-  holdem: { name: '텍사스 홀덤', desc: '2~6명 · 블라인드 50/100', max: 6 },
-  bluff: { name: '블러핑 카드', desc: '2~4명 · 리볼버 벌칙', max: 4 },
-  liar: { name: '라이어게임', desc: '3~8명 · 말로 하는 추리', max: 8 },
-  yacht: { name: '요트다이스', desc: '2~4명 · 주사위 5개', max: 4 },
-  draw: { name: DRAW_NAME, desc: '2~8명 · 그림 보고 단어 맞히기', max: 8 },
-  gsk: { name: GSK_NAME, desc: '3~6명 · 해골을 피해 꽃 뒤집기', max: 6 },
-  mini: { name: '미니게임', desc: '2명 · 오목·리버시·체커·체스·커넥트포', max: 8 },
-};
 const BASE_KEYS = ['holdem', 'bluff'];
-// Home picker order is fixed: holdem, bluff, liar, yacht, draw, gsk, mini (only the visible ones).
-const keysFor = (liar, yacht, draw, gsk, mini) => [...BASE_KEYS, ...(liar ? ['liar'] : []), ...(yacht ? ['yacht'] : []), ...(draw ? ['draw'] : []), ...(gsk ? ['gsk'] : []), ...(mini ? ['mini'] : [])];
 const ID_RE = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9_]{2,12}$/;
 const LAST_ID_KEY = 'gs.lastId';
 const SPADE = '<path d="M12 2C8 7 3 9.5 3 14a4.5 4.5 0 0 0 7.6 3.2L9.5 22h5l-1.1-4.8A4.5 4.5 0 0 0 21 14c0-4.5-5-7-9-12z"/>';
@@ -91,7 +80,7 @@ function segmented(onPick, initKeys = BASE_KEYS) {
 
 export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm, onRank, onCoin }) {
   const el = h('div', 'lb-root lobby');
-  let user = null, room = null, pendingAvatar = null, liarOn = false, yachtOn = false, drawOn = false, gskOn = false, miniOn = false;
+  let user = null, room = null, pendingAvatar = null, shownModes = BASE_KEYS;
 
   const fileInput = h('input');
   fileInput.type = 'file';
@@ -294,7 +283,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
   function renderRooms(all) {
     lastRooms = all;
-    const list = all.filter((r) => (r.mode !== 'liar' || liarOn) && (r.mode !== 'yacht' || yachtOn) && (r.mode !== 'draw' || drawOn) && (r.mode !== 'gsk' || gskOn) && (r.mode !== 'mini' || miniOn));
+    const list = all.filter((r) => shownModes.includes(r.mode));
     const seen = new Set();
     let ref = roomList.firstChild;
     for (const r of list) {
@@ -450,45 +439,18 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     closeBtn.focus();
   }
 
-  function applyKeys() {
-    homeSeg.setKeys(keysFor(liarOn, yachtOn, drawOn, gskOn, miniOn));
-    if ((!liarOn && pickedMode === 'liar') || (!yachtOn && pickedMode === 'yacht') || (!drawOn && pickedMode === 'draw') || (!gskOn && pickedMode === 'gsk') || (!miniOn && pickedMode === 'mini')) pickedMode = 'holdem';
+  // 서버 'me' 의 스위치 값으로 보일 게임을 정한다. 순서는 등록표 순서(홀덤, 블러핑, 라이어, 요트, 갱식마인드, 갱스껄, 미니).
+  function setFlags(me) {
+    const next = visibleModes(me, location.search);
+    if (next.join() === shownModes.join()) return;
+    shownModes = next;
+    rankBtn.hidden = !next.includes('liar');
+    homeSeg.setKeys(next);
+    if (!next.includes(pickedMode)) pickedMode = 'holdem';
     homeSeg.set(pickedMode);
     syncMini();
     updateCreate();
     renderRooms(lastRooms);
-  }
-  function setLiar(on) {
-    on = !!on;
-    if (on === liarOn) return;
-    liarOn = on;
-    rankBtn.hidden = !on;
-    applyKeys();
-  }
-  function setYacht(on) {
-    on = !!on;
-    if (on === yachtOn) return;
-    yachtOn = on;
-    applyKeys();
-  }
-  function setGsk(on) {
-    on = !!on;
-    if (on === gskOn) return;
-    gskOn = on;
-    applyKeys();
-  }
-  function setDraw(on) {
-    on = !!on;
-    if (on === drawOn) return;
-    drawOn = on;
-    applyKeys();
-  }
-
-  function setMini(on) {
-    on = !!on;
-    if (on === miniOn) return;
-    miniOn = on;
-    applyKeys();
   }
 
   // ---------- state ----------
@@ -552,11 +514,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     },
     resetError(msg) { if (resetErrEl) resetErrEl.textContent = msg || ''; },
     closeReset() { closeReset?.(); },
-    setLiar,
-    setYacht,
-    setDraw,
-    setGsk,
-    setMini,
+    setFlags,
     showRank,
     show() { el.hidden = false; },
     hide() { el.hidden = true; },

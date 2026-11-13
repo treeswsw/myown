@@ -2,9 +2,13 @@ import './chat.css';
 import { h, svg, view } from './dom.js';
 import { chatSize, madLetters, MAD_FONTS } from './chatSize.js';
 
-// createChat({ onSend(text), getAnchor(playerId) -> {x, y} | null })
-//   -> { el, button, push(msg, {mine, bubble}), setLog(items, myId?), open(), close(), toggle(), setMode('game'|'lobby'|'liar'), setLock(locked, note, hot), setEnabled(bool), update() }
+// createChat({ onSend(text), getAnchor(playerId) -> {x, y} | null, onEmote?() })
+//   -> { el, button, waitEl, push(msg, {mine, bubble}), system(text), setLog(items, myId?), open(), close(), toggle(),
+//        setMode('game'|'lobby'|'liar'|'wait'|'own'), setLock(locked, note, hot), setRule(rule|null), setEnabled(bool), update() }
 // Pure DOM: the host mounts `el` and `button` (both position:fixed) and wires the network.
+// 'wait' (공통 대기실, COMMON-CONTRACT 4-3): 기록과 입력 줄이 waitEl 안에 들어간다. 대기실이 waitEl 을 자기 오른쪽 칸에 붙인다.
+//   입력 줄 왼쪽에 이모티콘 버튼(onEmote). 'own': 게임이 자기 입력칸을 쓰는 동안 사이트 채팅을 숨기고 기록만 받는다.
+// setRule({maxLen}) : 글자 수 한도(없으면 120). 잠금·보낼 모양·말풍선은 공통 틀(room/frame.js)이 rule 로 정한다.
 
 const MAX_LEN = 120;
 const FEED_MAX = 6;
@@ -13,6 +17,7 @@ const HOLD_MS = 4000; // matches the 87% mark of chat-life (4600ms)
 const BIG_HOLD_MS = 5000; // and the 89% mark of chat-big (5600ms)
 const GLYPH = '<path d="M5 4.5h14a2.5 2.5 0 0 1 2.5 2.5v7.5a2.5 2.5 0 0 1-2.5 2.5h-6.5L8 21v-4H5A2.5 2.5 0 0 1 2.5 14.5V7A2.5 2.5 0 0 1 5 4.5z"/>';
 const SEND = '<path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/>';
+const EMO = '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.2 4.2 0 0 0 7 0M9 9.8v.4M15 9.8v.4"/>';
 const touch = matchMedia('(pointer:coarse)');
 // Size marks (chatSize.js): '#'/'**' = 2 (big), '*' = 1, '***' = 3. A mark with no text after it stays an ordinary message.
 const norm = (m, mine) => {
@@ -49,7 +54,7 @@ function madText(msg) {
 }
 const hhmm = (ts) => new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-export function createChat({ onSend, getAnchor }) {
+export function createChat({ onSend, getAnchor, onEmote }) {
   const el = h('div', 'chat');
   const layer = h('div');
   const toasts = h('div');
@@ -67,7 +72,13 @@ export function createChat({ onSend, getAnchor }) {
   send.type = 'button';
   send.setAttribute('aria-label', '보내기');
   send.append(svg(SEND));
-  const bar = h('div', 'chat-bar', input, count, logBtn, send);
+  const emoBtn = h('button', 'chat-emo');
+  emoBtn.type = 'button';
+  emoBtn.setAttribute('aria-label', '이모티콘');
+  emoBtn.append(svg(EMO));
+  emoBtn.hidden = true;
+  emoBtn.addEventListener('click', () => onEmote?.());
+  const bar = h('div', 'chat-bar', emoBtn, input, count, logBtn, send);
   const sheet = h('div', 'chat-sheet');
   const col = h('div', 'chat-col', bar, sheet, toasts);
   const msgs = h('div', 'chat-msgs');
@@ -75,6 +86,8 @@ export function createChat({ onSend, getAnchor }) {
   const feed = h('div', 'chat-feed'); // liar room: last few lines, top right, not clickable
   feed.hidden = true;
   el.append(layer, col, dock, feed);
+  const wlog = h('div', 'chat-wlog');
+  const waitEl = h('div', 'chat-wait', wlog); // 공통 대기실 오른쪽 칸 안에 들어가는 기록 + 입력 줄
 
   const button = h('button', 'chat-btn');
   button.type = 'button';
@@ -90,6 +103,7 @@ export function createChat({ onSend, getAnchor }) {
   let enabled = true;
   let isOpen = false;
   let sheetOpen = false;
+  let maxLen = MAX_LEN;
 
   const unread = (v) => { dot.hidden = !v; };
 
@@ -154,16 +168,23 @@ export function createChat({ onSend, getAnchor }) {
   }
 
   // History sheet and the lobby strip
-  const row = (m) => h('div', `chat-row ${m.mine ? 'mine' : ''} ${m.big ? 'big' : ''}`, h('div', 'meta', h('b', '', m.name), hhmm(m.ts)), m.text);
+  const row = (m) => (m.sys ? h('div', 'chat-row chat-sys', m.text)
+    : h('div', `chat-row ${m.mine ? 'mine' : ''} ${m.big ? 'big' : ''}`, h('div', 'meta', h('b', '', m.name), hhmm(m.ts)), m.text));
+  function renderWait() {
+    const stick = wlog.scrollHeight - wlog.scrollTop - wlog.clientHeight < 40;
+    wlog.replaceChildren(...log.map(row));
+    if (stick) wlog.scrollTop = wlog.scrollHeight;
+  }
   function renderSheet() {
     const stick = sheet.scrollHeight - sheet.scrollTop - sheet.clientHeight < 40 || !sheet.childElementCount;
     sheet.replaceChildren(...(log.length ? log.map(row) : [h('div', 'chat-empty', '아직 메시지가 없어요')]));
     if (stick) sheet.scrollTop = sheet.scrollHeight;
   }
-  const renderDock = () => msgs.replaceChildren(...log.slice(-3).map((m) => h('div', `chat-msg ${m.mine ? 'mine' : ''} ${m.big ? 'big' : ''}`, h('b', '', m.name), m.text)));
-  const renderFeed = () => feed.replaceChildren(...log.slice(-FEED_MAX).map((m) => h('div', `chat-fr ${m.mine ? 'mine' : ''}`, h('b', '', m.name), m.text)));
+  const said = () => log.filter((m) => !m.sys);
+  const renderDock = () => msgs.replaceChildren(...said().slice(-3).map((m) => h('div', `chat-msg ${m.mine ? 'mine' : ''} ${m.big ? 'big' : ''}`, h('b', '', m.name), m.text)));
+  const renderFeed = () => feed.replaceChildren(...said().slice(-FEED_MAX).map((m) => h('div', `chat-fr ${m.mine ? 'mine' : ''}`, h('b', '', m.name), m.text)));
   const syncFeed = () => { feed.hidden = mode !== 'liar' || !enabled || sheetOpen; };
-  const renderLogs = () => { if (sheetOpen) renderSheet(); if (mode === 'lobby') renderDock(); if (mode === 'liar') renderFeed(); };
+  const renderLogs = () => { if (sheetOpen) renderSheet(); if (mode === 'lobby') renderDock(); if (mode === 'liar') renderFeed(); if (mode === 'wait') renderWait(); };
 
   function setSheet(v) {
     sheetOpen = v;
@@ -176,7 +197,7 @@ export function createChat({ onSend, getAnchor }) {
   // Soft keyboard (iPad): lift the docked bar by the height the keyboard hides.
   const vv = window.visualViewport;
   function syncKb() {
-    const docked = mode !== 'game' && enabled;
+    const docked = (mode === 'lobby' || mode === 'liar') && enabled;
     const kb = docked && vv ? Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) : 0;
     document.documentElement.style.setProperty('--chat-kb', `${kb}px`);
   }
@@ -186,26 +207,32 @@ export function createChat({ onSend, getAnchor }) {
   function layout() {
     const lobby = mode === 'lobby';
     const liar = mode === 'liar';
+    const wait = mode === 'wait';
+    const own = mode === 'own';
     const docked = lobby || liar;
     const root = document.documentElement.classList;
-    el.hidden = !enabled;
+    el.hidden = !enabled || wait || own;
+    waitEl.hidden = !wait || !enabled;
+    emoBtn.hidden = !wait;
     el.classList.toggle('chat-liar', liar);
     root.toggle('chat-docked', docked && enabled);
     root.toggle('chat-liar', liar && enabled);
     toasts.replaceChildren();
-    if (docked) { isOpen = false; setSheet(false); }
-    if (lobby) { layer.replaceChildren(); slots.clear(); }
+    if (docked || wait || own) { isOpen = false; setSheet(false); }
+    if (lobby || wait || own) { layer.replaceChildren(); slots.clear(); }
     dock.hidden = !docked;
     msgs.hidden = liar;
     col.hidden = lobby;
-    button.hidden = docked || !enabled;
+    button.hidden = docked || wait || own || !enabled;
     // Only move the bar when it is not already in place: re-inserting a focused input drops focus and breaks IME composition.
-    const home = docked ? dock : col;
-    const want = docked ? null : sheet;
-    if (bar.parentNode !== home || (docked ? home.lastChild !== bar : bar.nextSibling !== want)) home.insertBefore(bar, want);
-    logBtn.hidden = lobby;
-    bar.hidden = docked ? false : !isOpen;
+    const fixed = docked || wait; // the bar sits at the end of its box
+    const home = wait ? waitEl : docked ? dock : col;
+    const want = fixed ? null : sheet;
+    if (bar.parentNode !== home || (fixed ? home.lastChild !== bar : bar.nextSibling !== want)) home.insertBefore(bar, want);
+    logBtn.hidden = lobby || wait;
+    bar.hidden = fixed ? false : !isOpen;
     if (lobby) renderDock();
+    if (wait) renderWait();
     if (liar) renderFeed();
     syncFeed();
     syncKb();
@@ -213,6 +240,7 @@ export function createChat({ onSend, getAnchor }) {
 
   function open() {
     if (!enabled) return;
+    if (mode === 'own') return;
     if (mode !== 'game') { input.focus({ preventScroll: true }); return; }
     isOpen = true;
     bar.hidden = false;
@@ -236,18 +264,18 @@ export function createChat({ onSend, getAnchor }) {
     onSend(text);
     input.value = '';
     sync();
-    if (touch.matches && mode !== 'liar') close();
+    if (touch.matches && mode !== 'liar' && mode !== 'wait') close();
   }
   function sync() {
     const n = [...input.value].length;
-    count.textContent = `${n}/${MAX_LEN}`;
-    count.hidden = n <= 100;
-    count.classList.toggle('full', n >= MAX_LEN);
+    count.textContent = `${n}/${maxLen}`;
+    count.hidden = n <= maxLen - 20;
+    count.classList.toggle('full', n >= maxLen);
     send.disabled = !input.value.trim() || /^#\s*$/.test(input.value);
   }
 
   input.addEventListener('input', (e) => {
-    if (!e.isComposing && [...input.value].length > MAX_LEN) input.value = [...input.value].slice(0, MAX_LEN).join('');
+    if (!e.isComposing && [...input.value].length > maxLen) input.value = [...input.value].slice(0, maxLen).join('');
     sync();
   });
   input.addEventListener('keydown', (e) => {
@@ -255,7 +283,7 @@ export function createChat({ onSend, getAnchor }) {
     if (e.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter') { e.preventDefault(); submit(); } else if (e.key === 'Escape') close();
   });
-  send.addEventListener('click', () => { submit(); if (!touch.matches || mode === 'liar') input.focus({ preventScroll: true }); });
+  send.addEventListener('click', () => { submit(); if (!touch.matches || mode === 'liar' || mode === 'wait') input.focus({ preventScroll: true }); });
   logBtn.addEventListener('click', () => setSheet(!sheetOpen));
   button.addEventListener('click', toggle);
   document.addEventListener('keydown', (e) => {
@@ -281,12 +309,13 @@ export function createChat({ onSend, getAnchor }) {
   return {
     el,
     button,
+    waitEl,
     push(msg, { mine = false, bubble: showBubble = true } = {}) {
       if (!enabled) return;
       log.push(norm(msg, mine));
       if (log.length > LOG_MAX) log.shift();
       renderLogs();
-      if (mode === 'lobby') return;
+      if (mode === 'lobby' || mode === 'wait' || mode === 'own') return;
       if (mode === 'liar') {
         const m = log[log.length - 1];
         if (showBubble !== false && getAnchor(m.id)) bubble(m);
@@ -296,6 +325,18 @@ export function createChat({ onSend, getAnchor }) {
       const m = log[log.length - 1];
       if (getAnchor(m.id)) bubble(m);
       else toast(m);
+    },
+    // 시스템 줄("○○ 님이 들어왔어요"): 기록·대기실 칸에만, 말풍선 없음
+    system(text) {
+      if (!enabled) return;
+      log.push({ sys: true, text: String(text ?? ''), ts: Date.now() });
+      if (log.length > LOG_MAX) log.shift();
+      renderLogs();
+    },
+    setRule(rule) {
+      maxLen = Number.isInteger(rule?.maxLen) && rule.maxLen > 0 ? rule.maxLen : MAX_LEN;
+      if ([...input.value].length > maxLen) input.value = [...input.value].slice(0, maxLen).join('');
+      sync();
     },
     // Optional myId marks that player's entries as own.
     setLog(items, myId) {
