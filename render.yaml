@@ -12,6 +12,6 @@ services:
       - key: LIAR
         value: test # off(기본: 라이어 흔적 없음) | test(주소에 ?liar=1 일 때만 보임) | on(모두에게 보임)
       - key: YACHT
-        value: test # off(요트다이스 흔적 없음) | test(주소에 ?yacht=1 일 때만 보임, 값이 없을 때도 test) | on(모두에게 보임)
+        value: on # off(요트다이스 흔적 없음) | test(주소에 ?yacht=1 일 때만 보임) | on(모두에게 보임, 값이 없을 때도 on)
       - key: DATABASE_URL
         sync: false # Neon 연결 문자열을 대시보드에서 입력

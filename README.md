@@ -51,7 +51,7 @@ PLAYWRIGHT_MODULE=/경로/playwright node test/ui/click.e2e.mjs phone    # 하�
 |---|---|
 | `PORT` | 서버 포트 (기본 8080) |
 | `LIAR` | 라이어게임 스위치: `off`(기본, 화면·서버 모두 흔적 없음) / `test`(주소에 `?liar=1` 이 있을 때만 버튼이 보임) / `on`(모두에게 보임). 그 밖의 값은 `off` |
-| `YACHT` | 요트다이스 스위치: `off` / `test`(주소에 `?yacht=1` 이 있을 때만 버튼이 보임, 값이 없을 때도 `test`) / `on`(모두에게 보임) |
+| `YACHT` | 요트다이스 스위치: `off` / `test`(주소에 `?yacht=1` 이 있을 때만 버튼이 보임) / `on`(모두에게 보임, 값이 없을 때도 `on`) |
 | `DATABASE_URL` | PostgreSQL 연결 문자열. 있으면 `users` 테이블을 자동 생성해 사용 |
 | `GRACE_MS` `ROOM_GC_MS` `RESULT_MS` `RESULT_FOLD_MS` `TIE_EXTRA_MS` `BLUFF_RESULT_MS` `BUST_EXTRA_MS` `STREET_MS` `REVEAL_MS` `ROOM_LIST_MS` | 타이머 조정(밀리초). 테스트용이며 기본값은 SPEC대로 |
 
