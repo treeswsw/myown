@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   seatSlots, splitColumns, bubbleMode, playerView, gainOf, canSeeSec, iAmDrawer,
   bubbleFromChat, bubbleFromHit, logEntryFromChat, logEntryFromHit, pushLog, logFromChatLog,
-  avatarSrc, firstChar, seatColor, LOG_MAX,
+  avatarSrc, firstChar, seatColor, LOG_MAX, logMode, shouldFollow,
 } from '../../client/src/draw/ui/players.pure.js';
 
 const P = (id, seat, extra = {}) => ({ id, name: id, seat, connected: true, score: 10, hit: false, ...extra });
@@ -112,4 +112,26 @@ test('끊긴 그리는 사람은 끊김 배지, 휴대폰에서 내가 그리면
   assert.deepEqual(playerView(st, st.players[1]).badge, { kind: 'gone', text: '끊김' });
   assert.equal(playerView(st, st.players[1]).drawing, true);
   assert.equal(bubbleMode('phone', 'l', iAmDrawer(st, 'b')), 'inrow');
+});
+
+test('logMode: 맞히는 사람은 어디서나 full, 그리는 사람은 PC·iPad 만 small, 휴대폰은 hidden', () => {
+  assert.equal(logMode('wide', false), 'full');
+  assert.equal(logMode('phone', false), 'full');
+  assert.equal(logMode('wide', true), 'small');
+  assert.equal(logMode('phone', true), 'hidden');
+});
+
+test('shouldFollow: 맨 아래면 따라가고, 위로 올려 보면 따라가지 않는다', () => {
+  assert.equal(shouldFollow(0, 80, 80), true);        // 넘칠 게 없음
+  assert.equal(shouldFollow(120, 80, 200), true);     // 정확히 맨 아래
+  assert.equal(shouldFollow(110, 80, 200), true);     // 10px 위(여유 안)
+  assert.equal(shouldFollow(20, 80, 200), false);     // 많이 위로
+  assert.equal(shouldFollow(NaN, 80, 200), true);     // 잴 수 없으면 따라감
+});
+
+test('PC 기록 줄도 휴대폰과 같은 규칙: sec 거르기, 정답 줄', () => {
+  const st = S();
+  assert.equal(logEntryFromChat({ name: 'c', text: '비밀', sec: 1 }, st, 'c'), null); // c 는 못 맞힌 사람
+  assert.equal(logEntryFromChat({ id: 'c', name: 'c', text: '내 글', sec: 1 }, st, 'c')?.kind, 'sec');
+  assert.equal(logEntryFromHit('가나').text, '가나 님 정답!');
 });
