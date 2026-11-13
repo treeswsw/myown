@@ -1,6 +1,6 @@
 import './chat.css';
 import { h, svg, view } from './dom.js';
-import { chatSize } from './chatSize.js';
+import { chatSize, madLetters, MAD_FONTS } from './chatSize.js';
 
 // createChat({ onSend(text), getAnchor(playerId) -> {x, y} | null })
 //   -> { el, button, push(msg, {mine, bubble}), setLog(items, myId?), open(), close(), toggle(), setMode('game'|'lobby'|'liar'), setLock(locked, note, hot), setEnabled(bool), update() }
@@ -19,6 +19,34 @@ const norm = (m, mine) => {
   const { size, text } = chatSize(m.text);
   return { ...m, text, size, big: size >= 2, mine };
 };
+// Fonts for the '***' bubble load only when one first shows (the site <link> in index.html stays small).
+// Google serves Korean faces in small unicode-range pieces, so only the letters actually drawn are downloaded.
+const MAD_CSS = 'https://fonts.googleapis.com/css2?' + MAD_FONTS.map(([f]) => 'family=' + f.replace(/ /g, '+') + ({ 'Nanum Myeongjo': ':wght@800', 'Gothic A1': ':wght@900', Hahmlet: ':wght@900', Dongle: ':wght@700' }[f] ?? '')).join('&') + '&display=swap';
+let madLoaded = false;
+function loadMadFonts() {
+  if (madLoaded) return;
+  madLoaded = true;
+  const l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = MAD_CSS;
+  document.head.append(l);
+}
+function madText(msg) {
+  const span = h('span');
+  for (const L of madLetters(msg.text, `${msg.id}|${msg.ts}|${msg.text}`)) {
+    const i = document.createElement('i');
+    if (!L.font) { i.textContent = L.ch; span.append(i); continue; }
+    const fx = h('b', `chat-fx-${L.fx}`, L.ch); // the motion runs on the inner letter so it adds to the static tilt
+    fx.style.animationDelay = `${L.delay}ms`;
+    i.append(fx);
+    i.style.fontFamily = `'${L.font}', sans-serif`;
+    i.style.fontSize = `${L.k}em`;
+    i.style.color = L.color;
+    i.style.transform = `translateY(${L.dy}em) rotate(${L.rot}deg) scale(${L.sc})`;
+    span.append(i);
+  }
+  return span;
+}
 const hhmm = (ts) => new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 
 export function createChat({ onSend, getAnchor }) {
@@ -101,7 +129,8 @@ export function createChat({ onSend, getAnchor }) {
     const old = slot.live;
     if (old && performance.now() - old.t0 < old.hold) old.firstChild.classList.add('old');
     const sz = msg.size === 1 ? 's1' : msg.size === 3 ? 's3' : '';
-    const b = h('div', `chat-b ${msg.big ? 'big' : ''} ${sz}`, h('span', '', msg.text));
+    if (msg.size === 3) loadMadFonts();
+    const b = h('div', `chat-b ${msg.big ? 'big' : ''} ${sz}`, msg.size === 3 ? madText(msg) : h('span', '', msg.text));
     const w = h('div', `chat-w ${msg.big ? 'big' : ''} ${sz}`, b);
     w.t0 = performance.now();
     w.hold = msg.big ? BIG_HOLD_MS : HOLD_MS;
@@ -243,6 +272,7 @@ export function createChat({ onSend, getAnchor }) {
   }, true);
 
   addEventListener('resize', () => { for (const s of slots.values()) measure(s); });
+  document.fonts?.addEventListener?.('loadingdone', () => { for (const s of slots.values()) measure(s); }); // '***' fonts arrive after the bubble
   sync();
   setSheet(false);
   bar.hidden = true;
