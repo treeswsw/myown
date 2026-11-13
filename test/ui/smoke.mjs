@@ -104,6 +104,18 @@ async function runContext(browser, server, name, cfg) {
     check(`liar top bar on top: ${state}`, bad.length === 0, bad.join(','));
   };
 
+  // Leaving a poker room from the HUD menu: a confirm window while the table plays (press 나가기), none when already waiting.
+  const leaveConfirm = async (ms) => {
+    const lobbyBtn = 'button:has-text("방 만들기")';
+    const first = await Promise.race([
+      page.waitForSelector('.ui-confirm', { state: 'visible', timeout: ms }).then(() => 'confirm'),
+      page.waitForSelector(lobbyBtn, { state: 'visible', timeout: ms }).then(() => 'lobby'),
+    ]);
+    if (first === 'confirm') await press('.ui-mbtn.ui-danger');
+    // After an all-in the run-out animation may still play; the lobby returns at once on leaving.
+    await page.waitForSelector(lobbyBtn, { state: 'visible', timeout: ms });
+  };
+
   // Bot opponent (manual mode) with a tiny deterministic pump: always check/call, never fold, never liar-call.
   const bot = new Bot(server.url, uid('bo'), { autoplay: false });
   await bot.connect();
@@ -153,11 +165,13 @@ async function runContext(browser, server, name, cfg) {
     await occlusion('home lobby');
 
     /* ---------- hold'em ---------- */
-    await step('create a hold\'em room, waiting room shows', async () => {
+    await step('create a hold\'em room, the common waiting room shows (no in-room game switch)', async () => {
       const mode = await loc('.lb-seg-item[aria-checked="true"]').textContent();
       if (!mode.includes('홀덤')) throw new Error(`default mode is ${mode}`);
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.lb-actions .lb-danger');
+      await visible('[data-rm="wait-leave"]');
+      await visible('.wr-root:has-text("텍사스 홀덤")');
+      if (await page.locator('.wr-root .lb-seg-item:has-text("블러핑")').count()) throw new Error('the waiting room still offers 블러핑');
     });
     await occlusion('waiting room (host)');
     await step('bot sees the room in its rooms list and joins by code', async () => {
@@ -168,8 +182,8 @@ async function runContext(browser, server, name, cfg) {
     });
     await step('waiting room: chat icon stays hidden after later room updates', async () => {
       const seen = bot.messages.length;
-      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' });
-      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'room'), T, 'room update in waiting room');
+      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' }); // a photo now comes as a faces notice, never in the room state
+      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'event' && m.e.k === 'faces'), T, 'faces in waiting room');
       await sleep(500);
       const hidden = await page.evaluate(() => { const b = document.querySelector('.chat-btn'); return !b || b.hidden; });
       check('chat icon hidden in lobby mode after 2nd room update', hidden);
@@ -222,10 +236,10 @@ async function runContext(browser, server, name, cfg) {
       await visible('.chat-in');
       await page.focus('.chat-in');
       await page.keyboard.type('keepme');
-      // bot changes its avatar -> server pushes a room update to the page
+      // bot changes its avatar -> the page gets a faces notice and redraws the seat photos
       const seen = bot.messages.length;
-      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' });
-      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'room'), T, 'room update after avatar');
+      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/BBBB' });
+      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'event' && m.e.k === 'faces'), T, 'faces after avatar');
       await sleep(1000);
       const r = await page.evaluate(() => ({ focused: document.activeElement?.classList.contains('chat-in'), v: document.querySelector('.chat-in')?.value }));
       check('chat input still focused with text after room update', r.focused && r.v === 'keepme', JSON.stringify(r));
@@ -305,11 +319,11 @@ async function runContext(browser, server, name, cfg) {
     if (await page.waitForSelector('.win', { state: 'visible', timeout: 1500 }).then(() => true, () => false)) await occlusion('result overlay');
     else check('result overlay (not reached within 1.5 s, skipped)', true);
 
-    await step('menu 나가기 returns to the lobby', async () => {
+    await step('menu 나가기 asks first while the table plays (확인 창), then returns to the lobby', async () => {
       await press('button[aria-label="메뉴"]');
       await press('.hpanel button.item');
-      // After an all-in the run-out animation plays before the lobby can show, so allow more time.
-      await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible', timeout: 25000 });
+      // While the table plays the frame asks first; a room already back in the waiting state leaves at once.
+      await leaveConfirm(25000);
     });
 
     /* ---------- bluff ---------- */
@@ -364,8 +378,7 @@ async function runContext(browser, server, name, cfg) {
     await step('liar: leave the bluff room', async () => {
       await press('button[aria-label="메뉴"]');
       await press('.hpanel button.item');
-      // the bluff reveal animation may still be playing; the lobby returns when it ends
-      await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible', timeout: 20000 });
+      await leaveConfirm(20000);
     });
     await step('liar: lobby shows the 라이어 랭킹 button and a 3rd game choice', async () => {
       await visible('.lb-rank-btn');
@@ -623,10 +636,10 @@ async function runContext(browser, server, name, cfg) {
       await step('poker still works after yacht: create a hold\'em room', async () => {
         await press('.lb-seg-item:has-text("홀덤")');
         await press('button.lb-primary:has-text("방 만들기")');
-        await visible('.lb-actions .lb-danger');
+        await visible('[data-rm="wait-leave"]');
       });
       await step('poker after yacht: leave the room', async () => {
-        await press('.lb-actions .lb-danger');
+        await press('[data-rm="wait-leave"]');
         await visible('button:has-text("방 만들기")');
       });
     }

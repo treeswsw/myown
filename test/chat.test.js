@@ -160,7 +160,7 @@ test('chat works in result and reveal phases', async () => {
   await cs[0].send({ t: 'chat', text: 'result' });
   const b = await setup('bluff', ['dd11', 'ee11', 'ff11']);
   await b.cs[0].send({ t: 'start' });
-  const g = b.hub.rooms.values().next().value.game.g;
+  const g = b.hub.rooms.values().next().value.impl.game.g;
   g.players.forEach((p) => { p.bullet = 5; });
   g.tableRank = 'K';
   g.turn = 0;

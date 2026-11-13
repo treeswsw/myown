@@ -43,7 +43,7 @@ test('bluff: winner 1+1*opp, eliminated-in-game finisher 1, leaver 0, spectator 
   await spec.send({ t: 'join', code: cs[0].state.code }); // joins after the deal: not in the game
   const room = [...hub.rooms.values()][0];
   await cs[2].send({ t: 'leave' }); // cat leaves mid game
-  const g = room.game.g;
+  const g = room.impl.game.g;
   const who = (id) => g.players.find((p) => p.id === id);
   who('ann1').hand = ['Q', 'Q', 'Q', 'Q', 'Q'];
   who('ann1').bullet = 0;

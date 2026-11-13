@@ -6,8 +6,9 @@ export { GAMES } from '../../shared/games.js';
 import { GAMES } from '../../shared/games.js';
 
 export const CLIENT_GAMES = {
-  holdem: { builtin: 'poker', stage: true, mount: false },
-  bluff: { builtin: 'poker', stage: true, mount: false },
+  // 포커: 화면 모듈은 main.js 가 이미 불러 둔 것(3D 테이블·HUD 를 넘겨 준다). bar: false = 상단 줄 대신 포커 HUD
+  holdem: { load: () => import('./poker/index.js'), stage: true, mount: true, bar: false },
+  bluff: { load: () => import('./poker/index.js'), stage: true, mount: true, bar: false },
   liar: { load: () => import('./liar/index.js'), stage: true, mount: false },
   yacht: { load: () => import('./yacht/index.js'), stage: true, mount: true, bar: { leftVar: '--yt-sheet-w' } },
   draw: { load: () => import('./draw/index.js'), stage: false, mount: false },

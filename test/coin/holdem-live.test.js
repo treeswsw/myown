@@ -27,10 +27,10 @@ test('settleLive applies the chip delta and stats to the live user, stale copy u
   hub.userEpoch.set(live, hub.epoch);
   s.user = live;
   const bank0 = live.bank;
-  const seat = room.hand.st.seats.find((x) => x.id === 'aaa');
-  seat.stack = room.hand.start.get('aaa') + 100;
+  const seat = room.impl.hand.st.seats.find((x) => x.id === 'aaa');
+  seat.stack = room.impl.hand.start.get('aaa') + 100;
   live.coins = 777; // earned meanwhile
-  room.settleLive(seat, (u) => { u.stats.hands++; });
+  room.impl.settleLive(seat, (u) => { u.stats.hands++; });
   assert.equal(live.bank, bank0 + 100);
   assert.equal(live.coins, 777);
   assert.equal(live.stats.hands, 1);
@@ -40,11 +40,11 @@ test('settleLive applies the chip delta and stats to the live user, stale copy u
 
 test('settleLive with nobody logged in adds only the delta to the stored row', async () => {
   const { hub, room } = await started();
-  const seat = room.hand.st.seats.find((x) => x.id === 'aaa');
+  const seat = room.impl.hand.st.seats.find((x) => x.id === 'aaa');
   const bank0 = hub.sessions.get('aaa').user.bank;
   hub.sessions.delete('aaa');
-  seat.stack = room.hand.start.get('aaa') + 30;
-  room.settleLive(seat);
+  seat.stack = room.impl.hand.start.get('aaa') + 30;
+  room.impl.settleLive(seat);
   await new Promise((r) => setTimeout(r, 20));
   await Promise.all([...hub.pendingSaves]);
   const after = await hub.store.getOrCreate('aaa');

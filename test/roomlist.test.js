@@ -52,9 +52,8 @@ test('changes are coalesced to one broadcast per 500 ms and only sent when the l
   const n = () => lists(watcher).length;
   const a = await login(hub, 'ann1');
   const b = await login(hub, 'bob1');
-  await a.send({ t: 'create', mode: 'holdem' });
+  await a.send({ t: 'create', mode: 'bluff' });
   await b.send({ t: 'join', code: a.state.code });
-  await a.send({ t: 'mode', mode: 'bluff' });
   assert.equal(n(), 1, 'nothing yet: coalescing');
   clock.advance(499);
   assert.equal(n(), 1);
@@ -130,7 +129,7 @@ test('roomList does not throw for a room whose host is not a member', async () =
   const { hub } = setup();
   const a = await login(hub, 'ann1');
   await a.send({ t: 'create', mode: 'holdem' });
-  hub.rooms.get(a.state.code).hostId = 'ghost';
+  Object.defineProperty(hub.rooms.get(a.state.code), 'hostId', { value: 'ghost' }); // a Shell room reads its own host, never this field
   const list = hub.roomList();
   assert.equal(list.length, 1);
   assert.equal(list[0].hostName, 'ann1');

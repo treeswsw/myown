@@ -6,6 +6,7 @@ import { makeYachtGame } from './yacht/room.js';
 import { createDrawRoom } from './draw/room.js';
 import { createGskRoom } from './gsk/room.js';
 import { createMiniRoom } from './mini/room.js';
+import { makePoker, pokerModeMsg } from './poker/room.js';
 import { hookRoom } from './coin/hooks.js';
 import * as holdemBot from './admin/games/holdem.js';
 import * as bluffBot from './admin/games/bluff.js';
@@ -31,8 +32,9 @@ function liarRank(hub, session, msg) {
 }
 
 export const SERVER_GAMES = {
-  holdem: { legacy: (hub, code) => hub.pokerRoom(code, 'holdem'), bot: holdemBot },
-  bluff: { legacy: (hub, code) => hub.pokerRoom(code, 'bluff'), bot: bluffBot },
+  // modeMsg: 옛 {t:'mode'}(방 안 홀덤↔블러핑 전환, 없어짐)에 답하는 안내. 묶음 3 청소 때 삭제.
+  holdem: { make: makePoker('holdem'), bot: holdemBot, modeMsg: pokerModeMsg },
+  bluff: { make: makePoker('bluff'), bot: bluffBot, modeMsg: pokerModeMsg },
   liar: { legacy: (hub, code) => hookRoom(hub, createLiarRoom(hub, code)), bot: liarBot, hubMsg: liarRank },
   yacht: { make: makeYachtGame, bot: yachtBot },
   draw: { legacy: (hub, code) => hookRoom(hub, createDrawRoom(hub, code)), bot: drawBot },

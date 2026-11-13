@@ -49,18 +49,16 @@ const drawRoles = (r) => {
 const MODES = [
   {
     mode: 'holdem', create: { mode: 'holdem' }, max: 6, chatMax: 120, chatLong: HUB_LONG, flood: HUB_FLOOD,
-    startFew: '칩이 있는 사람이 2명 이상 필요합니다.', startNonHost: HOST_ERR, startedPhase: 'playing',
-    hostWhenNextAway: 'bob1', // 통일 예정: 방장은 연결된 사람에게 (cat1)
-    leftEvent: false, // 통일 예정: 나갔다는 알림 이벤트(left)가 없고 방 상태 push 만 간다
-    awayEvents: false, // 통일 예정: 끊김/복귀 알림 이벤트(away/back)가 없다
-    faces: false, // 통일 예정: faces 알림 없이 상태에 avatar 를 넣는다
+    startFew: 'pk_need2', startNonHost: 'pk_host', startedPhase: 'playing',
+    hostWhenNextAway: 'cat1', // 연결된 사람 우선 (Shell)
+    leftEvent: true, awayEvents: true, faces: true,
     stages: [plain()],
   },
   {
     mode: 'bluff', create: { mode: 'bluff' }, max: 4, chatMax: 120, chatLong: HUB_LONG, flood: HUB_FLOOD,
-    startFew: '2명 이상 필요합니다.', startNonHost: HOST_ERR, startedPhase: 'playing',
-    hostWhenNextAway: 'bob1', // 통일 예정: 방장은 연결된 사람에게
-    leftEvent: false, awayEvents: false, faces: false, // 통일 예정: 홀덤과 같은 코드
+    startFew: 'pk_need2', startNonHost: 'pk_host', startedPhase: 'playing',
+    hostWhenNextAway: 'cat1', // 연결된 사람 우선 (Shell)
+    leftEvent: true, awayEvents: true, faces: true,
     stages: [plain()],
   },
   {
