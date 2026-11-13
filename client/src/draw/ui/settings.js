@@ -49,36 +49,40 @@ export function createSettings(parent, ctx) {
     return f;
   }
 
+  // 카드 두 장과 chatSlot 은 한 번만 만들고, 안쪽(목록·설정 칸)만 다시 그린다.
+  const left = mk('section', 'dr-st-card dr-st-people');
+  const codeEl = txt('div', 'dr-st-code', '', { 'data-dr': 'st-code' });
+  const copy = mk('button', 'dr-st-copy', { type: 'button', 'data-dr': 'st-copy' });
+  copy.textContent = '복사';
+  copy.addEventListener('click', () => {
+    const code = String((state && state.code) || '');
+    const done = () => {
+      copy.textContent = '복사됨';
+      clearTimeout(copyTimer);
+      copyTimer = setTimeout(() => { copy.textContent = '복사'; }, 1500);
+    };
+    try { navigator.clipboard.writeText(code).then(done, () => {}); } catch (e) { /* 복사 불가 환경 */ }
+  });
+  const codeRow = mk('div', 'dr-st-coderow');
+  codeRow.append(codeEl, copy);
+  const head = mk('div', 'dr-st-count');
+  const list = mk('ul', 'dr-st-players');
+  left.append(txt('div', 'dr-st-kicker', '갱식마인드 · 방 코드'), codeRow, head, list, chatSlot);
+  const right = mk('section', 'dr-st-card dr-st-opts');
+  el.append(left, right);
+
   function render() {
     const s = state;
-    el.textContent = '';
     if (!s || s.phase !== 'lobby' || !s.settings) { el.hidden = true; return; }
     el.hidden = false;
     const st = s.settings;
     const host = isHost(s);
     const locked = !canEdit(s);
 
-    // 왼쪽: 방 코드 + 참가자
-    const left = mk('section', 'dr-st-card dr-st-people');
-    left.appendChild(txt('div', 'dr-st-kicker', '갱식마인드 · 방 코드'));
-    const codeRow = mk('div', 'dr-st-coderow');
-    codeRow.appendChild(txt('div', 'dr-st-code', s.code || '', { 'data-dr': 'st-code' }));
-    const copy = mk('button', 'dr-st-copy', { type: 'button', 'data-dr': 'st-copy' });
-    copy.textContent = '복사';
-    copy.addEventListener('click', () => {
-      const done = () => {
-        copy.textContent = '복사됨';
-        clearTimeout(copyTimer);
-        copyTimer = setTimeout(() => { copy.textContent = '복사'; }, 1500);
-      };
-      try { navigator.clipboard.writeText(String(s.code || '')).then(done, () => {}); } catch (e) { /* 복사 불가 환경 */ }
-    });
-    codeRow.appendChild(copy);
-    left.appendChild(codeRow);
-    const head = mk('div', 'dr-st-count');
+    codeEl.textContent = s.code || '';
+    head.textContent = '';
     head.append('참가자 ', txt('b', '', seatsLabel(s)));
-    left.appendChild(head);
-    const list = mk('ul', 'dr-st-players');
+    list.textContent = '';
     for (const p of s.players || []) {
       const li = mk('li', 'dr-st-player', { 'data-id': p.id });
       if (p.connected === false) li.classList.add('dr-st-off');
@@ -97,11 +101,8 @@ export function createSettings(parent, ctx) {
       }
       list.appendChild(li);
     }
-    left.appendChild(list);
-    left.appendChild(chatSlot);
 
-    // 오른쪽: 설정
-    const right = mk('section', 'dr-st-card dr-st-opts');
+    right.textContent = '';
     const title = mk('div', 'dr-st-title');
     title.append('방 설정');
     if (!host) title.appendChild(txt('span', 'dr-st-hint', ' 방장만 바꿀 수 있어요'));
@@ -143,8 +144,6 @@ export function createSettings(parent, ctx) {
       right.appendChild(foot);
     }
     if (ss.note) right.appendChild(txt('div', 'dr-st-note', ss.note, { 'data-dr': 'st-note' }));
-
-    el.append(left, right);
   }
 
   return {

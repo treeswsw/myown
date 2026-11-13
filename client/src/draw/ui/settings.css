@@ -13,8 +13,8 @@
   color: var(--dr-st-ink);
 }
 .dr-st-root[hidden] { display: none; }
-.dr-st-root button { font: inherit; color: var(--dr-st-ink); border: 0; background: none; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.dr-st-root button:disabled { cursor: default; }
+:where(.dr-st-root) button { font: inherit; color: var(--dr-st-ink); border: 0; background: none; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+:where(.dr-st-root) button:disabled { cursor: default; }
 
 .dr-st-card {
   flex: 1 1 320px; max-width: 380px; box-sizing: border-box; padding: 22px 24px;
