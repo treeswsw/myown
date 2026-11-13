@@ -4,6 +4,7 @@ export const COIN_RULES = {
   liar: { finish: 1, win: 1, gapMs: 45000 },
   draw: { finish: 2, win: 2, gapMs: 120000 },
   yacht: { finish: 3, win: 4, gapMs: 240000 },
+  mini: { finish: 0, win: 1, gapMs: 60000 }, // 미니게임: 판에서 이긴 사람만 1코인(기권·나가기 승은 없음)
 };
 
 // 받는 코인 = finish + (이겼으면 win × 상대 수). opp 는 부르는 쪽이 정한다.

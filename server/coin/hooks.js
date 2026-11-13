@@ -79,12 +79,26 @@ function hookDraw(hub, room) {
   };
 }
 
+// Mini games: finish(winner, reason) ends a game. Only a real board win pays (not 'leave'/'resign'/'draw').
+function hookMini(hub, room) {
+  const finish = need(room, 'finish');
+  room.finish = function coinFinish(winner, reason, ...rest) {
+    const out = finish.call(room, winner, reason, ...rest);
+    if (reason === 'win' && (winner === 0 || winner === 1)) {
+      const id = room.seats?.[winner];
+      if (id) hub.award(room, 'mini', [{ id, won: true, opp: 1 }]);
+    }
+    return out;
+  };
+}
+
 export function hookRoom(hub, room) {
   if (typeof hub.award !== 'function') throw new Error('coin hooks: hub.award is missing');
   switch (room.mode) {
     case 'liar': hookLiar(hub, room); break;
     case 'yacht': hookYacht(hub, room); break;
     case 'draw': hookDraw(hub, room); break;
+    case 'mini': hookMini(hub, room); break;
     default: throw new Error(`coin hooks: no hook for mode ${room.mode}`);
   }
   return room;

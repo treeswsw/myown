@@ -844,6 +844,7 @@ async function dispatch(hub, conn, msg) {
       if (msg.mode === 'mini') {
         if (hub.mini === 'off') return { msg: '미니게임은 아직 열리지 않았습니다.', code: 'mn_off' };
         const mr = createMiniRoom(hub, newCode(hub), msg.game);
+        hookRoom(hub, mr);
         hub.rooms.set(mr.code, mr);
         return mr.join(session);
       }
