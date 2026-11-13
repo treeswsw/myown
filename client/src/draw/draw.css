@@ -16,7 +16,7 @@
   /* 크기. 모듈의 calc(px * var(--k)) 는 시안 크기(k=1) 그대로 쓰므로 사이트 공통 배율을 막는다 */
   --k: 1;
   --pad: 12px; --gap: 12px; --bar: 54px; --strip: 52px; --under: 56px;
-  --pw: clamp(92px, 8.5vw, 112px); --palw: 84px; --toolw: 64px;
+  --pw: clamp(92px, 8.5vw, 112px); --palw: 0px; --toolw: 64px; /* PC·iPad: 색은 그림판 아래 줄로 옮겨 왼쪽 색 열(palw)은 0 */
   --sl: 0px; --sr: 0px;
   --logrow: 0px;                      /* PC·iPad: 그림판 아래 채팅 기록 줄 높이(+간격). dr-lg-* 가 정한다 */
   --dr-bar-l: 150px; --dr-bar-r: 330px; /* PC·iPad 윗줄: 사이트 상단 줄(.lgbar)의 방 코드·버튼 자리를 비워 둠. 통합 때 맞춘다 */
@@ -72,9 +72,10 @@
 }
 .dr-wide .dr-c-bar { grid-column: 3; grid-row: 1; align-self: start; height: var(--strip); }
 .dr-wide .dr-bd { grid-column: 3; grid-row: 2; }
-.dr-wide .dr-c-pal { grid-column: 2; grid-row: 2; align-self: start; margin-top: 10px; }
+.dr-wide .dr-c-pal { grid-column: 3; grid-row: 4; align-self: end; justify-self: end; } /* 아래 줄 오른쪽(굵기는 왼쪽) */
 .dr-wide .dr-c-tools { grid-column: 4; grid-row: 2; align-self: start; margin-top: 10px; }
 .dr-wide .dr-c-answer, .dr-wide .dr-c-under { grid-column: 3; grid-row: 4; align-self: end; }
+.dr-wide .dr-c-under { justify-self: start; position: relative; }
 .dr-wide .dr-c-give { grid-column: 4 / 6; grid-row: 4; align-self: end; justify-self: start; }
 .dr-wide.dr-lg-full { --logrow: 98px; }   /* 기록 88px + 간격 10px */
 .dr-wide.dr-lg-small { --logrow: 68px; }  /* 기록 58px + 간격 10px */
