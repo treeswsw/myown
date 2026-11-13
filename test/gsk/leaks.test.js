@@ -161,7 +161,7 @@ function penaltyWorld(rnd, pick) {
 }
 
 test('벌칙 칸 순서와 버린 종류는 도전자 본인 말고는 모른다', () => {
-  // 칸 번호 3: 섞기에 따라 해골(rngLast: [F,F,F,S]) 또는 꽃(rng0: [S,F,F,F] 의 3 → F)
+  // 칸 번호 3: 섞기에 따라 해골(rngLast: 순서 그대로 [F,F,F,S]) 또는 꽃(rng0: 섞으면 [F,F,S,F] 의 3 → F)
   const X = penaltyWorld(rngLast, 3);
   const Y = penaltyWorld(rng0, 3);
   assert.equal(X.st, Y.st);
@@ -248,4 +248,22 @@ test('나가기로 대신 고른 벌칙도 종류가 남에게 가지 않는다'
     assert.equal(JSON.stringify(evs).includes('"disc"'), false);
   }
   assert.ok(fx.events.some((x) => x.to === st && x.e.k === 'gkLoseMine'));
+});
+
+test('난수 벌칙(해골 주인 이탈)에서도 버린 종류는 도전자 말고 아무에게도 가지 않는다', () => {
+  const w = world();
+  const st = w.s.starter;
+  const skullMan = order(w.s).find((x) => x !== st);
+  for (const id of order(w.s)) w.act(id, { a: 'place', k: id === skullMan ? 'S' : 'F' });
+  w.act(st, { a: 'bid', n: 2 });
+  while (w.s.step === 'bid') w.act(w.s.turnId, { a: 'pass' });
+  while (w.s.flipAt != null) w.tickTo(w.s.flipAt);
+  w.act(st, { a: 'flip', p: skullMan });
+  w.record(leave(w.s, skullMan, w.now, rng0));
+  w.now = w.s.endsAt;
+  w.record(tick(w.s, w.now, rngLast)); // 난수로 벌칙을 고른다
+  assert.equal(w.s.step, 'between');
+  const has = (v) => w.log[v].filter((_, i) => i % 2 === 0).join('').includes('gkLoseMine');
+  assert.equal(has(st), true);
+  for (const v of [...IDS.filter((x) => x !== st), 'spec']) assert.equal(has(v), false, v);
 });

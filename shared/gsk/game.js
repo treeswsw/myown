@@ -305,8 +305,12 @@ function doFlip(s, fx, by, owner, at) {
   if (kind === 'F') s.flipped++;
   emit(fx, { k: 'gkFlip', id: by.id, p: owner.id, disc: kind, flipped: s.flipped });
   if (kind === 'S') { enterReveal(s, fx, false, owner.id, at); return; }
-  if (s.flipped >= s.need) { enterReveal(s, fx, true, null, at); return; }
-  if (owner === by) s.flipAt = owner.flippedN < owner.stack.length ? at + AUTO_FLIP_MS : null;
+  if (owner === by) {
+    // 내 더미는 숫자와 상관없이 끝까지 공개한다. 끝났을 때 꽃 수가 모자라면 남의 더미로.
+    if (owner.flippedN < owner.stack.length) { s.flipAt = at + AUTO_FLIP_MS; return; }
+    s.flipAt = null;
+  }
+  if (s.flipped >= s.need) enterReveal(s, fx, true, null, at);
 }
 
 function enterReveal(s, fx, ok, skullOf, at) {
@@ -320,15 +324,18 @@ function enterReveal(s, fx, ok, skullOf, at) {
 
 // ---------- 벌칙 ----------
 
-function enterPenalty(s, fx, rnd) {
+function enterPenalty(s, fx, rnd, at) {
   const ch = seatOf(s, s.challenger);
   const kinds = [];
   for (const k of ['F', 'S']) for (let i = 0; i < ch.discs[k]; i++) kinds.push(k);
   const skull = s.outcome.skullOf;
-  s.pen = { by: skull && skull !== ch.id ? skull : ch.id, target: ch.id, perm: shuffle(kinds, rnd) };
+  const owner = skull && skull !== ch.id ? seatOf(s, skull) : null;
+  s.pen = { by: owner ? owner.id : ch.id, target: ch.id, perm: shuffle(kinds, rnd) };
   s.step = 'penalty';
   s.endsAt = null;
   s.turnId = null;
+  // 해골 주인이 판정 중에 나갔으면 난수로 고른다
+  if (owner && owner.out) applyPenalty(s, fx, s.pen.perm[rand(rnd, s.pen.perm.length)], at);
 }
 
 function doDiscard(s, seat, m, now, rnd) {
@@ -382,6 +389,13 @@ function dropMany(s, ids, reason, fx, at, rnd) {
   if (alive(s).length <= 1) { endGame(s, fx, 'alone', alive(s)[0]?.id ?? null); return; }
   if (s.step === 'between') return; // 다음 라운드 시작 때 시작 사람을 다시 정한다
   const gone = new Set(hit.map((x) => x.id));
+  // 판정이 난 뒤 제3자 이탈: 도전자가 남아 있으면 결과를 그대로 이어 간다(tick 이 점수·벌칙 진행)
+  if ((s.step === 'reveal' || s.step === 'penalty') && !gone.has(s.challenger)) {
+    if (s.step === 'penalty' && gone.has(s.pen.by)) {
+      applyPenalty(s, fx, s.pen.perm[rand(rnd, s.pen.perm.length)], at);
+    }
+    return;
+  }
   if (s.step === 'penalty' && !gone.has(s.pen.target) && gone.has(s.pen.by)) {
     // 고르는 사람이 사라지면 난수로 고른 뒤 그대로 진행
     applyPenalty(s, fx, s.pen.perm[rand(rnd, s.pen.perm.length)], at);
@@ -440,7 +454,7 @@ export function tick(s, now, rnd) {
         ch.points++;
         if (ch.points >= WIN_POINTS) { endGame(s, fx, 'points', ch.id); continue; }
         enterBetween(s, fx, s.endsAt, ch.id);
-      } else enterPenalty(s, fx, rnd);
+      } else enterPenalty(s, fx, rnd, s.endsAt);
       continue;
     }
     if (s.step === 'between' && s.endsAt <= d) { startRound(s, fx); continue; }
@@ -464,8 +478,8 @@ export function viewFor(s, id) {
 
   const seatView = (x) => ({
     id: x.id, name: x.name, color: x.color,
-    points: x.points, discs: discCount(x), hand: x.hand.F + x.hand.S, stack: x.stack.length,
-    shown: x.stack.slice(x.stack.length - x.flippedN).reverse(),
+    points: x.points, discs: x.out ? 0 : discCount(x), hand: x.out ? 0 : x.hand.F + x.hand.S, stack: x.out ? 0 : x.stack.length,
+    shown: x.out ? [] : x.stack.slice(x.stack.length - x.flippedN).reverse(),
     placed: x.placed, passed: x.passed, out: x.out,
   });
   const lobbySeat = (m) => ({
