@@ -99,6 +99,15 @@ test('per-connection rate limit drops messages beyond 20 per second', async () =
   assert.equal(c.sock.raw.length - before, 20);
 });
 
+test('rate limit: a message disguised as dr (duplicate "t" key) still hits the normal limit', async () => {
+  const { hub } = await setup();
+  const c = await login(hub, 'spoof');
+  const before = c.sock.raw.length;
+  for (let i = 0; i < 40; i++) c.conn.message('{"t":"dr","t":"start"}');
+  await c.conn.queue;
+  assert.equal(c.sock.raw.length - before, 19); // 1 login + 19 answered, not 40
+});
+
 test('room codes, capacity and host rules', async () => {
   const { hub } = await setup();
   const { cs, code } = await lobby(hub, 'bluff', ['aa1', 'bb1', 'cc1', 'dd1']);

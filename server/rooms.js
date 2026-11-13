@@ -582,11 +582,14 @@ function createConn(hub, sock) {
         conn.count = 0;
         conn.drCount = 0;
       }
-      // Counted on the prefix, like sndAdd in parseMessage: a dr message that hides its type just uses the normal limit.
-      if (typeof raw === 'string' && raw.startsWith('{"t":"dr"')) {
+      // Counted on the prefix first, like sndAdd in parseMessage.
+      const isDr = typeof raw === 'string' && raw.startsWith('{"t":"dr"');
+      if (isDr) {
         if (++conn.drCount > DR_RATE_LIMIT) return Promise.resolve();
       } else if (++conn.count > RATE_LIMIT) return Promise.resolve();
       const parsed = parseMessage(raw);
+      // A duplicate "t" key makes the real type differ from the prefix: such a disguised message also uses the normal limit.
+      if (isDr && parsed.ok && parsed.msg.t !== 'dr' && ++conn.count > RATE_LIMIT) return Promise.resolve();
       if (!parsed.ok) {
         conn.send({ t: 'error', msg: parsed.error });
         return Promise.resolve();
