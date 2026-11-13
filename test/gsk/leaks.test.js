@@ -27,7 +27,12 @@ function world(rnd = rng0) {
   const fx0 = start(s, 'p0', T0, rnd);
   addPlayer(s, { id: 'spec', name: 'spec' }); // 판 중 들어온 관전자
   record(fx0);
-  w.act = (id, msg) => { const r = act(s, id, msg, w.now, rnd); assert.equal(r.ok, true, `${id} ${JSON.stringify(msg)} ${r.code}`); record(r); return r; };
+  w.act = (id, msg) => {
+    if (msg.a === 'flip' && s.busyUntil != null) w.now = Math.max(w.now, s.busyUntil); // 앞 장 연출이 끝난 뒤에만 누를 수 있다
+    const r = act(s, id, msg, w.now, rnd); assert.equal(r.ok, true, `${id} ${JSON.stringify(msg)} ${r.code}`); record(r);
+    while (msg.a === 'flip' && s.pend) w.tickTo(s.flipAt); // 판정은 연출 시간 뒤
+    return r;
+  };
   w.tickTo = (t) => { w.now = t; record(tick(s, t, rnd)); };
   return w;
 }
@@ -216,7 +221,7 @@ test('자기 해골로 실패해도 남이 보는 것은 도전자 본인 선택
   for (const id of order(w.s)) w.act(id, { a: 'place', k: id === st ? 'S' : 'F' });
   w.act(st, { a: 'bid', n: 2 });
   while (w.s.step === 'bid') w.act(w.s.turnId, { a: 'pass' });
-  w.tickTo(w.s.flipAt); // 자기 해골이 먼저 공개
+  while (w.s.flipAt != null) w.tickTo(w.s.flipAt); // 자기 해골이 먼저 공개, 연출 뒤 판정
   w.tickTo(w.s.endsAt);
   assert.equal(viewFor(w.s, 'spec').penalty.faceUp, true);
   w.act(st, { a: 'discard', k: 'F' }); // 해골이 공개돼도 "무엇을 버렸는지"는 남이 모른다

@@ -7,7 +7,7 @@
 //      finished: null | { players:[id...], winner: id|null, reason, ranks }  판이 끝난 그 호출에서만. room 이 stats.gsk 를 올린다.
 //    ok:true 이면 호출자는 (접속 중인) 모두에게 viewFor 를 다시 보낸다.
 import {
-  MIN_PLAYERS, MAX_PLAYERS, COLORS, DISCS, WIN_POINTS, REVEAL_MS, BETWEEN_MS, AUTO_FLIP_MS, GRACE_MS, ERRORS,
+  MIN_PLAYERS, MAX_PLAYERS, COLORS, DISCS, WIN_POINTS, REVEAL_MS, FLIP_MS, TEASE_MS, BETWEEN_MS, AUTO_FLIP_MS, GRACE_MS, ERRORS,
 } from './constants.js';
 import { parseGk } from './protocol.js';
 
@@ -58,7 +58,7 @@ export function createGame({ code = '', hostId = null, graceMs = GRACE_MS } = {}
     members: [], seats: [],
     round: 0, step: null, starter: null, turnId: null,
     bid: null, challenger: null, need: 0, flipped: 0, outcome: null, pen: null,
-    endsAt: null, flipAt: null,
+    endsAt: null, flipAt: null, busyUntil: null, pend: null,
     outSeq: 0, result: null, finished: null,
   };
 }
@@ -151,7 +151,7 @@ export function start(s, hostId, now, rnd) {
 
 function clearRoundState(s) {
   s.bid = null; s.challenger = null; s.need = 0; s.flipped = 0; s.outcome = null; s.pen = null;
-  s.endsAt = null; s.flipAt = null; s.turnId = null;
+  s.endsAt = null; s.flipAt = null; s.busyUntil = null; s.pend = null; s.turnId = null;
 }
 
 function resetDiscs(s) {
@@ -290,7 +290,7 @@ function startFlip(s, fx, challengerId, at) {
 function doFlipMsg(s, seat, pid, now, rnd) {
   if (s.step !== 'flip') return fail('gk_now');
   if (s.challenger !== seat.id) return fail('gk_turn');
-  if (s.flipAt != null) return fail('gk_now');
+  if (s.flipAt != null || s.pend || (s.busyUntil != null && now < s.busyUntil)) return fail('gk_now');
   const owner = seatOf(s, pid);
   if (!owner || owner.out || owner.id === seat.id || owner.flippedN >= owner.stack.length) return fail('gk_bad');
   const fx = newFx();
@@ -306,13 +306,16 @@ function doFlip(s, fx, by, owner, at, rnd) {
   // 애태우기(GDD 9-3·15절): 해골은 늘 1, 꽃은 약 1/3. 값은 서버가 정해 모두에게 같게 보낸다.
   const tease = kind === 'S' || rand(rnd, 3) === 0 ? 1 : 0;
   emit(fx, { k: 'gkFlip', id: by.id, p: owner.id, disc: kind, flipped: s.flipped, tease });
-  if (kind === 'S') { enterReveal(s, fx, false, owner.id, at); return; }
+  // 연출이 끝날 때까지 다음 단계(다음 장·판정)를 미룬다. 미루는 동안 새로 나가는 정보는 없다.
+  const done = at + FLIP_MS + (tease ? TEASE_MS : 0);
+  s.busyUntil = done;
+  if (kind === 'S') { s.pend = { ok: false, skullOf: owner.id }; s.flipAt = done; return; }
   if (owner === by) {
     // 내 더미는 숫자와 상관없이 끝까지 공개한다. 끝났을 때 꽃 수가 모자라면 남의 더미로.
-    if (owner.flippedN < owner.stack.length) { s.flipAt = at + AUTO_FLIP_MS; return; }
+    if (owner.flippedN < owner.stack.length) { s.flipAt = done; return; }
     s.flipAt = null;
   }
-  if (s.flipped >= s.need) enterReveal(s, fx, true, null, at);
+  if (s.flipped >= s.need) { s.pend = { ok: true, skullOf: null }; s.flipAt = done; }
 }
 
 function enterReveal(s, fx, ok, skullOf, at) {
@@ -446,6 +449,12 @@ export function tick(s, now, rnd) {
     const gone = awayDue(s).filter((a) => a.at <= d).map((a) => a.id);
     if (gone.length) { dropMany(s, gone, 'away', fx, at, rnd); continue; }
     if (s.flipAt != null && s.flipAt <= d) {
+      if (s.pend) {
+        const { ok, skullOf } = s.pend;
+        s.pend = null;
+        enterReveal(s, fx, ok, skullOf, d);
+        continue;
+      }
       const ch = seatOf(s, s.challenger);
       doFlip(s, fx, ch, ch, s.flipAt, rnd);
       continue;
