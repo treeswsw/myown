@@ -44,3 +44,4 @@
 - 준비중 규칙(SPEC 22-19). 로비 버튼: 상점·뽑기·캡슐·꾸미기·교환·코인 랭킹.
 - 진행 중이던 것(끝났는지 git log 로 확인): 카드 뽑기 화면(Fable, worktree-agent-aec3cce…), 캡슐 기계·내 꾸미기 화면(Fable, worktree-agent-a3ba2d08…). 끝나지 않았으면 client/src/coin/capsule.js·lookwin.js 는 "준비중" 자리 파일.
 - 남은 것: 위 두 화면 병합 → lobby.js SHOW_DRAW=true, 버튼 이름 '카드 뽑기' → 돈·서버 묶음(진열+캡슐) Opus 검토 → npm test → 배포(사용자에게 먼저 묻기). 치장템 그림, 방 안 looks, 무료 뽑기 주기 결정.
+- 카드 뽑기 화면: Fable 작업 중 멈춤. 만들다 만 것은 docs/coin/wip-card-gacha.patch (git apply 로 이어서). 로비 [카드 뽑기] 버튼은 켜져 있고 지금은 옛 화면이 열림(작동함). 서버 돈 묶음 Opus 검토는 시작 전에 멈춤 → 배포 전에 다시.
