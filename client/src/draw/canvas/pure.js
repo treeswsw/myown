@@ -123,6 +123,24 @@ export function segmentsFrom(a, from, n = a.length >> 1) {
   return out;
 }
 
+// 확정된 조각만: n 점짜리 선의 꼬리(마지막 직선 조각)를 뺀 from 번부터. 점이 하나면 동그라미(확정).
+// 긋는 중에는 이것만 본 그림에 그리고, 꼬리는 따로 그려 지우고 다시 그린다(각진 자국 방지).
+export function confirmedSegments(a, from, n = a.length >> 1) {
+  const segs = segmentsFrom(a, from, n);
+  return n >= 2 ? segs.slice(0, -1) : segs;
+}
+
+// 꼬리 조각 하나(점이 2개 이상일 때만). 없으면 null.
+export function tailSegment(a, n = a.length >> 1) {
+  return n >= 2 ? segmentsFrom(a, n - 1, n)[0] : null;
+}
+
+// 손을 뗀 자리를 마지막 점으로 더할 수 있나: 앞 점에서 충분히 떨어져 있을 때만 그 점(논리 좌표), 아니면 null.
+export function finalPoint(prev, raw, gap) {
+  if (!raw || !Number.isFinite(raw.x) || !Number.isFinite(raw.y)) return null;
+  return farEnough(prev, raw, gap) ? raw : null;
+}
+
 // 점이 prevN 개에서 늘었을 때 이어 그릴 첫 조각 번호(앞서 꼬리였던 조각이 이제 곡선이 되므로 한 칸 되돌아간다)
 export const resumeIndex = (prevN) => (prevN > 0 ? prevN - 1 : 0);
 

@@ -594,3 +594,11 @@ WebSocket `/ws`, JSON, `{t: 종류, ...}`. 기존 SPEC 7절을 그대로 쓰고 
 - 2026-11-13 (✅ 사용자: "칸수도 없애줘" → 이어서 "칸끄기 켜기 있으면 유지해") 글자 수 칸(□□□·"N글자")은 방 설정의 켜기·끄기로 그대로 두고, **기본값만 끔**(`LEN_DEFAULT = false`). 통신·화면 동작은 기존과 같다.
 - 2026-11-13 게임 진행 세부(검토 반영): ① 판이 끝나는 것은 방에 남은(나가지 않은) 사람이 2명 미만일 때뿐. 끊긴 사람은 자리 60초 동안 판이 계속되고, 접속자가 2명 미만이면 정답 공개 단계에서 기다린다. ② 맞힐 수 있는 사람 = 단어 고르기 시작 때 방에 있던 그리는 사람 아닌 모두(끊긴 사람 포함). "모두 맞힘"은 접속 중인 사람만 본다. 그린 사람 점수 분모 = 그중 정답 공개 때 아직 방에 있는 사람. ③ 같은 판에서 나갔다 다시 들어오면 점수·맞힌 횟수를 되살린다. ④ 도중에 들어온 사람이 이번 문제 정답을 치면 조용히 버린다. ⑤ ★room 은 모든 요청 처리 전에 `tick(now)` 를 먼저 부른다. 채팅 속도 제한은 엔진이 사람 단위로 한다(room 은 따로 세지 않는다). 타이머는 `nextDeadline`. `finished.save` 일 때만 누적 기록 저장. 순위 항목에 `left` 칸(나간 사람)이 있다.
 - 2026-11-13 (✅ 사용자: "중간에 난입해도 문제 맞출수있게햐줄래?") 문제 도중에 들어온 사람도 **그 문제를 바로 맞힐 수 있다**. 들어오는 순간 맞힐 수 있는 사람(guessers)에 더하고(지금 그림은 drSync 로 받음), "모두 맞힘" 판정과 그린 사람 점수 분모에도 들어간다. 점수 계산은 다른 사람과 같다(맞힌 순간 남은 시간). 이 줄이 8절⑤·15절 "도중 입장자 정답은 조용히 버림"보다 우선한다.
+- 2026-11-13 그림 요청이 draw 단계 밖(또는 그리는 사람이 아닌 사람)에서 오면 서버는 오류 글 없이 버린다(시간이 끝나는 순간 긋던 선의 `pt f:1` 때문에 "지금은 할 수 없습니다"가 뜨지 않게). drSync 도 보내지 않는다(곧 `drNew` 가 정리).
+
+### 11-3. 허브 연결 체크리스트 (room 검토에서 확정, 통합 과제용)
+- server/rooms.js: ① `MAX_PLAYERS` 에 `draw: 8` ② `createHub({..., draw='off'})`, `hub.draw`, `sendMe` 의 `me` 에 `draw` ③ `case 'create'` 에서 `mode==='draw'`: `hub.draw==='off'` 면 `{msg, code:'dr_off'}`, 아니면 `createDrawRoom(hub, newCode(hub))` → rooms.set → join ④ `case 'dr'`: draw 방이면 `room.dr(session,msg)`, 아니면 '알 수 없는 요청입니다.' ⑤ draw 방에서 `mode/act/play/liar/lg`(맨 위 `lg rank` 포함)는 `dr_now`(`room.act` 부르기 전에 막기). 포커 방에서 `{t:'mode', mode:'draw'}` 는 거절("방을 새로 만들어 주세요") ⑥ `createConn.message`: 오류가 문자열이면 `{t:'error',msg}`, 객체면 `{t:'error',...err}` ⑦ `case 'chat'`: draw 방은 허브 채팅 속도 제한을 건너뛰고 `room.chat`(엔진이 셈) ⑧ 연결당 초당 요청 한도(20): `t:'dr'` 은 따로 세거나(초당 40) 한도를 올려 그리는 사람 요청이 버려지지 않게.
+- server/protocol.js: `case 'dr'` 봉투 검사(`a` 1~20자, lg 와 같은 방식), `MODES` 에 `'draw'`.
+- server/store.js: 바꿀 것 없음.
+- server/index.js: 환경 변수 `DRAW`(off/test/on, 기본 off)를 `hubOptions.draw` 로.
+- render.yaml: `DRAW: test`.
