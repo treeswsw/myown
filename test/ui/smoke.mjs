@@ -258,7 +258,8 @@ async function runContext(browser, server, name, cfg) {
     await step('menu 나가기 returns to the lobby', async () => {
       await press('button[aria-label="메뉴"]');
       await press('.hpanel button.item');
-      await visible('button:has-text("방 만들기")');
+      // After an all-in the run-out animation plays before the lobby can show, so allow more time.
+      await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible', timeout: 25000 });
     });
 
     /* ---------- bluff ---------- */
