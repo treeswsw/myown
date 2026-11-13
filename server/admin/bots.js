@@ -3,6 +3,7 @@
 // so parsing, rate limit and the room's own rules apply to them like to a person. Nothing here knows a game.
 import crypto from 'node:crypto';
 import { newUser } from '../store.js';
+import { defaultEcon, ECON_LIMITS } from '../../shared/coin/rules.js';
 import { gameOf, noBot } from './games/index.js';
 
 export const ADMIN_ID = '관리자';
@@ -73,6 +74,14 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         // Works in or out of a room, with or without other people (it touches no game).
         if (!(await hub.pinAuth.adminClear(msg.id))) return admErr('adm_noid');
         hub.send(session, { t: 'admOk', a: 'pinclr' });
+        return null;
+      }
+      if (msg.a === 'econ' || msg.a === 'econSet' || msg.a === 'econReset') {
+        // 세부 설정(SPEC 21-7): 방과 상관없이 된다. 바꾸면 바로 적용·저장.
+        let cur = hub.econ();
+        if (msg.a === 'econSet') cur = await hub.setEcon(msg.econ);
+        else if (msg.a === 'econReset') cur = await hub.setEcon(defaultEcon());
+        hub.send(session, { t: 'admOk', a: 'econ', saved: msg.a !== 'econ', econ: cur, defaults: defaultEcon(), limits: ECON_LIMITS });
         return null;
       }
       if (msg.a === 'chips' || msg.a === 'coins') {

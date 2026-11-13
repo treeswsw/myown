@@ -55,7 +55,7 @@ test('award: min gap per user per mode', async () => {
   clock.advance(2_000);
   hub.award(room, 'bluff', row);
   assert.equal(sess(hub, 'aaa').user.coins, 4);
-  assert.equal(msgs(a, 'coin', 'got').length, 3);
+  assert.equal(msgs(a, 'coin', 'got').length, 4, '간격 안에 막힌 판도 "코인 없음" 알림');
 });
 
 test('award: holdem, unknown mode, not logged in give nothing', async () => {
@@ -325,7 +325,7 @@ test('me.wallet shape; no pin or hash in any message', async () => {
   hub.sendMe(s);
   const me = msgs(a, 'me').at(-1);
   const { stock, ...rest } = me.wallet;
-  assert.deepEqual(rest, { coins: 3, total: 0, pity: 0, shard: 0, cpity: 0, pos: {}, owned: [], equip: {}, hasPin: true, free: { n: 2, next: null }, pool: 10000 });
+  assert.deepEqual(rest, { coins: 3, total: 0, pity: 0, shard: 0, cpity: 0, pos: {}, owned: [], equip: {}, hasPin: true, chipsPerCoin: 100, free: { n: 2, next: null }, pool: 10000 });
   assert.equal(stock.a.ids.length, 5);
   assert.equal(stock.b.ids.length, 5);
   assert.equal(me.user.pin, undefined);

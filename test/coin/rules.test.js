@@ -30,5 +30,5 @@ test('홀덤·모르는 mode·이상한 opp 는 안전', () => {
 
 test('표 모양', () => {
   assert.deepEqual(COIN_RULES.yacht, { finish: 3, win: 4, gapMs: 240000 });
-  assert.deepEqual(Object.keys(COIN_RULES), ['bluff', 'liar', 'draw', 'yacht', 'mini']);
+  assert.deepEqual(Object.keys(COIN_RULES), ['bluff', 'liar', 'draw', 'yacht', 'mini', 'gsk']);
 });

@@ -936,6 +936,13 @@ async function adminCheck(browser) {
       rep('admin panel opens with 닫기', await b.page.locator('.adm-close').isVisible());
       const roomBtnsHidden = await b.page.evaluate(() => [...document.querySelectorAll('.adm-row .adm-btn')].filter((x) => /봇|단계/.test(x.textContent)).every((x) => x.hidden));
       rep('in lobby the bot/skip buttons are hidden', roomBtnsHidden);
+      // 세부 설정(SPEC 21-7): 열면 게임별 코인 칸이 서버 값으로 채워지고, 닫을 수 있다
+      await b.page.click('.adm-open-detail');
+      await b.page.waitForSelector('.adm-detail .adm-game', { state: 'visible', timeout: 4000 });
+      const games = await b.page.locator('.adm-detail .adm-game').count();
+      rep('세부 설정 shows per-game coin rows + 상점 note', games >= 6 && (await b.page.locator('.adm-note').innerText()).includes('상점 가격'), `${games} rows`);
+      await b.page.click('.adm-dclose');
+      await b.page.waitForSelector('.adm-detail', { state: 'hidden' });
       await b.page.click('.adm-close');
       await b.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
       await b.page.click('button.lb-primary:has-text("방 만들기")');

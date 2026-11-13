@@ -1,14 +1,13 @@
 // Coin wallet on the hub (SPEC 22): award (22-2), swap / draw / buy / equip / rank (22-3..22-6).
 // Nothing here knows a game; games call hub.award(room, mode, rows) once per finished round.
 import { secureRng } from '../../shared/cards.js';
-import { COIN_RULES, coinsFor } from '../../shared/coin/rules.js';
+import { defaultEcon, normalizeEcon, coinsFor } from '../../shared/coin/rules.js';
 import { draw as gachaDraw, COST, TEN, POOL_START, freeNow, freeNext } from '../../shared/coin/gacha.js';
 import { item } from '../../shared/coin/shop.js';
 import { capsule, COST as CAP_COST, TEN as CAP_TEN, CRAFT, trashKingDue } from '../../shared/coin/capsule.js';
 import { ROWS, priceOf, periodOf, leftOf, rollRow } from '../../shared/coin/stock.js';
 import { parseCoin } from '../../shared/coin/protocol.js';
 
-const CHIPS_PER_COIN = 100;
 const MAX_CHIPS = 2_000_000_000;
 const DRAW_GAP_MS = 300;
 const ADMIN_ID = '관리자';
@@ -67,6 +66,7 @@ export function walletOf(user, hub) {
     owned: [...(g.owned ?? [])],
     equip: { ...(g.equip ?? {}) },
     hasPin: !!user.pin,
+    chipsPerCoin: hub?.econ ? hub.econ().chipsPerCoin : defaultEcon().chipsPerCoin,
     stock: stockOf(user, hub),
   };
 }
@@ -93,6 +93,21 @@ export function installWallet(hub) {
     }
   }
 
+  // 관리자 경제 설정 (SPEC 21-7): 시작 때 저장소에서 읽고, 바뀌면 바로 이 변수만 바꾼다(재시작 없음).
+  let econ = defaultEcon();
+  hub.econ = () => econ;
+  hub.coinRules = () => econ.rules;
+  Promise.resolve()
+    .then(() => hub.store.getMeta('econ'))
+    .then((v) => { if (v) econ = normalizeEcon(v); })
+    .catch((err) => console.error('econ load failed:', err.message));
+  // 새 설정(검사를 마친 것)을 적용하고 저장한다. 저장이 실패해도 지금 서버에서는 적용된다.
+  hub.setEcon = async (next) => {
+    econ = normalizeEcon(next);
+    try { await hub.store.setMeta('econ', econ); } catch (err) { console.error('econ save failed:', err.message); }
+    return econ;
+  };
+
   const hasBot = (room) => hub.admin?.botsIn?.(room) > 0 || (room.members ?? []).some((m) => m.session?.bot);
 
   function ledger(entry) {
@@ -111,22 +126,28 @@ export function installWallet(hub) {
   }
 
   hub.award = (room, mode, rows) => {
-    if (!COIN_RULES[mode] || !room || hasBot(room)) return;
+    const rules = econ.rules;
+    if (!Object.hasOwn(rules, mode) || !room || hasBot(room)) return;
     const t = hub.now();
     for (const row of rows ?? []) {
       const session = hub.sessions.get(row.id);
       if (!session || session.bot || String(row.id).startsWith('~bot')) continue;
-      const n = coinsFor(mode, { won: !!row.won, opp: row.opp });
-      if (n <= 0) continue;
+      const won = !!row.won;
+      const n = coinsFor(mode, { won, opp: row.opp }, rules);
       const key = `${row.id}|${mode}`;
       const last = lastEarn.get(key);
-      if (last !== undefined && t - last < COIN_RULES[mode].gapMs) continue;
+      const gap = last !== undefined && t - last < rules[mode].gapMs;
+      if (n <= 0 || gap) {
+        // 판이 끝났는데 못 받은 사람에게도 짧게 알린다(0 코인). why: 'gap' = 같은 게임을 너무 빨리 또 함.
+        hub.send(session, { t: 'coin', a: 'got', n: 0, mode, win: won, ...(n > 0 ? { why: 'gap' } : {}) });
+        continue;
+      }
       lastEarn.set(key, t);
       const u = session.user;
       u.coins = (u.coins ?? 0) + n;
       u.coinsTotal = (u.coinsTotal ?? 0) + n;
-      changed(session, { kind: 'earn', delta: n, bal: u.coins, note: { mode, win: !!row.won } });
-      hub.send(session, { t: 'coin', a: 'got', n, mode, win: !!row.won });
+      changed(session, { kind: 'earn', delta: n, bal: u.coins, note: { mode, win: won } });
+      hub.send(session, { t: 'coin', a: 'got', n, mode, win: won });
     }
   };
 
@@ -163,7 +184,7 @@ export function installWallet(hub) {
         const e = needOut();
         if (e) return e;
         if (m.n > u.coins) return coinErr('coin_low');
-        const chips = m.n * CHIPS_PER_COIN;
+        const chips = m.n * econ.chipsPerCoin;
         if (u.bank + chips > MAX_CHIPS) return coinErr('coin_max');
         u.coins -= m.n;
         u.bank += chips;

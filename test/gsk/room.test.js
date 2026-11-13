@@ -316,9 +316,9 @@ test('채팅·소리: 요트 방처럼 막지 않는다', async () => {
   assert.equal(await sendErr(t.ps[0], { t: 'sndRename', sid: 'tst0001', name: '새' }), null);
 });
 
-test('ctx.finish: 갱스껄은 코인 규칙이 없으므로(coin:null) 지급 없이 끝난다', async () => {
+test('ctx.finish: 갱스껄 코인(coin:gsk) — 혼자 남은 판(alone)은 지급·알림 없이 끝난다', async () => {
   const t = await table(3);
-  assert.equal(t.room.entry.coin, null);
+  assert.equal(t.room.entry.coin, 'gsk');
   assert.equal(await startBy(t.ps[0]), null);
   await t.by('b1').send({ t: 'leave' });
   await t.by('c1').send({ t: 'leave' });
