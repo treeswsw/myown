@@ -289,8 +289,8 @@ test('liar: a citizen who leaves gets 0; the rest are paid', async (t) => {
 });
 
 test('liar: void round (too few players left) pays nobody', async (t) => {
-  const { r, hub } = await liarRound(t, 3);
-  const leaver = r.cs.find((c) => c !== r.host);
+  const { r, liar, hub } = await liarRound(t, 3);
+  const leaver = r.cs.find((c) => c !== r.host && c !== liar);
   leaver.send({ t: 'leave' });
   await L.until(() => r.host.state.phase === 'result', 'result', { clients: r.cs });
   assert.equal(r.host.state.result.winner, 'void');
