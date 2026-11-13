@@ -2,7 +2,7 @@
 import { SLOTS, ITEMS } from '../../../shared/coin/shop.js';
 import './shop.css';
 
-const SLOT_NAME = { title: '칭호', frame: '프로필 테두리', color: '글자 색', suit: '정장 색' };
+const SLOT_NAME = { title: '칭호', hat: '모자', acc: '기타 악세', face: '페이셜', frame: '프로필 테두리', color: '글자 색', suit: '정장 색' };
 const ERR = {
   coin_room: '방에서 나온 뒤에 할 수 있습니다.', coin_low: '코인이 모자랍니다.', coin_bad: '잘못된 요청입니다.',
   shop_no: '없는 물건입니다.', shop_own: '이미 가지고 있습니다.', shop_not: '가지고 있지 않습니다.',

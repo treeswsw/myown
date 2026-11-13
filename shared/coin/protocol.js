@@ -8,6 +8,7 @@ const ID_MAX = 40;
 const bad = (code) => ({ ok: false, code });
 const isObj = (m) => m !== null && typeof m === 'object' && !Array.isArray(m);
 const isId = (s) => typeof s === 'string' && s.length >= 1 && s.length <= ID_MAX;
+const inRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 const isPin = (s) => typeof s === 'string' && PIN_RE.test(s);
 
 export function parseCoin(msg) {
@@ -32,6 +33,16 @@ export function parseCoin(msg) {
       if (!SLOTS.includes(msg.slot)) return fail;
       if (msg.id !== null && !isId(msg.id)) return fail;
       return { ok: true, msg: { t: 'coin', a: 'equip', slot: msg.slot, id: msg.id } };
+    case 'cap':
+      if (msg.n !== 1 && msg.n !== 10) return fail;
+      return { ok: true, msg: { t: 'coin', a: 'cap', n: msg.n } };
+    case 'craft':
+      if (!isId(msg.id)) return fail;
+      return { ok: true, msg: { t: 'coin', a: 'craft', id: msg.id } };
+    case 'pos':
+      if (!isId(msg.id)) return fail;
+      if (!inRange(msg.x, -0.5, 0.5) || !inRange(msg.y, -0.5, 0.5) || !inRange(msg.s, 0.3, 2) || !inRange(msg.r, -180, 180)) return fail;
+      return { ok: true, msg: { t: 'coin', a: 'pos', id: msg.id, x: msg.x, y: msg.y, s: msg.s, r: msg.r } };
     case 'rank':
       return { ok: true, msg: { t: 'coin', a: 'rank' } };
     case 'hist':

@@ -13,7 +13,7 @@ test('new fields round-trip', async () => {
   const u = await s.getOrCreate('a', 'A');
   assert.equal(u.coins, 0); assert.equal(u.coinsTotal, 0); assert.equal(u.pin, null);
   assert.deepEqual(u.gear, { pity: 0, owned: [], equip: {} });
-  u.coins = 7; u.coinsTotal = 12; u.gear = { pity: 3, owned: ['title.rookie'], equip: { title: 'title.rookie' } };
+  u.coins = 7; u.coinsTotal = 12; u.gear = { pity: 3, owned: ['title.jotbyin'], equip: { title: 'title.jotbyin' } };
   u.pin = { s: 'x', h: 'y', t: ['z'] };
   await s.save(u);
   assert.deepEqual(await s.getOrCreate('a', 'A'), u);
