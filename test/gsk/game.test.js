@@ -154,7 +154,7 @@ test('경매·자동 공개·성공·점수·다음 라운드 시작 사람', ()
   assert.equal(nextDeadline(s), s.flipAt);
   const t1 = s.flipAt;
   const fx = tick(s, t1, rng0);
-  assert.deepEqual(fx.events[0].e, { k: 'gkFlip', id: ch, p: ch, disc: 'F', flipped: 1 });
+  assert.deepEqual(fx.events[0].e, { k: 'gkFlip', id: ch, p: ch, disc: 'F', flipped: 1, tease: 1 }); // rng0 → 0 → 꽃도 애태우기
   assert.equal(s.flipAt, null); // 내 더미 1장 → 끝
   assert.equal(viewFor(s, 'p0').seats.find((x) => x.id === ch).shown.join(), 'F');
   const other = order(s).find((x) => x !== ch);
@@ -736,4 +736,31 @@ test('나가기로 탈락한 자리는 viewFor 에서 원판·손·더미가 0',
   const q = viewFor(s, 'p0').seats.find((x) => x.id === gone);
   assert.equal(q.out, 'leave');
   assert.deepEqual([q.discs, q.hand, q.stack, q.shown.length], [0, 0, 0, 0]);
+});
+
+test('gkFlip tease: 해골은 늘 1, 꽃은 난수 0 일 때만 1, 자동 공개 경로에도 있다', () => {
+  const none = () => 1; // rand(3)=1 → 꽃은 tease 0
+  // 꽃 + 자동 공개 (tick)
+  let s = mk(3);
+  setupAll(s);
+  let ch = challenge(s, 2);
+  let fx = tick(s, s.flipAt, none);
+  assert.equal(fx.events[0].e.k, 'gkFlip');
+  assert.equal(fx.events[0].e.disc, 'F');
+  assert.equal(fx.events[0].e.tease, 0);
+  // 꽃 + flip 요청 경로: 난수 0 → 1, 난수 1 → 0
+  const other = order(s).find((x) => x !== ch);
+  let fl = good(s, ch, { a: 'flip', p: other }, undefined, none);
+  assert.equal(fl.events[0].e.tease, 0);
+  s = mk(3); setupAll(s); ch = challenge(s, 2);
+  tick(s, s.flipAt, rng0);
+  fl = good(s, ch, { a: 'flip', p: order(s).find((x) => x !== ch) }, undefined, rng0);
+  assert.equal(fl.events[0].e.disc, 'F');
+  assert.equal(fl.events[0].e.tease, 1);
+  // 해골: 난수와 상관없이 1 (자동 공개 경로)
+  s = mk(3); setupAll(s, Object.fromEntries(order(s).map((id) => [id, 'S'])));
+  ch = challenge(s, 1);
+  fx = tick(s, s.flipAt, none);
+  assert.equal(fx.events[0].e.disc, 'S');
+  assert.equal(fx.events[0].e.tease, 1);
 });

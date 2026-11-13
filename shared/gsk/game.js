@@ -218,7 +218,7 @@ export function act(s, id, msg, now, rnd) {
     case 'place': return doPlace(s, seat, m.k);
     case 'bid': return doBid(s, seat, m.n, now);
     case 'pass': return doPass(s, seat, now);
-    case 'flip': return doFlipMsg(s, seat, m.p, now);
+    case 'flip': return doFlipMsg(s, seat, m.p, now, rnd);
     case 'discard': return doDiscard(s, seat, m, now, rnd);
     default: return fail('gk_bad');
   }
@@ -287,23 +287,25 @@ function startFlip(s, fx, challengerId, at) {
   s.flipAt = at + AUTO_FLIP_MS;
 }
 
-function doFlipMsg(s, seat, pid, now) {
+function doFlipMsg(s, seat, pid, now, rnd) {
   if (s.step !== 'flip') return fail('gk_now');
   if (s.challenger !== seat.id) return fail('gk_turn');
   if (s.flipAt != null) return fail('gk_now');
   const owner = seatOf(s, pid);
   if (!owner || owner.out || owner.id === seat.id || owner.flippedN >= owner.stack.length) return fail('gk_bad');
   const fx = newFx();
-  doFlip(s, fx, seat, owner, now);
+  doFlip(s, fx, seat, owner, now, rnd);
   return fx;
 }
 
 // 한 장 공개. GDD 9-3 은 gkFlip·gkLoseMine 의 원판 종류 필드 이름을 k 로 적었지만 e.k 가 이벤트 종류라 겹친다 → 필드 이름을 disc 로 보낸다.
-function doFlip(s, fx, by, owner, at) {
+function doFlip(s, fx, by, owner, at, rnd) {
   const kind = owner.stack[owner.stack.length - 1 - owner.flippedN];
   owner.flippedN++;
   if (kind === 'F') s.flipped++;
-  emit(fx, { k: 'gkFlip', id: by.id, p: owner.id, disc: kind, flipped: s.flipped });
+  // 애태우기(GDD 9-3·15절): 해골은 늘 1, 꽃은 약 1/3. 값은 서버가 정해 모두에게 같게 보낸다.
+  const tease = kind === 'S' || rand(rnd, 3) === 0 ? 1 : 0;
+  emit(fx, { k: 'gkFlip', id: by.id, p: owner.id, disc: kind, flipped: s.flipped, tease });
   if (kind === 'S') { enterReveal(s, fx, false, owner.id, at); return; }
   if (owner === by) {
     // 내 더미는 숫자와 상관없이 끝까지 공개한다. 끝났을 때 꽃 수가 모자라면 남의 더미로.
@@ -445,7 +447,7 @@ export function tick(s, now, rnd) {
     if (gone.length) { dropMany(s, gone, 'away', fx, at, rnd); continue; }
     if (s.flipAt != null && s.flipAt <= d) {
       const ch = seatOf(s, s.challenger);
-      doFlip(s, fx, ch, ch, s.flipAt);
+      doFlip(s, fx, ch, ch, s.flipAt, rnd);
       continue;
     }
     if (s.step === 'reveal' && s.endsAt <= d) {
