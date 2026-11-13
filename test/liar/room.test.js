@@ -235,9 +235,18 @@ test('길 1: 라이어 처형 + 정답 입력 → 결과, liarName 은 라이어
   x.until('guess');
   // a different (alternate) name is graded as correct
   x.room.citizenEntry = { w: '짜장면', alt: ['자장면'] };
+  assert.equal(x.room.view('u0').words, null);
   assert.equal(x.lg(liar, { a: 'guess', text: '자장면' }), null);
-  assert.equal(x.room.phase, 'result');
+  assert.equal(x.room.phase, 'answer');
+  assert.equal(x.timers.size, 1);
+  assert.equal(x.room.view('u0').result, null);
+  assert.deepEqual(x.room.view('u0').guess, { text: '자장면', correct: true });
+  assert.equal(x.room.view('u0').words.citizen, x.room.game.citizenWord);
+  assert.deepEqual(x.room.view(liar).words, x.room.view('u1').words);
+  assert.equal(x.room.settledGame, null); // 점수는 result 진입 때 한 번
+  x.until('result');
   assert.equal(x.timers.size, 0);
+  assert.equal(x.room.settledGame, x.room.game);
   const r = x.room.view('u0').result;
   assert.equal(r.guessed, true);
   assert.equal(r.liarName, x.byId(liar).user.name);
@@ -433,6 +442,9 @@ test('권한: 단계별 글 (speak 거절 / discuss 전원 talk / 변론류 지�
   assert.equal(typeof x.room.chat(x.ss[2], 'x'), 'string');
   assert.equal(x.room.mediaBlocked(x.ss[2], 'emote'), null);
   for (const k of ['pemote', 'snd', 'sndAdd']) assert.equal(typeof x.room.mediaBlocked(x.ss[2], k), 'string', k);
+  g.phase = 'answer'; x.room.sync();
+  assert.equal(x.room.chat(x.ss[2], 'x'), '정답 공개 중에는 글을 쓸 수 없습니다.');
+  for (const k of ['emote', 'pemote', 'snd', 'sndAdd']) assert.equal(typeof x.room.mediaBlocked(x.ss[2], k), 'string', k);
 });
 
 test('권한: 판 도중 들어온 관전자는 글·pemote·snd·sndAdd 거절, emote 가능, 판이 끝나면 다시 가능', () => {
