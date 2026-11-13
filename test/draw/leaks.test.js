@@ -203,3 +203,30 @@ test('정해진 시나리오: 못 맞힌 사람·관전자의 기기가 받은 �
   deliver(give(s, 'a', E()));
   assert.equal(JSON.stringify(inbox.c).includes(entry.w), true);
 });
+
+test('도중에 들어온 사람은 맞히기 전에는 단어를 받지 않고, 맞히면 받는다', () => {
+  const words = makeWords();
+  const s = createRoom({ code: 'CCCC', host: { id: 'a', name: 'A' }, allTopics: TOPICS, topics: TOPICS.slice(0, 8), now: T0 });
+  let now = T0;
+  const E = () => ({ now, rng: () => 0, words });
+  for (const id of ['b', 'c']) join(s, { id, name: id }, E());
+  start(s, 'a', E());
+  const names = namesOf(s.cur);
+  const inbox = [];
+  const deliver = (fx) => {
+    for (const id of fx.room) if (id === 'z') inbox.push(viewFor(s, id));
+    for (const ev of fx.events) if (ev.to.includes('z')) inbox.push(ev.e);
+  };
+  deliver(join(s, { id: 'z', name: 'Z' }, E())); // pick 단계 도중 입장
+  inbox.push(viewFor(s, 'z'), chatLogFor(s, 'z'));
+  deliver(pickWord(s, 'a', 0, E()));
+  const entry = s.cur.entry;
+  deliver(chat(s, 'b', entry.w, E()));
+  deliver(chat(s, 'b', `답은 ${entry.w}`, E()));
+  inbox.push(viewFor(s, 'z'), chatLogFor(s, 'z'));
+  assert.equal(has(inbox, names), null, `z 의 기기에 정답: ${has(inbox, names)}`);
+  assert.equal(viewFor(s, 'z').word, null);
+  now += S;
+  deliver(chat(s, 'z', entry.w, E()));
+  assert.equal(viewFor(s, 'z').word, entry.w, '맞힌 뒤에는 단어를 본다');
+});

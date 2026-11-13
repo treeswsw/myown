@@ -77,7 +77,7 @@ export const ROUND_CHOICES = Object.freeze([1, 2, 3, 5]);
 export const ROUNDS_DEFAULT = 2;
 export const ORDER_CHOICES = Object.freeze(['seq', 'hit', 'rand']);
 export const ORDER_DEFAULT = 'seq';
-export const LEN_DEFAULT = true; // 글자 수 칸 표시
+export const LEN_DEFAULT = false; // 글자 수 칸 표시
 
 export const WORD_CHOICES = 3; // 단어 후보 개수
 

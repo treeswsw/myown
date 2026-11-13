@@ -145,13 +145,19 @@ export function join(s, user, env = {}) {
   if (s.players.length >= MAX_PLAYERS) return fail(null, '방이 가득 찼습니다.');
   const fx = newFx();
   const np = addPlayer(s, user);
+  np.drew = inGame(s); // 도중에 새로 들어온 사람은 이번 라운드엔 그리지 않는다(다음 라운드부터)
   const gi = s.gone.findIndex((g) => g.id === user.id); // 같은 판에서 나갔다 다시 들어옴: 점수 되살림
   if (gi >= 0) {
     const g = s.gone.splice(gi, 1)[0];
-    np.score = g.score; np.correct = g.correct; np.drew = !!g.drew;
+    np.score = g.score; np.correct = g.correct;
+    np.drew = g.roundNo === s.roundNo ? !!g.drew : inGame(s); // 같은 라운드일 때만 그린 기록을 되살림
     if (s.cur && s.cur.hits.some((h) => h.id === np.id)) np.hit = true;
   }
+  // 도중에 들어온 사람도 지금 문제를 바로 맞힐 수 있다
+  const cur = s.cur;
+  if (inGame(s) && cur && (s.phase === P.PICK || s.phase === P.DRAW) && cur.drawerId !== user.id && !cur.guessers.includes(user.id)) cur.guessers.push(user.id);
   emit(s, fx, { k: 'joined', id: user.id, name: findP(s, user.id).name }, connectedIds(s).filter((x) => x !== user.id));
+  if (s.waiting && s.phase === P.REVEAL && env.now != null && connectedIds(s).length >= MIN_PLAYERS) executeNext(s, env, fx);
   roomAll(s, fx);
   return fx;
 }
@@ -198,7 +204,7 @@ export function leave(s, id, env, { silent = false } = {}) {
   const fx = newFx();
   const drawerLeft = s.cur && s.cur.drawerId === id && (s.phase === P.PICK || s.phase === P.DRAW);
   s.players = s.players.filter((x) => x !== p);
-  if (inGame(s)) s.gone.push({ id: p.id, name: p.name, score: p.score, correct: p.correct, drew: p.drew });
+  if (inGame(s)) s.gone.push({ id: p.id, name: p.name, score: p.score, correct: p.correct, drew: p.drew, roundNo: s.roundNo });
   transferHost(s);
   if (!silent) emit(s, fx, { k: 'left', id: p.id, name: p.name });
   if (inGame(s)) {
@@ -380,7 +386,7 @@ function beginQuestion(s, drawerId, env, fx) {
   s.lastDrawerId = drawerId;
   s.lastSeat = drawer.seat;
   s.q += 1;
-  s.qTotal = Math.max(s.q, s.qBase + s.roundSize + (s.settings.rounds - s.roundNo) * s.players.length);
+  s.qTotal = s.qBase + s.roundSize + (s.settings.rounds - s.roundNo) * s.players.length;
   for (const p of s.players) p.hit = false;
   s.cur = {
     drawerId,
@@ -483,7 +489,8 @@ function finishQuestion(s, why, env, fx) {
   applyHits(s, cur);
   const hits = cur.hits.length;
   const guessers = cur.guessers.filter((id) => findP(s, id)).length; // 아직 방에 남은 사람
-  const drawerPts = (why === 'all' || why === 'time') ? drawerPoints({ hits, guessers }) : 0;
+  const hitsIn = cur.hits.filter((h) => findP(s, h.id)).length; // 아직 방에 남은 맞힌 사람(그린 사람 점수용)
+  const drawerPts = (why === 'all' || why === 'time') ? drawerPoints({ hits: hitsIn, guessers }) : 0;
   const drawer = findP(s, cur.drawerId) ?? s.gone.find((g) => g.id === cur.drawerId);
   if (drawer) drawer.score += drawerPts;
   s.plan = planNext(s, env);
@@ -567,7 +574,7 @@ function chatRateOk(p, now) {
 
 /**
  * 채팅 한 줄 (10-6). 못 맞힌 사람의 정답은 채팅으로 나가지 않고 drHit 이 된다.
- * 오류: dr_bad(길이·없는 사람), dr_drawer_mute, dr_chat_fast, dr_now(이번 문제 중간에 들어온 사람이 정답을 쓴 경우).
+ * 오류: dr_bad(길이·없는 사람), dr_drawer_mute, dr_chat_fast.
  */
 export function chat(s, id, text, env) {
   const p = findP(s, id);
@@ -585,7 +592,6 @@ export function chat(s, id, text, env) {
   const hitIds = cur ? cur.hits.map((h) => h.id) : [];
   const correct = s.phase === P.DRAW && cur && cur.entry && !hitIds.includes(id) && isCorrect(stripMark(t), cur.entry);
   if (correct) {
-    if (!cur.guessers.includes(id)) return newFx(); // 이번 문제 도중에 들어온 사람은 다음 문제부터: 조용히 버림
     p.chatTs.push(now);
     const order = cur.hits.length + 1;
     const pts = guesserPointsAt({ endsAtMs: s.endsAt, nowMs: now, totalSec: s.settings.time, order }); // 단축 전 끝 시각 기준

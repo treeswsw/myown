@@ -161,15 +161,46 @@ test('끊긴 사람 차례는 건너뛴다 (그 라운드에 그린 것으로 �
   assert.deepEqual(seen, ['p0', 'p1', 'p3']);
 });
 
-test('진행 중에 들어온 사람은 drew=false 로 들어와 자리 순서에 낀다', () => {
+test('진행 중에 들어온 사람은 drew=true 로 들어와 이번 라운드엔 안 그리고 다음 라운드부터 그린다', () => {
   const { s, E } = room(3, { order: 'seq', rounds: 1 });
   let t = T0;
   ok(start(s, 'p0', E(t)));
   ok(join(s, { id: 'p3', name: 'n3' }, E(t)));
-  assert.equal(findDrew(s, 'p3'), false);
+  assert.equal(findDrew(s, 'p3'), true);
   const seen = [];
   while (s.phase !== 'final') { seen.push(drawer(s)); t = giveAndNext(s, E, t); }
-  assert.deepEqual(seen, ['p0', 'p1', 'p2', 'p3']);
+  assert.deepEqual(seen, ['p0', 'p1', 'p2']);
+  assert.equal(s.qTotal, 3);
+});
+
+test('도중에 들어온 사람은 2라운드째엔 그린다 (qTotal 도 맞는다; 2라운드는 이어서 p3 부터)', () => {
+  const { s, E } = room(3, { order: 'seq', rounds: 2 });
+  let t = T0;
+  ok(start(s, 'p0', E(t)));
+  ok(join(s, { id: 'p3', name: 'n3' }, E(t)));
+  const seen = [];
+  while (s.phase !== 'final') { seen.push(drawer(s)); assert.ok(s.q <= s.qTotal); t = giveAndNext(s, E, t); }
+  assert.deepEqual(seen, ['p0', 'p1', 'p2', 'p3', 'p0', 'p1', 'p2']);
+  assert.equal(s.qTotal, 7);
+});
+
+test('나갔다 같은 라운드에 돌아오면 그린 기록이 살아나고, 다른 라운드에 돌아오면 이번 라운드엔 안 그린다', () => {
+  const { s, E } = room(4, { order: 'seq', rounds: 2 });
+  let t = T0;
+  ok(start(s, 'p0', E(t)));
+  t = giveAndNext(s, E, t); // p0 끝, p1 차례
+  assert.equal(drawer(s), 'p1');
+  ok(leave(s, 'p0', E(t))); // p0 는 이미 그렸음
+  ok(join(s, { id: 'p0', name: 'n0' }, E(t)));
+  assert.equal(findDrew(s, 'p0'), true);
+  ok(leave(s, 'p3', E(t))); // p3 는 아직 안 그렸음
+  ok(join(s, { id: 'p3', name: 'n3' }, E(t)));
+  assert.equal(findDrew(s, 'p3'), false, '같은 라운드: 안 그렸다는 기록 그대로');
+  ok(leave(s, 'p3', E(t)));
+  while (s.roundNo === 1) t = giveAndNext(s, E, t);
+  assert.equal(s.roundNo, 2);
+  ok(join(s, { id: 'p3', name: 'n3' }, E(t)));
+  assert.equal(findDrew(s, 'p3'), true, '다른 라운드에 돌아옴: 이번 라운드엔 안 그린다');
 });
 const findDrew = (s, id) => s.players.find((p) => p.id === id).drew;
 
@@ -649,27 +680,102 @@ test('들어오기·끊김·돌아옴 알림은 본인을 뺀 접속 중인 사�
   assert.deepEqual(b.events[0].to.sort(), ['p0', 'p9']);
 });
 
-test('진행 중에 들어온 사람: 이번 문제는 못 맞히고(정답을 치면 조용히 버림) 다음 문제부터 맞힌다', () => {
+test('진행 중에 들어온 사람도 그 문제를 바로 맞힐 수 있다 (맞히기 전에는 단어를 못 본다)', () => {
   const { s, E } = room(3);
   let t = T0;
   ok(start(s, 'p0', E(t)));
   toDraw(s, E, t);
   noteInk(s, 'p0');
   ok(join(s, { id: 'p3', name: 'n3' }, E(t + S)));
-  const quiet = chat(s, 'p3', answer(s), E(t + 2 * S));
-  assert.deepEqual([quiet.ok, quiet.events.length, quiet.room.length], [true, 0, 0]);
-  assert.equal(s.chatLog.length, 0);
-  assert.equal(s.cur.hits.length, 0);
-  ok(chat(s, 'p1', answer(s), E(t + 3 * S)));
-  ok(chat(s, 'p2', answer(s), E(t + 4 * S)));
-  assert.equal(s.phase, 'reveal', 'p3 는 맞힐 사람에 들지 않아 기다리지 않는다 → 끝나야 한다');
-  assert.equal(s.reveal.guessers, 2);
-  t += 4 * S + TIMES.reveal * S;
-  tick(s, t, E(t));
-  assert.equal(s.phase, 'pick');
+  assert.ok(s.cur.guessers.includes('p3'));
+  assert.equal(viewFor(s, 'p3').word, null);
+  ok(chat(s, 'p1', answer(s), E(t + 2 * S)));
+  ok(chat(s, 'p2', answer(s), E(t + 3 * S)));
+  assert.equal(s.phase, 'draw', 'p3 도 맞힐 사람이라 기다린다');
+  const fx = ok(chat(s, 'p3', answer(s), E(t + 4 * S)));
+  assert.equal(fx.events.length > 0, true);
+  assert.equal(s.cur.hits.length, 3);
+  assert.equal(s.phase, 'reveal');
+  assert.equal(s.reveal.guessers, 3);
+  assert.equal(s.reveal.drawerPts, 100);
+  assert.equal(s.players.find((p) => p.id === 'p3').correct, 1);
+});
+
+test('도중에 들어온 사람: 그리는 사람 본인이거나 이미 목록에 있으면 중복해 넣지 않고, 공개 단계·최종 순위에선 넣지 않는다', () => {
+  const { s, E } = room(3);
+  let t = T0;
+  ok(start(s, 'p0', E(t)));
+  ok(join(s, { id: 'p3', name: 'n3' }, E(t))); // pick 단계에서도 들어간다
+  assert.equal(s.cur.guessers.filter((x) => x === 'p3').length, 1);
   toDraw(s, E, t);
-  noteInk(s, drawer(s));
-  assert.equal(s.cur.guessers.includes('p3') || drawer(s) === 'p3', true);
+  ok(away(s, 'p3', E(t)));
+  ok(back(s, 'p3', E(t)));
+  ok(join(s, { id: 'p3', name: 'n3' }, E(t)));
+  assert.equal(s.cur.guessers.filter((x) => x === 'p3').length, 1);
+  assert.ok(!s.cur.guessers.includes('p0'));
+  give(s, 'p0', E(t));
+  assert.equal(s.phase, 'reveal');
+  ok(join(s, { id: 'p4', name: 'n4' }, E(t)));
+  assert.ok(!s.cur.guessers.includes('p4'), '공개 단계에 들어온 사람은 지난 문제의 맞힐 사람이 아니다');
+});
+
+test('그린 사람 점수: 맞히고 나간 사람은 맞힌 수에서 뺀다 (나간 사람 때문에 만점이 되지 않는다)', () => {
+  const { s, E } = room(3);
+  let t = T0;
+  ok(start(s, 'p0', E(t)));
+  toDraw(s, E, t);
+  noteInk(s, 'p0');
+  ok(chat(s, 'p1', answer(s), E(t + S)));
+  ok(leave(s, 'p1', E(t + 2 * S)));
+  tick(s, s.endsAt, E(s.endsAt));
+  assert.equal(s.phase, 'reveal');
+  assert.equal(s.reveal.guessers, 1);
+  assert.equal(s.reveal.drawerPts, 0, '남은 맞힐 사람 1명 중 0명 맞힘');
+  assert.equal(s.reveal.gains.length, 1, '맞힌 사람의 점수는 그대로');
+});
+
+test('기다리는 중에 새 사람이 들어와 접속자가 2명이 되면 바로 다음 문제로 간다', () => {
+  const { s, E } = room(2);
+  let t = T0;
+  ok(start(s, 'p0', E(t)));
+  const d = drawer(s); const o = d === 'p0' ? 'p1' : 'p0';
+  toDraw(s, E, t);
+  ok(away(s, o, E(t + 100)));
+  ok(give(s, d, E(t + 200)));
+  tick(s, t + 200 + TIMES.reveal * S, E(t + 200 + TIMES.reveal * S));
+  assert.equal(s.phase, 'reveal');
+  assert.equal(s.waiting, true);
+  const t2 = t + 200 + TIMES.reveal * S + S;
+  ok(join(s, { id: 'p5', name: 'n5' }, E(t2)));
+  assert.equal(s.waiting, false);
+  assert.equal(s.phase, 'pick');
+});
+
+test('기다리는 중에 나갔던 사람이 gone 에서 되살아나 접속자가 2명이 되어도 바로 진행', () => {
+  const { s, E } = room(3);
+  let t = T0;
+  ok(start(s, 'p0', E(t)));
+  const d = drawer(s);
+  const others = ['p0', 'p1', 'p2'].filter((x) => x !== d);
+  toDraw(s, E, t);
+  ok(away(s, others[0], E(t + 100)));
+  ok(away(s, others[1], E(t + 100)));
+  ok(give(s, d, E(t + 200)));
+  const t1 = t + 200 + TIMES.reveal * S;
+  tick(s, t1, E(t1));
+  assert.equal(s.waiting, true);
+  ok(leave(s, others[0], E(t1)));
+  ok(join(s, { id: others[0], name: 'back' }, E(t1 + S)));
+  assert.equal(s.waiting, false);
+  assert.equal(s.phase, 'pick');
+});
+
+test('글자 수 칸은 기본으로 꺼져 있다', () => {
+  const { s, E } = room(2);
+  assert.equal(s.settings.len, false);
+  ok(start(s, 'p0', E(T0)));
+  pickWord(s, 'p0', 0, E(T0));
+  assert.equal(viewFor(s, 'p1').mask, null);
 });
 
 // ---------- 채팅 (10-6) ----------
@@ -755,7 +861,7 @@ test('채팅 형식·속도: 1~40자, 1초 3개, 10초 15개', () => {
 // ---------- 보기·시계 ----------
 
 test('viewFor: 단계별 모양 (10-4)', () => {
-  const { s, E } = room(3);
+  const { s, E } = room(3, { len: true });
   let t = T0;
   let v = viewFor(s, 'p1');
   assert.equal(v.phase, 'lobby');
