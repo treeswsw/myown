@@ -12,8 +12,8 @@ test('new fields round-trip', async () => {
   const s = createStore(null);
   const u = await s.getOrCreate('a', 'A');
   assert.equal(u.coins, 0); assert.equal(u.coinsTotal, 0); assert.equal(u.pin, null);
-  assert.deepEqual(u.gear, { pity: 0, owned: [], equip: {} });
-  u.coins = 7; u.coinsTotal = 12; u.gear = { pity: 3, owned: ['title.jotbyin'], equip: { title: 'title.jotbyin' } };
+  assert.deepEqual(u.gear, { pity: 0, owned: [], equip: {}, shard: 0, cpity: 0, pos: {} });
+  u.coins = 7; u.coinsTotal = 12; u.gear = { pity: 3, owned: ['title.jotbyin'], equip: { title: 'title.jotbyin' }, shard: 12, cpity: 5, pos: {} };
   u.pin = { s: 'x', h: 'y', t: ['z'] };
   await s.save(u);
   assert.deepEqual(await s.getOrCreate('a', 'A'), u);
@@ -24,8 +24,8 @@ test('old-shape user reads with defaults', async () => {
   await s.save({ id: 'o', name: 'O', bank: 5, avatar: null, stats: {} });
   const u = await s.getOrCreate('o', 'O');
   assert.equal(u.coins, 0); assert.equal(u.coinsTotal, 0); assert.equal(u.pin, null);
-  assert.deepEqual(u.gear, { pity: 0, owned: [], equip: {} });
-  assert.deepEqual(normalizeUser({ gear: {} }).gear, { pity: 0, owned: [], equip: {} });
+  assert.deepEqual(u.gear, { pity: 0, owned: [], equip: {}, shard: 0, cpity: 0, pos: {} });
+  assert.deepEqual(normalizeUser({ gear: {} }).gear, { pity: 0, owned: [], equip: {}, shard: 0, cpity: 0, pos: {} });
   assert.equal(newUser('x', 'X').coins, 0);
 });
 
