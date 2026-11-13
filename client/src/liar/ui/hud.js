@@ -10,27 +10,31 @@ const nameOf = (state, id) => ((state && state.players) || []).find((p) => p.id 
 
 // GDD 4-4 표. 글(채팅)을 쓸 수 있는가. 순수 함수.
 export function chatLockFor(state) {
-  const open = { locked: false, hint: '' };
+  const open = { locked: false, hint: '', hot: false };
   if (!state || !state.phase) return open;
   const phase = state.phase;
   if (phase === 'lobby' || phase === 'result') return open;
   const me = meOf(state);
-  if (me && me.spectating) return { locked: true, hint: '구경 중에는 다음 판부터 글을 쓸 수 있어요' };
+  if (me && me.spectating) return { locked: true, hint: '구경 중에는 다음 판부터 글을 쓸 수 있어요', hot: false };
   switch (phase) {
     case 'reveal':
     case 'discuss':
     case 'revote':
       return open;
     case 'speak':
-      return state.speaker === state.you ? open : { locked: true, hint: '첫 설명 중에는 차례인 사람만 쓸 수 있어요' };
+      return state.speaker === state.you
+        ? { locked: false, hint: '첫 발언을 입력하세요', hot: true }
+        : { locked: true, hint: '첫 설명 중에는 차례인 사람만 쓸 수 있어요', hot: false };
     case 'defense':
     case 'judge':
     case 'judged':
-      return state.accused === state.you ? open : { locked: true, hint: '변론·찬반 중에는 지목된 사람만 쓸 수 있어요' };
+      return state.accused === state.you
+        ? { locked: false, hint: '최후 변론을 입력하세요', hot: true }
+        : { locked: true, hint: '변론·찬반 중에는 지목된 사람만 쓸 수 있어요', hot: false };
     case 'unmask':
-      return { locked: true, hint: '정체 공개 중에는 글을 쓸 수 없어요' };
+      return { locked: true, hint: '정체 공개 중에는 글을 쓸 수 없어요', hot: false };
     case 'guess':
-      return { locked: true, hint: '정답 맞히기 중에는 글을 쓸 수 없어요' };
+      return { locked: true, hint: '정답 맞히기 중에는 글을 쓸 수 없어요', hot: false };
     default:
       return open;
   }
