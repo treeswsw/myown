@@ -62,7 +62,8 @@ export function createAdmin({ send, getRoom }) {
     const pinId = el('input', 'adm-input');
     pinId.type = 'text'; pinId.placeholder = '아이디'; pinId.maxLength = 12; pinId.autocomplete = 'off';
     pinId.setAttribute('aria-label', '비밀번호를 지울 아이디');
-    const pinRow = el('div', 'adm-row', pinId, btn('adm-btn', '비밀번호 지우기', () => {
+    const pinRow = el('div', 'adm-row');
+    pinRow.append(pinId, btn('adm-btn', '비밀번호 지우기', () => {
       const id = pinId.value.trim();
       if (!id) { setStatus('아이디를 적으세요.'); return; }
       lastReq = Date.now(); setStatus('');
@@ -79,7 +80,8 @@ export function createAdmin({ send, getRoom }) {
       lastReq = Date.now(); setStatus('');
       send({ t: 'adm', a, id, n });
     };
-    const chipRow = el('div', 'adm-row', chipN, btn('adm-btn', '칩 추가', give('chips')), btn('adm-btn', '코인 추가', give('coins')));
+    const chipRow = el('div', 'adm-row');
+    chipRow.append(chipN, btn('adm-btn', '칩 추가', give('chips')), btn('adm-btn', '코인 추가', give('coins')));
     panel.append(el('h3', 'adm-title', '관리자'), row, pinRow, chipRow, status,
       el('h4', 'adm-sub', '연출 보기'), fxBox, btn('adm-btn adm-close', '닫기', () => { panel.hidden = true; }));
     root.append(panel, toggle);
