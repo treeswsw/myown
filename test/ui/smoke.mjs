@@ -664,6 +664,9 @@ async function runContext(browser, server, name, cfg) {
       await press('[data-gk="color-0"]');
       await page.waitForFunction(() => /초록/.test(document.querySelector('[data-gk-seat]')?.textContent ?? ''), null, { timeout: T });
     });
+    await step('gsk: 방장에게 시작 버튼이 보인다(3명 전에는 흐림). 원판 내기·도전 버튼(choose-place)은 3명 판이 필요해 gsk-round.mjs 가 본다', async () => {
+      await visible('[data-gk="start"]');
+    });
     await step('gsk: 나가기 returns to the lobby, bar disappears', async () => {
       await press('button.gkbar-btn:has-text("나가기")');
       await visible('button:has-text("방 만들기")');

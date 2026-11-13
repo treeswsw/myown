@@ -4,7 +4,7 @@ export const place = (k) => gk('place', { k });
 export const bid = (n) => gk('bid', { n });
 export const pass = () => gk('pass');
 export const flip = (p) => gk('flip', { p });
-export const discard = (o) => gk('discard', o && o.k !== undefined ? { k: o.k } : { i: o.i });
+export const discard = (o) => gk('discard', { k: o.k });
 export const color = (c) => gk('color', { c });
 export const start = () => ({ t: 'start' });
 
@@ -15,7 +15,7 @@ export function requestFor(act) {
     case 'bid': return bid(act.n);
     case 'pass': return pass();
     case 'flip': return flip(act.p);
-    case 'discard': return discard(act.k !== undefined ? { k: act.k } : { i: act.i });
+    case 'discard': return discard({ k: act.k });
     case 'color': return color(act.c);
     case 'start': return start();
     default: return null;

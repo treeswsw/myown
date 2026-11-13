@@ -11,20 +11,18 @@ export function ownCounts(view) {
   return c;
 }
 
-// 벌칙 창에 그릴 칸. null 이면 창 없음.
-//  { mode: 'back'|'front', cells:[{key, i?|k?, count?}] }  내가 고르는 사람
-//  { mode: 'watch', name }                                   남이 고르는 중
+// 벌칙 창에 그릴 칸. null 이면 창 없음. (GDD 17절: 고르는 사람은 늘 도전자 본인, 앞면)
+//  { mode: 'front', cells:[{key, k, count}] }   내가 도전자 → 내 원판 종류별로 고름
+//  { mode: 'watch', name }                       남이 고르는 중 (view.penalty.by 의 이름)
 export function penaltyPlan(view) {
   if (!view || view.phase !== 'playing' || view.step !== 'penalty') return null;
   const dis = (view.actions || []).filter((a) => a.a === 'discard');
   if (dis.length) {
-    if (dis[0].k !== undefined) {
-      const cnt = ownCounts(view);
-      return { mode: 'front', cells: dis.map((a) => ({ key: a.key, k: a.k, count: cnt[a.k] || 0 })) };
-    }
-    return { mode: 'back', cells: dis.map((a) => ({ key: a.key, i: a.i })) };
+    const cnt = ownCounts(view);
+    return { mode: 'front', cells: dis.map((a) => ({ key: a.key, k: a.k, count: cnt[a.k] || 0 })) };
   }
-  const who = (view.seats || []).find((s) => s.status === '고르는 중');
+  const by = view.penalty && view.penalty.by;
+  const who = by ? (view.seats || []).find((s) => s.id === by) : null;
   return { mode: 'watch', name: who ? who.name : '' };
 }
 
@@ -80,6 +78,6 @@ export function colorStates(view) {
 export function waitInfo(view) {
   const seats = (view && view.seats) || [];
   const canStart = !!(view && view.ranges && view.ranges.canStart);
-  const isHost = !!(view && (view.actions || []).some((a) => a.a === 'start'));
+  const isHost = !!(view && view.isHost);
   return { count: seats.length, canStart, isHost, needMore: seats.length < 3 };
 }

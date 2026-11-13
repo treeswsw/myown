@@ -118,11 +118,7 @@ function mountInner({ ui, send, getMe, toast, leave }) {
   function viewNow() {
     const v = toView(state, meId());
     if (!v) return null;
-    const step = state.step || null;
     v.hold = { shown: { ...holdShown }, row: holdRow };
-    v.outcome = state.outcome || null;
-    v.penalty = state.penalty || null;
-    v.progress = ['flip', 'reveal', 'penalty'].includes(step) ? { flipped: state.flipped || 0, need: state.need || 0 } : null;
     return v;
   }
 
@@ -134,6 +130,7 @@ function mountInner({ ui, send, getMe, toast, leave }) {
     safe('table', () => mods.table.update(v));
     safe('wait', () => mods.wait.update(v));
     safe('hand', () => mods.hand.update(v));
+    safe('fx', () => mods.fx.update(v));
     // 판정·벌칙·결과 화면은 앞 연출이 끝난 뒤에 띄운다
     if (ctx.busy()) deferred = true;
     else { deferred = false; safe('result', () => mods.result.update(v)); }
@@ -159,7 +156,7 @@ function mountInner({ ui, send, getMe, toast, leave }) {
     enqueue(async () => {
       await sleep(50); // 이벤트가 상태보다 먼저 오므로, 상태가 그려진 뒤에 연출이 자리를 잰다
       try {
-        await withTimeout(mods.fx.flip(e, ctx), FLOW_TIMEOUT);
+        await withTimeout(mods.fx.flip(e, { view: viewNow(), need: state?.need, flipped: e.flipped }), FLOW_TIMEOUT);
       } finally {
         holdShown[p] = Math.max(0, (holdShown[p] | 0) - 1);
         if (!holdShown[p]) delete holdShown[p];
@@ -193,7 +190,7 @@ function mountInner({ ui, send, getMe, toast, leave }) {
       if (!state) {
         clearHold();
         root.hidden = true;
-        for (const name of ['table', 'wait', 'hand', 'result']) safe(name, () => mods[name].update(null));
+        for (const name of ['table', 'wait', 'hand', 'fx', 'result']) safe(name, () => mods[name].update(null));
         return;
       }
       if (state.step === 'setup' || state.phase !== 'playing') clearHold();
@@ -213,12 +210,12 @@ function mountInner({ ui, send, getMe, toast, leave }) {
         return;
       }
       if (e.k === 'gkFlip') onFlip(e);
-      else if (e.k === 'gkReveal') enqueue(() => withTimeout(mods.fx.reveal(e, ctx), FLOW_TIMEOUT));
+      else if (e.k === 'gkReveal') enqueue(() => withTimeout(mods.fx.reveal(e, { view: viewNow(), need: state?.bid?.n ?? state?.need }), FLOW_TIMEOUT));
       else if (e.k === 'gkPlace' && e.id !== meId()) {
-        Promise.resolve().then(() => mods.fx.place(e, ctx)).catch((err) => console.error('gsk fx', err));
+        Promise.resolve().then(() => mods.fx.place(e)).catch((err) => console.error('gsk fx', err));
       } else if (e.k === 'gkStart' || e.k === 'gkRound' || e.k === 'gkVoid') clearHold();
+      // gkReveal 은 위에서 줄 세워 한 번만 돌린다(fx.event 로 또 보내지 않는다)
       for (const name of ['table', 'hand', 'result', 'wait']) safe(name, () => mods[name].event(e));
-      safe('fx', () => mods.fx.event && mods.fx.event(e));
     },
     error(err) {
       if (disposed || !err) return;

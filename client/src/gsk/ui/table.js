@@ -56,6 +56,7 @@ export function createTable(parent, ctx) {
 
   root.append(seatLayer, tagLayer, rowBox, mid, pickLayer, dock);
 
+  let lastNum = '';
   const seats = new Map(); // id → record
   const slotEls = [];
   let row = [];
@@ -149,6 +150,7 @@ export function createTable(parent, ctx) {
   function update(v) {
     if (disposed) return;
     lastView = v;
+    if (v) { root.dataset.step = v.step || ''; root.dataset.phase = v.phase || ''; }
     if (!v || !v.seats || !v.seats.length) {
       root.hidden = true;
       for (const rec of seats.values()) { rec.seat.remove(); rec.tag.remove(); }
@@ -189,6 +191,8 @@ export function createTable(parent, ctx) {
       const ring = ringFor(s, v);
       rec.ring.hidden = !ring;
       rec.ring.classList.toggle('gk-tb-red', ring === 'red');
+      // 도전 실패 판정이 났을 때 도전자 판이 움찔
+      rec.seat.classList.toggle('gk-tb-flinch', !!(s.isChallenger && v.step === 'reveal' && v.outcome && !v.outcome.ok));
 
       if (lobby) { rec.sigPile = ''; rec.pile.replaceChildren(); } else drawPile(rec, s, (hold.shown && hold.shown[s.id]) || 0, L, q, colorIdx);
 
@@ -240,8 +244,16 @@ export function createTable(parent, ctx) {
     cap.textContent = m.cap;
     cap.hidden = !m.cap;
     numRow.hidden = m.num == null;
+    const numText = m.num == null ? '' : `${m.num}|${m.small || ''}`;
     num.textContent = m.num == null ? '' : String(m.num);
     if (m.small) num.append(el('small', null, ` ${m.small}`));
+    // 숫자가 바뀌면 톡 튄다(처음 그릴 때는 제외)
+    if (numText && lastNum && numText !== lastNum) {
+      num.classList.remove('gk-tb-pop');
+      void num.offsetWidth;
+      num.classList.add('gk-tb-pop');
+    }
+    lastNum = numText;
     host.hidden = m.mode === 'flip';
     say.textContent = m.say;
     sub.textContent = m.sub;

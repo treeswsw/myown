@@ -8,27 +8,20 @@ const seat = (i, o = {}) => ({ id: 'p' + i, name: 'N' + i, color: i, points: 0, 
 const base = (o = {}) => ({
   code: 'ABCD', mode: 'gsk', hostId: 'p0', you: 'p0', phase: 'playing', players: players(),
   seats: [0, 1, 2, 3].map((i) => seat(i)), step: 'penalty', round: 1, total: 0, bid: null, challenger: 'p1',
-  penalty: { by: 'p2', n: 3, faceUp: false }, mine: { hand: { F: 3, S: 1 }, stack: [], lost: [] }, result: null, ...o,
+  penalty: { by: 'p1', target: 'p1', n: 3, faceUp: true }, mine: { hand: { F: 3, S: 1 }, stack: [], lost: [] }, result: null, ...o,
 });
 
-test('벌칙: 남의 해골이면 내가 고름 → 뒷면 n칸', () => {
-  const v = toView(base({ penalty: { by: 'p0', n: 3, faceUp: false } }), 'p0');
-  const p = penaltyPlan(v);
-  assert.equal(p.mode, 'back');
-  assert.deepEqual(p.cells.map((c) => c.key), ['discard-0', 'discard-1', 'discard-2']);
-});
-
-test('벌칙: 내 해골이면 앞면 종류별 (손 + 더미)', () => {
-  const v = toView(base({ penalty: { by: 'p0', n: 2, faceUp: true }, mine: { hand: { F: 2, S: 0 }, stack: ['S'], lost: [] } }), 'p0');
+test('벌칙: 도전자(나)는 앞면 종류별 (손 + 더미)', () => {
+  const v = toView(base({ penalty: { by: 'p0', target: 'p0', n: 3, faceUp: true }, challenger: 'p0', mine: { hand: { F: 2, S: 0 }, stack: ['S'], lost: [] } }), 'p0');
   const p = penaltyPlan(v);
   assert.equal(p.mode, 'front');
   assert.deepEqual(p.cells.map((c) => [c.key, c.count]), [['discard-F', 2], ['discard-S', 1]]);
   assert.deepEqual(ownCounts(v), { F: 2, S: 1 });
 });
 
-test('벌칙: 남이 고르는 중 / 다른 단계는 null', () => {
+test('벌칙: 남이 고르는 중(이름은 penalty.by) / 다른 단계는 null', () => {
   const v = toView(base(), 'p0');
-  assert.deepEqual(penaltyPlan(v), { mode: 'watch', name: 'N2' });
+  assert.deepEqual(penaltyPlan(v), { mode: 'watch', name: 'N1' });
   assert.equal(penaltyPlan(toView(base({ step: 'turn', turn: 'p0' }), 'p0')), null);
   assert.equal(penaltyPlan(null), null);
 });
