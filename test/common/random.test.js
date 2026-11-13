@@ -394,8 +394,8 @@ test('홀덤·블러핑·요트·라이어·미니: 허브에 넣은 rng 가 그
 // ---- 10) 정적 검사: server/ 와 shared/ 에 Math.random 이 없어야 한다 ----------------------------------
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-// 임시 허용: 다른 작업자가 지우는 중이다(REFACTOR-PLAN 묶음 1: wallet 의 Math.random 대체값 제거). 지워지면 이 목록도 비운다.
-const MATH_RANDOM_ALLOWED = new Set(['server/coin/wallet.js']);
+// 허용 목록은 비어 있다. server·shared 에 Math.random 을 넣지 않는다.
+const MATH_RANDOM_ALLOWED = new Set();
 
 function jsFiles(dir) {
   const out = [];
