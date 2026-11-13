@@ -531,6 +531,16 @@ WebSocket `/ws`, JSON, `{t: 종류, ...}`. 기존 SPEC 7절을 그대로 쓰고 
 
 **통합 구역**(한 번에 한 에이전트, 맨 마지막): `server/protocol.js`(`dr` 봉투, `create mode:'draw'`), 방 관리(방 종류 `draw` 연결, `rooms` 목록), `server/store.js`(`stats.draw`), `me.draw`, `client/src/main.js`(`import('./draw/index.js')`, 상단 줄), `client/src/ui/lobby.js`(4번째 칸, 보이기 조건), `render.yaml`(`DRAW: test`), `test/ui/smoke.mjs`·`test/ui/draw-round.mjs`, SPEC·CLAUDE.md·README.
 
+### 11-2. 화면 모듈 약속 (관리자 확정, 화면 모듈을 동시에 만들기 위한 것)
+
+- 모든 화면 모듈은 `createXxx(parent, ctx)` 하나를 export 하고 `{ el, update(state), event(e), dispose() }` 를 돌려준다. `el` 은 모듈이 만든 최상위 요소(이미 `parent` 에 붙어 있음).
+  - `state`: 10-4 의 `room.state`(받는 사람 시점) 또는 `null`. `update` 는 상태가 올 때마다 불린다. 모듈은 자기에게 필요한 칸만 본다.
+  - `event(e)`: 10-5 의 `event.e` 하나. 자기와 상관없는 `k` 는 무시한다.
+  - `ctx = { send(msg), meId(), now() , layout() }`. `send` 는 `{t:'dr', a, ...}` 나 기존 메시지(`chat` 등)를 그대로 보낸다. `now()` 는 서버 시각 보정된 epochMs. `layout()` 은 `'wide'`(PC·iPad) 또는 `'phone'`(휴대폰 가로).
+  - 모듈 사이 직접 호출은 하지 않는다. 필요한 것은 `ctx` 에 콜백으로 추가하며, 추가는 index.js 과제가 한다. 예외: 그림판과 도구 사이의 "지금 고른 도구·색·굵기"는 `ctx.tool` 객체 `{ get(), set(patch), on(fn) }` 로 주고받는다(`get()` = `{ tool:'pen'|'erase'|'strokeErase', color, penW, eraseW }`).
+- 사용자 글자는 `textContent` 로만 넣는다. CSS 는 자기 접두사만(11-1 표). `#ui` 는 pointer-events:none 이므로 눌러야 하는 요소는 스스로 `pointer-events:auto`.
+- 각 모듈은 `client/src/draw/dev.html` 같은 별도 데모를 만들지 않는다. 화면 확인은 통합 뒤 실제 서버에서 한다(CLAUDE.md). 모듈 단위 시험은 `test/draw/` 의 순수 함수 시험(DOM 없이 계산 가능한 부분은 `*.pure.js` 로 떼어 시험)으로 한다.
+
 ## 12. 완성 확인 시나리오
 
 1. **한 판 끝까지**: 3명이 `?draw=1` 주소로 들어와 방을 만들고(순서대로, 2라운드) 시작한다. 그리는 사람에게만 단어 3개가 뜨고, 고르면 나머지 화면에는 `□□□`만 보인다. 그린 선이 나머지 화면에 1초 안에 같은 모양으로 나타난다. 한 명이 맞히면 "○○ 님 정답!"이 뜨고 시간이 30초로 줄며, 나머지 한 명도 맞히면 바로 정답 공개. 빨리 맞힌 사람 점수가 더 높고 그린 사람도 점수를 받는다. 6문제가 끝나면 최종 순위가 뜨고 "한 판 더"로 다시 시작된다.
