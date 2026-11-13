@@ -6,7 +6,7 @@ export function newUser(id, name) {
   return {
     id, name, bank: START_BANK, avatar: null,
     stats: { hands: 0, wins: 0, biggestWin: 0, refills: 0, bluffGames: 0, bluffWins: 0 },
-    coins: 0, coinsTotal: 0, gear: { pity: 0, owned: [], equip: {} }, pin: null,
+    coins: 0, coinsTotal: 0, gear: { pity: 0, owned: [], equip: {}, shard: 0, cpity: 0, pos: {} }, pin: null,
   };
 }
 
@@ -15,7 +15,10 @@ export function normalizeUser(u) {
   const g = u.gear && typeof u.gear === 'object' ? u.gear : {};
   u.coins = Number.isInteger(u.coins) ? u.coins : 0;
   u.coinsTotal = Number.isInteger(u.coinsTotal) ? u.coinsTotal : 0;
-  u.gear = { ...g, pity: Number.isInteger(g.pity) ? g.pity : 0, owned: Array.isArray(g.owned) ? g.owned : [], equip: g.equip && typeof g.equip === 'object' ? g.equip : {} };
+  u.gear = { ...g, pity: Number.isInteger(g.pity) ? g.pity : 0, owned: Array.isArray(g.owned) ? g.owned : [], equip: g.equip && typeof g.equip === 'object' ? g.equip : {},
+    shard: Number.isInteger(g.shard) && g.shard >= 0 ? g.shard : 0,
+    cpity: Number.isInteger(g.cpity) && g.cpity >= 0 ? g.cpity : 0,
+    pos: g.pos && typeof g.pos === 'object' && !Array.isArray(g.pos) ? g.pos : {} };
   u.pin = u.pin ?? null;
   return u;
 }

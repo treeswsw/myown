@@ -3,6 +3,7 @@
 import { COIN_RULES, coinsFor } from '../../shared/coin/rules.js';
 import { draw as gachaDraw, COST, TEN, POOL_START, freeNow, freeNext } from '../../shared/coin/gacha.js';
 import { item } from '../../shared/coin/shop.js';
+import { capsule, COST as CAP_COST, TEN as CAP_TEN, CRAFT, trashKingDue } from '../../shared/coin/capsule.js';
 import { ROWS, priceOf, periodOf, leftOf, rollRow } from '../../shared/coin/stock.js';
 import { parseCoin } from '../../shared/coin/protocol.js';
 
@@ -59,6 +60,9 @@ export function walletOf(user, hub) {
     coins: user.coins ?? 0,
     total: user.coinsTotal ?? 0,
     pity: g.pity ?? 0,
+    shard: g.shard ?? 0,
+    cpity: g.cpity ?? 0,
+    pos: { ...(g.pos ?? {}) },
     owned: [...(g.owned ?? [])],
     equip: { ...(g.equip ?? {}) },
     hasPin: !!user.pin,
@@ -69,6 +73,8 @@ export function walletOf(user, hub) {
 export function installWallet(hub) {
   const lastEarn = new Map(); // `${id}|${mode}` -> time of the last paid award
   const lastDraw = new Map(); // id -> time of the last draw request
+  const lastCap = new Map(); // id -> time of the last cap request
+  const lastPos = new Map(); // id -> [times] of recent pos requests
   const lastStock = new Map(); // id -> time of the last stock request
 
   // Vault (금고): loaded once, kept on the hub, saved on every change.
@@ -132,6 +138,16 @@ export function installWallet(hub) {
     }
   }
 
+  // Capsule news (SPEC 22-16): g=3 -> people in the lobby, g=4 -> everyone.
+  function capNews(session, pull, name) {
+    if (session.id === ADMIN_ID) return;
+    const msg = { t: 'coin', a: 'news', name, item: pull.id, g: pull.g };
+    for (const s of hub.sessions.values()) {
+      if (!s.conn || s === session || s.bot) continue;
+      if (pull.g >= 4 || !s.room) hub.send(s, msg);
+    }
+  }
+
   // Returns null (handled) or an error object.
   hub.coin = async (session, rawMsg) => {
     const parsed = parseCoin(rawMsg);
@@ -187,6 +203,61 @@ export function installWallet(hub) {
         });
         hub.send(session, { t: 'coin', a: 'draw', pulls: r.pulls, chips: r.chips, pity: r.pity, pool: r.pool, free: { n: g.free.n, at: g.free.at } });
         for (const p of r.pulls) if (p.tier >= 3) news(session, p, u.name);
+        return null;
+      }
+      case 'cap': {
+        const t = hub.now();
+        const last = lastCap.get(session.id);
+        if (last !== undefined && t - last < DRAW_GAP_MS) return null; // silently ignored
+        lastCap.set(session.id, t);
+        const e = needOut();
+        if (e) return e;
+        const cost = CAP_COST * (m.n === 10 ? CAP_TEN : 1);
+        if (u.coins < cost) return coinErr('coin_low');
+        const r = capsule(hub.rng, m.n, g.cpity ?? 0, g.owned);
+        u.coins -= cost;
+        g.cpity = r.cpity;
+        g.shard = (g.shard ?? 0) + r.shard;
+        for (const p of r.pulls) if (!p.dup && !g.owned.includes(p.id)) g.owned.push(p.id);
+        const got = [];
+        if (trashKingDue(g.owned)) { g.owned.push('title.trashking'); got.push('title.trashking'); }
+        changed(session, { kind: 'cap', delta: -cost, bal: u.coins, note: { ids: r.pulls.map((p) => p.id) } });
+        const reply = { t: 'coin', a: 'cap', pulls: r.pulls, shard: g.shard, cpity: g.cpity };
+        if (got.length) reply.got = got;
+        hub.send(session, reply);
+        for (const p of r.pulls) if (p.g >= 3) capNews(session, p, u.name);
+        return null;
+      }
+      case 'craft': {
+        const e = needOut();
+        if (e) return e;
+        const it = item(m.id);
+        if (!it || it.g !== 3 || it.cap !== true) return coinErr('shop_no');
+        if (g.owned.includes(it.id)) return coinErr('shop_own');
+        if ((g.shard ?? 0) < CRAFT) return coinErr('coin_low');
+        g.shard -= CRAFT;
+        g.owned.push(it.id);
+        const got = [];
+        if (trashKingDue(g.owned)) { g.owned.push('title.trashking'); got.push('title.trashking'); }
+        changed(session, { kind: 'craft', delta: 0, bal: u.coins, note: { item: it.id, shard: CRAFT } });
+        const reply = { t: 'coin', a: 'craft', id: it.id, shard: g.shard };
+        if (got.length) reply.got = got;
+        hub.send(session, reply);
+        return null;
+      }
+      case 'pos': {
+        // Over 5/sec: silently dropped. On success only `me` is resent (no extra reply).
+        const t = hub.now();
+        const recent = (lastPos.get(session.id) ?? []).filter((x) => t - x < 1000);
+        if (recent.length >= 5) { lastPos.set(session.id, recent); return null; }
+        recent.push(t);
+        lastPos.set(session.id, recent);
+        const it = item(m.id);
+        if (!it || it.art?.type !== 'sticker') return coinErr('shop_no');
+        if (!g.owned.includes(it.id)) return coinErr('shop_not');
+        const c = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+        (g.pos ?? (g.pos = {}))[it.id] = { x: c(m.x, -0.5, 0.5), y: c(m.y, -0.5, 0.5), s: c(m.s, 0.3, 2), r: c(m.r, -180, 180) };
+        changed(session, null);
         return null;
       }
       case 'hist': {

@@ -325,7 +325,7 @@ test('me.wallet shape; no pin or hash in any message', async () => {
   hub.sendMe(s);
   const me = msgs(a, 'me').at(-1);
   const { stock, ...rest } = me.wallet;
-  assert.deepEqual(rest, { coins: 3, total: 0, pity: 0, owned: [], equip: {}, hasPin: true, free: { n: 2, next: null }, pool: 10000 });
+  assert.deepEqual(rest, { coins: 3, total: 0, pity: 0, shard: 0, cpity: 0, pos: {}, owned: [], equip: {}, hasPin: true, free: { n: 2, next: null }, pool: 10000 });
   assert.equal(stock.a.ids.length, 5);
   assert.equal(stock.b.ids.length, 5);
   assert.equal(me.user.pin, undefined);
