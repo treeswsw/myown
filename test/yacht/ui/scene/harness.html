@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>yacht scene harness</title>
+<style>html,body{margin:0;background:#140d08;width:100%;height:100%;overflow:hidden;font:13px sans-serif;color:#fff}canvas{display:block;width:100%;height:100%}
+#box{position:fixed;border:1px dashed rgba(255,255,255,.35);pointer-events:none}#keys{position:fixed;left:8px;bottom:8px;opacity:.7}</style>
+</head><body>
+<canvas id="c"></canvas><div id="box"></div><div id="keys"></div>
+<script type="module">
+// 자동 시험은 ?nogl=1 (렌더러 없음). 사람이 실기기에서 볼 때는 ?gl=1 (자동 시험에는 쓰지 않는다).
+import * as THREE from 'three';
+import * as mod from '/client/src/yacht/scene/index.js';
+import * as quality from '/client/src/yacht/scene/quality.js';
+
+const errors = [];
+window.addEventListener('error', (e) => errors.push(String(e.message)));
+window.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
+
+const params = new URLSearchParams(location.search);
+const subs = new Set();
+const mkStage = (over = {}) => ({
+  nogl: params.has('nogl'), size: { w: innerWidth, h: innerHeight }, scene: { environment: null },
+  isLowPower: () => false, onFrame: (f) => { subs.add(f); return () => subs.delete(f); }, ...over,
+});
+
+// 멈춘 주사위를 그릴 때의 자세(시험·구경용): 눈 v 가 위, 세로축으로 yaw
+const rest = (v, yaw) => {
+  const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw).multiply(new THREE.Quaternion(...mod.upQuat(v)));
+  return [q.x, q.y, q.z, q.w];
+};
+window.h = { THREE, mod, quality, errors, subs, mkStage, rest, ready: true };
+
+if (params.get('gl') === '1') {
+  const stage = mkStage();
+  const sc = mod.createYachtScene({ stage });
+  const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const DICE = [[4, 0], [4, 1], [6, null, 2.2, 2.0, 2.7], [4, null, -0.6, 2.9, 0.1], [2, null, 3.1, -0.4, 5.2]];
+  let mode = 'rest', t0 = performance.now(), held = 0;
+  const lay = () => {
+    stage.size.w = innerWidth; stage.size.h = innerHeight;
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setSize(innerWidth, innerHeight, false);
+    const side = Math.min(innerWidth, innerHeight - 20) * 0.92, r = { x: (innerWidth - side) / 2, y: (innerHeight - side) / 2, w: side, h: side };
+    sc.setRect(r, { w: innerWidth, h: innerHeight });
+    Object.assign(document.getElementById('box').style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+  };
+  const dice = () => DICE.forEach(([v, slot, x, z, yaw], i) => {
+    if (held) sc.setDieHidden(i, true);
+    else if (slot != null) sc.setDieSlot(i, slot, v);
+    else sc.setDie(i, { pos: [x, 0.7, z], quat: rest(v, yaw) });
+  });
+  addEventListener('resize', lay); lay(); dice();
+  addEventListener('keydown', (e) => {
+    if ('012'.includes(e.key)) sc.setQuality(+e.key);
+    const m = { r: 'rest', u: 'up', s: 'shake', p: 'pour', h: 'hidden' }[e.key];
+    if (m) { mode = m; t0 = performance.now(); held = m === 'rest' || m === 'hidden' ? 0 : 5; dice(); }
+  });
+  document.getElementById('keys').textContent = '키: r 눕힌 컵 / u 집어 들기 / s 흔들기 / p 쏟기 / h 숨김 / 0 1 2 품질';
+  let last = performance.now();
+  (function loop(now) {
+    requestAnimationFrame(loop);
+    const dt = now - last || 16; last = now;
+    subs.forEach((f) => f(dt));
+    const t = (now - t0) / 1000;
+    if (mode === 'up') sc.setCup({ mode: 'rest', t: Math.min(1, t / 0.5), dice: held });
+    else if (mode === 'pour') sc.setCup({ mode: 'pour', t: Math.min(1, t / 0.6), dice: t < 0.35 ? held : 0 });
+    else sc.setCup({ mode, t: mode === 'shake' ? t : 0, dice: held });
+    renderer.render(sc.scene, sc.camera);
+  })(last);
+  window.h.sc = sc;
+}
+</script></body></html>
