@@ -99,11 +99,12 @@ let liarPanel = null;
 const closeLiarPanel = () => { liarPanel?.remove(); liarPanel = null; };
 const lgBtn = (cls, text, onclick) => { const b = h('button', cls, text); b.type = 'button'; b.onclick = onclick; return b; };
 const lgCode = h('span', 'lgbar-code');
-const lgEmote = lgBtn('lgbar-btn', '이모티콘', () => {
+const toggleLiarPanel = () => {
   if (liarPanel) { closeLiarPanel(); return; }
   liarPanel = h('div', 'hpanel lgpanel', emotePanel.el);
   ui.append(liarPanel);
-});
+};
+const lgEmote = lgBtn('lgbar-btn', '이모티콘', toggleLiarPanel);
 const lgStart = lgBtn('lgbar-btn main', '시작', () => send({ t: 'start' }));
 const lgBar = h('div', 'lgbar', lgCode, h('span', 'lgbar-sp'), lgEmote, lgStart, lgBtn('lgbar-btn', '나가기', () => send({ t: 'leave' })));
 lgBar.hidden = true;
@@ -150,7 +151,7 @@ function applyDrawRoom(room) {
     drawQ = drawQ.then(async () => {
       if (draw) return;
       const { mountDraw } = await import('./draw/index.js');
-      draw = mountDraw({ ui, send, getMe: () => state.me, toast: drawToast, leave: () => send({ t: 'leave' }) });
+      draw = mountDraw({ ui, send, getMe: () => state.me, toast: drawToast, leave: () => send({ t: 'leave' }), openEmote: () => { if (!liarPanel) toggleLiarPanel(); } });
     }).catch((e) => console.error(e));
   }
   withDraw((d) => d.room(state.room));
@@ -319,7 +320,7 @@ function handle(msg) {
         else lobby.setError(msg.msg);
         break;
       }
-      if (inLiar() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
+      if (inLiar() || inDraw() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
       break;
     default: break;
   }

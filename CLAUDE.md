@@ -42,6 +42,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 
 ## 갱식마인드 (같은 사이트 안의 세 번째 게임, 그림 맞히기)
 - 스위치 환경 변수 `DRAW`: `off`(기본, 흔적 없음) / `test`(주소에 `?draw=1` 일 때만 버튼 보임) / `on`. 규칙·통신은 docs/draw/GDD.md (10절이 약속).
+- render.yaml 은 `on`(2026-11-13 사용자 요청으로 공개). 서버 기본값은 그대로 `off`.
 - 반드시 지킬 약속: 단어는 그리는 사람 기기(와 이미 맞힌 사람)에만 보낸다. 맞히기 전 사람에게 정답 글·정답자끼리 채팅을 보내지 않는다(test/draw/leaks.test.js). 시간·정답 판정은 서버. 무작위는 crypto 난수만. 사용자 글자는 textContent 로만.
 - 단어는 server/liar/words.json 을 읽기만 한다(고치거나 옮기지 않는다). 이름은 shared/draw/name.js 한 곳.
 - main.js 의 연결: `import('./draw/index.js')` 로 따로 불러온다. 전용 요청은 전부 `{t:'dr', a: 종류, ...}`.

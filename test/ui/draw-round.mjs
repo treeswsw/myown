@@ -303,6 +303,68 @@ try {
     if (left.root || left.bar) throw new Error(`나간 뒤 화면이 남음: ${JSON.stringify(left)}`);
   });
 
+  // ---- 두 번째 판: 휴대폰 가로(C)의 ≡ 메뉴로 나가기 → 로비 → 포커 방에서 사이트 채팅 버튼이 다시 보인다 ----
+  await step('두 번째 방: A·B 나가기 → A 새 방 → B·C 참가 → 시작 (C 는 휴대폰 가로)', async () => {
+    for (const w of [A, B]) {
+      await w.page.locator('.dr-rs-btn', { hasText: '나가기' }).click();
+      await w.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
+    }
+    await A.page.click('.lb-seg-item:has-text("갱식마인드")');
+    await A.page.click('button.lb-primary:has-text("방 만들기")');
+    await A.page.locator('.dr-st-code').waitFor({ state: 'visible' });
+    for (const w of [B, C]) {
+      const row = w.page.locator('.lb-room-row', { hasText: `${names.A}의 방` });
+      await row.waitFor({ state: 'visible' });
+      await row.click();
+      await w.page.locator('.dr-st-player', { hasText: names[w.who] }).waitFor({ state: 'visible' });
+    }
+    await A.page.locator('[data-dr="st-start"]:not([disabled])').click();
+    for (const w of [A, B, C]) await w.page.locator('.dr-st-root').waitFor({ state: 'hidden' });
+  });
+
+  await step('휴대폰 가로 게임 중: ≡ 메뉴 → 이모티콘 패널 열림 → 다시 ≡ → 나가기 → 로비', async () => {
+    const m = C.page.locator('[data-dr="menu"]');
+    await m.waitFor({ state: 'visible' });
+    await m.click();
+    await C.page.locator('[data-dr="menu-leave"]').waitFor({ state: 'visible' });
+    await C.page.locator('[data-dr="menu-emote"]').waitFor({ state: 'visible' });
+    const covered = await C.page.evaluate(() => ['menu-emote', 'menu-leave'].filter((k) => { // 메뉴가 열리면 뒤판이 나머지를 덮는 것이 정상이므로 메뉴 항목만 본다
+      const e = document.querySelector(`[data-dr="${k}"]`); const r = e.getBoundingClientRect();
+      const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !(t && (t === e || e.contains(t)));
+    }));
+    if (covered.length) throw new Error(`눌림 검사 실패(C, phone menu open): ${covered}`);
+    await C.page.screenshot({ path: path.join(shots, 'phone-menu.png') });
+    await C.page.locator('[data-dr="menu-emote"]').click();
+    await C.page.locator('.lgpanel').waitFor({ state: 'visible' });
+    await C.page.mouse.click(300, 60); // 바깥을 눌러 패널을 닫는다
+    await C.page.locator('.lgpanel').waitFor({ state: 'detached' });
+    await m.click();
+    await C.page.locator('[data-dr="menu-leave"]').click();
+    await C.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
+    const left = await C.page.evaluate(() => ({ root: document.querySelectorAll('.dr-root:not([hidden])').length, bar: !!document.querySelector('.lgbar') && !document.querySelector('.lgbar').hidden }));
+    if (left.root || left.bar) throw new Error(`나간 뒤 화면이 남음: ${JSON.stringify(left)}`);
+    await occlusion(C, 'lobby after menu leave');
+  });
+
+  await step('그리기 방을 나간 뒤 포커 방을 만들면 사이트 채팅 버튼이 보인다 (C)', async () => {
+    await C.page.click('.lb-seg-item:has-text("텍사스 홀덤")');
+    await C.page.click('button.lb-primary:has-text("방 만들기")');
+    // 포커 대기실에서는 사이트 채팅 버튼이 원래 숨겨져 있다(대기실 방식). 게임이 시작되면 보여야 한다.
+    for (const w of [A, B]) {
+      await w.page.locator('button.lgbar-btn', { hasText: '나가기' }).click();
+      await w.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
+      const row = w.page.locator('.lb-room-row', { hasText: `${names.C}의 방` });
+      await row.waitFor({ state: 'visible' });
+      await row.click();
+    }
+    await C.page.locator('.lb-player, .lb-seat, .lb-pl', { hasText: names.A }).first().waitFor({ state: 'attached' }).catch(() => {});
+    await C.page.locator('button:has-text("게임 시작"):not([disabled])').click();
+    await C.page.locator('.chat-btn').waitFor({ state: 'visible' });
+    await occlusion(C, 'poker room chat button');
+    noErrors('poker after draw');
+  });
+
   for (const w of wins) check(w.who, '브라우저 오류 없음', w.errors.length === 0, w.errors.join(' | '));
 } catch (e) {
   if (!(e instanceof StepFailed)) { failed++; console.log(`FAIL unexpected: ${e.stack || e}`); }
