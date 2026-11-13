@@ -786,17 +786,18 @@ async function gateCheck(browser, env, query, expectVisible, label, expectDraw =
 }
 try {
   const gb = await chromium.launch();
-  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '', false, 'LIAR=off: no 라이어 choice, no 랭킹 button');
-  await gateCheck(gb, { DRAW: 'off' }, '', true, 'LIAR unset (default on): visible');
-  await gateCheck(gb, { LIAR: 'test', DRAW: 'off' }, '', false, 'LIAR=test without ?liar=1: hidden');
-  await gateCheck(gb, { LIAR: 'test', DRAW: 'off' }, '&liar=1', true, 'LIAR=test with ?liar=1: visible');
-  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '&draw=1', false, 'DRAW=off: no 갱식마인드 choice');
-  await gateCheck(gb, { LIAR: 'off' }, '', false, 'DRAW unset (default on): 갱식마인드 visible', true);
-  await gateCheck(gb, { LIAR: 'off', DRAW: 'test' }, '', false, 'DRAW=test without ?draw=1: hidden');
-  await gateCheck(gb, { LIAR: 'off', DRAW: 'test' }, '&draw=1', false, 'DRAW=test with ?draw=1: visible', true);
+  await gateCheck(gb, { GSK: 'off', LIAR: 'off', DRAW: 'off' }, '', false, 'LIAR=off: no 라이어 choice, no 랭킹 button');
+  await gateCheck(gb, { GSK: 'off', DRAW: 'off' }, '', true, 'LIAR unset (default on): visible');
+  await gateCheck(gb, { GSK: 'off', LIAR: 'test', DRAW: 'off' }, '', false, 'LIAR=test without ?liar=1: hidden');
+  await gateCheck(gb, { GSK: 'off', LIAR: 'test', DRAW: 'off' }, '&liar=1', true, 'LIAR=test with ?liar=1: visible');
+  await gateCheck(gb, { GSK: 'off', LIAR: 'off', DRAW: 'off' }, '&draw=1', false, 'DRAW=off: no 갱식마인드 choice');
+  await gateCheck(gb, { GSK: 'off', LIAR: 'off' }, '', false, 'DRAW unset (default on): 갱식마인드 visible', true);
+  await gateCheck(gb, { GSK: 'off', LIAR: 'off', DRAW: 'test' }, '', false, 'DRAW=test without ?draw=1: hidden');
+  await gateCheck(gb, { GSK: 'off', LIAR: 'off', DRAW: 'test' }, '&draw=1', false, 'DRAW=test with ?draw=1: visible', true);
   await gateCheck(gb, { LIAR: 'off', DRAW: 'off', GSK: 'off' }, '&gsk=1', false, 'GSK=off: no 갱스껄 choice');
-  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '', false, 'GSK unset (default test) without ?gsk=1: hidden');
-  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '&gsk=1', false, 'GSK unset (default test) with ?gsk=1: visible', false, true);
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off', GSK: 'test' }, '', false, 'GSK=test without ?gsk=1: hidden');
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off', GSK: 'test' }, '&gsk=1', false, 'GSK=test with ?gsk=1: visible', false, true);
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '', false, 'GSK unset (default on): visible for everyone', false, true);
   await gateCheck(gb, { LIAR: 'off', DRAW: 'off', GSK: 'on' }, '', false, 'GSK=on: visible for everyone', false, true);
   await gb.close();
 } catch (e) {
