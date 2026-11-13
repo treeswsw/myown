@@ -86,8 +86,8 @@ export async function playDataUrl(url) {
 }
 
 // ---- built-in sounds: short files in client/public/sounds (volume evened out, 5 s max)
-export const BUILTINS = ['one', 'two', 'three', 'four', 'five', 'six']
-  .map((id, i) => ({ id, label: `사운드 ${i + 1}`, url: `/sounds/s${i + 1}.mp3` }));
+export const BUILTINS = [['one', '엄'], ['two', '뭐지'], ['three', '쿵'], ['four', '예'], ['five', '티원'], ['six', '딱']]
+  .map(([id, label], i) => ({ id, label, url: `/sounds/s${i + 1}.mp3` }));
 
 export function playBuiltin(id) {
   const def = BUILTINS.find((b) => b.id === id);
