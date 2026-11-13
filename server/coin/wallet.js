@@ -1,5 +1,6 @@
 // Coin wallet on the hub (SPEC 22): award (22-2), swap / draw / buy / equip / rank (22-3..22-6).
 // Nothing here knows a game; games call hub.award(room, mode, rows) once per finished round.
+import { secureRng } from '../../shared/cards.js';
 import { COIN_RULES, coinsFor } from '../../shared/coin/rules.js';
 import { draw as gachaDraw, COST, TEN, POOL_START, freeNow, freeNext } from '../../shared/coin/gacha.js';
 import { item } from '../../shared/coin/shop.js';
@@ -29,7 +30,7 @@ export const coinErr = (code) => ({ msg: ERR[code], code });
 export function stockOf(user, hub) {
   const g = user.gear ?? (user.gear = {});
   const now = hub?.now ? hub.now() : 0;
-  const rng = hub?.rng ?? Math.random;
+  const rng = hub?.rng ?? secureRng;
   if (!g.stock || typeof g.stock !== 'object') g.stock = {};
   const st = g.stock;
   const valid = (r) => st[r] && Number.isInteger(st[r].p) && Array.isArray(st[r].ids);

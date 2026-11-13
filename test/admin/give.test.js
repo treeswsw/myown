@@ -57,3 +57,26 @@ test('new accounts start with startCoins; old accounts keep theirs', async () =>
   const again = await mk(hub, 'cat1');
   assert.equal(again.sock.last('me').wallet.coins, 20); // 다시 들어와도 또 주지 않는다
 });
+
+test('getOrCreate without a name only reads: null for a missing account, no nameless row is created', async () => {
+  const { store } = setup();
+  assert.equal(await store.getOrCreate('ghost1'), null);
+  assert.equal(await store.exists('ghost1'), false);
+  await store.getOrCreate('real1', '진짜');
+  const row = await store.getOrCreate('real1');
+  assert.equal(row.name, '진짜');
+});
+
+test('admin give: missing account -> adm_noid and nothing created; offline existing account -> given', async () => {
+  const { hub, store } = setup();
+  const adm = await mk(hub, '관리자', { pw: '9975' });
+  await adm.send({ t: 'adm', a: 'chips', id: 'ghost1', n: 10 });
+  assert.equal(lastErr(adm).code, 'adm_noid');
+  assert.equal(await store.exists('ghost1'), false);
+  const dan = await mk(hub, 'dan1');
+  dan.conn.close(); hub.sessions.delete('dan1'); await settle();
+  await adm.send({ t: 'adm', a: 'chips', id: 'dan1', n: 100 });
+  await settle();
+  assert.equal(adm.sock.last('admOk').a, 'chips');
+  assert.equal((await store.getOrCreate('dan1')).bank, 10100);
+});

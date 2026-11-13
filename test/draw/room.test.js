@@ -433,3 +433,39 @@ test('방장이 나가면 나간 사람에게 방 목록을 보낼 때 이미 �
   assert.deepEqual(seen, ['N1']);
   assert.equal(x.room.hostId, 'u1');
 });
+
+test('사진 바꾸기: 그리는 사람·맞힌 사람의 새 사진은 막힌 동안 방에 안 나가고, 풀리면 나간다', () => {
+  const x = setup(3);
+  startPick(x);
+  const word = x.lastState('u0').choices[0].w;
+  x.dr(x.ss[0], { a: 'pick', i: 0 });
+  // 그리는 사람 u0
+  const from = x.out.length;
+  const prev0 = x.ss[0].user.avatar;
+  x.ss[0].user.avatar = 'NEW0';
+  x.room.faceChanged(x.ss[0], prev0);
+  assert.equal(x.events('u1', 'faces', from).length, 0);
+  // 새로 들어오는 사람에게도 옛 사진
+  const s3 = x.addUser(3);
+  assert.equal(x.events('u3', 'faces')[0].items.find((i) => i.id === 'u0').avatar, 'av0');
+  // 맞힌 사람 u1
+  x.room.chat(x.ss[1], word);
+  const prev1 = x.ss[1].user.avatar;
+  x.ss[1].user.avatar = 'NEW1';
+  const f2 = x.out.length;
+  x.room.faceChanged(x.ss[1], prev1);
+  assert.equal(x.events('u2', 'faces', f2).length, 0);
+  // 풀린다(공개 단계로)
+  x.room.chat(x.ss[2], word);
+  x.room.chat(s3, word);
+  assert.equal(x.lastState('u0').phase, 'reveal');
+  const items = x.events('u2', 'faces', f2).flatMap((e) => e.items);
+  assert.ok(items.some((i) => i.id === 'u1' && i.avatar === 'NEW1'));
+  assert.ok(items.some((i) => i.id === 'u0' && i.avatar === 'NEW0'));
+  // 막히지 않은 사람은 바로 나간다
+  const f3 = x.out.length;
+  const prev2 = x.ss[2].user.avatar;
+  x.ss[2].user.avatar = 'NEW2';
+  x.room.faceChanged(x.ss[2], prev2);
+  assert.equal(x.events('u1', 'faces', f3)[0].items[0].avatar, 'NEW2');
+});

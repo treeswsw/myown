@@ -54,6 +54,7 @@ class DrawRoom {
     this.phase = 'lobby'; // 방 목록용: 'lobby'(대기·최종 순위) | 'playing'
     this.members = []; // {id, session, connected, grace(항상 null: 자리 유지는 엔진이 잰다)}
     this.sounds = [];
+    this.heldFaces = new Map(); // 사진 이모티콘이 막힌 동안 바꾼 사람의 사진: id -> 방에 보여 준(바뀌기 전) 사진
     this.timers = { gc: null, game: null };
     this.g = null; // 엔진 상태. 첫 입장 때 만든다. viewFor 로만 밖에 나간다.
     this.drawing = ops.createDrawing();
@@ -140,6 +141,7 @@ class DrawRoom {
     }
     if (fx.finished?.save) this.save(fx.finished.ranking);
     this.syncMembers();
+    this.releaseFaces();
   }
 
   // 엔진에서 사라진 사람을 방에서도 뺀다. 방장·목록 단계도 맞춘다.
@@ -247,7 +249,7 @@ class DrawRoom {
     if (!this.g) return;
     const id = session.id;
     this.hub.send(session, {
-      t: 'event', e: { k: 'faces', items: this.members.map((m) => ({ id: m.id, avatar: m.session.user.avatar ?? null })) },
+      t: 'event', e: { k: 'faces', items: this.members.map((m) => ({ id: m.id, avatar: this.faceOf(m) })) },
     });
     this.hub.send(session, { t: 'event', e: { k: 'chatLog', items: chatLogFor(this.g, id) } });
     if (this.sounds.length) this.hub.send(session, { t: 'event', e: { k: 'sndList', items: this.sounds.map((x) => ({ ...x })) } });
@@ -255,13 +257,35 @@ class DrawRoom {
   }
 
   sendFaces(ids, filter = () => true) {
-    const items = ids.map((id) => ({ id, avatar: this.member(id)?.session.user.avatar ?? null }));
+    const items = ids.map((id) => ({ id, avatar: this.faceOf(this.member(id)) }));
     for (const m of this.members) if (filter(m)) this.hub.send(m.session, { t: 'event', e: { k: 'faces', items } });
   }
 
-  faceChanged(session) {
+  // 방에 보여 줄 사진. 막힌 동안 바꾼 사진은 풀릴 때까지 바뀌기 전 것을 쓴다(그리는 사람·맞힌 사람 구별 누출 방지).
+  faceOf(m) {
+    if (!m) return null;
+    return (this.heldFaces.has(m.id) ? this.heldFaces.get(m.id) : m.session.user.avatar) ?? null;
+  }
+
+  faceChanged(session, prev) {
     if (!this.member(session.id)) return;
+    if (this.g && !mediaCheck(this.g, session.id, 'media').ok) {
+      if (!this.heldFaces.has(session.id)) this.heldFaces.set(session.id, prev ?? null);
+      return;
+    }
+    this.heldFaces.delete(session.id);
     this.sendFaces([session.id]);
+  }
+
+  // 막힘이 풀린 사람의 바뀐 사진을 방에 내보낸다.
+  releaseFaces() {
+    if (!this.heldFaces.size) return;
+    const ids = [];
+    for (const id of [...this.heldFaces.keys()]) {
+      if (!this.member(id)) this.heldFaces.delete(id);
+      else if (!this.g || mediaCheck(this.g, id, 'media').ok) { this.heldFaces.delete(id); ids.push(id); }
+    }
+    if (ids.length) this.sendFaces(ids);
   }
 
   setConnected(id, connected) {
