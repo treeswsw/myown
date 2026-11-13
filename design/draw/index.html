@@ -61,7 +61,7 @@ svg{display:block}
   padding:0 calc(var(--pad) + var(--sr)) var(--pad) calc(var(--pad) + var(--sl))}
 .dr-seats{display:flex;flex-direction:column;gap:10px;min-height:0;height:calc(var(--strip) + var(--ch) + var(--under) + 20px)}
 .dr-seats.l{grid-column:1}.dr-seats.r{grid-column:5}
-.dr-seat{flex:1;min-height:0;border-radius:18px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair);padding:10px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
+.dr-seat{flex:1;min-height:0;border-radius:18px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair);padding:10px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:visible}
 .dr-seat.empty{background:none;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.1);align-items:center;justify-content:center;color:var(--ink3);font-size:13px}
 .dr-seat.turn{box-shadow:inset 0 0 0 2px var(--accent)}
 .dr-seat.hit{box-shadow:inset 0 0 0 2px var(--green);background:rgba(52,199,89,.16)}
@@ -74,9 +74,19 @@ svg{display:block}
 .dr-tag{align-self:flex-start;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px;background:var(--accent);color:var(--on-accent)}
 .dr-tag.host{background:var(--fill2);color:var(--ink)}
 .dr-tag.ok{background:var(--green);color:#fff}
-.dr-say{font-size:13px;line-height:1.3;padding:5px 9px;border-radius:11px 11px 11px 3px;background:#fff;color:#111;align-self:flex-start;max-width:100%;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.dr-say{position:absolute;top:14px;z-index:4;width:max-content;max-width:170px;font-size:13.5px;line-height:1.3;padding:6px 10px;border-radius:13px;background:#fff;color:#111;opacity:.95;pointer-events:none;
+  box-shadow:0 4px 14px rgba(0,0,0,.45);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;animation:dr-pop .28s cubic-bezier(.3,1.6,.5,1) both}
+.dr-say::before{content:'';position:absolute;top:9px;border:7px solid transparent}
+.dr-seats.l .dr-say{left:calc(100% - 6px);transform-origin:0 50%}
+.dr-seats.l .dr-say::before{left:-12px;border-right-color:#fff}
+.dr-seats.r .dr-say{right:calc(100% - 6px);transform-origin:100% 50%}
+.dr-seats.r .dr-say::before{right:-12px;border-left-color:#fff}
 .dr-say.ok{background:var(--green);color:#fff;font-weight:700}
+.dr-seats.l .dr-say.ok::before{border-right-color:var(--green)}.dr-seats.r .dr-say.ok::before{border-left-color:var(--green)}
+.mine .dr-say{max-width:104px;opacity:.88}
+@keyframes dr-pop{from{transform:scale(.4);opacity:0}}
+@media (prefers-reduced-motion:reduce){.dr-say{animation:none}}
+.mk-still .dr-say{animation:none}
 .dr-plus{position:absolute;right:10px;bottom:8px;font-weight:800;color:var(--green);font-size:20px}
 
 .dr-pal{grid-column:2;align-self:start;margin-top:calc(var(--strip) + 10px);display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;border-radius:18px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair)}
@@ -92,6 +102,16 @@ svg{display:block}
 .dr-size{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--fill)}
 .dr-size i{display:block;border-radius:50%;background:#fff}
 .dr-size.on{background:#fff}.dr-size.on i{background:#000}
+.dr-size svg{width:20px;height:20px}.dr-size.on svg{color:#000}
+.dr-szpop{flex:1;min-width:0;height:48px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:24px;background:rgba(40,40,42,.95);box-shadow:inset 0 0 0 1px var(--hair)}
+.dr-szprev{width:40px;height:40px;border-radius:50%;background:var(--paper);display:flex;align-items:center;justify-content:center;flex:none}
+.dr-szprev i{display:block;border-radius:50%}
+.dr-sznum{font-size:17px;min-width:26px;text-align:center}
+.dr-szstep{width:36px;height:36px;border-radius:50%;background:var(--fill2);font-size:20px;font-weight:700;flex:none}
+.dr-sztrack{flex:1;height:6px;border-radius:3px;background:var(--fill2);position:relative;min-width:60px}
+.dr-sztrack i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--accent)}
+.dr-sztrack u{position:absolute;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.dr-szpop.dr-ph{display:none}
 
 .dr-board{grid-column:3;display:flex;flex-direction:column;gap:10px;width:var(--cw);min-width:0}
 .dr-strip{height:var(--strip);flex:none;display:flex;align-items:center;gap:12px;padding:0 8px 0 6px;border-radius:26px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair)}
@@ -197,18 +217,31 @@ svg{display:block}
   .dr-tag{align-self:center;font-size:0;padding:1px 5px;flex:none}
   .dr-tag::before{content:'✎';font-size:11px}
   .dr-tag.ok::before{content:'✓'}
-  .dr-tag.host{display:none}
+  .dr-tag{display:none!important}
   .dr-seat:has(.dr-plus) .dr-tag{display:none}
   .dr-seat:has(.dr-plus) .dr-sc{font-size:0}
   .dr-plus{font-size:12.5px}
-  .dr-say{display:none}
+  .dr-say{top:50%;margin-top:-13px;max-width:124px;font-size:12px;padding:4px 8px;-webkit-line-clamp:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .dr-say::before{top:6px;border-width:6px}
+  .dr-seats.r .dr-say{right:auto;left:calc(100% - 6px);transform-origin:0 50%}
+  .dr-seats.r .dr-say::before{right:auto;left:-11px;border-left-color:transparent;border-right-color:#fff}
+  .dr-seats.r .dr-say.ok::before{border-left-color:transparent;border-right-color:var(--green)}
+  .mine .dr-say{left:auto!important;right:5px!important;max-width:64px;opacity:.95}
+  .mine .dr-say::before{display:none}
   .dr-plus{position:static}
   .dr-board{grid-column:3;grid-row:1/3}
   .dr-pal{grid-column:2;grid-row:1/3;margin-top:0;gap:6px;padding:6px;border-radius:14px;align-self:center}
-  .dr-tools{grid-column:4;grid-row:1/3;margin-top:0;gap:4px;padding:4px;border-radius:14px;align-self:center}
-  .dr-tool{height:34px;width:38px;border-radius:10px;font-size:0;gap:0}
+  .dr-tools{grid-column:4;grid-row:1/3;margin-top:0;gap:4px 4px;padding:4px;border-radius:14px;align-self:center}
+  .mine{--pw:132px;--toolw:88px;
+    --ch:min(calc(100dvh - var(--bar) - var(--pad)),calc((100vw - var(--sl) - var(--sr) - var(--pad)*2 - var(--pw) - var(--palw) - var(--toolw) - var(--gap)*3)*.75));--cw:calc(var(--ch)*4/3)}
+  .dr-pc,.dr-tools hr{display:none}
+  .dr-tools{display:grid;grid-template-columns:38px 38px;grid-template-rows:repeat(5,36px);grid-auto-flow:column}
+  .dr-szpop.dr-ph{display:grid;grid-template-columns:36px 1fr 36px;gap:8px 6px;align-items:center;position:fixed;z-index:6;left:calc(var(--sl) + var(--pad));bottom:var(--pad);width:206px;height:auto;padding:10px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.6),inset 0 0 0 1px var(--hair)}
+  .dr-szpop.dr-ph .dr-szprev{grid-column:1/3;justify-self:start}
+  .dr-szpop.dr-ph .dr-sznum{grid-column:3;grid-row:1}
+  .dr-tool{height:36px;width:38px;border-radius:10px;font-size:0;gap:0}
   .dr-tool svg{width:20px;height:20px}
-  .dr-tools .dr-size{width:38px;height:30px;border-radius:10px}
+  .dr-tools .dr-size{width:38px;height:36px;border-radius:10px}
   .dr-canvas{border-radius:10px}
   /* 맞히는 사람: 색·도구 자리가 없고, 오른쪽에 채팅 기록 */
   .guess .dr-stage{grid-template-columns:var(--pw) var(--cw) minmax(0,1fr)}
@@ -260,7 +293,8 @@ const GAME_NAME = '갱식마인드';
 document.title = GAME_NAME + ' — 정적 시안';
 const P = new URLSearchParams(location.search);
 const S = P.get('s') || 'draw';
-const SCREENS = [['lobby','a1 로비'],['room','a2 방 대기'],['pick','b1 단어 고르기'],['draw','b2 내가 그림'],['guess','c 맞히기'],['kb','c2 키보드(폰)'],['reveal','d 정답 공개'],['final','e 최종 순위']];
+const SCREENS = [['lobby','a1 로비'],['room','a2 방 대기'],['pick','b1 단어 고르기'],['draw','b2 내가 그림'],['size','b3 굵기 조정'],['guess','c 맞히기'],['kb','c2 키보드(폰)'],['reveal','d 정답 공개'],['final','e 최종 순위']];
+if (P.get('shot') === '1') document.documentElement.classList.add('mk-still');   // 스크린샷용: 움직임 끔
 if (P.get('shot') !== '1') document.getElementById('nav').innerHTML = SCREENS.map(([k, n]) => `<a href="?s=${k}" class="${k === S ? 'on' : ''}">${n}</a>`).join('');
 
 // 색 12개 (기획서 6-2와 같은 값·순서)
@@ -274,6 +308,8 @@ const I = {
   snd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M16 9a4 4 0 010 6"/></svg>',
   pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-5L16 4l4 4L9 19l-5 1z"/><path d="M14 6l4 4"/></svg>',
   era: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 19l-4-4a2 2 0 010-3l8-8a2 2 0 013 0l5 5a2 2 0 010 3l-7 7H8z"/><path d="M9 9l7 7M12 19h8"/></svg>',
+  eraS: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14c3-6 5 4 8-1s4-7 7-2 2 5 3 3" stroke-dasharray="0"/><path d="M6 20L18 5" stroke-width="2.6"/></svg>',
+  adj: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2.6" fill="currentColor"/><circle cx="15" cy="16" r="2.6" fill="currentColor"/></svg>',
   undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 13L4 8l5-5"/><path d="M4 8h10a6 6 0 010 12h-4"/></svg>',
   redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 13l5-5-5-5"/><path d="M20 8H10a6 6 0 000 12h4"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
@@ -300,11 +336,17 @@ function seat(p, i, o) {
     <div class="dr-who"><span class="dr-av" style="background:${p.c}">${p.n[0]}</span><div><div class="dr-nm">${p.n}</div><div class="dr-sc"><b>${p.s + (gain || 0)}</b>점</div></div></div>
     ${o.turn === i ? '<span class="dr-tag">그리는 중</span>' : hit && !gain ? '<span class="dr-tag ok">맞힘</span>' : p.host ? '<span class="dr-tag host">방장</span>' : ''}
     ${p.off ? '<span class="dr-sc">연결 끊김</span>' : ''}
-    ${say && !hit ? `<div class="dr-say">${say}</div>` : ''}
+    ${say && !hit ? `<div class="dr-say">${say}</div>` : hit && !gain ? '<div class="dr-say ok">정답!</div>' : ''}
     ${gain ? `<span class="dr-plus">+${gain}</span>` : ''}
   </div>`;
 }
 function game(o) {
+  // 굵기 빠른 버튼 3개 + 굵기 조정 버튼
+  const sizes = (cls) => [5, 11, 22].map((d, i) => `<button class="dr-size ${cls} ${i === 1 && !o.pop ? 'on' : ''}"><i style="width:${d}px;height:${d}px"></i></button>`).join('')
+    + `<button class="dr-size dr-adj ${cls} ${o.pop ? 'on' : ''}" aria-label="굵기 조정">${I.adj}</button>`;
+  // 굵기 조정 팝업(열린 상태): 미리보기 동그라미 + 숫자 + 막대 + 1씩 줄이기/늘리기
+  const pop = (cls) => `<div class="dr-szpop ${cls}"><span class="dr-szprev"><i style="width:14px;height:14px;background:${COLORS[2]}"></i></span><b class="dr-sznum">14</b>
+    <button class="dr-szstep">−</button><span class="dr-sztrack"><i style="width:32%"></i><u style="left:32%"></u></span><button class="dr-szstep">+</button></div>`;
   const me = o.me;                       // 내가 그리는 사람인가
   const wordHtml = me || o.rev ? `<span class="dr-word">짜장면</span>` : `<span class="dr-word blank">□□□</span><span class="dr-len">3글자</span>`;
   const q = `<span class="dr-q">문제</span>${o.pick ? `<span class="dr-len">${me ? '단어를 골라 주세요' : '지호 님이 고르는 중'}</span>` : wordHtml}`;
@@ -335,20 +377,22 @@ function game(o) {
          ${o.rev ? `<div class="dr-rev"><small>정답 · 5명 중 3명이 맞혔어요</small><b>짜장면</b><span>민수 <em>+112</em> · 태양 <em>+51</em> · 강식 <em>+46</em> · 그린 사람 지호 <em>+60</em></span><small>3초 뒤 다음 문제 · 다음 차례 민수</small></div>` : ''}
        </div>
        <div class="dr-under">${tools ? `
-          <div class="dr-sizes" role="radiogroup" aria-label="굵기">
-            <button class="dr-size"><i style="width:5px;height:5px"></i></button><button class="dr-size on"><i style="width:11px;height:11px"></i></button><button class="dr-size"><i style="width:24px;height:24px"></i></button></div>
-          <span class="dr-hint">글자·숫자는 쓰지 않기 · 모두 맞히면 바로 끝나요</span>
+          <div class="dr-sizes" role="radiogroup" aria-label="굵기">${sizes('')}</div>
+          ${o.pop ? pop('') : ''}
+          ${o.pop ? '' : '<span class="dr-hint">글자·숫자는 쓰지 않기 · 모두 맞히면 바로 끝나요</span>'}
           <button class="dr-btn danger">포기</button>`
         : o.rev || o.pick ? `<span class="dr-hint">${o.pick ? (me ? '' : '곧 그림이 시작됩니다') : ''}</span>`
         : `<input class="dr-input" placeholder="정답을 입력하세요 (Enter)"><button class="dr-btn primary">보내기</button>`}</div>
      </div>
      ${tools ? `<div class="dr-tools">
-        <button class="dr-tool on">${I.pen}펜</button><button class="dr-tool">${I.era}지우개</button><hr>
-        ${[5, 11, 22].map((d, i) => `<button class="dr-size dr-ph ${i === 1 ? 'on' : ''}"><i style="width:${d}px;height:${d}px"></i></button>`).join('')}<hr class="dr-ph">
-        <button class="dr-tool">${I.undo}되돌리기</button><button class="dr-tool dim">${I.redo}다시 하기</button><hr><button class="dr-tool">${I.trash}전체 지우기</button></div>` : ''}
+        <button class="dr-tool on">${I.pen}펜</button><button class="dr-tool">${I.era}정밀 지우개</button><button class="dr-tool">${I.eraS}획 지우개</button><hr>
+        <button class="dr-tool">${I.undo}되돌리기</button><button class="dr-tool dim">${I.redo}다시 하기</button><hr>
+        <button class="dr-tool dr-pc">${I.trash}전체 지우기</button>
+        ${sizes('dr-ph')}<button class="dr-tool dr-ph">${I.trash}</button></div>` : ''}
      <div class="dr-seats r">${PL.slice(4).map((p, i) => seat(p, i + 4, o)).join('')}</div>
      <div class="dr-log"><p><b>서연</b>우동</p><p><b>태양</b>라면??</p><p><b>유나</b>스파게티</p><p class="sys">민수 님 정답!</p>${o.rev ? '<p class="sys">태양 님 정답!</p><p class="sys">강식 님 정답!</p>' : '<p><b>강식</b>젓가락</p>'}</div>
    </div>
+   ${o.pop ? pop('dr-ph') : ''}
    ${o.kb ? `<div class="mk-kb">${'<i></i>'.repeat(40)}</div>` : ''}
   </div>`;
 }
@@ -357,6 +401,7 @@ const VIEWS = {
   pick: () => game({ me: 1, pick: 1, turn: 1, time: '0:07', bar: 100 }),
   draw: () => game({ me: 1, turn: 1, time: '0:26', bar: 19, says, hits: [2] }),
   guess: () => game({ turn: 1, time: '0:26', bar: 19, says, hits: [2] }),
+  size: () => game({ me: 1, turn: 1, time: '0:26', bar: 19, says, hits: [2], pop: 1 }),
   kb: () => game({ turn: 1, time: '0:26', bar: 19, says, kb: 1, hits: [2] }),
   reveal: () => game({ turn: 1, rev: 1, time: '0:00', bar: 0, says, gain: { 2: 112, 4: 51, 0: 46, 1: 60 } }),
   lobby: () => `<div class="dr-center">
