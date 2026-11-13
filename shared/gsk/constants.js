@@ -3,6 +3,8 @@ export const MIN_PLAYERS = 3;
 export const MAX_PLAYERS = 6;
 // 색 번호 0~5 (이름만. 실제 색값은 화면 몫)
 export const COLORS = Object.freeze(['초록', '보라', '노랑', '빨강', '파랑', '주황']);
+// 같은 순서의 대표색(대기실 참가자 줄의 색 점). 화면 그림(client/src/gsk/art.js)의 base 와 같다.
+export const COLOR_HEX = Object.freeze(['#74b940', '#8e4fa4', '#e4930d', '#d61b18', '#3da0bc', '#e8640c']);
 // 원판 구성: 꽃(F) 3 + 해골(S) 1
 export const DISCS = Object.freeze({ F: 3, S: 1 });
 export const DISC_TOTAL = 4;

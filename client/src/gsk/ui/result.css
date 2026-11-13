@@ -3,6 +3,8 @@
   position: absolute; inset: 0; z-index: 60; pointer-events: none;
   font-family: 'IBM Plex Sans KR', sans-serif; color: #efe6d2;
   transition: opacity .3s;
+  /* 이 창은 이미 통째로 scale 되는 .gk-stage 안에 있다. 사이트 배율(--k)을 또 곱하지 않도록 1 로 고정한다(B21). */
+  --k: 1;
 }
 .gk-rs-root[hidden] { display: none; }
 .gk-rs-root.gk-rs-fade { opacity: 0; }
@@ -74,7 +76,6 @@
 .gk-rs-dn { margin-left: 10px; }
 .gk-rs-out { font-size: calc(12px * var(--k, 1)); color: #c8bca4; letter-spacing: .1em; }
 .gk-rs-acts { display: flex; justify-content: center; margin-top: calc(14px * var(--k, 1)); padding-bottom: calc(6px * var(--k, 1)); }
-.gk-rs-wait { font: 400 calc(14px * var(--k, 1))/1.4 'Gowun Batang', serif; letter-spacing: .06em; color: #d9ccb0; padding: calc(10px * var(--k, 1)) 0; }
 .gk-rs-btn {
   position: relative; height: calc(54px * var(--k, 1)); min-width: calc(188px * var(--k, 1)); padding: 0 26px; display: inline-flex; align-items: center; justify-content: center; gap: 12px;
   border: 1px solid #c9a45c; border-radius: 4px; background: linear-gradient(#f4ecda, #e4d8bd); color: #2a1f17;

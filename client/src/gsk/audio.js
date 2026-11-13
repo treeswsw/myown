@@ -1,33 +1,17 @@
-// 갱스껄 소리 — 파일 없이 WebAudio 로 만든다(디자인 캔버스 Flip.dc.html · Main.dc.html 의 소리 함수를 옮김).
-// 사이트 소리 설정을 따른다: client/src/audio.js 의 isMuted()(저장 값 'gk.muted')가 true 면 아무 소리도 내지 않는다(요트와 같은 방식).
-// AudioContext 는 첫 사용자 동작(누름·키) 때 만든다. 잡음은 고정 시드(Math.random 금지).
-import { isMuted as siteMuted } from '../audio.js';
+// 갱스껄 소리 표 — 파일 없이 WebAudio 로 만든다(디자인 캔버스 Flip.dc.html · Main.dc.html 의 소리 함수를 옮김).
+// 소리 엔진·소리 끄기·iPad 잠금 해제는 사이트 공용 sound/core.js 하나(끄면 아무 소리도 내지 않는다). 여기는 소리 표만 갖는다.
+// 잡음은 고정 시드(Math.random 금지).
+import { context, output, isMuted as coreMuted, unlock as coreUnlock } from '../sound/core.js';
 import { prng, stageSemi } from './anim/fx.pure.js';
 
 const MASTER = 0.7;
 const NOISE_SEC = 2.5;
-const GESTURES = ['pointerdown', 'touchend', 'keydown'];
 
-export function createAudio({ isMuted = siteMuted } = {}) {
+export function createAudio({ isMuted = coreMuted } = {}) {
   let ac = null, out = null, noiseBuf = null, disposed = false;
   const W = typeof window !== 'undefined' ? window : null;
-
-  function make() {
-    if (ac || disposed || !W) return;
-    const A = W.AudioContext || W.webkitAudioContext;
-    if (!A) return;
-    try {
-      ac = new A();
-      out = ac.createGain();
-      out.gain.value = MASTER;
-      out.connect(ac.destination);
-    } catch { ac = null; out = null; }
-  }
-  function unlock() {
-    make();
-    try { if (ac && ac.state === 'suspended') ac.resume(); } catch { /* 무시 */ }
-  }
-  if (W) for (const g of GESTURES) W.addEventListener(g, unlock, true);
+  try { if (W) coreUnlock(); } catch { /* 소리를 못 내는 기기 */ }
+  const unlock = () => { try { ctx(); } catch { /* 무시 */ } };
 
   // 소리를 낼 수 있으면 AudioContext, 아니면 null (꺼짐·아직 안 풀림 → 밀린 소리가 나중에 한꺼번에 나지 않게 버린다)
   function ctx() {
@@ -38,8 +22,16 @@ export function createAudio({ isMuted = siteMuted } = {}) {
     // 방에 들어오려고 이미 화면을 누른 사람은 바로 만든다. 한 번도 안 누른 기기에서는 만들지 않는다.
     let active = false;
     try { active = !!W?.navigator?.userActivation?.hasBeenActive; } catch { active = false; }
-    if (ac || active) unlock();
-    return ac && ac.state === 'running' ? ac : null;
+    if (!ac && !active) return null;
+    try {
+      ac = context();
+      if (!out) {
+        out = ac.createGain();
+        out.gain.value = MASTER;
+        out.connect(output());
+      }
+    } catch { ac = null; out = null; return null; }
+    return ac.state === 'running' ? ac : null;
   }
   function noiseSrc(c) {
     if (!noiseBuf) {
@@ -173,9 +165,8 @@ export function createAudio({ isMuted = siteMuted } = {}) {
   }
   function dispose() {
     disposed = true;
-    if (W) for (const g of GESTURES) W.removeEventListener(g, unlock, true);
-    const c = ac; ac = null; out = null; noiseBuf = null;
-    try { c?.close?.(); } catch { /* 무시 */ }
+    try { out?.disconnect(); } catch { /* 무시 */ }
+    ac = null; out = null; noiseBuf = null; // 소리 엔진(AudioContext)은 사이트 공용이라 닫지 않는다
   }
   return { ...sfx, play, unlock, dispose };
 }

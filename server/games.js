@@ -4,7 +4,7 @@
 import { createLiarRoom } from './liar/room.js';
 import { makeYachtGame } from './yacht/room.js';
 import { createDrawRoom } from './draw/room.js';
-import { createGskRoom } from './gsk/room.js';
+import { makeGskGame } from './gsk/room.js';
 import { createMiniRoom } from './mini/room.js';
 import { hookRoom } from './coin/hooks.js';
 import * as holdemBot from './admin/games/holdem.js';
@@ -36,6 +36,6 @@ export const SERVER_GAMES = {
   liar: { legacy: (hub, code) => hookRoom(hub, createLiarRoom(hub, code)), bot: liarBot, hubMsg: liarRank },
   yacht: { make: makeYachtGame, bot: yachtBot },
   draw: { legacy: (hub, code) => hookRoom(hub, createDrawRoom(hub, code)), bot: drawBot },
-  gsk: { legacy: (hub, code) => createGskRoom(hub, code), bot: false, errors: { gk_off: '갱스껄은 지금 열려 있지 않습니다.' } },
+  gsk: { make: makeGskGame, bot: false, errors: { gk_off: '갱스껄은 지금 열려 있지 않습니다.' } },
   mini: { legacy: (hub, code, opt) => hookRoom(hub, createMiniRoom(hub, code, opt.game)), bot: false },
 };

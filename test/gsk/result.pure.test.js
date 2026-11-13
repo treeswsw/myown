@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { toView } from '../../client/src/gsk/model.js';
-import { penaltyPlan, rankRows, winnerInfo, winCaption, colorStates, waitInfo, ownCounts } from '../../client/src/gsk/ui/result.pure.js';
+import { penaltyPlan, rankRows, winnerInfo, winCaption, colorStates, ownCounts } from '../../client/src/gsk/ui/result.pure.js';
 
 const players = (n = 4) => Array.from({ length: n }, (_, i) => ({ id: 'p' + i, name: 'N' + i, connected: true, spectating: false }));
 const seat = (i, o = {}) => ({ id: 'p' + i, name: 'N' + i, color: i, points: 0, discs: 4, hand: 4, stack: 0, shown: [], placed: false, passed: false, out: null, ...o });
@@ -47,20 +47,16 @@ test('결과: 순위 줄·승자', () => {
   assert.deepEqual(rankRows(null), []);
 });
 
-test('대기: 색 고르기 상태', () => {
-  const st = base({ phase: 'lobby', step: null, penalty: null, seats: [seat(0, { color: 2 }), seat(1, { color: 4 }), seat(2, { color: null })] });
-  const v = toView(st, 'p0');
-  const cs = colorStates(v);
+test('대기실 개인 칸: 색 고르기 상태(wait.own)', () => {
+  const st = {
+    you: 'p0', players: players(3),
+    wait: { can: true, why: null, set: {}, own: { p0: { color: 2 }, p1: { color: 4 }, p2: { color: null } } },
+  };
+  const cs = colorStates(st);
   assert.equal(cs.length, 6);
   assert.equal(cs[2].state, 'mine');
   assert.equal(cs[4].state, 'taken');
   assert.equal(cs[4].by, 'N1');
   assert.equal(cs[0].state, 'free');
-  const w = waitInfo(v);
-  assert.equal(w.count, 3);
-  assert.equal(w.canStart, true);
-  assert.equal(w.isHost, true);
-  const v2 = toView({ ...st, seats: st.seats.slice(0, 2), players: players(2) }, 'p0');
-  assert.equal(waitInfo(v2).needMore, true);
-  assert.equal(waitInfo(v2).canStart, false);
+  assert.deepEqual(colorStates(null).map((c) => c.state), ['free', 'free', 'free', 'free', 'free', 'free']);
 });

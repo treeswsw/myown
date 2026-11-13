@@ -5,8 +5,8 @@ export const bid = (n) => gk('bid', { n });
 export const pass = () => gk('pass');
 export const flip = (p) => gk('flip', { p });
 export const discard = (o) => gk('discard', { k: o.k });
-export const color = (c) => gk('color', { c });
-export const start = () => ({ t: 'start' });
+// 색 고르기는 공통 대기실의 개인 칸: {t:'pick', patch:{color}}. 시작은 대기실의 버튼 하나({t:'start'}).
+export const pickColor = (c) => ({ t: 'pick', patch: { color: c } });
 
 // model 의 행동 하나(action 항목) → 보낼 요청
 export function requestFor(act) {
@@ -16,8 +16,6 @@ export function requestFor(act) {
     case 'pass': return pass();
     case 'flip': return flip(act.p);
     case 'discard': return discard({ k: act.k });
-    case 'color': return color(act.c);
-    case 'start': return start();
     default: return null;
   }
 }
