@@ -1,12 +1,64 @@
-// Admin bot for the bluff room: stub. A later task fills in the brain and skip().
+// Admin bot for the bluff room (SPEC 21-3): on its turn it plays 1-2 cards, or now and then (~25%) calls LIAR.
 // bot = { id, name, rng(), send(msg), later(ms, fn) }; onMsg gets every server message the bot receives.
-export function createBrain(bot) { // eslint-disable-line no-unused-vars
+// The brain only uses what a player is sent in `room` states (turn, myHand, lastPlay).
+import * as bluffRules from '../../../shared/bluff.js';
+
+const LIAR_CHANCE = 0.25;
+const pause = (bot) => 500 + Math.floor(bot.rng() * 1001); // 500..1500 ms
+
+export function createBrain(bot) {
+  let state = null; // newest room state
+  let armedKey = null; // turn the pending timer was set for (never two timers for one turn)
+
+  const myTurn = () => !!state && state.mode === 'bluff' && state.phase === 'playing' && state.turn === bot.id;
+  const keyOf = (s) => `${s.round}|${s.myHand.length}|${s.lastPlay ? `${s.lastPlay.by}:${s.lastPlay.count}` : '-'}`;
+
+  function play(hand) {
+    const n = Math.min(hand.length, 1 + Math.floor(bot.rng() * 2)); // 1 or 2 cards
+    const pool = hand.map((_, i) => i);
+    const cards = [];
+    for (let k = 0; k < n; k++) cards.push(pool.splice(Math.floor(bot.rng() * pool.length), 1)[0]);
+    bot.send({ t: 'play', cards });
+  }
+
+  function act(key) {
+    armedKey = null;
+    if (!myTurn() || keyOf(state) !== key) return; // a newer state arrived: not this turn any more
+    const hand = state.myHand;
+    if (!state.lastPlay) {
+      if (hand.length > 0) play(hand); // empty hand on an open table cannot happen; wait rather than send an illegal request
+    } else if (hand.length === 0 || bot.rng() < LIAR_CHANCE) {
+      bot.send({ t: 'liar' });
+    } else {
+      play(hand);
+    }
+  }
+
   return {
-    onMsg(msg) {}, // eslint-disable-line no-unused-vars
+    onMsg(msg) {
+      if (!msg || msg.t !== 'room') return;
+      state = msg.state ?? null;
+      if (!state || !Array.isArray(state.myHand) || !myTurn()) return;
+      const key = keyOf(state);
+      if (armedKey === key) return;
+      armedKey = key;
+      bot.later(pause(bot), () => act(key));
+    },
   };
 }
 
-// Sets the remaining time of the current phase to 0. true = skipped, false = nothing to skip.
-export function skip(room) { // eslint-disable-line no-unused-vars
+// Makes the pending wait fire now: the penalty display before the next round, or the winner display before the lobby.
+// Uses the room's own methods (what its 'next' timer would call), so the rules stay in the game.
+export function skip(room) {
+  if (room.mode !== 'bluff' || !room.game) return false;
+  if (room.phase === 'playing' && room.game.g.phase === 'reveal') {
+    room.clearTimer('next');
+    room.afterBluff(bluffRules.nextRound(room.game.g).events);
+    return true;
+  }
+  if (room.phase === 'result') {
+    room.toLobby();
+    return true;
+  }
   return false;
 }
