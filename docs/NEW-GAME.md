@@ -52,6 +52,7 @@ docs/<모드>/        GDD
 - 있을 때만: `setSettings`·`pick`·`waitInfo`(대기실 값, 비밀 금지), `onJoin`·`onAway`·`onBack`·`onLeave`·`onHost`·`onEmpty`, `chatCheck`·`chatKind`·`chatOwn`+`chatLogFor`, `mediaBlocked`, `extrasFor`, `flush`, `listExtra`.
 - ctx 로 쓰는 것: `members()`·`member(id)`·`hostId()`, `timer/clear`, `emit/push/pushTo/sendTo`, `chatLine`, `finish(rows)`, `drop(id, reason)`, `err(code, msg)`. 공용 이벤트 `joined/left/away/back` 은 Shell 만 보낸다.
 - 오류는 언제나 `{msg, code}`. 훅이 던져도 Shell 은 나가기·방장 넘김·빈 방 정리를 끝까지 한다.
+- 관전 계정(`관전`+숫자, SPEC 7-4)은 Shell 이 따로 맡는다: 게임 훅·`ctx.members()` 에 나오지 않는다. 게임은 **`view(id)` 가 자리 없는 id 에 비밀 없는 시점을 주면** 끝(관전자는 `emit('all')`·`push` 를 받는다). 알림을 참가자 목록으로만 보내는 게임은 공개 알림에 `ctx.specIds()` 를 더한다(갱식마인드). `chatCheck`·`mediaBlocked` 는 관전자에게도 불린다(`ctx.isSpec(id)`). 새 게임은 test/common/spectator.test.js MODES 에 한 줄.
 
 ### 3-4. 화면 계약 (`client/src/<모드>/index.js`, COMMON-CONTRACT 4-2)
 ```js

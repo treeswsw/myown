@@ -391,3 +391,152 @@ test('허브 close: flush 한 번 + 타이머 해제, 초기화는 flush 안 함
   assert.equal(r.room.impl.ticks, 0);
   assert.ok(r.room.member('bob1'), '유예 타이머도 지워졌다');
 });
+
+// ---- 관전 계정 (shared/spectator.js, SPEC 7-4) ----
+
+test('관전 계정: 이름 규칙은 한 곳(관전 + 숫자)', async () => {
+  const { isSpectatorId, SPEC_MAX } = await import('../../shared/spectator.js');
+  assert.equal(SPEC_MAX, 4);
+  for (const ok of ['관전1', '관전2', '관전10', '관전007']) assert.equal(isSpectatorId(ok), true, ok);
+  for (const no of ['관전', '관전a', '관전1a', 'a관전1', '관전 1', '관전자1', '', null, 3]) assert.equal(isSpectatorId(no), false, String(no));
+});
+
+test('관전 계정: 정원 밖 specs 로 들어오고 게임 onJoin 을 부르지 않는다, 방 목록 인원에 안 셈', async () => {
+  const r = await setup(3); // 정원 3 가득
+  const s = await r.login('관전1');
+  await s.send({ t: 'join', code: 'DUMY' });
+  assert.equal(lastErr(s), undefined, '정원이 차도 관전 자리로 들어온다');
+  assert.deepEqual(r.room.members.map((m) => m.id), ['ann1', 'bob1', 'cat1']);
+  assert.deepEqual(r.room.specs.map((m) => m.id), ['관전1']);
+  assert.ok(!r.calls().some((c) => c[0] === 'join' && c[1] === '관전1'), 'onJoin 안 부름');
+  for (const c of [...r.cs, s]) assert.deepEqual(c.state.specs, [{ id: '관전1', name: '관전1', connected: true }]);
+  assert.equal(s.state.you, '관전1');
+  assert.ok(!s.state.players.some((p) => p.id === '관전1'), '참가자 줄에 없음');
+  assert.equal(s.state.secret, null, '게임 view 는 자리 없는 사람의 시점');
+  assert.ok(events(s, 'chatLog').length >= 1 && events(s, 'faces').length >= 1 && events(s, 'dmSync').length >= 1, 'extras 를 받는다');
+  assert.ok(events(r.cs[0], 'joined').some((e) => e.id === '관전1' && e.spec === true));
+  const out = await r.login('zed1');
+  await r.tick(600);
+  assert.equal(out.sock.last('rooms').list.find((x) => x.code === 'DUMY').count, 3, '방 목록 인원은 참가자만');
+});
+
+test('관전 계정: 최대 4, 다섯째는 거절. 시작 인원에 안 셈, 방장 안 됨', async () => {
+  const r = await setup(1);
+  const ss = [];
+  for (let i = 1; i <= 5; i++) { const c = await r.login(`관전${i}`); await c.send({ t: 'join', code: 'DUMY' }); ss.push(c); }
+  assert.equal(r.room.specs.length, 4);
+  assert.equal(lastErr(ss[4]).code, 'dm_specfull');
+  assert.equal(ss[4].state, null);
+  await r.cs[0].send({ t: 'start' });
+  assert.equal(lastErr(r.cs[0]).code, 'dm_need2', '관전자 4명 + 참가자 1명은 시작 못 함');
+  await ss[0].send({ t: 'start' });
+  assert.equal(lastErr(ss[0]).code, 'dm_host');
+  await r.cs[0].send({ t: 'leave' });
+  assert.equal(r.room.hostId, null, '관전자에게 방장이 넘어가지 않는다');
+});
+
+test('관전 계정: 참가자가 0명이면 방을 닫고 관전자에게 알림, 참가자 없는 방에는 못 들어옴', async () => {
+  const r = await setup(2);
+  const s = await r.login('관전1');
+  await s.send({ t: 'join', code: 'DUMY' });
+  await r.cs[0].send({ t: 'leave' });
+  assert.ok(s.state, '참가자가 남아 있으면 그대로');
+  await r.cs[1].send({ t: 'leave' });
+  assert.equal(s.state, null, '방에서 나와 로비로');
+  assert.equal(lastErr(s).code, 'dm_closed');
+  assert.equal(r.room.specs.length, 0);
+  assert.equal(r.hub.sessions.get('관전1').room, null);
+  const s2 = await r.login('관전2');
+  await s2.send({ t: 'join', code: 'DUMY' });
+  assert.equal(lastErr(s2).code, 'dm_bad', '빈 방(지워지기 전)에 관전자만 들어갈 수 없다');
+  await r.tick(GRACE + 1);
+  assert.equal(r.hub.rooms.has('DUMY'), false, '빈 방은 지워진다');
+});
+
+test('관전 계정: 방을 만들 수 없다(안내 오류)', async () => {
+  const h = makeHub();
+  const s = await h.login('관전3');
+  await s.send({ t: 'create', mode: 'yacht' });
+  assert.equal(lastErr(s).code, 'spec_create');
+  assert.match(lastErr(s).msg, /관전 계정은 방을 만들 수 없습니다/);
+  assert.equal(h.hub.rooms.size, 0);
+});
+
+test('관전 계정: 게임 요청·개인 칸은 게임에 안 간다, 채팅·이모티콘은 게임 훅을 탄다, 방장이 게임 중에도 내보낸다', async () => {
+  const mute = new Set();
+  const block = { on: false };
+  const r = await setup(2, { mute, block });
+  const [a, b] = r.cs;
+  const s = await r.login('관전1');
+  await s.send({ t: 'join', code: 'DUMY' });
+  await a.send({ t: 'start' });
+  const n = r.calls().length;
+  await s.send({ t: 'yt', a: 'end' });
+  assert.equal(lastErr(s).code, 'dm_spec');
+  await s.send({ t: 'pick', patch: { color: 'red' } });
+  assert.equal(lastErr(s).code, 'dm_spec');
+  await s.send({ t: 'set', patch: { speed: 2 } });
+  assert.equal(lastErr(s).code, 'dm_host');
+  assert.equal(r.calls().length, n, '게임 훅을 부르지 않음');
+  const i = mark(b);
+  await s.send({ t: 'chat', text: '구경 중' });
+  assert.ok(since(b, i).some((m) => m.t === 'event' && m.e.k === 'chat' && m.e.id === '관전1' && m.e.kind === 'talk'));
+  mute.add('관전1');
+  freeLimits(r.hub);
+  await s.send({ t: 'chat', text: '막힘' });
+  assert.equal(lastErr(s).code, 'dm_mute', '게임 chatCheck 가 관전자에게도');
+  block.on = true;
+  await s.send({ t: 'emote', e: 1 });
+  assert.equal(lastErr(s).code, 'dm_media', '게임 mediaBlocked 가 관전자에게도');
+  block.on = false;
+  await s.send({ t: 'emote', e: 1 });
+  assert.ok(events(a, 'emote').some((e) => e.id === '관전1'));
+  await b.send({ t: 'kick', id: '관전1' });
+  assert.equal(lastErr(b).code, 'dm_host');
+  await a.send({ t: 'kick', id: '관전1' });
+  assert.equal(s.state, null, '게임 중에도 관전자는 내보낼 수 있다');
+  assert.ok(errors(s).some((e) => e.code === 'dm_kicked'));
+  assert.ok(!r.calls().some((c) => c[0] === 'leave' && c[1] === '관전1'), 'onLeave 안 부름');
+});
+
+test('관전 계정: chatOwn 게임은 게임 중 관전자 채팅을 막고, 대기 중에는 Shell 길로 보낸다', async () => {
+  const r = await setup(2, { chatOwn: true });
+  const [a] = r.cs;
+  const s = await r.login('관전1');
+  await s.send({ t: 'join', code: 'DUMY' });
+  await s.send({ t: 'chat', text: '대기 중' });
+  assert.equal(lastErr(s), undefined);
+  assert.ok(events(a, 'chat').some((e) => e.id === '관전1' && !e.own), 'Shell 길(게임 chatOwn 아님)');
+  await a.send({ t: 'start' });
+  freeLimits(r.hub);
+  await s.send({ t: 'chat', text: '게임 중' });
+  assert.equal(lastErr(s).code, 'dm_spec');
+});
+
+test('관전 계정: 판 코인은 받지 않는다(게임이 줄에 넣어도 Shell 이 거른다)', async () => {
+  const r = await setup(2);
+  const [a, b] = r.cs;
+  const s = await r.login('관전1');
+  await s.send({ t: 'join', code: 'DUMY' });
+  await a.send({ t: 'start' });
+  await b.send({ t: 'yt', a: 'endWithSpecs' });
+  const got = (c) => c.sock.msgs.filter((m) => m.t === 'coin' && m.a === 'got');
+  assert.equal(got(b).length, 1);
+  assert.equal(got(a).length, 1);
+  assert.equal(got(s).length, 0, '관전자 코인 없음');
+});
+
+test('관전 계정: 끊기면 유예 뒤 나간다(게임 훅 없음), 다시 붙으면 그대로', async () => {
+  const r = await setup(2);
+  const s = await r.login('관전1');
+  await s.send({ t: 'join', code: 'DUMY' });
+  s.conn.close();
+  assert.equal(r.cs[0].state.specs[0].connected, false);
+  const back = await r.login('관전1');
+  assert.equal(back.state.you, '관전1');
+  assert.equal(r.cs[0].state.specs[0].connected, true);
+  back.conn.close();
+  await r.tick(GRACE + 1);
+  assert.equal(r.room.specs.length, 0);
+  assert.ok(!r.calls().some((c) => ['away', 'back', 'leave'].includes(c[0]) && c[1] === '관전1'));
+});

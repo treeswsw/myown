@@ -38,6 +38,12 @@ export function makeDummy(ctx, opt = {}) {
           ctx.finish(ctx.members().map((m) => ({ id: m.id, won: m.id === session.id, opp: ctx.members().length - 1 })));
           ctx.push([{ k: 'over', by: session.id }]);
           return null;
+        case 'endWithSpecs': // 판 끝인데 관전자 줄까지 넣어 본다(Shell 이 걸러야 한다)
+          if (phase !== 'play') return ctx.err('dm_now');
+          phase = 'end';
+          ctx.finish([...ctx.members().map((m) => m.id), ...ctx.specIds()].map((id) => ({ id, won: id === session.id, opp: 1 })));
+          ctx.push();
+          return null;
         case 'finishAgain':
           ctx.finish([{ id: session.id, won: true, opp: 1 }]);
           return null;

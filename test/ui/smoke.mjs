@@ -558,6 +558,19 @@ async function runContext(browser, server, name, cfg) {
       await yBot.join(r.code);
       await page.waitForFunction(() => { const b = document.querySelector('[data-rm="wait-start"]'); return b && !b.disabled; }, null, { timeout: T });
     });
+    await step('yacht: a 관전N account joins → waiting room shows "관전 1/4" apart from players; host × kicks it', async () => {
+      const sBot = new Bot(server.url, `관전${String(Date.now()).slice(-7)}${cfg.touch ? 2 : 1}`, { autoplay: false });
+      await sBot.connect();
+      await sBot.login();
+      await sBot.join(yBot.state.code);
+      await visible('.wr-specs .lb-row');
+      const cap = await page.evaluate(() => document.querySelector('.wr-speccap')?.textContent ?? '');
+      if (cap !== '관전 1/4') throw new Error(`caption "${cap}"`);
+      await press('.wr-specs [data-rm="wait-kick"]');
+      await sBot.waitFor(() => sBot.state === null, T, 'spec kicked');
+      await gone('.wr-specs .lb-row');
+      sBot.close();
+    });
     await ytBarOnTop('yacht room (waiting)');
     await occlusion('yacht room (waiting)');
     await step('yacht: lobby hidden inside the room, old top bars gone', async () => {

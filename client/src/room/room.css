@@ -62,6 +62,9 @@
 /* ---- 게임 중 상단 줄(방 코드 · 소리 · 이모티콘 · 나가기). 왼쪽 자리는 게임이 정한다(CLIENT_GAMES[mode].bar.leftVar) */
 .rm-bar { position: fixed; left: 0; right: 0; top: 0; z-index: 32; height: 54px; display: flex; gap: 6px; align-items: center; padding: 6px 10px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); box-sizing: border-box; pointer-events: none; }
 .rm-bar[hidden] { display: none; }
+/* 관전 계정: 게임 화면 위 가운데 "관전 중" 표시(누를 것 없음) */
+.rm-spec { position: fixed; left: 50%; top: calc(62px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 33; padding: 4px 14px; border-radius: 999px; background: rgba(12, 16, 24, 0.78); color: #ffe9a8; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; pointer-events: none; }
+.rm-spec[hidden] { display: none; }
 .rm-code { font-weight: 700; font-size: 14px; padding: 0 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rm-sp { flex: 1; min-width: 0; }
 .rm-btn { pointer-events: auto; flex: none; min-height: 40px; min-width: 40px; padding: 0 12px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); font-weight: 700; white-space: nowrap; display: flex; align-items: center; justify-content: center; }

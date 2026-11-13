@@ -21,13 +21,14 @@ export function createMedia(shell) {
   const held = new Map(); // id -> 사진이 막힌 동안 바꾼 사람의, 방에 보여 준(바뀌기 전) 사진
   const blocked = (session, kind) => shell.impl.mediaBlocked?.(session, kind) ?? null;
 
+  const who = (id) => shell.member(id) ?? shell.spec(id); // 참가자 또는 관전자
   const faceOf = (m) => (held.has(m.id) ? held.get(m.id) : m.session.user.avatar) ?? null;
   const faceItem = (m) => ({ id: m.id, avatar: faceOf(m), look: { ...(m.session.user.gear?.equip ?? {}) } });
   const facesEvent = (ms) => ({ k: 'faces', items: ms.map(faceItem) });
 
   function sendFaces(ids, filter = () => true) {
-    const e = facesEvent(ids.map((id) => shell.member(id)).filter(Boolean));
-    for (const m of shell.members) if (filter(m)) hub.send(m.session, { t: 'event', e });
+    const e = facesEvent(ids.map(who).filter(Boolean));
+    for (const m of shell.everyone) if (filter(m)) hub.send(m.session, { t: 'event', e });
   }
 
   function addSound(session, sid, name, data) {
@@ -57,14 +58,14 @@ export function createMedia(shell) {
   return {
     // 들어오거나 다시 붙는 사람에게: faces(전원) -> sndList(있으면)
     extras(session) {
-      hub.send(session, { t: 'event', e: facesEvent(shell.members) });
+      hub.send(session, { t: 'event', e: facesEvent(shell.everyone) });
       if (sounds.length) hub.send(session, { t: 'event', e: { k: 'sndList', items: sounds.map((x) => ({ ...x })) } });
     },
     sendFaces,
 
     // 사진을 바꿨다. 사진 이모티콘이 막힌 동안이면 막힘이 풀릴 때까지 바뀌기 전 사진을 보여 준다(B4).
     faceChanged(session, prev) {
-      if (!shell.member(session.id)) return;
+      if (!who(session.id)) return;
       if (blocked(session, 'pemote')) {
         if (!held.has(session.id)) held.set(session.id, prev ?? null);
         return;
@@ -78,7 +79,7 @@ export function createMedia(shell) {
       if (!held.size) return;
       const ids = [];
       for (const id of [...held.keys()]) {
-        const m = shell.member(id);
+        const m = who(id);
         if (!m) held.delete(id);
         else if (!blocked(m.session, 'pemote')) { held.delete(id); ids.push(id); }
       }

@@ -18,6 +18,7 @@ import { createRoomBar } from './bar.js';
 import { createWait } from './wait.js';
 import { openModal, confirmBox } from '../ui/kit/modal.js';
 import { profile } from '../ui/kit/avatar.js';
+import { isSpectatorId } from '../../../shared/spectator.js';
 
 // 틀이 다 쓰고 게임에 넘기지 않는 것 / 틀이 처리하고 게임에도 넘기는 것 (4-2)
 const MEDIA = new Set(['emote', 'pemote', 'snd', 'sndAdd', 'sndList', 'sndDel', 'sndRename']);
@@ -72,6 +73,11 @@ export function createRoomFrame(deps) {
     confirmBox({ title: '방에서 나갈까요?', text: note ?? '', ok: '나가기', danger: true }).then((ok) => { if (ok) send({ t: 'leave' }); });
   }
   const bar = createRoomBar({ ui, sound, emote, onLeave: leave });
+  // 관전 계정(shared/spectator.js): 게임 화면 위에 "관전 중". 조작 버튼은 게임이 "내 자리 없음"으로 그리지 않는다.
+  const specBadge = h('div', 'rm-spec', '관전 중');
+  specBadge.dataset.rm = 'spec-badge';
+  specBadge.hidden = true;
+  ui.append(specBadge);
   const chatEmo = chat.waitEl.querySelector('.chat-emo');
   if (chatEmo) emote.owner(chatEmo);
 
@@ -84,6 +90,8 @@ export function createRoomFrame(deps) {
     cur.wait.el.hidden = !showingWait;
     root.hidden = showingWait;
     bar.el.hidden = showingWait || cur.entry.bar === false;
+    const watching = isSpectatorId(s.you);
+    specBadge.hidden = showingWait || !watching;
     const r = rule();
     chat.setEnabled(true);
     chat.setRule(r);
@@ -95,10 +103,12 @@ export function createRoomFrame(deps) {
       bar.update(s, cur.entry);
       chat.setMode(r?.own && safe(() => r.own(s), false) ? 'own' : 'game');
     }
-    const lk = r?.lock ? safe(() => r.lock(s), null) : null;
+    // 채팅을 게임이 맡는 게임(등록표 chat: null, 갱식마인드)은 게임 중 관전자 채팅을 서버가 막는다: 화면도 잠근다
+    const specMute = watching && !s.wait && cur.schema?.chat === null;
+    const lk = specMute ? { locked: true, hint: '게임 중에는 관전자가 채팅할 수 없어요' } : r?.lock ? safe(() => r.lock(s), null) : null;
     chat.setLock(Boolean(lk?.locked), lk?.hint, lk?.hot);
     // 게임 중 입력 줄 열어 두기(4-4 input): 켜지면 열고, 꺼지면 틀이 연 것만 닫는다
-    const want = !showingWait && Boolean(r?.input) && safe(() => Boolean(r.input(s)), false);
+    const want = !watching && !showingWait && Boolean(r?.input) && safe(() => Boolean(r.input(s)), false);
     if (want && !inputWas) inputByUs = chat.button.getAttribute('aria-expanded') !== 'true' && (chat.open(), true);
     else if (!want && inputWas && inputByUs) { chat.close(); inputByUs = false; }
     inputWas = want;
@@ -154,6 +164,7 @@ export function createRoomFrame(deps) {
     inputByUs = false;
     r.wait.dispose();
     bar.el.hidden = true;
+    specBadge.hidden = true;
     root.hidden = true;
     float.clear();
     faces.clear();
