@@ -659,6 +659,11 @@ async function runContext(browser, server, name, cfg) {
       await visible('.gkbar-code');
       await page.waitForFunction(() => /방 코드 [A-Z0-9]{4,}/.test(document.querySelector('.gkbar-code')?.textContent ?? ''), null, { timeout: T });
     });
+    await step('gsk: in the room, color-0 shows and can be pressed (임시 화면 data-gk)', async () => {
+      await visible('[data-gk="color-0"]');
+      await press('[data-gk="color-0"]');
+      await page.waitForFunction(() => /초록/.test(document.querySelector('[data-gk-seat]')?.textContent ?? ''), null, { timeout: T });
+    });
     await step('gsk: 나가기 returns to the lobby, bar disappears', async () => {
       await press('button.gkbar-btn:has-text("나가기")');
       await visible('button:has-text("방 만들기")');
