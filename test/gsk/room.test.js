@@ -56,10 +56,11 @@ function successRound(t) {
   const ch = t.by(s1.turn);
   ok(t.room, ch, { a: 'bid', n: s1.total });
   assert.equal(t.st().step, 'flip');
-  t.clock.advance(600); // 자기 더미 자동 공개(0.5초)
+  t.clock.advance(600 + 3100); // 자기 더미 자동 공개(0.5초) + 그 장 연출
   for (const seat of t.st().seats) {
     if (seat.id === ch.id) continue;
     ok(t.room, ch, { a: 'flip', p: seat.id });
+    t.clock.advance(3100); // 연출(꽃 1.7초 + 애태우기 1.4초)이 끝나야 판정·다음 장
   }
   assert.equal(t.st().step, 'reveal');
   assert.equal(t.st().outcome.ok, true);
@@ -118,12 +119,19 @@ test('한 판: 실패(벌칙)→성공 두 번으로 승리→전적 저장→�
   assert.equal(gk(t.room, ch, { a: 'flip', p: skullId }).code, 'gk_now'); // 자동 공개가 끝나기 전
   t.clock.advance(600);
   assert.equal(events(other, 'gkFlip').filter((e) => e.p === chId).length, 1);
+  assert.equal(gk(t.room, ch, { a: 'flip', p: skullId }).code, 'gk_now'); // 앞 장 연출 중
+  t.clock.advance(3100);
   ok(t.room, ch, { a: 'flip', p: skullId });
+  assert.equal(t.st().step, 'flip'); // 해골 연출(3.1초) 동안 판정을 미룬다
+  assert.equal(events(other, 'gkReveal').length, 0);
+  t.clock.advance(3099);
+  assert.equal(t.st().step, 'flip');
+  t.clock.advance(1);
   s = t.st();
   assert.equal(s.step, 'reveal');
   assert.deepEqual(s.outcome, { ok: false, skullOf: skullId });
   assert.deepEqual(s.seats.find((x) => x.id === skullId).shown, ['S']);
-  t.clock.advance(2500);
+  t.clock.advance(3500);
   s = t.st();
   assert.equal(s.step, 'penalty');
   assert.equal(s.penalty.by, skullId);
@@ -146,12 +154,12 @@ test('한 판: 실패(벌칙)→성공 두 번으로 승리→전적 저장→�
 
   // --- 2·3라운드: 같은 사람이 먼저 2점 ---
   const w1 = successRound(t);
-  t.clock.advance(2500 + 1500);
+  t.clock.advance(3500 + 1500);
   assert.equal(t.st().step, 'setup');
   assert.equal(t.st().seats.find((x) => x.id === w1.id).points, 1);
   const w2 = successRound(t);
   assert.equal(t.room.phase, 'playing');
-  t.clock.advance(2500);
+  t.clock.advance(3500);
   s = t.st();
   assert.equal(s.phase, 'result');
   assert.equal(s.result.reason, 'points');
