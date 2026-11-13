@@ -22,6 +22,7 @@ export function chatLockFor(state) {
     case 'revote':
       return open;
     case 'speak':
+      if (state.speakDone) return { locked: true, hint: '곧 다음 차례로 넘어가요', hot: false };
       return state.speaker === state.you
         ? { locked: false, hint: '첫 발언을 입력하세요', hot: true }
         : { locked: true, hint: '첫 설명 중에는 차례인 사람만 쓸 수 있어요', hot: false };
@@ -47,6 +48,7 @@ function textsFor(state) {
     case 'reveal':
       return { title: '역할 확인', alert: [], plain: true, timed: false };
     case 'speak': {
+      if (state.speakDone) return { title: '첫 설명', alert: [], plain: true, timed: false };   // 쓴 뒤 잠깐 머묾
       if (state.speaker === state.you) {
         return { title: '남은 발언시간', alert: ['당신의 발언시간입니다', '라이어가 눈치채지 못하게 발언하세요'], plain: false, timed: true };
       }
@@ -207,6 +209,8 @@ export function createHud(ctx) {
     drawSecs();
 
     if (!SAID_PHASES.includes(state.phase) && !(state.phase === 'discuss' && saidKind === 'say')) hideSaid();
+    // 다음 차례로 넘어가면 앞사람의 큰 글을 내린다(다음 사람이 말한 것처럼 보이지 않게)
+    if (prev && prev.phase === 'speak' && state.phase === 'speak' && prev.speaker !== state.speaker) hideSaid();
 
     const canEnd = state.hostId === state.you && IN_GAME.includes(state.phase);
     endBox.hidden = !canEnd;

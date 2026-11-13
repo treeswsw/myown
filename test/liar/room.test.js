@@ -185,6 +185,8 @@ function game3(n = 3, setupSettings) {
     for (let i = 0; i < n; i++) {
       const sp = room.game.order[room.game.speakerIdx];
       assert.equal(x.lg(sp, { a: 'say', text: `설명${i}` }), null);
+      assert.equal(room.view(sp).speakDone, true);   // 3초 머문 뒤 다음 차례(타이머 하나)
+      x.fire();
     }
   };
   return x;

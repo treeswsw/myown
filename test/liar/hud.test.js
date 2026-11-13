@@ -70,3 +70,9 @@ test('chatLockFor hot: 내 차례·남의 차례·지목된 사람·구경', () 
   assert.equal(r.locked, true);
   assert.equal(r.hot, false);
 });
+
+test('첫 설명을 쓴 뒤 3초 머묾(speakDone): 차례인 사람도 잠긴다', () => {
+  const st = { phase: 'speak', speaker: 'u1', you: 'u1', speakDone: true, players: [{ id: 'u1' }] };
+  assert.equal(chatLockFor(st).locked, true);
+  assert.equal(chatLockFor({ ...st, speakDone: false }).locked, false);
+});

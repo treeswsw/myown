@@ -43,6 +43,9 @@ export const FIXED_TIMES = Object.freeze({
   unmaskFail: 5,      // 지목 실패 (라이어 클로즈업만)
 });
 
+// 첫 설명을 쓴 뒤 다음 차례로 넘어가기 전에 그 사람과 글을 보여 주는 시간(초). 사용자 요청 (GDD 4-1)
+export const SPEAK_HOLD = 3;
+
 // 글자 수 제한 (GDD 9-1)
 export const LIMITS = Object.freeze({ say: 80, chat: 80, guess: 30 });
 

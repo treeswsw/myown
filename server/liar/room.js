@@ -530,6 +530,7 @@ class LiarRoom {
       my: v ? v.my : { word: null, role: null },
       order: v ? v.order : [],
       speaker: v ? v.speaker : null,
+      speakDone: v ? v.speakDone : false,
       firstSays: v ? v.firstSays : [],
       votes: v ? v.votes : {},
       candidates: v ? v.candidates : null,

@@ -47,7 +47,10 @@ describe('13-2 시민 승리 한 판', { concurrency: true }, () => {
     // 차례인 사람이 한 줄 → 바로 다음 사람
     const first = byId(r, order[0]);
     first.say('첫번째 설명');
-    await until(() => r.cs.every((c) => c.state.speaker === order[1]), 'next speaker', { clients: r.cs });
+    // 쓴 뒤 3초는 그 사람에 머문다(speakDone), 그동안 say 는 거절
+    await until(() => r.cs.every((c) => c.state.speaker === order[0] && c.state.speakDone === true), 'hold', { clients: r.cs });
+    assert.match(await nextError(r, byId(r, order[1]), () => byId(r, order[1]).say('먼저')), /곧 다음 차례/);
+    await until(() => r.cs.every((c) => c.state.speaker === order[1] && c.state.speakDone === false), 'next speaker', { clients: r.cs });
     assert.deepEqual(r.host.state.firstSays, [
       { id: order[0], text: '첫번째 설명', late: false },
       { id: order[1], text: null, late: false },

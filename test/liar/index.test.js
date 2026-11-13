@@ -35,3 +35,7 @@ test('plainChat 은 서버 stripSizeMark 와 같은 결과(표시뿐인 글은 �
     assert.equal(plainChat(s), stripSizeMark(s), s);
   }
 });
+
+test('chatMsgFor: 쓴 뒤 머무는 동안(speakDone)에는 say 로 보내지 않는다', () => {
+  assert.deepEqual(chatMsgFor({ phase: 'speak', speaker: 'a', you: 'a', speakDone: true }, 'x'), { t: 'chat', text: 'x' });
+});

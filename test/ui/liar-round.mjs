@@ -247,14 +247,12 @@ try {
       const text = `설명${n}번입니다`;
       said.push({ id: sp.who, text });
       await say(sp, text);
-      if (n < 3) {
-        for (const w of wins) await w.page.locator('[data-lg="hud-said"]', { hasText: text }).waitFor({ state: 'visible' });
-      } else {
-        // 마지막 설명은 말하자마자 토론으로 넘어가므로 큰 글이 뜨는지 따로 본다(discuss 에서도 say 는 4초 보인다). 판은 계속 돌린다.
-        for (const w of wins) {
-          const ok = await w.page.locator('[data-lg="hud-said"]', { hasText: text }).waitFor({ state: 'visible', timeout: 2500 }).then(() => true, () => false);
-          if (!ok) check(w.who, '마지막(3번째) 첫 설명이 hud 큰 글에 뜸', false, '토론 단계로 넘어가 큰 글이 뜨지 않음');
-        }
+      // 쓴 뒤 3초(SPEAK_HOLD)는 그 사람에 머문다: 큰 글이 뜨고, 제목은 "첫 설명", 남은 시간 숫자는 없다
+      for (const w of wins) {
+        await w.page.locator('[data-lg="hud-said"]', { hasText: text }).waitFor({ state: 'visible', timeout: 2500 });
+        await waitTitle(w, '첫 설명', 2500);
+        const secsShown = await w.page.locator('[data-lg="hud-secs"]').isVisible().catch(() => false);
+        if (secsShown) check(w.who, `첫 설명 ${n}번째 뒤 머무는 동안 남은 시간 숨김`, false, '남은 시간 숫자가 보임');
       }
       for (const w of wins) await chatBarOk(w, `speak ${n}`);
       noErrors(`speak ${n}`);
