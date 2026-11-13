@@ -25,6 +25,12 @@ test('test/common/rooms.test.js 의 MODES 가 모든 게임을 덮는다', () =>
   for (const k of KEYS) assert.ok(covered.has(k), `rooms.test.js MODES 에 ${k} 줄이 없다`);
 });
 
+test('test/common/spectator.test.js 의 MODES 가 모든 게임을 덮는다(관전 계정)', () => {
+  const text = readFileSync(new URL('./spectator.test.js', import.meta.url), 'utf8');
+  const covered = new Set([...text.matchAll(/^\s+mode: '(\w+)'/gm)].map((m) => m[1]));
+  for (const k of KEYS) assert.ok(covered.has(k), `spectator.test.js MODES 에 ${k} 줄이 없다`);
+});
+
 const isStr = (v) => typeof v === 'string' && v.length > 0;
 const FIELDS = {
   name: isStr, desc: isStr, about: isStr,

@@ -93,7 +93,7 @@ ctx = {
 - **kick(by, id)**: 방장·`isWaiting()`·자기 아님·멤버 → 대상에게 `{t:'error', msg:'방장이 내보냈습니다.', code:'<접두사>kicked'}` → `leave(id,'kick')`.
 - **start(by)**: 방장(`<p>host`) → `isWaiting()`(`<p>now`) → `canStart()` → `onStart(by)` → 성공이면 Shell 이 `push()`.
 - **set/pick**: set 은 방장+대기, pick 은 본인+대기. 그다음 `setSettings/pick` → 성공이면 `push()`.
-- **view(id)**: `{...impl.view(id), code, mode, hostId, you:id, now, wait, specs:[]}`,
+- **view(id)**: `{...impl.view(id), code, mode, hostId, you:id, now, wait, specs}`,
   `wait = isWaiting() ? {can: !why, why, ...(waitInfo?.() ?? {set:{}, own:{}})} : null` (why = canStart()).
 - **sendExtras**: chatLog(`chatLogFor?.(id)` 우선) → faces(전원) → sndList(있으면) → `extrasFor?.(session)`.
 - 공용 이벤트 `joined·left·away·back` 은 Shell 만 보낸다. 엔진 fx 에 같은 종류가 있으면 어댑터가 버린다(draw 엔진 join/back/away/leave 가 냄).
@@ -198,7 +198,7 @@ export const SERVER_GAMES = {
 { code, mode, hostId, you, now, phase,
   players: [{ id, name, connected, awayUntil, spectating, ...게임 칸 }],   // 사진 없음(포커는 이행 기간 avatar 유지, S3 때 뺌)
   wait: null | { can, why: null | {msg, code}, set: {...방 설정}, own: { [id]: {...개인 칸} } },  // 대기·결과 동안만
-  specs: [] }                                   // 관전 계정 자리(묶음 3). 지금은 늘 빈 배열
+  specs: [{ id, name, connected }] }            // 관전 계정 자리(SPEC 7-4)
 ```
 - 강퇴된 사람: `{t:'error', msg:'방장이 내보냈습니다.', code:'<p>kicked'}` 다음 `room:null`.
 - `event.e`: `joined{id,name}` `left{id,name}` `away{id}` `back{id}` 를 **모든 게임**이 보낸다(포커 새로). `faces.items[]` 에 `look`(장착 아이템 `{title?, frame?, color?, …}`, 상점의 `g.equip` 그대로) 추가.
@@ -344,7 +344,7 @@ lobby.js: 23-34(MODES·keysFor → shared/games.js), 297·305(목록 거르기),
 ## 6. 묶음 3 을 위한 자리 (지금 만들지 않는다)
 | 기능 | 끼우는 곳 |
 |---|---|
-| 관전 계정(관전N) | Shell.join: 이름이 `/^관전\d+$/` 면 `specs`(최대 4, 정원 밖)로만 넣고 게임 `onJoin` 안 부름. `view(id)` 는 참가자 아닌 id 에 비밀 없는 시점을 이미 준다(누출 시험에 관전 칸 추가). 채팅은 `chatCheck` 가 `spectating` 으로 판단 |
+| 관전 계정(관전N) | **됨(묶음 3)**: SPEC 7-4. 판별 `shared/spectator.js`. Shell 이 `specs` 로 따로 두고 게임 훅(onJoin·onLeave·onAway·onAction)을 부르지 않는다. `ctx.members()` 에 없음, `emit('all')`·`push` 는 받음, `ctx.specIds()`·`ctx.isSpec(id)` 는 참가자 목록으로 알림을 보내는 게임(갱식마인드)만 쓴다. 시험 test/common/spectator.test.js |
 | 미니 승부·종목 방식, 오목 규칙 | shared/mini/settings.js 에 `seg/multi` 줄 추가 + 어댑터 `setSettings/onStart` |
 | 미니 코인 베팅 | `OWN` 에 `{k:'bet', type:'custom', part:'mn-bet'}`, `pick({bet})`, `canStart` 가 "건 수가 다름" 이유. 코인 이동은 server/coin 에 `hub.stake(room, rows)`·`hub.settleStake(room, winnerId\|null)` 를 두고 미니 `onStart`·`onLeave`·판 끝에서 부른다 |
 | 라이어 규칙 변경(투표 계속, 첫 발언 다시 보기, 설명 바퀴 1~3) | 엔진 shared/liar + settings.js 에 `rounds` seg 한 줄 |

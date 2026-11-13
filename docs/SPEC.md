@@ -189,7 +189,7 @@ design/   시안
 { code, mode, hostId, you, now, phase,
   players: [{ id, name, connected, awayUntil, spectating, ...게임 칸 }],   // 사진 없음(포커는 이행 기간 avatar 유지, S3 때 뺌)
   wait: null | { can, why: null | {msg, code}, set: {...방 설정}, own: { [id]: {...개인 칸} } },  // 대기·결과 동안만
-  specs: [] }                                   // 관전 계정 자리(묶음 3). 지금은 늘 빈 배열
+  specs: [{ id, name, connected }] }            // 관전 계정 자리(7-4). 참가자(players)와 따로, 최대 4
 ```
 - 강퇴된 사람: `{t:'error', msg:'방장이 내보냈습니다.', code:'<p>kicked'}` 다음 `room:null`.
 - `event.e`: `joined{id,name}` `left{id,name}` `away{id}` `back{id}` 를 **모든 게임**이 보낸다(포커 새로). `faces.items[]` 에 `look`(장착 아이템 `{title?, frame?, color?, …}`, 상점의 `g.equip` 그대로) 추가.
@@ -200,6 +200,19 @@ design/   시안
 - 옛 전용 요청은 그대로 받는다(같은 함수로 감): `lg settings/kick`, `dr settings/kick/lobby`, `gk color`, `mn game/again/start`. 화면이 새 메시지로 다 옮긴 뒤 묶음 3 청소에서 지운다.
 - 옛 상태 칸(라이어 `settings`, 갱식마인드 `settings` 등)도 그대로 둔다. `wait.set` 은 대기실용 사본이다.
 - 옮기기 전 게임은 옛 모양 그대로(공통 칸 없음). 화면 틀은 `client/src/games.js` 의 `mount` 가 있는 게임만 새 길로 그린다.
+
+### 7-4. 관전 계정 (2026-11-13, 묶음 3)
+- 아이디가 `관전` + 숫자(`관전1`, `관전2`, …)인 계정은 어느 방에서든 **관전자**다. 판별은 `shared/spectator.js` 한 곳(`isSpectatorId`, `SPEC_MAX = 4`). 로그인은 보통 계정과 같다.
+- 입장은 `{t:'join', code}` 그대로. 대기 중이든 게임 중이든 들어오고, `room.state.specs` 에만 들어간다(`players`·자리·차례·정원·시작 인원·방장 밖). 관전 자리가 차면 `{code:'<p>specfull', msg:'관전 자리가 가득 찼습니다.'}`, 참가자가 없는 방은 `<p>bad`.
+- 만들기 `{t:'create'}` 는 `{code:'spec_create', msg:'관전 계정은 방을 만들 수 없습니다. …'}`.
+- 관전자가 보낼 수 있는 것: `leave` `chat` `emote` `pemote` `snd*`. 게임 요청(`act` `play` `liar` `lg` `yt` `dr` `gk` `mn`)·`pick` 은 `{code:'<p>spec', msg:'관전 중에는 할 수 없습니다.'}`(게임에 넘기지 않음), `start` `set` `kick` 은 `<p>host`.
+- 채팅·이모티콘은 그 게임의 규칙 훅(`chatCheck`·`mediaBlocked`)을 자리 없는 사람으로 그대로 탄다(라이어: 판 중 글 금지·기본 이모티콘만). 채팅을 게임이 맡는 갱식마인드(`chatOwn`)는 게임 중(고르기·그리기·공개) 관전자 채팅을 `<p>spec`("게임 중에는 관전자가 채팅할 수 없습니다.")으로 막는다: 정답 판정에 끼지 않고, 정답을 아는 사람과 말이 오가는 길이 없다. 대기·최종 결과 중에는 보통 채팅. 관전자 이모티콘·소리는 갱식마인드에서 늘 된다(단어를 모른다).
+- 관전자 기기에는 비밀이 없다: 각 게임 view 의 "자리 없는 사람" 시점(라이어 `my:{word:null, role:null}`, 갱식마인드 `word:null, choices:null`·정답자끼리 글 없음, 갱스껄 `mine:null`, 포커 `myCards:null`·남의 `cards:null`, 블러핑 `myHand:[]`). 게임 알림은 방 전체 알림만(갱식마인드는 "못 맞힌 사람"이 받는 것: 그림 선·`drNew`·`drHit`·공개 글).
+- 방장은 관전자를 대기 중이든 게임 중이든 내보낼 수 있다(`{t:'kick', id}`, 대기실 관전 줄의 ×).
+- 판 코인은 받지 않는다(Shell `ctx.finish` 가 참가자만 남긴다). 끊기면 60초 유예 뒤 나간다.
+- 빈 방은 참가자 기준: 마지막 참가자가 나가면 남은 관전자에게 `{t:'error', code:'<p>closed', msg:'참가자가 모두 나가 방이 닫혔습니다.'}` 다음 `room:null`.
+- `event.e` `joined`·`left` 에 관전자면 `spec: true`. 방 목록 `count` 는 참가자만.
+- 화면: 게임 중 위 가운데 "관전 중"(`.rm-spec`). 조작 버튼은 게임이 "내 자리 없음"으로 그리지 않는다. 갱식마인드는 게임 중 관전자 채팅 줄을 잠근다.
 
 ## 8. 화면
 

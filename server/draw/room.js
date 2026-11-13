@@ -18,6 +18,7 @@ const SYNC_GAP_MS = 1000; // 거절 뒤 drSync 는 한 사람에게 1초에 1번
 const DRAW_ACTS = new Set(['st', 'pt', 'cx', 'rm', 'undo', 'redo', 'clear']);
 // 이 네 가지는 Shell 이 보낸다. 엔진이 같은 종류를 내면 버린다(1-5).
 const SHELL_EVENTS = new Set(['joined', 'left', 'away', 'back']);
+const SPEC_OK = new Set(['drNew', 'drHit', 'chat']); // 관전자에게도 보내는 엔진 알림(chat 은 sec 아닌 것만)
 
 // hub.rng() 는 [0,1) 실수(32비트). 엔진이 원하는 0..n-1 정수로 바꾼다(치우침 없이).
 export function intRng(rng) {
@@ -103,10 +104,11 @@ export function makeDrawGame(ctx, opt = {}) {
       drawnQ = g.q;
     }
     for (const w of fx.use) picker.use(w);
-    for (const { to, e } of fx.events) if (!SHELL_EVENTS.has(e.k)) ctx.emit([e], to);
+    // 관전 계정(엔진 밖)은 "못 맞힌 사람"과 같은 것만 받는다: 공개 알림(정답자끼리 글 sec 은 빼고)과 비밀 없는 view
+    for (const { to, e } of fx.events) if (!SHELL_EVENTS.has(e.k)) ctx.emit([e], SPEC_OK.has(e.k) && !e.sec ? [...to, ...ctx.specIds()] : to);
     if (fx.room.length && flow === 0) {
       const everyone = ctx.members().filter((m) => m.connected).every((m) => fx.room.includes(m.id));
-      if (everyone) ctx.push(); else ctx.pushTo(fx.room);
+      if (everyone) ctx.push(); else ctx.pushTo([...fx.room, ...ctx.specIds()]);
     }
     if (fx.finished?.save) save(fx.finished.ranking, fx.finished.reason);
     syncMembers();
@@ -154,8 +156,8 @@ export function makeDrawGame(ctx, opt = {}) {
 
   // ---- 그림 요청 ----
 
-  // 그리는 사람을 뺀 방 전원
-  const toWatchers = (drawerId, e) => ctx.emit([e], ctx.members().map((m) => m.id).filter((id) => id !== drawerId));
+  // 그리는 사람을 뺀 방 전원(관전자 포함)
+  const toWatchers = (drawerId, e) => ctx.emit([e], [...ctx.members().map((m) => m.id).filter((id) => id !== drawerId), ...ctx.specIds()]);
 
   // 거절 뒤 drSync: 한 사람에게 1초에 1번 이하
   function resync(id, now) {
@@ -356,7 +358,7 @@ export function makeDrawGame(ctx, opt = {}) {
     },
     chatLogFor: (id) => (g ? chatLogFor(g, id) : []),
     mediaBlocked(session, kind) {
-      if (!g) return null;
+      if (!g || ctx.isSpec(session.id)) return null; // 관전자는 단어를 모른다: 이모티콘·소리 그대로
       const r = mediaCheck(g, session.id, kind === 'emote' ? 'basic' : 'media');
       return r.ok === false ? errFx(r) : null;
     },

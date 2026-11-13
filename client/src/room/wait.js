@@ -8,10 +8,10 @@
 // patchFor('times.speak', 30) -> {times:{speak:30}}
 import { h, svg } from '../ui/dom.js';
 import { soundButton } from './bar.js';
+import { SPEC_MAX } from '../../../shared/spectator.js';
 
 const LOCK = '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>';
 const EYE = '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>';
-const SPEC_MAX = 4;
 
 export const getPath = (obj, k) => String(k).split('.').reduce((o, p) => (o == null ? undefined : o[p]), obj);
 export function patchFor(k, v) {
@@ -55,7 +55,7 @@ export function waitModel(state, schema, meId) {
       kick: isHost && !me && Boolean(wait),
     };
   });
-  const specs = (Array.isArray(state?.specs) ? state.specs : []).map((s) => ({ id: s.id, name: String(s.name ?? ''), kick: isHost && Boolean(wait) }));
+  const specs = (Array.isArray(state?.specs) ? state.specs : []).map((s) => ({ id: s.id, name: String(s.name ?? ''), me: s.id === meId, kick: isHost }));
   // 왼쪽 칸: 개인 칸(OWN, 누구나 자기 것) 먼저, 그다음 방 설정(group 순서대로, 방장만)
   const sections = [];
   for (const f of wait ? schema?.own ?? [] : []) { // 대기·결과 동안만(게임 중에는 설정 값이 없다)
@@ -236,7 +236,7 @@ export function createWait({ send, sound, profile, faces, chat, toast, onLeave }
       const eye = svg(EYE);
       eye.setAttribute('class', 'wr-eye');
       const row = h('li', 'lb-row', profile.playerAvatar({ id: s.id, name: s.name, face: face.avatar, look: face.look, size: 26 }),
-        h('span', 'wr-who', h('span', 'lb-p-name', s.name)), eye, h('span', 'lb-tags', '관전'));
+        h('span', 'wr-who', h('span', 'lb-p-name', s.name)), eye, h('span', 'lb-tags', s.me ? '관전 · 나' : '관전'));
       if (s.kick) row.append(kickBtn(s));
       return row;
     }));

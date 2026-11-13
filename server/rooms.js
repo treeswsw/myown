@@ -7,6 +7,7 @@ import { createAdmin, ADMIN_ID } from './admin/bots.js';
 import { installWallet, walletOf } from './coin/wallet.js';
 import { POOL_START } from '../shared/coin/gacha.js';
 import { installPin, pinErr } from './coin/pin.js';
+import { isSpectatorId } from '../shared/spectator.js';
 
 export const DEFAULT_TIMING = {
   grace: 60_000, // a disconnected player is auto-played (if on turn) and removed after this
@@ -341,6 +342,7 @@ async function dispatch(hub, conn, msg) {
       return null;
     case 'create': {
       if (room) return '이미 방에 있습니다.';
+      if (isSpectatorId(session.id)) return { msg: '관전 계정은 방을 만들 수 없습니다. 방 코드로 들어가 관전해 주세요.', code: 'spec_create' };
       if (msg.mode === 'holdem' && session.user.bank <= 0) return '칩이 없습니다. 새 아이디로 다시 시작하세요';
       const g = GAMES[msg.mode];
       if (g.flag && hub.flags[msg.mode] === 'off') return offErr(msg.mode);

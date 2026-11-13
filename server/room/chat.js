@@ -12,9 +12,10 @@ export function createChatLog(max) {
 }
 
 // 길이 -> chatCheck -> 속도(1초 1개·10초 5개, 계정 기준) -> 기록 -> 방송. chatOwn 이 있으면 그 게임이 전부 한다.
-export function handleChat(shell, session, text) {
+// spec = 관전 계정: chatOwn 게임이어도 이 길(Shell 은 대기·결과 중에만 부른다). chatCheck·chatKind 는 그대로 탄다(자리 없는 사람).
+export function handleChat(shell, session, text, spec = false) {
   const { impl, entry, hub } = shell;
-  if (impl.chatOwn) return impl.chatOwn(session, text) ?? null;
+  if (impl.chatOwn && !spec) return impl.chatOwn(session, text) ?? null;
   const max = entry.chat?.maxLen ?? 120;
   if ([...text].length > max) return `채팅은 1~${max}자여야 합니다.`;
   const why = impl.chatCheck?.(session);

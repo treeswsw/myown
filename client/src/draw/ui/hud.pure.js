@@ -1,6 +1,7 @@
 // 상단·문제 띠의 계산 (DOM 없음). docs/draw/GDD.md 3-4, 3-5, 6절 글자 수 칸, 10-4, 10-6.
 // ★ 못 맞힌 사람 시점에서는 state.word 가 있어도 절대 표시하지 않는다(questionView).
 import { CHAT, TIMES } from '../../../../shared/draw/constants.js';
+import { isSpectatorId } from '../../../../shared/spectator.js';
 
 export const URGENT_SEC = 10; // 이 이하면 강조
 
@@ -101,6 +102,7 @@ export function answerBox(state, meId) {
   if (!state) return none;
   const phase = state.phase;
   if (phase !== 'pick' && phase !== 'draw' && phase !== 'reveal') return none;
+  if (isSpectatorId(meId != null ? meId : state.you)) return none; // 관전 계정: 게임 중에는 글을 쓸 수 없다(서버도 거절)
   if (phase === 'reveal') return { show: true, enabled: true, placeholder: '채팅', hit: false };
   if (isDrawer(state, meId)) return none; // 그리는 사람은 pick·draw 동안 글을 쓸 수 없다
   const me = meOf(state, meId);
