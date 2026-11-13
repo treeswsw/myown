@@ -1,0 +1,104 @@
+/* 요트다이스 점수표. 접두사 .yt-sc-  (시안 design/yacht/mock.html 의 점수표 부분) */
+.yt-sc {
+  --gold: #ffc62a; --ink: #1a1613; --paper: #fbf8f0; --line: #2a2520; --dark: #2b2622;
+  --pv: #ffd541; --on: #fff1bd; --off: #e2ded5;
+  --lw: clamp(110px, 18vh, 190px); --cw: 68px; --fnum: clamp(23px, 3.4vh, 34px); --flab: clamp(14px, 2.1vh, 20px); --ico: clamp(15px, 2.2vh, 21px);
+  flex: none; height: 100%; box-sizing: border-box; padding: 6px 8px; display: flex; flex-direction: column;
+  width: min(360px, 30vw, calc(var(--lw) + var(--n, 2) * var(--cw) + 16px));
+  background: var(--paper); color: var(--ink); box-shadow: 4px 0 18px rgba(0, 0, 0, .5); position: relative; z-index: 2;
+  pointer-events: auto; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  font-family: "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; overflow: hidden;
+}
+.yt-sc[hidden] { display: none; }
+.yt-sc[data-n="3"] { --cw: 58px; }
+.yt-sc[data-n="4"] { --cw: 50px; }
+.yt-sc *, .yt-sc *::before, .yt-sc *::after { box-sizing: border-box; }
+.yt-sc button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; padding: 0; margin: 0; border: 0; background: none; }
+.yt-sc-blk { display: contents; }
+.yt-sc-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--n, 2), var(--cw)); border: 1.5px solid var(--line); border-top-width: 0; flex: none; }
+.yt-sc-row.yt-sc-first { border-top-width: 1.5px; }
+.yt-sc-row.yt-sc-gap { margin-top: 3px; border-top-width: 1.5px; }
+.yt-sc-row > :not(.yt-sc-hit) { border-left: 1.5px solid var(--line); display: flex; align-items: center; justify-content: center; min-width: 0; }
+.yt-sc-row > :first-child { border-left: 0; }
+.yt-sc-cat { flex: 1 1 44px; min-height: 44px; }
+.yt-sc-lab { justify-content: flex-start !important; gap: 6px; padding: 0 4px 0 8px; font-size: var(--flab); font-weight: 700; letter-spacing: -.03em; white-space: nowrap; background: var(--paper); overflow: hidden; }
+.yt-sc-lab span { overflow: hidden; text-overflow: ellipsis; }
+.yt-sc-ico { width: var(--ico); height: var(--ico); flex: none; }
+.yt-sc-c { position: relative; flex-direction: column; font-size: var(--fnum); font-weight: 700; line-height: 1; background: #fff; letter-spacing: -.01em; }
+.yt-sc-c.yt-sc-on { background: var(--on); }
+.yt-sc-c.yt-sc-off { background: var(--off); color: #8d877c; }
+.yt-sc-c.yt-sc-pv { background: var(--pv); color: rgba(26, 22, 19, .62); }
+.yt-sc-c.yt-sc-pv.yt-sc-zero { color: rgba(26, 22, 19, .3); }
+.yt-sc-c.yt-sc-sel { z-index: 5; color: var(--ink); background: #ffe27a; box-shadow: inset 0 0 0 4px var(--ink); }
+.yt-sc-tag { font-size: 10px; font-weight: 700; line-height: 1.1; margin-top: 2px; white-space: nowrap; letter-spacing: -.04em; }
+.yt-sc-mark { position: absolute; inset: 0; pointer-events: none; }
+.yt-sc-flash { animation: yt-sc-flash 1.4s ease-out; }
+@keyframes yt-sc-flash { 0%, 40% { background: #ff9d1c; box-shadow: inset 0 0 0 3px #e2571c; } 100% { } }
+
+/* 눌리는 가로줄: 내 차례에 빈칸마다 하나. 줄 전체가 눌린다(칸 이름 쪽도 같은 칸) */
+.yt-sc-hit { position: absolute; left: 0; top: 0; z-index: 6; width: 100%; height: calc(100% + 1.5px); background: transparent; border: 0; border-radius: 0; }
+.yt-sc-hit:active { background: rgba(255, 170, 0, .28); }
+.yt-sc-hit:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }
+
+.yt-sc-hd { height: 53px; }
+.yt-sc-hd.yt-sc-hd2 { display: none; }
+.yt-sc-turn { flex-direction: column; gap: 0; line-height: 1.05; color: #4a433c; font-weight: 500; font-size: 14px; background: var(--paper); }
+.yt-sc-turn b { font-size: 25px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; }
+.yt-sc-pc { flex-direction: column; gap: 1px; background: #fff; font-size: 10.5px; font-weight: 700; color: #4a433c; position: relative; }
+.yt-sc-pc > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
+.yt-sc-pc.yt-sc-on { background: var(--pv); color: var(--ink); }
+.yt-sc-pc.yt-sc-off { background: var(--off); }
+.yt-sc-av { width: 32px; height: 32px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 17px; line-height: 1; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .45); overflow: hidden; }
+.yt-sc-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.yt-sc-on > .yt-sc-av { border-color: var(--ink); }
+.yt-sc-off > .yt-sc-av { filter: grayscale(.8); opacity: .75; }
+.yt-sc-crown { position: absolute; top: -1px; right: 1px; width: 17px; height: 17px; }
+.yt-sc-badge { position: absolute; left: 50%; bottom: 1px; transform: translateX(-50%); font-style: normal; font-size: 9.5px; font-weight: 700; line-height: 1; padding: 2px 4px; border-radius: 6px; background: var(--ink); color: #fff; white-space: nowrap; }
+.yt-sc-badge[hidden] { display: none; }
+.yt-sc-pc:has(.yt-sc-badge:not([hidden])) .yt-sc-av { margin-bottom: 8px; }
+
+.yt-sc-sub, .yt-sc-bon { height: 22px; background: var(--dark); color: #f3ede0; }
+.yt-sc-sub { border-bottom: 1.5px dotted #8b8378; }
+.yt-sc-sub .yt-sc-lab, .yt-sc-bon .yt-sc-lab, .yt-sc-tot .yt-sc-lab { background: transparent; color: #f3ede0; font-weight: 500; }
+.yt-sc-sub .yt-sc-lab { font-size: 13px; }
+.yt-sc-bon .yt-sc-lab { font-size: 14px; font-weight: 700; }
+.yt-sc-sub > *, .yt-sc-bon > * { border-left-color: #6b645b; }
+.yt-sc-s { font-size: 12.5px; font-weight: 500; color: #cfc8ba; background: #6d665e; }
+.yt-sc-s b { color: #fff; font-weight: 700; }
+.yt-sc-s.yt-sc-ok b { color: var(--gold); }
+.yt-sc-b { font-size: 16px; font-weight: 700; color: #fff; background: #6d665e; }
+.yt-sc-b.yt-sc-ok { color: var(--gold); }
+.yt-sc-note { height: 15px; font-size: 10.5px; font-weight: 500; color: #5b534a; display: flex; align-items: center; padding-left: 2px; white-space: nowrap; flex: none; letter-spacing: -.03em; overflow: hidden; }
+.yt-sc-tot { height: 40px; background: var(--dark); }
+.yt-sc-tot .yt-sc-lab { font-size: 16px; font-weight: 700; }
+.yt-sc-tot .yt-sc-c { font-size: calc(var(--fnum) * 1.04); }
+.yt-sc-tot .yt-sc-c.yt-sc-win { background: var(--gold); }
+
+/* 낮은 화면(가로 폰): 점수표를 두 덩어리로 나눠 나란히. 모든 칸 44px 이상 */
+@media (max-height: 719px) {
+  .yt-sc { --lw: 84px; --cw: 56px; --fnum: 19px; --flab: 11px; --ico: 12px; flex-direction: row; gap: 5px; padding: 5px 6px; width: max-content; }
+  .yt-sc[data-n="3"] { --cw: 48px; }
+  .yt-sc[data-n="4"] { --cw: 44px; --lw: 84px; --flab: 11px; }
+  .yt-sc-row { grid-template-columns: var(--lw) repeat(var(--n, 2), var(--cw)); }
+  .yt-sc-blk { display: flex; flex-direction: column; height: 100%; }
+  .yt-sc-hd { height: 44px; }
+  .yt-sc-hd.yt-sc-hd2 { display: grid; }
+  .yt-sc-turn { font-size: 11px; }
+  .yt-sc-turn b { font-size: 18px; }
+  .yt-sc-pc > span { display: none; }
+  .yt-sc-lab { gap: 3px; padding: 0 2px 0 4px; letter-spacing: -.06em; }
+  .yt-sc-sub, .yt-sc-bon { height: 19px; }
+  .yt-sc-sub .yt-sc-lab { font-size: 11px; }
+  .yt-sc-bon .yt-sc-lab { font-size: 11.5px; }
+  .yt-sc-s { font-size: 10.5px; letter-spacing: -.03em; }
+  .yt-sc-b { font-size: 13px; }
+  .yt-sc-note { height: 13px; font-size: 9.5px; }
+  .yt-sc-row.yt-sc-gap { margin-top: 0; border-top-width: 0; }
+  .yt-sc-tot { height: 44px; }
+  .yt-sc-tot .yt-sc-lab { font-size: 13px; }
+  .yt-sc-tag { font-size: 8.5px; margin-top: 1px; }
+  .yt-sc-hint { font-size: 10px; font-weight: 500; color: #5b534a; background: var(--paper); line-height: 1.2; text-align: center; letter-spacing: -.04em; word-break: keep-all; padding: 0 4px; }
+  .yt-sc-pc { font-size: 9px; }
+  .yt-sc-badge { font-size: 8.5px; padding: 1px 3px; }
+}
