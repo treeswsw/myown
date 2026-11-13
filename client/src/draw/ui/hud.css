@@ -1,5 +1,6 @@
 /* 갱식마인드 상단·문제 띠 (접두사 .dr-hud- 만). 시안 design/draw/index.html 의 문제 띠·정답 입력을 옮김. */
-.dr-hud {
+/* 색 변수는 조각(slots)에도 선언한다: index.js 가 bar·meter·answer 를 .dr-hud 밖 격자 칸으로 옮기므로 */
+.dr-hud, .dr-hud-title, .dr-hud-num, .dr-hud-bar, .dr-hud-meter, .dr-hud-answer {
   --dr-hud-ink: #fff;
   --dr-hud-ink2: rgba(255, 255, 255, .62);
   --dr-hud-panel: rgba(28, 28, 30, .62);
@@ -7,8 +8,8 @@
   --dr-hud-accent: #f2c444;
   --dr-hud-hot: #ff5a4d;
   --dr-hud-ok: #34c759;
-  display: contents;
 }
+.dr-hud { display: contents; }
 .dr-hud[hidden] { display: none; }
 /* 조각(slots)은 다른 격자 칸으로 옮겨질 수 있으므로 .dr-hud 밖에서도 숨김이 먹게 각 조각에 직접 건다 */
 .dr-hud [hidden],
