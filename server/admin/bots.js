@@ -82,6 +82,7 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         if (!user) {
           if (!(await hub.store.exists(msg.id))) return admErr('adm_noid');
           user = await hub.store.getOrCreate(msg.id);
+          if (!user) return admErr('adm_noid');
           hub.userEpoch?.set(user, hub.epoch);
           user = hub.sessions.get(msg.id)?.user ?? user; // logged in meanwhile
         }
@@ -167,8 +168,12 @@ function watchAdmin(admin, session) {
       if (v !== null && v !== undefined) return;
       // After the game code finished its own cleanup (it may still be walking its member list).
       queueMicrotask(() => {
-        for (const [r, entry] of [...admin.rooms]) {
-          if (entry.adminId === session.id && !r.members.some((m) => m.id === session.id)) admin.clearRoom(r);
+        try {
+          for (const [r, entry] of [...admin.rooms]) {
+            if (entry.adminId === session.id && !r.members.some((m) => m.id === session.id)) admin.clearRoom(r);
+          }
+        } catch (err) {
+          console.error('admin room cleanup failed:', err.stack);
         }
       });
     },
@@ -237,8 +242,12 @@ function createBot(hub, admin, room) {
       current = v;
       if (v !== null && v !== undefined) return;
       queueMicrotask(() => {
-        if (!bot.live || dead || !was || was.members.some((m) => m.id === id)) return;
-        bot.leave(true);
+        try {
+          if (!bot.live || dead || !was || was.members.some((m) => m.id === id)) return;
+          bot.leave(true);
+        } catch (err) {
+          console.error(`bot ${id} cleanup failed:`, err.stack);
+        }
       });
     },
   });

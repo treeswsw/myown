@@ -773,3 +773,27 @@ test('R2b: 중간 입장은 0점, 전적도 없음', () => {
   assert.equal(late.user.stats.liar.games, 0);
   assert.equal(x.room.view('u9').players.find((p) => p.id === 'u9').score, 0);
 });
+
+test('사진 바꾸기: 매체가 막힌 단계(unmask)의 새 사진은 풀릴 때까지 방에 안 나간다', () => {
+  const x = permRoom();
+  x.room.start('u0');
+  x.until('speak');
+  const g = x.room.game;
+  g.phase = 'unmask'; x.room.sync();
+  x.out.length = 0;
+  const prev = x.ss[0].user.avatar;
+  x.ss[0].user.avatar = 'NEWFACE';
+  x.room.faceChanged(x.ss[0], prev);
+  const faces = () => x.out.filter((o) => o.m.t === 'event' && o.m.e.k === 'faces').flatMap((o) => o.m.e.items);
+  assert.equal(faces().length, 0);
+  x.room.sendExtras(x.ss[1]);
+  assert.equal(faces().find((i) => i.id === 'u0').avatar, prev);
+  x.out.length = 0;
+  g.phase = 'discuss'; x.room.sync(); x.room.push();
+  assert.equal(faces().find((i) => i.id === 'u0').avatar, 'NEWFACE');
+  // 막히지 않은 단계에서는 바로
+  x.out.length = 0;
+  x.ss[0].user.avatar = 'AGAIN';
+  x.room.faceChanged(x.ss[0], 'NEWFACE');
+  assert.equal(faces()[0].avatar, 'AGAIN');
+});

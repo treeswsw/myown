@@ -304,3 +304,28 @@ test('liar scores reach the store when the hub closes (flush -> save)', async ()
   assert.equal((await store.getOrCreate('ann1', 'ann1')).stats.liar.score, 7);
   assert.deepEqual(store.topLiar(5), [{ name: 'ann1', score: 7, games: 2 }]);
 });
+
+test('mediaBlocked: sndRename is blocked like other media, sndDel is not', async () => {
+  const { hub } = setup();
+  const { cs, code } = await lobby(hub, 'liar', ['ann1', 'bob1']);
+  await cs[0].send({ t: 'sndAdd', sid: 'abc123', name: '박수', data: 'data:audio/webm;base64,AAAA' });
+  hub.rooms.get(code).mediaBlocked = (session, kind) => (kind === 'sndRename' ? '지금은 쓸 수 없습니다.' : null);
+  await cs[0].send({ t: 'sndRename', sid: 'abc123', name: '새이름' });
+  assert.equal(cs[0].sock.last('error').msg, '지금은 쓸 수 없습니다.');
+  assert.equal(events(cs[1], 'sndRename').length, 0);
+  await cs[0].send({ t: 'sndDel', sid: 'abc123' });
+  assert.equal(events(cs[1], 'sndDel').length, 1);
+});
+
+test('conn.close: a room that throws in setConnected does not escape the ws close handler', async () => {
+  const { hub } = setup();
+  const { cs, code } = await lobby(hub, 'liar', ['ann1', 'bob1']);
+  hub.rooms.get(code).setConnected = () => { throw new Error('boom'); };
+  const orig = console.error;
+  console.error = () => {};
+  try {
+    assert.doesNotThrow(() => cs[1].conn.close());
+  } finally {
+    console.error = orig;
+  }
+});

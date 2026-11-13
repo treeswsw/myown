@@ -27,7 +27,7 @@ export const DEFAULT_TIMING = {
   reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
 const MAX_PLAYERS = { holdem: 6, bluff: 4, liar: 8, yacht: 4, draw: 8, gsk: 6, mini: 8 };
-const MEDIA = new Set(['emote', 'pemote', 'snd', 'sndAdd']);
+const MEDIA = new Set(['emote', 'pemote', 'snd', 'sndAdd', 'sndRename']);
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
 export const REPLACED_CODE = 4001;
@@ -266,6 +266,7 @@ class Room {
     const epoch = hub.epoch;
     hub.store.getOrCreate(seat.id).then((row) => {
       if (epoch !== hub.epoch) return; // account wipe meanwhile
+      if (!row) return; // account is gone
       hub.userEpoch.set(row, epoch);
       const target = hub.sessions.get(seat.id)?.user ?? row;
       target.bank += delta;
@@ -665,8 +666,12 @@ function createConn(hub, sock) {
       const s = conn.session;
       if (!s || s.conn !== conn) return;
       s.conn = null;
-      if (s.room) s.room.setConnected(s.id, false);
-      else hub.sessions.delete(s.id);
+      try {
+        if (s.room) s.room.setConnected(s.id, false);
+        else hub.sessions.delete(s.id);
+      } catch (err) {
+        console.error('close failed:', err.stack); // runs from the ws 'close' event, outside any guard
+      }
     },
   };
   hub.conns.add(conn);
@@ -805,11 +810,12 @@ async function dispatch(hub, conn, msg) {
   }
   switch (msg.t) {
     case 'avatar':
+      const prevAvatar = session.user.avatar;
       session.user.avatar = msg.data;
       hub.persist(session.user);
       hub.sendMe(session);
       if (room) {
-        if (room.faceChanged) room.faceChanged(session);
+        if (room.faceChanged) room.faceChanged(session, prevAvatar);
         else room.push();
       }
       return null;

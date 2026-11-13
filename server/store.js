@@ -58,8 +58,12 @@ function createMemoryStore() {
       return ledger.filter((e) => e.uid === uid && e.kind === kind).slice(-n).reverse()
         .map((e) => ({ at: e.at.getTime(), delta: e.delta, chips: e.chips, note: structuredClone(e.note) }));
     },
+    // Without a name this only reads: returns null when the account does not exist (never creates a nameless row).
     async getOrCreate(id, name) {
-      if (!users.has(id)) users.set(id, newUser(id, name));
+      if (!users.has(id)) {
+        if (name === undefined) return null;
+        users.set(id, newUser(id, name));
+      }
       return normalizeUser(structuredClone(users.get(id)));
     },
     async save(user) {
@@ -177,7 +181,12 @@ function createPgStore(url) {
       );
       return rows.map((r) => ({ at: new Date(r.at).getTime(), delta: r.delta, chips: r.chips, note: r.note }));
     },
+    // Without a name this only reads: returns null when the account does not exist (a NULL name would break NOT NULL).
     async getOrCreate(id, name) {
+      if (name === undefined) {
+        const { rows } = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = $1`, [id]);
+        return rows[0] ? rowToUser(rows[0]) : null;
+      }
       const fresh = newUser(id, name);
       await pool.query(
         'INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (id) DO NOTHING',

@@ -69,6 +69,7 @@ class LiarRoom {
     this.round = 0;
     this.settings = DEFAULT_SETTINGS();
     this.chatLog = [];
+    this.heldFaces = new Map(); // id -> photo the room was shown before a change made while photos are blocked
     this.sounds = []; // [{sid, by, name, data}], oldest first; lives and dies with the room
     this.timers = { gc: null, game: null };
     this.game = null; // engine state; only ever leaves through viewFor
@@ -119,7 +120,7 @@ class LiarRoom {
     this.hub.send(session, { t: 'event', e: { k: 'chatLog', items: this.chatLog.map((x) => ({ ...x })) } });
     this.hub.send(session, {
       t: 'event',
-      e: { k: 'faces', items: this.members.map((m) => ({ id: m.id, avatar: m.session.user.avatar })) },
+      e: { k: 'faces', items: this.members.map((m) => ({ id: m.id, avatar: this.faceOf(m) })) },
     });
     if (this.sounds.length) {
       this.hub.send(session, { t: 'event', e: { k: 'sndList', items: this.sounds.map((x) => ({ ...x })) } });
@@ -127,7 +128,7 @@ class LiarRoom {
   }
 
   sendFaces(ids, filter = () => true) {
-    const items = ids.map((id) => ({ id, avatar: this.member(id)?.session.user.avatar ?? null }));
+    const items = ids.map((id) => ({ id, avatar: this.faceOf(this.member(id)) }));
     for (const m of this.members) {
       if (filter(m)) this.hub.send(m.session, { t: 'event', e: { k: 'faces', items } });
     }
@@ -486,9 +487,31 @@ class LiarRoom {
   }
 
   // The avatar changed: everyone gets that one face again.
-  faceChanged(session) {
+  // Photo shown to the room: a change made while photo media is blocked is held back until the block lifts.
+  faceOf(m) {
+    if (!m) return null;
+    return (this.heldFaces.has(m.id) ? this.heldFaces.get(m.id) : m.session.user.avatar) ?? null;
+  }
+
+  faceChanged(session, prev) {
     if (!this.member(session.id)) return;
+    if (this.mediaBlocked(session, 'pemote')) {
+      if (!this.heldFaces.has(session.id)) this.heldFaces.set(session.id, prev ?? null);
+      return;
+    }
+    this.heldFaces.delete(session.id);
     this.sendFaces([session.id]);
+  }
+
+  releaseFaces() {
+    if (!this.heldFaces.size) return;
+    const ids = [];
+    for (const id of [...this.heldFaces.keys()]) {
+      const m = this.member(id);
+      if (!m) this.heldFaces.delete(id);
+      else if (!this.mediaBlocked(m.session, 'pemote')) { this.heldFaces.delete(id); ids.push(id); }
+    }
+    if (ids.length) this.sendFaces(ids);
   }
 
   // Adds the room's score to everyone's total (safe to call twice).
@@ -508,6 +531,7 @@ class LiarRoom {
     this.hub.roomsChanged();
     this.sendEvents(events);
     for (const m of this.members) this.hub.send(m.session, { t: 'room', state: this.view(m.id) });
+    this.releaseFaces();
   }
 
   // GDD 9-3. No photos here (they travel as 'faces' events). Key order is the same for everyone.
