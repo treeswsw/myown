@@ -1,0 +1,45 @@
+/* 갱스껄 임시 화면 (.gk-tmp-). 진짜 화면으로 교체될 때 함께 버린다. */
+.gk-tmp-root {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column; gap: 6px; padding: 8px 12px;
+  background-size: cover; background-position: center; color: #fff;
+  pointer-events: auto; overflow: hidden; box-sizing: border-box;
+  font-family: system-ui, sans-serif;
+}
+.gk-tmp-root[hidden] { display: none; }
+.gk-tmp-top { display: flex; justify-content: space-between; align-items: center; }
+.gk-tmp-code { background: rgba(0,0,0,.55); padding: 2px 8px; border-radius: 8px; font-size: 13px; }
+.gk-tmp-seats { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; flex: 1 1 auto; min-height: 0; overflow: auto; }
+.gk-tmp-seat { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px; border-radius: 8px; max-width: 170px; }
+.gk-tmp-seat.gk-tmp-turn { outline: 3px solid #ffd54a; }
+.gk-tmp-seat.gk-tmp-out { opacity: .45; }
+.gk-tmp-seat.gk-tmp-me { background: rgba(255,255,255,.12); }
+.gk-tmp-mat { position: relative; width: 150px; height: 100px; background-size: contain; background-repeat: no-repeat; background-position: center; display: flex; flex-direction: column; align-items: center; }
+.gk-tmp-name { margin-top: 2px; font-size: 13px; font-weight: 700; text-shadow: 0 1px 3px #000; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gk-tmp-stack { display: flex; margin-top: 4px; }
+.gk-tmp-stack .gk-tmp-disc { width: 30px; height: 30px; margin-left: -8px; }
+.gk-tmp-stack .gk-tmp-disc:first-child { margin-left: 0; }
+.gk-tmp-info { font-size: 12px; background: rgba(0,0,0,.55); padding: 1px 6px; border-radius: 6px; }
+.gk-tmp-center { text-align: center; font-size: 17px; font-weight: 700; background: rgba(0,0,0,.6); padding: 6px 10px; border-radius: 10px; align-self: center; }
+.gk-tmp-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.gk-tmp-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 5px; }
+.gk-tmp-label { font-size: 12px; opacity: .85; text-shadow: 0 1px 2px #000; }
+.gk-tmp-btn { pointer-events: auto; cursor: pointer; border: 0; border-radius: 8px; padding: 6px 12px; font-size: 14px; font-weight: 700; background: #f4e3b0; color: #2b1d0a; min-height: 32px; }
+.gk-tmp-btn:active { transform: translateY(1px); }
+.gk-tmp-num { min-width: 34px; padding: 6px 8px; }
+.gk-tmp-pick { padding: 2px; }
+.gk-tmp-pick .gk-tmp-disc { width: 34px; height: 34px; }
+.gk-tmp-leave { background: rgba(0,0,0,.6); color: #fff; padding: 3px 10px; min-height: 26px; }
+.gk-tmp-disc { width: 34px; height: 34px; display: block; user-select: none; }
+.gk-tmp-hand { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 52px; }
+.gk-tmp-hand .gk-tmp-hand-disc { width: 48px; height: 48px; }
+.gk-tmp-result { align-self: center; background: rgba(0,0,0,.75); padding: 10px 18px; border-radius: 12px; }
+.gk-tmp-result-title { font-size: 20px; font-weight: 800; text-align: center; margin-bottom: 6px; }
+.gk-tmp-result ol { margin: 0; padding-left: 24px; font-size: 14px; }
+@media (max-height: 500px) {
+  .gk-tmp-mat { width: 110px; height: 74px; }
+  .gk-tmp-stack .gk-tmp-disc { width: 22px; height: 22px; }
+  .gk-tmp-hand .gk-tmp-hand-disc { width: 34px; height: 34px; }
+  .gk-tmp-center { font-size: 14px; padding: 3px 8px; }
+  .gk-tmp-seat { max-width: 120px; }
+}
