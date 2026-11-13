@@ -1,4 +1,4 @@
-// GDD 8절 13-3: 라이어 쪽 세 가지 (가) 라이어 처형+정답 (나) 시민 처형 (다) 동점 두 번
+// GDD 8절 13-3: 라이어 쪽 세 가지 (가) 라이어 처형+정답 (나) 시민 처형 (다) 동점 두 번 → 연장 투표
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -75,7 +75,7 @@ describe('13-3 라이어 쪽 세 가지', { concurrency: true }, () => {
     assert.deepEqual(res.delta, { [liar.id]: 3, [c1.id]: 0, [c2.id]: -1, [c3.id]: -1 });
   });
 
-  it('(다) 동점 → 동점자만 재투표 → 또 동점: 처형 없이 라이어 공개 → 정답 입력, 시민 0', async (t) => {
+  it('(다) 동점 → 동점자만 재투표 → 또 동점: 판은 끝나지 않고 연장 투표 → 라이어 처형으로 끝', async (t) => {
     const { r, liar, word } = await begin(6, t);
     const [p1, p2, p3, p4, p5, p6] = r.cs.map((c) => c.id);
     await speakAll(r);
@@ -84,33 +84,32 @@ describe('13-3 라이어 쪽 세 가지', { concurrency: true }, () => {
     await waitPhase(r, 'revote');
     assert.deepEqual([...r.host.state.candidates].sort(), [p1, p2].sort());
     await voteMap(r, { [p1]: p2, [p2]: p1, [p3]: p1, [p4]: p2, [p5]: p1, [p6]: p2 });
-    await until(() => r.cs.every((c) => c.state.phase === 'unmask'), 'unmask', { clients: r.cs });
-    assert.equal(r.host.state.unmask.id, null);
-    assert.equal(r.host.state.unmask.wasLiar, null);
-    assert.equal(r.host.state.unmask.liarId, liar.id);
+    await until(() => r.cs.every((c) => c.state.phase === 'discuss' && c.state.extendNo === 1), 'extended vote', { clients: r.cs });
+    assert.equal(r.host.state.result, null);
+    assert.equal(r.host.state.unmask, null);
     assert.equal(r.host.state.accused, null);
+    await accuse(r, liar.id);
+    await judgeMap(r, Object.fromEntries(r.cs.filter((c) => c !== liar).map((c) => [c.id, 'yes'])));
     await guessNow(r, liar, spaced(word));
     const res = r.host.state.result;
-    assert.equal(res.reason, 'tie');
-    assert.equal(res.caught, false);
+    assert.equal(res.reason, 'executedLiar');
+    assert.equal(res.caught, true);
     assert.equal(res.guessed, true);
-    assert.equal(res.winner, 'liar');
-    for (const c of r.cs) assert.equal(res.delta[c.id], c === liar ? 3 : 0);
+    assert.equal(res.voteLog.length, 2);
+    assert.equal(res.voteLog[0].accused, null);
   });
 
-  it('(다) 동점 두 번 + 오답이면 라이어 +1', async (t) => {
-    const { r, liar } = await begin(4, t);
+  it('(라) 동점 두 번 → 연장 투표 중에도 방장 "이 판 끝내기"는 된다', async (t) => {
+    const { r } = await begin(4, t);
     const [p1, p2, p3, p4] = r.cs.map((c) => c.id);
     await speakAll(r);
     await waitPhase(r, 'discuss', 1);
     await voteMap(r, { [p1]: p2, [p2]: p1, [p3]: p4, [p4]: p3 });
     await waitPhase(r, 'revote');
-    assert.equal(r.host.state.candidates.length, 4);
     await voteMap(r, { [p1]: p2, [p2]: p1, [p3]: p4, [p4]: p3 });
-    await until(() => r.cs.every((c) => c.state.phase === 'unmask'), 'unmask', { clients: r.cs });
-    await guessNow(r, liar, '아무거나');
-    const res = r.host.state.result;
-    assert.equal(res.reason, 'tie');
-    for (const c of r.cs) assert.equal(res.delta[c.id], c === liar ? 1 : 0);
+    await until(() => r.cs.every((c) => c.state.phase === 'discuss' && c.state.extendNo === 1), 'extended vote', { clients: r.cs });
+    r.host.lg('end');
+    await until(() => r.cs.every((x) => x.state.phase === 'lobby'), 'back to lobby', { clients: r.cs });
+    assert.equal(r.host.state.result, null);
   });
 });

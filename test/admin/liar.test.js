@@ -109,12 +109,16 @@ test('skip ends the pending phase now; nothing to skip in the lobby or the resul
   r = await env.adm('skip'); // current speaker's turn ends at once
   assert.equal(r.ok, true);
   assert.notEqual(env.state.speaker, first);
-  // keep skipping until the round ends; the room must stay consistent and finish
-  for (let i = 0; i < 60 && env.state.phase !== 'result'; i++) {
+  // keep skipping: a round whose votes fail no longer ends by itself (extended vote), so the host ends it
+  for (let i = 0; i < 60 && env.state.phase !== 'result' && !(env.state.extendNo >= 1); i++) {
     r = await env.adm('skip');
     assert.equal(r.ok, true);
   }
-  assert.equal(env.state.phase, 'result');
+  if (env.state.phase !== 'result') {
+    assert.ok(env.state.extendNo >= 1, 'a failed vote extends the game');
+    await env.admin.send({ t: 'lg', a: 'end' });
+  }
+  assert.equal(env.state.phase, 'lobby');
   r = await env.adm('skip');
   assert.equal(r.ok, false);
   env.close();

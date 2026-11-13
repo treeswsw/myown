@@ -197,7 +197,7 @@ export function createResult(ctx) {
         const box = h('div', 'lg-rs-entry');
         const head = h('div', 'lg-rs-ehead');
         head.append(h('b', null, `${e.no}번째 지목 `));
-        if (e.accused != null) head.append(nameSpan(e.accused)); else head.append(h('span', 'lg-rs-dim', '지목 실패'));
+        if (e.accused != null) head.append(nameSpan(e.accused)); else head.append(h('span', 'lg-rs-dim', '투표 무산(연장)'));
         if (e.executed === true) head.append(h('span', 'lg-rs-no', ' 처형'));
         else if (e.executed === false) head.append(h('span', 'lg-rs-ok', ' 살림'));
         box.append(head);

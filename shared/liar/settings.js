@@ -2,7 +2,7 @@
 // 값은 서버가 주는 wait.set (= 방 설정 사본, 비밀 없음). 보낼 때는 {t:'set', patch}, 키의 점은 중첩(times.speak -> {times:{speak:30}}).
 // topics 는 '고른 이름 배열' 로 보낸다(서버 어댑터가 [{name,on}] 로 바꾼다. 옛 [{name,on}] 모양도 받는다).
 // node 전용·DOM 모듈을 쓰지 않는다(서버·화면·시험이 같이 읽는다).
-import { TIME_CHOICES, GOAL_CHOICES } from './constants.js';
+import { TIME_CHOICES, GOAL_CHOICES, SPEAK_ROUND_CHOICES } from './constants.js';
 
 // 45 -> '45초', 120 -> '2분', 90 -> '1분 30초'
 export function timeLabel(sec) {
@@ -32,6 +32,7 @@ export const SETTINGS = [
     when: (set) => set?.topicMode === 'host',
     opts: (set) => topicNames(set),
   },
+  { k: 'speakRounds', label: '첫 설명 바퀴', group: '규칙', type: 'seg', opts: SPEAK_ROUND_CHOICES.map((v) => [v, `${v}바퀴`]) },
   ...Object.entries(TIME_NAMES).map(([key, label]) => ({
     k: `times.${key}`, label, group: '시간', type: 'seg', opts: TIME_CHOICES[key].map((v) => [v, timeLabel(v)]),
   })),

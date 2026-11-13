@@ -153,11 +153,23 @@ const lastErr = (c, since = 0) => errKey(c.sock.msgs.slice(since).filter((m) => 
 
 // 라이어: 가짜 시계를 단계 끝 시각까지 보내며 원하는 단계가 될 때까지 걷는다.
 async function liarWalkTo(r, phase) {
-  for (let i = 0; i < 30; i++) {
+  let voted = false;
+  for (let i = 0; i < 80; i++) {
     const st = r.cs[0].state;
     if (st.phase === phase) return;
     assert.notEqual(st.phase, 'result', `라이어 판이 ${phase} 를 거치지 않고 끝남`);
-    r.clock.advance(Math.max(1, st.phaseEndsAt - r.clock.now() + 1));
+    // 투표가 무산돼도 판이 끝나지 않으므로(연장 투표), 뒤 단계로 가려면 cs[0] 을 처형한다
+    if (st.phase === 'discuss' && !voted && !['reveal', 'speak', 'discuss'].includes(phase)) {
+      voted = true;
+      for (const c of r.cs) await c.send({ t: 'lg', a: 'vote', target: c === r.cs[0] ? r.cs[1].id : r.cs[0].id });
+      await drain();
+    }
+    if (st.phase === 'judge' && voted) {
+      voted = false;
+      for (const c of r.cs) if (c.id !== st.accused) await c.send({ t: 'lg', a: 'judge', v: 'yes' });
+    }
+    // 표를 던진 뒤에는 짧게 끊어 걷는다(한 번에 건너뛰면 변론·찬반이 한꺼번에 지나가 살림이 된다)
+    r.clock.advance(Math.max(1, Math.min(st.phaseEndsAt - r.clock.now() + 1, voted ? 2000 : Infinity)));
     await drain();
   }
   assert.fail(`라이어 ${phase} 단계에 도달하지 못함`);

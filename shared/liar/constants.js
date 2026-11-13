@@ -49,6 +49,10 @@ export const FIXED_TIMES = Object.freeze({
 // 첫 설명을 쓴 뒤 다음 차례로 넘어가기 전에 그 사람과 글을 보여 주는 시간(초). 사용자 요청 (GDD 4-1)
 export const SPEAK_HOLD = 3;
 
+// 첫 설명을 몇 바퀴 돌지 (1~3, 기본 1). 사용자 결정 2026-11-13
+export const SPEAK_ROUND_CHOICES = Object.freeze([1, 2, 3]);
+export const DEFAULT_SPEAK_ROUNDS = 1;
+
 // 글자 수 제한 (GDD 9-1)
 export const LIMITS = Object.freeze({ say: 80, chat: 80, guess: 30 });
 
