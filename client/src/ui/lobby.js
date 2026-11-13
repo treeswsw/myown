@@ -13,7 +13,7 @@ const SHOW_DRAW = false;
 // onRank() -> ask the server for the liar ranking, then call showRank.
 // onResetConfirm(adminPw) is called when the user confirms 전체 초기화 (adminPw: string|undefined).
 // onLogin(id, avatar, adminPw, {pin, newPin}) - 4th arg fields are undefined when empty.
-// onCoin('swap'|'draw'|'shop'|'rank'|'pin'): coin buttons in the profile (shown only when user.wallet exists).
+// onCoin('shop'|'draw'|'cap'|'look'|'swap'|'rank'|'pin'): coin buttons in the profile (shown only when user.wallet exists).
 // askPin(msg) shows the PIN field (server pin_need); loginError(code,msg) shows pin_bad/pin_lock/pin_exists/pin_fmt/adm_*;
 // resetError(msg) shows an error inside the reset confirm sheet (adm_pw/adm_lock).
 //    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
@@ -219,7 +219,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   titleBadge.hidden = true;
   const walletRow = h('div', 'lb-sub lb-coins');
   const coinBtns = h('div', 'lb-coin-btns');
-  for (const [a, label] of [['swap', '교환'], ['draw', '뽑기'], ['shop', '상점'], ['rank', '코인 랭킹']]) {
+  for (const [a, label] of [['shop', '상점'], ['draw', '뽑기'], ['cap', '캡슐'], ['look', '꾸미기'], ['swap', '교환'], ['rank', '코인 랭킹']]) {
     const b = button(label, 'lb-tint lb-coin-btn', () => onCoin?.(a));
     if (a === 'draw' && !SHOW_DRAW) b.hidden = true;
     coinBtns.append(b);
