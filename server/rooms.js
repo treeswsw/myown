@@ -5,9 +5,14 @@ import * as bluff from '../shared/bluff.js';
 import { createLiarRoom } from './liar/room.js';
 import { createYachtRoom } from './yacht/room.js';
 import { createDrawRoom } from './draw/room.js';
+import { createGskRoom } from './gsk/room.js';
 import { createMiniRoom } from './mini/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 import { createAdmin, ADMIN_ID } from './admin/bots.js';
+import { installWallet, walletOf } from './coin/wallet.js';
+import { POOL_START } from '../shared/coin/gacha.js';
+import { installPin, pinErr } from './coin/pin.js';
+import { hookRoom } from './coin/hooks.js';
 
 export const DEFAULT_TIMING = {
   grace: 60_000, // a disconnected player is auto-played (if on turn) and removed after this
@@ -21,7 +26,7 @@ export const DEFAULT_TIMING = {
   roomList: 500, // open-room list broadcasts are coalesced to one per this interval
   reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
-const MAX_PLAYERS = { holdem: 6, bluff: 4, liar: 8, yacht: 4, draw: 8, mini: 8 };
+const MAX_PLAYERS = { holdem: 6, bluff: 4, liar: 8, yacht: 4, draw: 8, gsk: 6, mini: 8 };
 const MEDIA = new Set(['emote', 'pemote', 'snd', 'sndAdd']);
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
@@ -152,7 +157,7 @@ class Room {
       // A leaver folds: committed chips stay in the pot, the rest goes home now. Only an
       // uncalled-bet refund can still arrive later (see settleSeat).
       const seat = this.hand.st.seats.find((x) => x.id === id);
-      this.settleSeat(seat, m.session.user);
+      this.settleLive(seat);
       seat.stack = 0;
       this.hand.start.set(id, 0);
     }
@@ -243,19 +248,43 @@ class Room {
     this.hub.persist(user);
   }
 
+  // Only the chip difference is applied, and always to the account that is live now (the object
+  // captured at hand start may be stale after a re-login). Nobody logged in: the stored row gets
+  // the difference (re-checking for a login meanwhile), never a saved stale copy.
+  settleLive(seat, stats) {
+    const live = this.hub.sessions.get(seat.id)?.user;
+    if (live) {
+      this.settleSeat(seat, live);
+      if (stats) stats(live);
+      this.hub.persist(live);
+      return;
+    }
+    const delta = seat.stack - this.hand.start.get(seat.id);
+    this.hand.start.set(seat.id, seat.stack);
+    if (delta === 0) return;
+    const hub = this.hub;
+    const epoch = hub.epoch;
+    hub.store.getOrCreate(seat.id).then((row) => {
+      if (epoch !== hub.epoch) return; // account wipe meanwhile
+      hub.userEpoch.set(row, epoch);
+      const target = hub.sessions.get(seat.id)?.user ?? row;
+      target.bank += delta;
+      hub.persist(target);
+    }).catch((e) => console.error('settle failed', e));
+  }
+
   endHand(events) {
-    const { st, users } = this.hand;
+    const { st } = this.hand;
     const res = st.result;
     for (const seat of st.seats) {
-      const user = users.get(seat.id);
-      this.settleSeat(seat, user);
-      user.stats.hands++;
       const w = res.winners.find((x) => x.id === seat.id);
-      if (w) {
-        user.stats.wins++;
-        user.stats.biggestWin = Math.max(user.stats.biggestWin, w.amount);
-      }
-      this.hub.persist(user);
+      this.settleLive(seat, (user) => {
+        user.stats.hands++;
+        if (w) {
+          user.stats.wins++;
+          user.stats.biggestWin = Math.max(user.stats.biggestWin, w.amount);
+        }
+      });
       const session = this.hub.sessions.get(seat.id);
       if (session) this.hub.sendMe(session);
     }
@@ -316,13 +345,18 @@ class Room {
     if (g.phase === 'reveal') {
       this.setTimer('next', this.hub.timing.reveal, () => this.afterBluff(bluff.nextRound(g).events));
     } else if (g.phase === 'done') {
-      for (const [id, user] of users) {
+      const rows = [];
+      for (const id of users.keys()) {
+        const session = this.hub.sessions.get(id);
+        const user = session?.user; // always the live account (the one captured at start may be stale)
+        if (this.members.some((m) => m.id === id)) rows.push({ id, won: id === g.winner, opp: users.size - 1 });
+        if (!user) continue;
         user.stats.bluffGames++;
         if (id === g.winner) user.stats.bluffWins++;
         this.hub.persist(user);
-        const session = this.hub.sessions.get(id);
-        if (session) this.hub.sendMe(session);
+        this.hub.sendMe(session);
       }
+      if (rows.length >= 2) this.hub.award(this, 'bluff', rows); // a lone survivor of leavers gets nothing
       this.phase = 'result';
       this.setTimer('next', this.hub.timing.bluffResult, () => this.toLobby());
     }
@@ -457,7 +491,7 @@ class Room {
 }
 
 export function createHub({
-  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', mini = 'off', adminKey,
+  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', gsk = 'off', mini = 'off', adminKey, coinSeed = 0,
 }) {
   const hub = {
     store, rng, now, timers, timing: { ...DEFAULT_TIMING, ...timing },
@@ -471,15 +505,18 @@ export function createHub({
       }
     },
     roomsTimer: null,
+    coinSeed,
     liar, // 'off' | 'test' | 'on'
     yacht, // 'off' | 'test' | 'on'
     draw, // 'off' | 'test' | 'on'
+    gsk, // 'off' | 'test' | 'on'
     mini, // 'off' | 'test' | 'on'
     pendingSaves: new Set(),
     epoch: 0, // bumped by a reset: user objects from an older epoch are never saved again
     userEpoch: new WeakMap(),
     conns: new Set(),
     resetting: false,
+    pinPending: new Set(), // new ids whose first password is being hashed
     lastResetAt: null,
     roomsSig: '[]',
     sessions: new Map(), // id -> { id, user, conn, room }
@@ -489,7 +526,7 @@ export function createHub({
     },
     sendMe(...sessions) {
       // admin: true only for the admin session; nobody else gets the field.
-      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, mini: hub.mini, ...(s.admin ? { admin: true } : {}) });
+      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, gsk: hub.gsk, mini: hub.mini, wallet: walletOf(s.user, hub), ...(s.admin ? { admin: true } : {}) });
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
@@ -530,6 +567,7 @@ export function createHub({
       hub.rooms.clear();
       hub.roomsSig = '[]';
       hub.sessions.clear();
+      hub.pinAuth.reset();
       hub.conns.forEach((c) => { if (c.session?.bot) hub.conns.delete(c); });
       for (const c of hub.conns) c.session = null;
       try {
@@ -537,6 +575,7 @@ export function createHub({
       } finally {
         hub.resetting = false;
       }
+      hub.pool = POOL_START;
       hub.lastResetAt = hub.now();
       hub.epoch++;
       for (const c of hub.conns) c.send({ t: 'resetDone' });
@@ -563,6 +602,8 @@ export function createHub({
     },
   };
   hub.admin = createAdmin(hub, adminKey ?? '9975');
+  installWallet(hub);
+  installPin(hub);
   return hub;
 }
 
@@ -603,7 +644,7 @@ function createConn(hub, sock) {
       // Only drawing ops (DR_DRAW_OPS) ride the high limit; other dr requests (settings, kick, pick, ...) also count against the normal one.
       if (isDr && parsed.ok && (parsed.msg.t !== 'dr' || !DR_DRAW_OPS.has(parsed.msg.a)) && ++conn.count > RATE_LIMIT) return Promise.resolve();
       if (!parsed.ok) {
-        conn.send({ t: 'error', msg: parsed.error });
+        conn.send({ t: 'error', msg: parsed.error, ...(parsed.code ? { code: parsed.code } : {}) });
         return Promise.resolve();
       }
       conn.queue = conn.queue
@@ -652,15 +693,55 @@ async function login(hub, conn, msg) {
     return null;
   }
   let session = hub.sessions.get(msg.key);
+  let user = session?.user;
+  let fresh = false;
+  const epoch = hub.epoch;
+  let pending = false;
   if (!session) {
     if (hub.resetting) return RESET_BUSY_MSG;
-    const epoch = hub.epoch;
-    const user = await hub.store.getOrCreate(msg.key, msg.name);
-    if (epoch !== hub.epoch) return RESET_BUSY_MSG; // a wipe happened while loading: the user is stale
-    hub.userEpoch.set(user, epoch);
-    session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [], editTimes: [], lastSent: {} };
+    if (hub.pinPending.has(msg.key)) return pinErr('pin_need'); // a password is being set on this new id right now
+    if (msg.newPin !== undefined) {
+      pending = true;
+      hub.pinPending.add(msg.key);
+    }
+  }
+  let gate;
+  try {
+    if (!session) {
+      const existed = hub.coinSeed > 0 || msg.newPin !== undefined ? await hub.store.exists(msg.key) : true;
+      user = await hub.store.getOrCreate(msg.key, msg.name);
+      fresh = !existed;
+      if (fresh && !user.coins) user.coins = hub.coinSeed; // tests only (hubOptions.coinSeed)
+      if (epoch !== hub.epoch) return RESET_BUSY_MSG; // a wipe happened while loading: the user is stale
+      hub.userEpoch.set(user, epoch);
+      session = hub.sessions.get(msg.key);
+      if (session) {
+        user = session.user; // another login got there first
+        fresh = false;
+      }
+    }
+    // Password gate (SPEC 22-8): nothing is sent and no old connection is touched before this passes.
+    for (let tries = 0; ; tries++) {
+      gate = await hub.pinAuth.gate(user, msg.key, msg, fresh);
+      if (epoch !== hub.epoch || hub.resetting) return RESET_BUSY_MSG; // a wipe happened while we waited
+      if (gate.err) return gate.err;
+      const cur = hub.sessions.get(msg.key);
+      if (!cur || cur.user === user) break;
+      // another login created the session meanwhile: what we checked is stale, check against the live account
+      if (tries >= 2) return pinErr('pin_need');
+      user = cur.user;
+      fresh = false;
+    }
+  } finally {
+    if (pending) hub.pinPending.delete(msg.key);
+  }
+  session = hub.sessions.get(msg.key);
+  if (!session) {
+    if (hub.resetting) return RESET_BUSY_MSG;
+    session = { id: msg.key, user, conn: null, room: null, chatTimes: [], editTimes: [], lastSent: {} };
     hub.sessions.set(msg.key, session);
   }
+  if (gate.changed) hub.persist(session.user);
   if (msg.key === ADMIN_ID) session.admin = true;
   const old = session.conn;
   if (old && old !== conn) {
@@ -670,7 +751,9 @@ async function login(hub, conn, msg) {
   }
   session.conn = conn;
   conn.session = session;
+  conn.tokHash = gate.hash ?? null;
   hub.sendMe(session);
+  if (gate.tok) hub.send(session, { t: 'pin', a: 'ok', has: true, tok: gate.tok });
   if (session.room) session.room.setConnected(session.id, true);
   hub.send(session, { t: 'room', state: session.room ? session.room.view(session.id) : null });
   session.room?.sendExtras(session);
@@ -693,6 +776,8 @@ async function dispatch(hub, conn, msg) {
     if (conn.session) return '로그인 상태에서는 초기화할 수 없습니다.';
     if (conn.resetAskedAt === null || hub.now() - conn.resetAskedAt > RESET_WINDOW) return '초기화 확인이 필요합니다.';
     if (resetCooling(hub) || hub.resetting) return RESET_COOLDOWN_MSG;
+    const denied = hub.admin.checkLogin(msg.pw); // same lockout as the admin login (SPEC 22-9)
+    if (denied) return denied;
     conn.resetAskedAt = null;
     await hub.reset();
     return null;
@@ -702,6 +787,8 @@ async function dispatch(hub, conn, msg) {
   const room = session.room;
   // A draw room has its own {t:'dr'} requests: the other games' requests (even the overall liar ranking) are refused first.
   if (room?.mode === 'draw' && ['mode', 'act', 'play', 'liar', 'lg'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'dr_now' };
+  // A gsk room has its own {t:'gk'} requests too.
+  if (room?.mode === 'gsk' && ['mode', 'act', 'play', 'liar', 'lg', 'yt', 'dr', 'mn'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'gk_now' };
   // Overall liar ranking: answered by the hub itself, in the lobby or in a room (never passed to the room).
   if (msg.t === 'lg' && msg.a === 'rank') {
     if (hub.liar === 'off') return '라이어게임은 아직 열리지 않았습니다.';
@@ -730,20 +817,29 @@ async function dispatch(hub, conn, msg) {
       if (msg.mode === 'liar') {
         if (hub.liar === 'off') return '라이어게임은 아직 열리지 않았습니다.';
         const lr = createLiarRoom(hub, newCode(hub));
+        hookRoom(hub, lr);
         hub.rooms.set(lr.code, lr);
         return lr.join(session);
       }
       if (msg.mode === 'yacht') {
         if (hub.yacht === 'off') return '요트다이스는 아직 열리지 않았습니다.';
         const yr = createYachtRoom(hub, newCode(hub));
+        hookRoom(hub, yr);
         hub.rooms.set(yr.code, yr);
         return yr.join(session);
       }
       if (msg.mode === 'draw') {
         if (hub.draw === 'off') return { msg: '갱식마인드는 아직 열리지 않았습니다.', code: 'dr_off' };
         const dr = createDrawRoom(hub, newCode(hub));
+        hookRoom(hub, dr);
         hub.rooms.set(dr.code, dr);
         return dr.join(session);
+      }
+      if (msg.mode === 'gsk') {
+        if (hub.gsk === 'off') return { msg: '갱스껄은 지금 열려 있지 않습니다.', code: 'gk_off' };
+        const gr = createGskRoom(hub, newCode(hub));
+        hub.rooms.set(gr.code, gr);
+        return gr.join(session);
       }
       if (msg.mode === 'mini') {
         if (hub.mini === 'off') return { msg: '미니게임은 아직 열리지 않았습니다.', code: 'mn_off' };
@@ -762,6 +858,8 @@ async function dispatch(hub, conn, msg) {
       return hub.admin.refuseHuman(r, session) ?? r.join(session);
     }
     case 'adm': return hub.admin.handle(session, room, msg);
+    case 'coin': return hub.coin(session, msg);
+    case 'pin': return hub.pinAuth.handle(session, conn, msg);
     default:
   }
   if (!room) return '방에 들어가 있지 않습니다.';
@@ -774,6 +872,7 @@ async function dispatch(hub, conn, msg) {
     case 'leave': room.leave(session.id); return null;
     case 'lg': return room.lg ? room.lg(session, msg) : '알 수 없는 요청입니다.';
     case 'yt': return room.yt ? room.yt(session, msg) : '알 수 없는 요청입니다.';
+    case 'gk': return room.mode === 'gsk' ? room.gk(session, msg) : '알 수 없는 요청입니다.';
     case 'mn': return room.mode === 'mini' ? room.request(session, msg) : { msg: '알 수 없는 요청입니다.', code: 'mn_bad' };
     case 'dr': return room.mode === 'draw' ? room.dr(session, msg) : '알 수 없는 요청입니다.';
     case 'start': return room.start(session.id);
@@ -786,6 +885,7 @@ async function dispatch(hub, conn, msg) {
       if (msg.t === 'mode') {
         if (msg.mode === 'yacht') return '요트다이스는 방을 새로 만들어 주세요.';
         if (msg.mode === 'draw' || msg.mode === 'mini') return '방을 새로 만들어 주세요.';
+        if (msg.mode === 'gsk') return '갱스껄은 방을 새로 만들어 주세요.';
         return msg.mode === 'liar' ? '라이어게임은 방을 새로 만들어 주세요.' : room.setMode(session.id, msg.mode);
       }
       if (msg.t === 'act') return room.act(session.id, msg.a, msg.amount);

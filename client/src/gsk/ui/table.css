@@ -1,0 +1,118 @@
+/* 갱스껄 탁자 (.gk-tb-). 값은 design/gsk/canvas/Main·Flip·Phone 시안에서 그대로 옮겼다.
+   좌표는 시안 크기 기준(PC 1280x720 / 휴대폰 844x390)이고 부모 상자(.gk-stage)가 통째로 scale 된다.
+   휴대폰 가로(높이 500 미만)는 table.js 가 .gk-tb-sm 을 붙인다. */
+.gk-tb {
+  --bw: 128px; --bh: 117px; --ds: 80px; --th: 5px; --bs: 28px;
+  position: absolute; inset: 0; pointer-events: none;
+  font-family: 'IBM Plex Sans KR', sans-serif; color: #efe6d2;
+}
+.gk-tb[hidden] { display: none; }
+.gk-tb *, .gk-tb *::before, .gk-tb *::after { box-sizing: border-box; }
+.gk-tb.gk-tb-sm { --bw: 74px; --bh: 68px; --ds: 46px; --th: 3px; --bs: 22px; }
+.gk-tb-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+
+.gk-tb-seat { position: absolute; width: var(--bw); height: var(--bh); margin: calc(var(--bh) / -2) 0 0 calc(var(--bw) / -2); transition: left .5s, top .5s, transform .5s; }
+.gk-tb-seat.gk-tb-out { opacity: .4; }
+.gk-tb-seat.gk-tb-nocolor .gk-tb-board { filter: grayscale(.85) drop-shadow(0 6px 8px rgba(0, 0, 0, .55)); }
+.gk-tb-board { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .55)); user-select: none; }
+.gk-tb-pile { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.gk-tb-dk { position: absolute; width: var(--ds); height: var(--ds); margin: calc(var(--ds) / -2) 0 0 calc(var(--ds) / -2); }
+.gk-tb-dk::before { content: ""; position: absolute; left: 0; top: var(--th); width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(#523a27 50%, #2a1c12); box-shadow: inset 0 -1.5px 0 rgba(236, 210, 150, .85), 0 2px 3px rgba(0, 0, 0, .7); }
+.gk-tb-dk img { position: relative; display: block; width: 100%; height: 100%; user-select: none; }
+.gk-tb-hi { position: absolute; width: var(--ds); height: var(--ds); margin: calc(var(--ds) / -2) 0 0 calc(var(--ds) / -2); border-radius: 50%; background: radial-gradient(circle at 34% 24%, rgba(255, 250, 235, .3), rgba(255, 250, 235, 0) 56%); box-shadow: inset 0 0 0 1.5px rgba(243, 234, 215, .55), 0 0 10px rgba(236, 210, 150, .3); pointer-events: none; }
+.gk-tb-pilebox { position: absolute; width: var(--ds); height: var(--ds); margin: calc(var(--ds) / -2) 0 0 calc(var(--ds) / -2); pointer-events: none; visibility: hidden; }
+.gk-tb-n { position: absolute; width: var(--bs); height: var(--bs); display: flex; align-items: center; justify-content: center; font: 600 15px/1 'Cormorant Garamond', serif; font-variant-numeric: lining-nums; color: #f3ead7; pointer-events: none; }
+.gk-tb-sm .gk-tb-n { font-size: 12px; }
+.gk-tb-n::before { content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform: rotate(45deg) scale(.86); background: #1c1410; border: 1px solid #c9a45c; box-shadow: 0 2px 5px rgba(0, 0, 0, .6); }
+.gk-tb-n span { position: relative; }
+.gk-tb-turn { position: absolute; left: -7px; top: -7px; right: -7px; bottom: -7px; border: 1.5px solid rgba(236, 210, 150, .95); border-radius: 20px; box-shadow: 0 0 18px rgba(236, 210, 150, .42), inset 0 0 10px rgba(236, 210, 150, .2); }
+.gk-tb-turn[hidden] { display: none; }
+.gk-tb-turn.gk-tb-red { border-color: rgba(214, 84, 70, .95); box-shadow: 0 0 26px rgba(200, 50, 40, .7), inset 0 0 12px rgba(200, 50, 40, .35); }
+.gk-tb-sm .gk-tb-turn { left: -5px; top: -5px; right: -5px; bottom: -5px; border-radius: 13px; }
+
+.gk-tb-tag { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 9px; padding: 5px 15px 5px 5px; border-radius: 999px; background: rgba(18, 12, 8, .66); border: 1px solid rgba(201, 164, 92, .3); white-space: nowrap; transition: left .5s, top .5s, border-color .25s; }
+.gk-tb-tag.gk-tb-on { border-color: rgba(236, 210, 150, .9); }
+.gk-tb-tag.gk-tb-red { border-color: rgba(214, 84, 70, .95); z-index: 2; }
+.gk-tb-tag.gk-tb-out { opacity: .5; }
+.gk-tb-sm .gk-tb-tag { gap: 6px; padding: 3px 10px 3px 3px; }
+.gk-tb-av { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; display: block; background: #1c1410; }
+.gk-tb-sm .gk-tb-av { width: 24px; height: 24px; }
+.gk-tb-nm { font-size: 14px; font-weight: 500; line-height: 18px; color: #efe6d2; display: flex; align-items: center; gap: 6px; }
+.gk-tb-sm .gk-tb-nm { font-size: 12px; line-height: 16px; }
+.gk-tb-nm span { max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+.gk-tb-dot { width: 6px; height: 6px; border-radius: 50%; display: block; flex: none; }
+.gk-tb-dot[hidden], .gk-tb-chip[hidden], .gk-tb-pip[hidden], .gk-tb-icon[hidden], .gk-tb-pick-name[hidden], .gk-tb-meta span[hidden] { display: none; }
+.gk-tb-meta { display: flex; align-items: center; gap: 5px; font-size: 11px; line-height: 14px; color: #c8bca4; margin-top: 2px; }
+.gk-tb-sm .gk-tb-meta { display: none; }
+.gk-tb-sm.gk-tb-lobby .gk-tb-meta { display: flex; font-size: 9px; line-height: 11px; margin-top: 0; }
+.gk-tb-pip { width: 7px; height: 7px; transform: rotate(45deg); border: 1px solid #c9a45c; display: block; }
+.gk-tb-pip.gk-tb-on { background: #c9a45c; }
+.gk-tb-icon { display: inline-flex; margin-left: 5px; }
+.gk-tb-icon svg { display: block; }
+.gk-tb-chip { font-size: 11px; line-height: 16px; padding: 0 7px; border-radius: 999px; border: 1px solid #c9a45c; color: #ecd296; margin-left: 4px; flex: none; }
+.gk-tb-chip.gk-tb-mute { border-color: rgba(200, 188, 164, .5); color: #c8bca4; }
+.gk-tb-chip.gk-tb-red { border-color: rgba(214, 84, 70, .95); color: #f0b9ae; }
+.gk-tb-sm .gk-tb-chip { font-size: 9px; line-height: 13px; padding: 0 5px; }
+
+/* 가운데 */
+.gk-tb-mid { position: absolute; width: 270px; transform: translate(-50%, -50%); text-align: center; transition: top .35s, left .35s; }
+.gk-tb-mid.gk-tb-flip { width: 300px; transform: translate(-50%, 0); }
+.gk-tb-cap { font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: .34em; text-indent: .34em; color: #d2b06a; }
+.gk-tb-cap[hidden], .gk-tb-numrow[hidden], .gk-tb-host[hidden], .gk-tb-sub[hidden] { display: none; }
+.gk-tb-numrow { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.gk-tb-numrow i { display: block; width: 44px; height: 1px; background: linear-gradient(90deg, rgba(201, 164, 92, 0), #c9a45c); }
+.gk-tb-numrow i.gk-tb-r { background: linear-gradient(270deg, rgba(201, 164, 92, 0), #c9a45c); }
+.gk-tb-num { font: 600 54px/50px 'Cormorant Garamond', serif; font-variant-numeric: lining-nums; color: #f3ead7; text-shadow: 0 2px 8px rgba(0, 0, 0, .7); }
+.gk-tb-num small { font: 500 26px/1 'Cormorant Garamond', serif; color: #c8bca4; letter-spacing: .04em; }
+.gk-tb-host { width: 96px; height: 96px; object-fit: contain; display: block; margin: 2px auto 0; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .65)); user-select: none; }
+.gk-tb-saybox { margin-top: 4px; }
+.gk-tb-mid.gk-tb-flip .gk-tb-saybox { position: absolute; left: 0; right: 0; margin-top: 0; }
+.gk-tb-say { font: 700 17px/22px 'Gowun Batang', serif; color: #f3ead7; text-shadow: 0 1px 4px rgba(0, 0, 0, .9); }
+.gk-tb-sub { font-size: 13px; line-height: 18px; color: #d9ccb0; text-shadow: 0 1px 4px rgba(0, 0, 0, .9); }
+.gk-tb-sm .gk-tb-mid { width: 170px; }
+.gk-tb-sm .gk-tb-mid.gk-tb-flip { width: 200px; }
+.gk-tb-sm .gk-tb-cap { font-size: 9px; line-height: 11px; }
+.gk-tb-sm .gk-tb-numrow { gap: 8px; }
+.gk-tb-sm .gk-tb-numrow i { width: 24px; }
+.gk-tb-sm .gk-tb-num { font-size: 30px; line-height: 28px; }
+.gk-tb-sm .gk-tb-num small { font-size: 16px; }
+.gk-tb-sm .gk-tb-host { width: 50px; height: 50px; margin-top: 0; }
+.gk-tb-sm .gk-tb-saybox { margin-top: 1px; }
+.gk-tb-sm .gk-tb-say { font-size: 12px; line-height: 15px; }
+.gk-tb-sm .gk-tb-sub { font-size: 11px; line-height: 14px; }
+
+/* 펼친 줄 */
+.gk-tb-row { position: absolute; pointer-events: none; }
+.gk-tb-row[hidden] { display: none; }
+.gk-tb-slot { position: absolute; border-radius: 50%; border: 1px dashed rgba(201, 164, 92, .5); background: rgba(18, 12, 8, .3); }
+.gk-tb-slot.gk-tb-on { border-color: rgba(201, 164, 92, 0); background: none; }
+.gk-tb-slot.gk-tb-edge { border: 1.5px solid rgba(240, 206, 130, .95); animation: gk-tb-last 1.1s ease-in-out infinite; }
+.gk-tb-slot img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .65)); }
+@keyframes gk-tb-last {
+  0% { transform: scale(.94); box-shadow: 0 0 8px rgba(240, 200, 110, .35); }
+  50% { transform: scale(1.08); box-shadow: 0 0 24px rgba(240, 200, 110, .9); }
+  100% { transform: scale(.94); box-shadow: 0 0 8px rgba(240, 200, 110, .35); }
+}
+
+/* 상대 더미 누르기(도전자가 고르는 동안에만 생김) */
+.gk-tb-pick { position: absolute; width: 108px; height: 108px; margin: -54px 0 0 -54px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; z-index: 12; pointer-events: auto; }
+.gk-tb-pick::after { content: ""; position: absolute; left: 4px; top: 4px; right: 4px; bottom: 4px; border-radius: 50%; border: 1.5px solid rgba(236, 210, 150, .9); box-shadow: 0 0 16px rgba(236, 210, 150, .45); animation: gk-tb-pulse 1.6s ease-in-out infinite; }
+.gk-tb-pick:hover::after { border-color: #fff3d2; box-shadow: 0 0 22px rgba(236, 210, 150, .8); }
+.gk-tb-sm .gk-tb-pick { width: 62px; height: 62px; margin: -31px 0 0 -31px; }
+@keyframes gk-tb-pulse {
+  0%, 100% { transform: scale(.94); opacity: .75; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+/* 손이 접혀 있을 때 놓이는 자리(보이지 않는 칸, 손·연출이 위치를 잴 때) */
+.gk-tb-dock { position: absolute; pointer-events: none; }
+
+/* 연출 층·벌칙 창과 겹치지 않게: 판정 중에는 가운데 글자를, 벌칙 중에는 가운데 전체를 감춘다(글자는 DOM 에 그대로) */
+.gk-tb[data-step="reveal"] .gk-tb-saybox, .gk-tb[data-step="penalty"] .gk-tb-saybox { opacity: 0; }
+.gk-tb[data-step="penalty"] .gk-tb-mid, .gk-tb[data-step="penalty"] .gk-tb-row { opacity: 0; transition: opacity .2s; }
+.gk-tb[data-phase="result"] .gk-tb-mid { opacity: 0; }
+/* 도전자 판 움찔 / 가운데 숫자 튐 */
+@keyframes gk-tb-flinch { 0%, 100% { transform: none; } 15% { transform: translate(-5px, 2px) rotate(-1.4deg); } 35% { transform: translate(6px, -2px) rotate(1.2deg); } 55% { transform: translate(-4px, 1px); } 75% { transform: translate(3px, 0); } }
+.gk-tb-flinch .gk-tb-board { animation: gk-tb-flinch .5s ease-out 1; }
+@keyframes gk-tb-pop { 0% { transform: scale(1); } 40% { transform: scale(1.32); } 100% { transform: scale(1); } }
+.gk-tb-num.gk-tb-pop { display: inline-block; animation: gk-tb-pop .38s ease-out 1; }

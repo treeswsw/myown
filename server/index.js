@@ -136,9 +136,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
       timing,
       liar: ['test', 'off'].includes(process.env.LIAR) ? process.env.LIAR : 'on',
       yacht: ['test', 'off'].includes(process.env.YACHT) ? process.env.YACHT : 'on',
+      gsk: ['on', 'off'].includes(process.env.GSK) ? process.env.GSK : 'test', // default test: Render ignores render.yaml env changes on an existing service
       draw: ['test', 'off'].includes(process.env.DRAW) ? process.env.DRAW : 'on',
       mini: ['test', 'off'].includes(process.env.MINI) ? process.env.MINI : 'on',
       adminKey: process.env.ADMIN_KEY || undefined, // default 9975 (SPEC 21-1)
+      coinSeed: Number(process.env.COIN_SEED) > 0 ? Math.floor(Number(process.env.COIN_SEED)) : 0, // click tests only (SPEC 22-12)
     },
   });
   console.log(`listening on ${app.port}`);

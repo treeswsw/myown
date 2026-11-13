@@ -140,7 +140,7 @@ async function runContext(browser, server, name, cfg) {
   const meId = uid('ui');
   let holdemCode = null;
   try {
-    await page.goto(`${server.http}/?nogl=1&draw=1`);
+    await page.goto(`${server.http}/?nogl=1&draw=1&gsk=1`);
 
     /* ---------- login ---------- */
     await step('login screen shows', () => visible('.lb-field'));
@@ -652,6 +652,29 @@ async function runContext(browser, server, name, cfg) {
       await gone('.dr-root');
     });
 
+    /* ---------- gsk game 갱스껄 (server GSK=test, page ?gsk=1) ---------- */
+    await step('gsk: lobby shows the 갱스껄 choice with its caption', async () => {
+      await press('.lb-seg-item:has-text("갱스껄")');
+      await page.waitForSelector('.lb-cap:has-text("3~6명 · 해골을 피해 꽃 뒤집기")', { state: 'attached', timeout: T });
+    });
+    await step('gsk: create a room → room code appears in the top bar', async () => {
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.gkbar-code');
+      await page.waitForFunction(() => /방 코드 [A-Z0-9]{4,}/.test(document.querySelector('.gkbar-code')?.textContent ?? ''), null, { timeout: T });
+    });
+    await step('gsk: in the room, color-0 shows and can be pressed (임시 화면 data-gk)', async () => {
+      await visible('[data-gk="color-0"]');
+      await press('[data-gk="color-0"]');
+      await page.waitForFunction(() => /초록/.test(document.querySelector('[data-gk-seat]')?.textContent ?? ''), null, { timeout: T });
+    });
+    await step('gsk: 방장에게 시작 버튼이 보인다(3명 전에는 흐림). 원판 내기·도전 버튼(choose-place)은 3명 판이 필요해 gsk-round.mjs 가 본다', async () => {
+      await visible('[data-gk="start"]');
+    });
+    await step('gsk: 나가기 returns to the lobby, bar disappears', async () => {
+      await press('button.gkbar-btn:has-text("나가기")');
+      await visible('button:has-text("방 만들기")');
+      await gone('.gkbar-code');
+    });
     /* ---------- mini games 미니게임 (server MINI default on) ---------- */
     const mBot = new Bot(server.url, uid('mb'), { autoplay: false });
     await mBot.connect();
@@ -725,7 +748,7 @@ async function runContext(browser, server, name, cfg) {
 let server;
 let browser;
 try {
-  server = await startServer({ LIAR: 'on', YACHT: 'on', DRAW: 'test', ROOM_LIST_MS: '100', RESULT_MS: '60', RESULT_FOLD_MS: '60', STREET_MS: '30', REVEAL_MS: '80' });
+  server = await startServer({ LIAR: 'on', YACHT: 'on', DRAW: 'test', GSK: 'test', ROOM_LIST_MS: '100', RESULT_MS: '60', RESULT_FOLD_MS: '60', STREET_MS: '30', REVEAL_MS: '80' });
   browser = await chromium.launch();
   for (const [name, cfg] of Object.entries(CONTEXTS)) await runContext(browser, server, name, cfg);
 } catch (e) {
@@ -736,7 +759,7 @@ try {
   await server?.stop().catch(() => {});
 }
 /* ---------- LIAR switch: off hides everything, test only with ?liar=1 ---------- */
-async function gateCheck(browser, env, query, expectVisible, label, expectDraw = false) {
+async function gateCheck(browser, env, query, expectVisible, label, expectDraw = false, expectGsk = false) {
   const srv = await startServer({ ROOM_LIST_MS: '100', ...env });
   const ctx = await browser.newContext({ viewport: { width: 844, height: 390 } });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
@@ -752,8 +775,8 @@ async function gateCheck(browser, env, query, expectVisible, label, expectDraw =
     await page.click('button.lb-primary:has-text("입장")');
     await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
     await page.waitForTimeout(300);
-    const seen = await page.evaluate(() => ({ rank: !!document.querySelector('.lb-rank-btn') && !document.querySelector('.lb-rank-btn').hidden && document.querySelector('.lb-rank-btn').offsetParent !== null, pick: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('라이어게임') && e.offsetParent !== null), draw: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('갱식마인드') && e.offsetParent !== null) }));
-    ok = seen.rank === expectVisible && seen.pick === expectVisible && seen.draw === expectDraw && errors.length === 0;
+    const seen = await page.evaluate(() => ({ rank: !!document.querySelector('.lb-rank-btn') && !document.querySelector('.lb-rank-btn').hidden && document.querySelector('.lb-rank-btn').offsetParent !== null, pick: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('라이어게임') && e.offsetParent !== null), draw: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('갱식마인드') && e.offsetParent !== null), gsk: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('갱스껄') && e.offsetParent !== null) }));
+    ok = seen.rank === expectVisible && seen.pick === expectVisible && seen.draw === expectDraw && seen.gsk === expectGsk && errors.length === 0;
     detail = JSON.stringify({ ...seen, errors });
   } catch (e) { detail = String(e.message || e).split('\n')[0]; }
   results.push({ ctx: 'gate', what: label, ok, detail });
@@ -771,6 +794,10 @@ try {
   await gateCheck(gb, { LIAR: 'off' }, '', false, 'DRAW unset (default on): 갱식마인드 visible', true);
   await gateCheck(gb, { LIAR: 'off', DRAW: 'test' }, '', false, 'DRAW=test without ?draw=1: hidden');
   await gateCheck(gb, { LIAR: 'off', DRAW: 'test' }, '&draw=1', false, 'DRAW=test with ?draw=1: visible', true);
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off', GSK: 'off' }, '&gsk=1', false, 'GSK=off: no 갱스껄 choice');
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '', false, 'GSK unset (default test) without ?gsk=1: hidden');
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '&gsk=1', false, 'GSK unset (default test) with ?gsk=1: visible', false, true);
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off', GSK: 'on' }, '', false, 'GSK=on: visible for everyone', false, true);
   await gb.close();
 } catch (e) {
   results.push({ ctx: 'gate', what: 'gate setup', ok: false, detail: String(e.message || e) });
@@ -890,6 +917,134 @@ try {
 } catch (e) {
   results.push({ ctx: 'admin', what: 'admin setup', ok: false, detail: String(e.message || e) });
   console.log(`FAIL admin setup - ${e.message || e}`);
+}
+/* ---------- COIN (SPEC 22): balance, swap, draw, shop, rank, PIN login, reset sheet ---------- */
+async function coinCheck(browser) {
+  const srv = await startServer({ ROOM_LIST_MS: '100', COIN_SEED: '500' });
+  const ctx = await browser.newContext({ viewport: { width: 844, height: 390 } });
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(T);
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource|fonts\.g/.test(m.text())) errors.push(`console.error: ${m.text()}`); });
+  const rep = (what, ok, detail = '') => {
+    results.push({ ctx: 'coin', what, ok: Boolean(ok), detail });
+    console.log(`${ok ? 'PASS' : 'FAIL'} [coin] ${what}${detail ? ` - ${detail}` : ''}`);
+  };
+  const step = async (what, fn) => {
+    try { await fn(); rep(what, true); } catch (e) { rep(what, false, String(e.message || e).split('\n')[0]); throw new StepFailed(what); }
+  };
+  const coinsNow = () => page.evaluate(() => Number((document.querySelector('.lb-coins')?.textContent || '').replace(/[^\d]/g, '')));
+  const waitCoins = (pred, label) => page.waitForFunction(`(${pred})(Number((document.querySelector('.lb-coins')?.textContent || '').replace(/[^\\d]/g, '')))`, null, { timeout: T }).catch(() => { throw new Error(label); });
+  const id = uid('cn');
+  const enter = async (pin) => {
+    await page.fill('.lb-field >> nth=0', id);
+    if (pin) { await page.fill('input[placeholder="비밀번호 4자리"]', pin); }
+    await page.click('button.lb-primary:has-text("입장")');
+  };
+  try {
+    await page.goto(`${srv.http}/?nogl=1`);
+    await step('reset sheet has the admin password field', async () => {
+      await page.fill('.lb-field >> nth=0', '초기화');
+      await page.click('button.lb-primary:has-text("입장")');
+      await visible2(page, '.lb-reset-pw');
+      await page.fill('.lb-reset-pw', '0000');
+      await page.click('.lb-sheet-btns .lb-danger');
+      await page.waitForFunction(() => (document.querySelector('.lb-reset-err')?.textContent || '').length > 0, null, { timeout: T });
+      await page.click('.lb-sheet-btns button:has-text("취소")');
+    });
+    await step('login with a new PIN (비밀번호 설정)', async () => {
+      await page.fill('.lb-field >> nth=0', id);
+      await page.check('.lb-pin-chk');
+      await page.fill('input[placeholder="새 비밀번호 4자리"]', '1234');
+      await page.click('button.lb-primary:has-text("입장")');
+      await visible2(page, 'button:has-text("방 만들기")');
+    });
+    await step('coin balance is shown (500)', async () => { await waitCoins('(n) => n === 500', 'balance not 500'); });
+    await step('swap window: 3 coins -> chips', async () => {
+      await page.click('.lb-coin-btn:has-text("교환")');
+      await visible2(page, '.cn-field');
+      await page.fill('.cn-field', '3');
+      await page.click('.cn-btn.cn-primary:has-text("바꾸기")');
+      await page.waitForSelector('.cn-msg.cn-ok', { timeout: T });
+      await page.click('.cn-sheet .cn-btns button');
+      await waitCoins('(n) => n === 497', 'balance not 497');
+    });
+    await step('draw 1 with skip, then 10', async () => {
+      await page.evaluate(() => { const b = [...document.querySelectorAll('.lb-coin-btn')].find((x) => x.textContent === '뽑기'); if (b) b.hidden = false; }); // 뽑기 button is hidden in the lobby for now (SHOW_DRAW)
+      await page.click('.lb-coin-btn:has-text("뽑기")');
+      await visible2(page, '.gc-panel');
+      await page.click('.gc-btn:has-text("1회")');
+      await page.waitForFunction(() => document.querySelector('.gc-panel')?.dataset.mode !== 'idle', null, { timeout: T });
+      await page.click('.gc-btn-skip', { timeout: 2500 }).catch(() => {}); // skip while it plays (if it already ended, fine)
+      await page.waitForSelector('.gc-panel[data-mode="done"]', { timeout: T });
+      await page.waitForTimeout(450); // the window ignores clicks for 0.35 s after a draw
+      await page.click('.gc-btn:has-text("10연") >> visible=true');
+      await page.waitForFunction(() => document.querySelector('.gc-panel')?.dataset.mode !== 'done', null, { timeout: T });
+      await page.click('.gc-btn-skip', { timeout: 2500 }).catch(() => {});
+      await page.waitForSelector('.gc-panel[data-mode="done"]', { timeout: T });
+      await page.click('.gc-btn:has-text("닫기")');
+      await waitCoins('(n) => n === 442', 'balance not 442 after 11 pulls');
+    });
+    await step('shop: buy then equip', async () => {
+      await page.click('.lb-coin-btn:has-text("상점")');
+      await visible2(page, '.sh-panel');
+      await page.click('.sh-card >> nth=0');
+      await page.click('.sh-go.sh-buy');
+      await page.waitForFunction(() => /샀습니다/.test(document.querySelector('.sh-msg')?.textContent || ''), null, { timeout: T });
+      await page.click('.sh-go:has-text("끼기")');
+      await page.waitForFunction(() => /꼈습니다/.test(document.querySelector('.sh-msg')?.textContent || ''), null, { timeout: T });
+      if (!(await page.locator('.sh-card.sh-worn .sh-stamp').count())) throw new Error('no 착용 중 stamp');
+      if (await page.evaluate(() => document.documentElement.scrollHeight > innerHeight + 1 || document.querySelector('.sh-go').getBoundingClientRect().bottom > innerHeight)) throw new Error('shop overflows the phone screen');
+      await page.click('.sh-swap'); // [칩 교환] opens the swap window over the shop
+      await visible2(page, '.cn-field');
+      await page.click('.cn-sheet .cn-btns button');
+      await page.click('.sh-close');
+    });
+    await step('coin rank opens', async () => {
+      await page.click('.lb-coin-btn:has-text("코인 랭킹")');
+      await visible2(page, '.cn-mine');
+      await page.click('.cn-sheet .cn-btns button');
+    });
+    await step('PIN window shows it is set', async () => {
+      await page.click('.lb-pin-btn');
+      await visible2(page, '.pn-panel');
+      await page.waitForFunction(() => /걸려 있습니다/.test(document.querySelector('.pn-body')?.textContent || ''), null, { timeout: T });
+      await page.click('.pn-close');
+    });
+    await step('logout, login without PIN asks for it, wrong PIN refused, right PIN enters', async () => {
+      await page.click('button:has-text("로그아웃")');
+      await visible2(page, '.lb-field');
+      await page.fill('.lb-field >> nth=0', id);
+      await page.click('button.lb-primary:has-text("입장")');
+      await visible2(page, 'input[placeholder="비밀번호 4자리"]');
+      await page.fill('input[placeholder="비밀번호 4자리"]', '9999');
+      await page.click('button.lb-primary:has-text("입장")');
+      await page.waitForFunction(() => /틀렸/.test(document.body.textContent || ''), null, { timeout: T });
+      await page.fill('input[placeholder="비밀번호 4자리"]', '1234');
+      await page.click('button.lb-primary:has-text("입장")');
+      await visible2(page, 'button:has-text("방 만들기")');
+    });
+    await step('reload logs in again with the device token (no PIN prompt)', async () => {
+      await page.reload();
+      await visible2(page, 'button:has-text("방 만들기")');
+    });
+  } catch (e) {
+    if (!(e instanceof StepFailed)) rep('coin check', false, String(e.message || e).split('\n')[0]);
+  }
+  rep('coin: no pageerror / console error', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close().catch(() => {});
+  await srv.stop().catch(() => {});
+}
+const visible2 = (page, sel) => page.waitForSelector(sel, { state: 'visible', timeout: T });
+try {
+  const cb = await chromium.launch();
+  await coinCheck(cb);
+  await cb.close();
+} catch (e) {
+  results.push({ ctx: 'coin', what: 'coin setup', ok: false, detail: String(e.message || e) });
+  console.log(`FAIL coin setup - ${e.message || e}`);
 }
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed in ${((Date.now() - t0) / 1000).toFixed(1)} s`);

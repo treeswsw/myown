@@ -59,7 +59,16 @@ export function createAdmin({ send, getRoom }) {
     fxBox = el('div', 'adm-fxbox');
     const row = el('div', 'adm-row');
     row.append(...roomBtns);
-    panel.append(el('h3', 'adm-title', '관리자'), row, status,
+    const pinId = el('input', 'adm-input');
+    pinId.type = 'text'; pinId.placeholder = '아이디'; pinId.maxLength = 12; pinId.autocomplete = 'off';
+    pinId.setAttribute('aria-label', '비밀번호를 지울 아이디');
+    const pinRow = el('div', 'adm-row', pinId, btn('adm-btn', '비밀번호 지우기', () => {
+      const id = pinId.value.trim();
+      if (!id) { setStatus('아이디를 적으세요.'); return; }
+      lastReq = Date.now(); setStatus('');
+      send({ t: 'adm', a: 'pinclr', id });
+    }));
+    panel.append(el('h3', 'adm-title', '관리자'), row, pinRow, status,
       el('h4', 'adm-sub', '연출 보기'), fxBox, btn('adm-btn adm-close', '닫기', () => { panel.hidden = true; }));
     root.append(panel, toggle);
     document.body.append(root);
@@ -71,6 +80,7 @@ export function createAdmin({ send, getRoom }) {
     setAdmin(on) { if (on && !root) build(); else if (!on && root) destroy(); else refresh(); },
     refresh,
     ok(msg) {
+      if (msg.a === 'pinclr') { setStatus('비밀번호를 지웠습니다.'); return; }
       if (Number.isFinite(msg.bots)) bots = msg.bots;
       setStatus(bots == null ? '완료' : `봇 ${bots}명`);
     },

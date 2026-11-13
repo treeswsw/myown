@@ -1,0 +1,99 @@
+/* 갱스껄 벌칙 고르기·결과 창 (.gk-rs-). 값은 design/gsk/canvas/Penalty.dc.html, Result.dc.html 에서 옮김. */
+.gk-rs-root {
+  position: absolute; inset: 0; z-index: 60; pointer-events: none;
+  font-family: 'IBM Plex Sans KR', sans-serif; color: #efe6d2;
+  transition: opacity .3s;
+}
+.gk-rs-root[hidden] { display: none; }
+.gk-rs-root.gk-rs-fade { opacity: 0; }
+
+@keyframes gk-rs-pop { from { opacity: 0; transform: translateY(calc(10px * var(--k, 1))); } to { opacity: 1; transform: none; } }
+.gk-rs-in { animation: gk-rs-pop .35s ease-out both; }
+
+/* 벌칙 */
+.gk-rs-pen { position: absolute; left: 0; right: 0; top: 35%; text-align: center; }
+.gk-rs-ask { font: 700 calc(17px * var(--k, 1))/1.3 'Gowun Batang', serif; color: #f3ead7; text-shadow: 0 1px 4px rgba(0,0,0,.9); }
+.gk-rs-asksub { font-size: calc(13px * var(--k, 1)); line-height: 1.4; color: #d9ccb0; text-shadow: 0 1px 4px rgba(0,0,0,.9); margin-top: calc(2px * var(--k, 1)); }
+.gk-rs-pen-row { display: flex; justify-content: center; flex-wrap: wrap; gap: calc(16px * var(--k, 1)); margin-top: calc(14px * var(--k, 1)); padding: 0 calc(16px * var(--k, 1)); }
+.gk-rs-disc {
+  position: relative; width: calc(92px * var(--k, 1)); height: calc(92px * var(--k, 1)); padding: 0; border: 0; border-radius: 50%;
+  background: none; cursor: pointer; pointer-events: auto; color: #efe6d2;
+  filter: drop-shadow(0 8px 10px rgba(0,0,0,.7)); transition: transform .18s, opacity .3s;
+}
+.gk-rs-disc:hover { transform: translateY(calc(-6px * var(--k, 1))); }
+.gk-rs-discimg { width: 100%; height: 100%; display: block; pointer-events: none; }
+.gk-rs-cnt {
+  position: absolute; right: calc(-6px * var(--k, 1)); top: calc(-4px * var(--k, 1)); padding: 0 calc(7px * var(--k, 1));
+  min-width: calc(24px * var(--k, 1)); height: calc(22px * var(--k, 1)); line-height: calc(20px * var(--k, 1)); text-align: center;
+  font: 600 calc(14px * var(--k, 1)) 'Cormorant Garamond', serif; background: #1c1410; border: 1px solid #c9a45c; border-radius: 999px;
+}
+.gk-rs-kind { position: absolute; left: 0; right: 0; bottom: calc(-22px * var(--k, 1)); font: 400 calc(13px * var(--k, 1))/1.3 'Gowun Batang', serif; color: #d9ccb0; text-shadow: 0 1px 4px #000; }
+.gk-rs-sent .gk-rs-disc { pointer-events: none; }
+.gk-rs-sent .gk-rs-disc:not(.gk-rs-picked) { opacity: 0; transform: scale(.8); }
+.gk-rs-disc.gk-rs-picked { transform: translateY(calc(-14px * var(--k, 1))) scale(1.08); animation: gk-rs-gone .36s ease-in .1s forwards; }
+@keyframes gk-rs-gone { to { opacity: 0; transform: translateY(calc(-30px * var(--k, 1))) scale(.7); } }
+.gk-rs-watch { top: 42%; }
+.gk-rs-watchtxt { display: inline-block; font: 400 calc(13px * var(--k, 1))/1.4 'Gowun Batang', serif; letter-spacing: .06em; color: #d9ccb0; text-shadow: 0 1px 4px #000; padding: calc(4px * var(--k, 1)) calc(12px * var(--k, 1)); border-radius: 999px; background: rgba(18,12,8,.55); }
+
+/* 결과 */
+.gk-rs-box {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: calc(60px * var(--k, 1));
+  background: rgba(9,5,3,.74); padding: calc(24px * var(--k, 1));
+}
+.gk-rs-win { width: calc(420px * var(--k, 1)); text-align: center; flex: none; }
+.gk-rs-art { position: relative; width: calc(300px * var(--k, 1)); height: calc(200px * var(--k, 1)); margin: 0 auto; }
+.gk-rs-bd { position: absolute; left: calc(112px * var(--k, 1)); top: calc(6px * var(--k, 1)); width: calc(200px * var(--k, 1)); transform: rotate(7deg); filter: drop-shadow(0 12px 16px rgba(0,0,0,.6)); }
+.gk-rs-ph {
+  position: absolute; left: 0; top: calc(26px * var(--k, 1)); width: calc(156px * var(--k, 1)); height: calc(156px * var(--k, 1)); border-radius: 50%;
+  box-shadow: 0 0 0 3px #1c1410, 0 0 0 4.5px #c9a45c, 0 14px 22px rgba(0,0,0,.6); overflow: hidden; background: #1c1410;
+}
+.gk-rs-phimg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gk-rs-cap { margin-top: calc(26px * var(--k, 1)); font-size: calc(12px * var(--k, 1)); line-height: 1.35; letter-spacing: .4em; text-indent: .4em; color: #d2b06a; }
+.gk-rs-ttl { margin-top: calc(6px * var(--k, 1)); font: 700 calc(46px * var(--k, 1))/1.25 'Gowun Batang', serif; letter-spacing: .14em; text-indent: .14em; color: #f3ead7; text-shadow: 0 3px 12px rgba(0,0,0,.7); }
+.gk-rs-nm { margin-top: calc(4px * var(--k, 1)); font: 400 calc(19px * var(--k, 1))/1.4 'Gowun Batang', serif; color: #e6dcc6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gk-rs-list {
+  width: calc(460px * var(--k, 1)); flex: none; padding: calc(22px * var(--k, 1)) calc(26px * var(--k, 1)) calc(14px * var(--k, 1));
+  background: rgba(18,12,8,.72); border: 1px solid rgba(201,164,92,.5); border-radius: 6px;
+  box-shadow: 0 0 0 4px rgba(18,12,8,.72), 0 0 0 5px rgba(201,164,92,.3), 0 18px 30px rgba(0,0,0,.45);
+  pointer-events: auto;
+}
+.gk-rs-h { display: flex; align-items: center; gap: 12px; justify-content: center; font: 400 calc(14px * var(--k, 1))/1.3 'Gowun Batang', serif; letter-spacing: .3em; color: #d2b06a; margin-bottom: calc(10px * var(--k, 1)); }
+.gk-rs-h i { display: block; width: calc(50px * var(--k, 1)); height: 1px; background: rgba(201,164,92,.6); }
+.gk-rs-r { display: flex; align-items: center; gap: calc(14px * var(--k, 1)); height: calc(58px * var(--k, 1)); border-top: 1px solid rgba(201,164,92,.18); }
+.gk-rs-outrow { opacity: .62; }
+.gk-rs-k { width: calc(26px * var(--k, 1)); text-align: center; font: 600 calc(26px * var(--k, 1))/1 'Cormorant Garamond', serif; font-variant-numeric: lining-nums; color: #ecd296; }
+.gk-rs-av { width: calc(38px * var(--k, 1)); height: calc(38px * var(--k, 1)); border-radius: 50%; flex: none; overflow: visible; display: block; background: #1c1410; }
+.gk-rs-avimg { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.gk-rs-n { flex: 1; min-width: 0; font-size: calc(16px * var(--k, 1)); font-weight: 500; color: #efe6d2; display: flex; align-items: center; gap: 7px; }
+.gk-rs-nt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gk-rs-dot { width: 6px; height: 6px; border-radius: 50%; display: block; flex: none; }
+.gk-rs-m { display: flex; align-items: center; gap: 6px; font-size: calc(13px * var(--k, 1)); color: #c8bca4; flex: none; }
+.gk-rs-pip { width: 9px; height: 9px; transform: rotate(45deg); border: 1px solid #c9a45c; display: block; }
+.gk-rs-pip.gk-rs-lit { background: #c9a45c; }
+.gk-rs-dn { margin-left: 10px; }
+.gk-rs-out { font-size: calc(12px * var(--k, 1)); color: #c8bca4; letter-spacing: .1em; }
+.gk-rs-acts { display: flex; justify-content: center; margin-top: calc(14px * var(--k, 1)); padding-bottom: calc(6px * var(--k, 1)); }
+.gk-rs-wait { font: 400 calc(14px * var(--k, 1))/1.4 'Gowun Batang', serif; letter-spacing: .06em; color: #d9ccb0; padding: calc(10px * var(--k, 1)) 0; }
+.gk-rs-btn {
+  position: relative; height: calc(54px * var(--k, 1)); min-width: calc(188px * var(--k, 1)); padding: 0 26px; display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+  border: 1px solid #c9a45c; border-radius: 4px; background: linear-gradient(#f4ecda, #e4d8bd); color: #2a1f17;
+  font: 700 calc(18px * var(--k, 1))/1 'Gowun Batang', serif; letter-spacing: .1em; cursor: pointer; pointer-events: auto;
+  box-shadow: 0 0 0 3px #1c1410, 0 0 0 4px rgba(201,164,92,.6), 0 10px 20px rgba(0,0,0,.45); transition: transform .15s, filter .15s;
+}
+.gk-rs-btn::before { content: ""; position: absolute; inset: 4px; border: 1px solid rgba(150,112,48,.55); border-radius: 2px; pointer-events: none; }
+.gk-rs-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.gk-rs-btn:active { transform: translateY(1px); }
+.gk-rs-btn svg { display: block; flex: none; }
+
+@media (max-width: 900px), (max-height: 480px) {
+  .gk-rs-box { gap: calc(20px * var(--k, 1)); }
+  .gk-rs-win { width: calc(300px * var(--k, 1)); }
+  .gk-rs-ttl { font-size: calc(34px * var(--k, 1)); }
+  .gk-rs-list { width: calc(380px * var(--k, 1)); padding: calc(14px * var(--k, 1)) calc(18px * var(--k, 1)) calc(8px * var(--k, 1)); }
+  .gk-rs-r { height: calc(46px * var(--k, 1)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gk-rs-in { animation: none; }
+  .gk-rs-root, .gk-rs-disc { transition: none; }
+}

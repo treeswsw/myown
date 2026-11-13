@@ -1,0 +1,57 @@
+/* 코인 구역 (.cn-). #ui 는 pointer-events:none 이라 눌러야 하는 것은 스스로 auto. */
+.cn-overlay,.cn-toast,.cn-news{
+  --ink:#fff;--ink2:rgba(255,255,255,.6);--ink3:rgba(255,255,255,.3);--fill:rgba(255,255,255,.09);--hair:rgba(255,255,255,.12);
+  --accent:#f2c444;--on-accent:#1c1608;--red:#ff453a;--green:#32d74b;--ease:cubic-bezier(.2,.8,.2,1);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;
+  color:var(--ink);box-sizing:border-box;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.cn-overlay *{box-sizing:border-box}
+.cn-overlay{position:fixed;inset:0;z-index:60;pointer-events:auto;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;
+  animation:cn-fade .25s ease-out both}
+.cn-sheet{width:min(340px,calc(100vw - 32px));max-height:calc(100dvh - 24px);display:flex;flex-direction:column;border-radius:24px;overflow:hidden;
+  background:rgba(40,40,42,.92);-webkit-backdrop-filter:blur(40px) saturate(180%);backdrop-filter:blur(40px) saturate(180%);
+  box-shadow:inset 0 0 0 1px var(--hair),0 24px 64px rgba(0,0,0,.5);animation:cn-rise .3s var(--ease) both;font-size:17px;line-height:1.3}
+.cn-rank-sheet{width:min(360px,calc(100vw - 32px))}
+.cn-head{padding:20px 20px 12px;text-align:center;flex:none}
+.cn-head b{font-size:17px;font-weight:700}
+.cn-body{padding:0 20px 16px;display:flex;flex-direction:column;gap:10px}
+.cn-sub{margin:0;font-size:13px;color:var(--ink2);text-align:center}
+.cn-preview{margin:0;font-size:22px;font-weight:700;text-align:center;color:var(--accent)}
+.cn-msg{margin:0;min-height:20px;font-size:14px;text-align:center;color:var(--ink2)}
+.cn-msg.cn-ok{color:var(--green)}
+.cn-msg.cn-err{color:var(--red)}
+.cn-inline{display:flex;gap:8px;align-items:stretch}
+.cn-field{flex:1 1 auto;min-width:0;height:48px;border-radius:14px;border:0;background:var(--fill);padding:0 16px;font:inherit;color:inherit;
+  font-size:17px;touch-action:manipulation}
+.cn-field::placeholder{color:var(--ink3)}
+.cn-btn{min-height:48px;border:0;background:none;font:inherit;font-size:17px;color:var(--ink);cursor:pointer;touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;transition:background-color .15s,opacity .2s}
+.cn-btn:active:not(:disabled){background:rgba(255,255,255,.1)}
+.cn-btn:disabled{opacity:.35;cursor:default}
+.cn-btn.cn-small{flex:none;min-width:64px;border-radius:14px;background:var(--fill);font-size:15px;font-weight:600}
+.cn-btn.cn-primary{border-radius:24px;background:var(--accent);color:var(--on-accent);font-weight:700}
+.cn-overlay :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cn-btns{display:grid;grid-template-columns:1fr;flex:none;box-shadow:inset 0 1px 0 var(--hair)}
+.cn-list{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:0 12px 8px;border-radius:14px;background:var(--fill)}
+.cn-row{display:flex;align-items:center;gap:10px;min-height:36px;padding:2px 14px}
+.cn-row+.cn-row{box-shadow:inset 0 1px 0 var(--hair)}
+.cn-rank-n{width:2em;text-align:right;color:var(--ink2);font-size:15px;font-weight:600;flex:none}
+.cn-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cn-score{flex:none;font-size:15px;font-weight:700;color:var(--accent)}
+.cn-empty{margin:0;padding:16px;font-size:15px;color:var(--ink2);text-align:center}
+.cn-mine{margin:0;padding:10px 16px;text-align:center;font-size:15px;font-weight:600;flex:none;box-shadow:inset 0 1px 0 var(--hair)}
+
+/* 알림: 조작을 막지 않는다 */
+.cn-toast,.cn-news{position:fixed;left:50%;z-index:70;pointer-events:none;max-width:calc(100vw - 32px);text-align:center;border-radius:22px;
+  background:rgba(28,28,30,.88);box-shadow:inset 0 0 0 1px var(--hair),0 8px 24px rgba(0,0,0,.4);opacity:0;transform:translate(-50%,-12px)}
+.cn-toast{top:calc(12px + env(safe-area-inset-top,0px));padding:10px 20px;font-size:18px;font-weight:700;color:var(--accent)}
+.cn-news{top:calc(60px + env(safe-area-inset-top,0px));padding:8px 16px;font-size:15px;font-weight:600}
+.cn-toast.cn-show{animation:cn-toast 2.5s var(--ease) both}
+.cn-news.cn-show{animation:cn-toast 3s var(--ease) both}
+
+@keyframes cn-fade{from{opacity:0}to{opacity:1}}
+@keyframes cn-rise{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes cn-toast{0%{opacity:0;transform:translate(-50%,-12px)}10%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-6px)}}
+@media (prefers-reduced-motion:reduce){
+  .cn-overlay,.cn-sheet{animation:none}
+  .cn-toast.cn-show,.cn-news.cn-show{animation:none;opacity:1;transform:translate(-50%,0)}
+}
