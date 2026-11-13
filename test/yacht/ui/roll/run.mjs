@@ -123,6 +123,18 @@ try {
   }, [SEED, VS, KEPT]);
   ok(sk.done && JSON.stringify(sk.shot) === JSON.stringify(fin), 'skip() 직후: 끝 모습이고 playRoll 이 끝난다');
 
+  // ---------- 재생기를 못 만들어도 playRoll 이 끝난다(입력이 막히지 않는다) ----------
+  const bad = await A.evaluate(async ([seed, vs, kept]) => {
+    const h = window.h;
+    h.make(); h.now = 0;
+    const e = h.rollEvent(seed, vs, kept);
+    let done = false;
+    h.view.playRoll({ ...e, thrown: null }).then(() => { done = true; });
+    await Promise.resolve();
+    return done;
+  }, [SEED, VS, KEPT]);
+  ok(bad === true, '재생기 생성 오류: playRoll 이 끝난다(busy 가 풀린다)');
+
   // ---------- 프레임을 건너뛰어도 같은 끝, 같은 시각에 같은 자리 ----------
   const jump = await B.evaluate(async ([seed, vs, kept]) => {
     const h = window.h;
