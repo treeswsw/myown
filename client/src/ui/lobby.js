@@ -2,10 +2,11 @@ import './lobby.css';
 import { openAvatarCrop } from './avatarCrop.js';
 import { h, svg, avatar, fmt } from './dom.js';
 import { GAME_NAME as DRAW_NAME } from '../../../shared/draw/name.js';
+import { GAME_NAME as GSK_NAME } from '../../../shared/gsk/name.js';
 
 // createLobby({onLogin(id, avatarDataUrl|null), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
-// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), setYacht(visible), setDraw(visible), showRank({top, mine}) }
+// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), setYacht(visible), setDraw(visible), setGsk(visible), showRank({top, mine}) }
 // onRank() -> ask the server for the liar ranking, then call showRank.
 // onResetConfirm() is called when the user confirms 전체 초기화.
 //    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
@@ -16,10 +17,11 @@ const MODES = {
   liar: { name: '라이어게임', desc: '3~8명 · 말로 하는 추리', max: 8 },
   yacht: { name: '요트다이스', desc: '2~4명 · 주사위 5개', max: 4 },
   draw: { name: DRAW_NAME, desc: '2~8명 · 그림 보고 단어 맞히기', max: 8 },
+  gsk: { name: GSK_NAME, desc: '3~6명 · 해골을 피해 꽃 뒤집기', max: 6 },
 };
 const BASE_KEYS = ['holdem', 'bluff'];
-// Home picker order is fixed: holdem, bluff, liar, yacht, draw (only the visible ones).
-const keysFor = (liar, yacht, draw) => [...BASE_KEYS, ...(liar ? ['liar'] : []), ...(yacht ? ['yacht'] : []), ...(draw ? ['draw'] : [])];
+// Home picker order is fixed: holdem, bluff, liar, yacht, draw, gsk (only the visible ones).
+const keysFor = (liar, yacht, draw, gsk) => [...BASE_KEYS, ...(liar ? ['liar'] : []), ...(yacht ? ['yacht'] : []), ...(draw ? ['draw'] : []), ...(gsk ? ['gsk'] : [])];
 const ID_RE = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9_]{2,12}$/;
 const LAST_ID_KEY = 'gs.lastId';
 const SPADE = '<path d="M12 2C8 7 3 9.5 3 14a4.5 4.5 0 0 0 7.6 3.2L9.5 22h5l-1.1-4.8A4.5 4.5 0 0 0 21 14c0-4.5-5-7-9-12z"/>';
@@ -74,7 +76,7 @@ function segmented(onPick, initKeys = BASE_KEYS) {
 
 export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm, onRank }) {
   const el = h('div', 'lb-root lobby');
-  let user = null, room = null, pendingAvatar = null, liarOn = false, yachtOn = false, drawOn = false;
+  let user = null, room = null, pendingAvatar = null, liarOn = false, yachtOn = false, drawOn = false, gskOn = false;
 
   const fileInput = h('input');
   fileInput.type = 'file';
@@ -180,7 +182,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
   function renderRooms(all) {
     lastRooms = all;
-    const list = all.filter((r) => (r.mode !== 'liar' || liarOn) && (r.mode !== 'yacht' || yachtOn) && (r.mode !== 'draw' || drawOn));
+    const list = all.filter((r) => (r.mode !== 'liar' || liarOn) && (r.mode !== 'yacht' || yachtOn) && (r.mode !== 'draw' || drawOn) && (r.mode !== 'gsk' || gskOn));
     const seen = new Set();
     let ref = roomList.firstChild;
     for (const r of list) {
@@ -316,8 +318,8 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
 
   function applyKeys() {
-    homeSeg.setKeys(keysFor(liarOn, yachtOn, drawOn));
-    if ((!liarOn && pickedMode === 'liar') || (!yachtOn && pickedMode === 'yacht') || (!drawOn && pickedMode === 'draw')) pickedMode = 'holdem';
+    homeSeg.setKeys(keysFor(liarOn, yachtOn, drawOn, gskOn));
+    if ((!liarOn && pickedMode === 'liar') || (!yachtOn && pickedMode === 'yacht') || (!drawOn && pickedMode === 'draw') || (!gskOn && pickedMode === 'gsk')) pickedMode = 'holdem';
     homeSeg.set(pickedMode);
     updateCreate();
     renderRooms(lastRooms);
@@ -333,6 +335,12 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     on = !!on;
     if (on === yachtOn) return;
     yachtOn = on;
+    applyKeys();
+  }
+  function setGsk(on) {
+    on = !!on;
+    if (on === gskOn) return;
+    gskOn = on;
     applyKeys();
   }
   function setDraw(on) {
@@ -373,6 +381,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     setLiar,
     setYacht,
     setDraw,
+    setGsk,
     showRank,
     show() { el.hidden = false; },
     hide() { el.hidden = true; },
