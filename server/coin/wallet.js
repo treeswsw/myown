@@ -3,6 +3,7 @@
 import { COIN_RULES, coinsFor } from '../../shared/coin/rules.js';
 import { draw as gachaDraw, COST, TEN, POOL_START, freeNow, freeNext } from '../../shared/coin/gacha.js';
 import { item } from '../../shared/coin/shop.js';
+import { ROWS, priceOf, periodOf, leftOf, rollRow } from '../../shared/coin/stock.js';
 import { parseCoin } from '../../shared/coin/protocol.js';
 
 const CHIPS_PER_COIN = 100;
@@ -17,10 +18,35 @@ const ERR = {
   coin_max: '칩이 너무 많습니다.',
   coin_free: '무료 뽑기가 없습니다.',
   shop_no: '없는 물건입니다.',
+  shop_gone: '진열이 바뀌었습니다.',
   shop_own: '이미 가지고 있습니다.',
   shop_not: '가지고 있지 않습니다.',
 };
 export const coinErr = (code) => ({ msg: ERR[code], code });
+
+// Personal shop stock (SPEC 22-18): roll lazily for the current periods, keep in user.gear.stock.
+export function stockOf(user, hub) {
+  const g = user.gear ?? (user.gear = {});
+  const now = hub?.now ? hub.now() : 0;
+  const rng = hub?.rng ?? Math.random;
+  if (!g.stock || typeof g.stock !== 'object') g.stock = {};
+  const st = g.stock;
+  const valid = (r) => st[r] && Number.isInteger(st[r].p) && Array.isArray(st[r].ids);
+  const fresh = (r) => valid(r) && st[r].p === periodOf(ROWS[r], now);
+  const owned = g.owned ?? [];
+  let rolled = false;
+  for (const [r, o] of [['b', 'a'], ['a', 'b']]) {
+    if (fresh(r)) continue;
+    const other = fresh(o) ? st[o].ids : [];
+    st[r] = { p: periodOf(ROWS[r], now), ids: rollRow(rng, ROWS[r], owned, other) };
+    rolled = true;
+  }
+  if (rolled) { try { hub?.persist?.(user); } catch { /* saved on the next change */ } }
+  return {
+    a: { ids: [...st.a.ids], left: leftOf(ROWS.a, st.a.p, now) },
+    b: { ids: [...st.b.ids], left: leftOf(ROWS.b, st.b.p, now) },
+  };
+}
 
 // The wallet part of `me`. Never carries the pin record.
 export function walletOf(user, hub) {
@@ -36,12 +62,14 @@ export function walletOf(user, hub) {
     owned: [...(g.owned ?? [])],
     equip: { ...(g.equip ?? {}) },
     hasPin: !!user.pin,
+    stock: stockOf(user, hub),
   };
 }
 
 export function installWallet(hub) {
   const lastEarn = new Map(); // `${id}|${mode}` -> time of the last paid award
   const lastDraw = new Map(); // id -> time of the last draw request
+  const lastStock = new Map(); // id -> time of the last stock request
 
   // Vault (금고): loaded once, kept on the hub, saved on every change.
   hub.pool = POOL_START;
@@ -178,13 +206,24 @@ export function installWallet(hub) {
         const e = needOut();
         if (e) return e;
         const it = item(m.id);
-        if (!it || it.shop === false) return coinErr('shop_no');
+        const price = it ? priceOf(it) : null;
+        if (price === null) return coinErr('shop_no');
+        const st = stockOf(u, hub);
+        if (!st.a.ids.includes(it.id) && !st.b.ids.includes(it.id)) return coinErr('shop_gone');
         if (g.owned.includes(it.id)) return coinErr('shop_own');
-        if (u.coins < it.price) return coinErr('coin_low');
-        u.coins -= it.price;
+        if (u.coins < price) return coinErr('coin_low');
+        u.coins -= price;
         g.owned.push(it.id);
-        changed(session, { kind: 'buy', delta: -it.price, bal: u.coins, note: { item: it.id } });
+        changed(session, { kind: 'buy', delta: -price, bal: u.coins, note: { item: it.id } });
         hub.send(session, { t: 'coin', a: 'buy', id: it.id });
+        return null;
+      }
+      case 'stock': {
+        const t = hub.now();
+        const last = lastStock.get(session.id);
+        if (last !== undefined && t - last < 1000) return null; // silently ignored
+        lastStock.set(session.id, t);
+        hub.sendMe(session);
         return null;
       }
       case 'equip': {

@@ -45,6 +45,8 @@ export function parseCoin(msg) {
       return { ok: true, msg: { t: 'coin', a: 'pos', id: msg.id, x: msg.x, y: msg.y, s: msg.s, r: msg.r } };
     case 'rank':
       return { ok: true, msg: { t: 'coin', a: 'rank' } };
+    case 'stock':
+      return { ok: true, msg: { t: 'coin', a: 'stock' } };
     case 'hist':
       return { ok: true, msg: { t: 'coin', a: 'hist' } };
     default:

@@ -284,7 +284,7 @@ test('leaving mid-hand folds, returns chips and the room empties after 60s', asy
 });
 
 test('bust: the busted player is eliminated for good, chips 0, and the last one standing is champion', async () => {
-  const { hub, clock, store } = await setup(6);
+  const { hub, clock, store } = await setup(8);
   const { cs } = await lobby(hub, 'holdem', ['ann1', 'bob1']);
   await cs[0].send({ t: 'start' });
   const shove = (state) => (state.maxRaiseTo > 0 || state.toCall > 0 ? { t: 'act', a: 'allin' } : null);

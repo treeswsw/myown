@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { createHub } from '../../server/rooms.js';
 import { createStore } from '../../server/store.js';
 import { FakeClock, client, seeded } from '../helpers.js';
+import { item } from '../../shared/coin/shop.js';
+import { priceOf } from '../../shared/coin/stock.js';
 import { setupAdmin } from '../admin/helpers.js';
 
 async function setup({ coinSeed = 0, seed = 1 } = {}) {
@@ -257,28 +259,33 @@ test('shop: buy, shop_own, shop_no, coin_low, equip, shop_not, unequip', async (
   const { hub, store } = await setup({ coinSeed: 25 });
   const a = await login(hub, 'aaa');
   const u = sess(hub, 'aaa').user;
-  await a.send({ t: 'coin', a: 'buy', id: 'title.jotbyin' }); // price 20
+  const st = msgs(a, 'me').at(-1).wallet.stock;
+  const cheap = st.a.ids.filter(Boolean).sort((x, y) => priceOf(x) - priceOf(y))[0];
+  const dear = st.b.ids.filter(Boolean).sort((x, y) => priceOf(y) - priceOf(x))[0];
+  u.coins = priceOf(cheap) + 5;
+  await a.send({ t: 'coin', a: 'buy', id: cheap });
   assert.equal(u.coins, 5);
-  assert.deepEqual(u.gear.owned, ['title.jotbyin']);
-  assert.deepEqual(msgs(a, 'coin', 'buy').at(-1), { t: 'coin', a: 'buy', id: 'title.jotbyin' });
-  assert.equal(store.ledger().find((x) => x.kind === 'buy').note.item, 'title.jotbyin');
-  await a.send({ t: 'coin', a: 'buy', id: 'title.jotbyin' });
+  assert.deepEqual(u.gear.owned, [cheap]);
+  assert.deepEqual(msgs(a, 'coin', 'buy').at(-1), { t: 'coin', a: 'buy', id: cheap });
+  assert.equal(store.ledger().find((x) => x.kind === 'buy').note.item, cheap);
+  await a.send({ t: 'coin', a: 'buy', id: cheap });
   assert.equal(lastErr(a).code, 'shop_own');
   await a.send({ t: 'coin', a: 'buy', id: 'nothing.here' });
   assert.equal(lastErr(a).code, 'shop_no');
-  await a.send({ t: 'coin', a: 'buy', id: 'suit.white' });
+  await a.send({ t: 'coin', a: 'buy', id: dear });
   assert.equal(lastErr(a).code, 'coin_low');
   await a.send({ t: 'coin', a: 'equip', slot: 'frame', id: 'frame.silver' });
   assert.equal(lastErr(a).code, 'shop_not');
   await a.send({ t: 'coin', a: 'equip', slot: 'title', id: 'frame.silver' });
   assert.equal(lastErr(a).code, 'shop_no');
-  await a.send({ t: 'coin', a: 'equip', slot: 'title', id: 'title.jotbyin' });
-  assert.deepEqual(u.gear.equip, { title: 'title.jotbyin' });
-  assert.deepEqual(msgs(a, 'me').at(-1).wallet.equip, { title: 'title.jotbyin' });
-  await a.send({ t: 'coin', a: 'equip', slot: 'title', id: null });
+  const slot = item(cheap).slot;
+  await a.send({ t: 'coin', a: 'equip', slot, id: cheap });
+  assert.deepEqual(u.gear.equip, { [slot]: cheap });
+  assert.deepEqual(msgs(a, 'me').at(-1).wallet.equip, { [slot]: cheap });
+  await a.send({ t: 'coin', a: 'equip', slot, id: null });
   assert.deepEqual(u.gear.equip, {});
   await a.send({ t: 'create', mode: 'bluff' });
-  await a.send({ t: 'coin', a: 'buy', id: 'color.sky' });
+  await a.send({ t: 'coin', a: 'buy', id: dear });
   assert.equal(lastErr(a).code, 'coin_room');
 });
 
@@ -317,7 +324,10 @@ test('me.wallet shape; no pin or hash in any message', async () => {
   s.user.pin = { s: 'SALTSECRET', h: 'HASHSECRET', t: ['TOKSECRET'] };
   hub.sendMe(s);
   const me = msgs(a, 'me').at(-1);
-  assert.deepEqual(me.wallet, { coins: 3, total: 0, pity: 0, owned: [], equip: {}, hasPin: true, free: { n: 2, next: null }, pool: 10000 });
+  const { stock, ...rest } = me.wallet;
+  assert.deepEqual(rest, { coins: 3, total: 0, pity: 0, owned: [], equip: {}, hasPin: true, free: { n: 2, next: null }, pool: 10000 });
+  assert.equal(stock.a.ids.length, 5);
+  assert.equal(stock.b.ids.length, 5);
   assert.equal(me.user.pin, undefined);
   await a.send({ t: 'coin', a: 'buy', id: 'nope' });
   await a.send({ t: 'coin', a: 'rank' });
