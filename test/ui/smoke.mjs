@@ -785,7 +785,7 @@ async function adminCheck(browser) {
     await b.page.click('button.lb-primary:has-text("입장")');
     const got = await b.page.waitForSelector('.adm-toggle', { state: 'visible', timeout: 3000 }).then(() => true, () => false);
     if (!got) {
-      console.log('NOTE [admin] me.admin never arrived within 3s (server-side admin not present in this build): admin panel steps skipped');
+      rep('admin login shows the 관리자 button', false, 'me.admin never arrived within 3s');
     } else {
       await b.page.click('.adm-toggle');
       await b.page.waitForSelector('.adm-panel', { state: 'visible' });

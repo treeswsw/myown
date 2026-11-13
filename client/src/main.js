@@ -301,10 +301,10 @@ function handle(msg) {
   switch (msg.t) {
     case 'me':
       if (loginId) { saved.set('gs.lastId', loginId); loginId = null; }
-      if (loginPw && msg.user.admin) saved.set('gs.adminPw', loginPw);
+      if (loginPw && msg.admin === true) saved.set('gs.adminPw', loginPw);
       loginPw = null;
       state.me = msg.user;
-      admin.setAdmin(msg.user.admin === true);
+      admin.setAdmin(msg.admin === true);
       lobby.setUser(msg.user);
       lobby.setLiar(msg.liar === 'on' || (msg.liar === 'test' && new URLSearchParams(location.search).get('liar') === '1'));
       lobby.setYacht(msg.yacht === 'on' || (msg.yacht === 'test' && new URLSearchParams(location.search).get('yacht') === '1'));
