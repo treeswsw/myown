@@ -66,12 +66,7 @@ export function createBrain(bot) {
 
 // Makes the pending game timer fire now: the current phase (or the current speaker's turn) ends at once and the
 // engine's own tick moves on. Nothing to skip in the lobby, the result, or when no timer is pending.
+// `room` is the game object inside the common room frame (room.impl); it knows its own timer.
 export function skip(room) {
-  const g = room.game;
-  if (!g || g.phase === 'result' || room.timers.game === null || room.timers.game === undefined) return false;
-  g.phaseEndsAt = room.hub.now();
-  g.pendingShortenAt = null;
-  room.clearTimer('game');
-  room.onTimer();
-  return true;
+  return room.skipPhase?.() ?? false;
 }

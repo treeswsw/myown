@@ -1,6 +1,50 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLiarRoom, stripSizeMark, intRng } from '../../server/liar/room.js';
+import { createRoomShell } from '../../server/room/shell.js';
+import { GAMES } from '../../shared/games.js';
+import { SERVER_GAMES } from '../../server/games.js';
+import { stripSizeMark, intRng } from '../../server/liar/room.js';
+
+const ENTRY = { mode: 'liar', ...GAMES.liar, ...SERVER_GAMES.liar };
+const sentence = (e) => (e && typeof e === 'object' ? e.msg : e ?? null);
+
+// 공용 방 틀(Shell) 안의 라이어 게임을 예전 방 객체 모양으로 보여 주는 시험용 겉옷.
+// 오류는 {msg, code} 대신 문장(성공은 null)으로 돌려준다. 채팅 속도 제한은 Shell 시험(test/room)이 보므로 여기서는 매번 비운다.
+function createLiarRoom(hub, code) {
+  hub.award ??= (room, mode, rows) => (hub.awards ??= []).push({ mode, rows });
+  const shell = createRoomShell(hub, code, ENTRY);
+  const impl = shell.impl;
+  const ready = (s) => { s.chatTimes = []; s.lastSent ??= {}; s.editTimes ??= []; return s; };
+  return {
+    shell, impl,
+    get members() { return shell.members; },
+    get hostId() { return shell.hostId; },
+    get phase() { return impl.phase(); },
+    get game() { return impl.game; },
+    get settings() { return impl.settings; },
+    get scores() { return impl.scores; },
+    get round() { return impl.round; },
+    get settledGame() { return impl.settledGame; },
+    get citizenEntry() { return impl.citizenEntry; },
+    set citizenEntry(v) { impl.citizenEntry = v; },
+    sync: () => impl.sync(),
+    view: (id) => shell.view(id),
+    join: (s) => sentence(shell.join(ready(s))),
+    leave: (id) => shell.leave(id),
+    setConnected: (id, on) => shell.setConnected(id, on),
+    start: (id) => sentence(shell.start(id)),
+    kick: (by, id) => sentence(shell.kick(by, id)),
+    lg: (s, m) => sentence(shell.request(ready(s), { t: 'lg', ...m })),
+    set: (s, patch) => sentence(shell.request(ready(s), { t: 'set', patch })),
+    chat: (s, text) => sentence(shell.request(ready(s), { t: 'chat', text })) ?? undefined,
+    mediaBlocked: (s, k) => sentence(impl.mediaBlocked(s, k)),
+    play: (s, action) => (action.type === 'end' ? sentence(shell.request(ready(s), { t: 'lg', a: 'end' })) : 'unsupported'),
+    flush: () => shell.flush(),
+    faceChanged: (s, prev) => shell.faceChanged(s, prev),
+    sendExtras: (s) => shell.sendExtras(s),
+    push: (e) => shell.push(e),
+  };
+}
 
 function setup(n = 3) {
   const out = [];
@@ -33,6 +77,7 @@ test('초기 주제: mine 11개 전부 켜짐, 단어 없음', () => {
   assert.ok(!json.includes('짜장면'));
   assert.ok(!json.includes('citizenEntry') && !json.includes('liarEntry'));
   assert.ok(!json.includes('avatar') && !json.includes('av0'));
+  assert.ok(!JSON.stringify(room.view('u0').wait).match(/citizen|liarWord|alt/), 'wait 에 단어·역할이 없다');
 });
 
 test('설정: 칸마다 성공', () => {
@@ -73,13 +118,39 @@ test('설정: 칸마다 거절하고 아무것도 바뀌지 않음', () => {
 });
 
 test('설정: 방장 아님·단계 아님 거절', () => {
-  const x = setup();
+  const x = game3();
   assert.equal(typeof x.room.lg(x.ss[1], { a: 'settings', goal: 10 }), 'string');
+  assert.equal(typeof x.room.set(x.ss[1], { goal: 10 }), 'string');
   assert.equal(x.room.settings.goal, 0);
-  x.room.phase = 'speak';
+  assert.equal(x.room.start('u0'), null); // 진행 중
   assert.equal(typeof x.room.lg(host(x), { a: 'settings', goal: 10 }), 'string');
-  x.room.phase = 'result';
-  assert.equal(x.room.lg(host(x), { a: 'settings', goal: 10 }), null);
+  assert.equal(typeof x.room.set(host(x), { goal: 10 }), 'string');
+  x.room.game.phase = 'result'; x.room.sync(); // 결과 화면도 대기 상태(D5)
+  assert.equal(x.room.set(host(x), { goal: 10 }), null);
+  assert.equal(x.room.settings.goal, 10);
+});
+
+test('공통 set: 중첩 시간·고른 주제 이름 배열·옛 [{name,on}] 모양을 모두 받고, 거절하면 아무것도 안 바뀐다', () => {
+  const x = setup();
+  const names = x.room.settings.topics.map((t) => t.name);
+  assert.equal(x.room.set(host(x), { times: { speak: 45 } }), null);
+  assert.equal(x.room.settings.times.speak, 45);
+  assert.equal(x.room.set(host(x), { topics: names.slice(0, 2) }), null);
+  assert.deepEqual(x.room.settings.topics.filter((t) => t.on).map((t) => t.name), names.slice(0, 2));
+  assert.equal(x.room.set(host(x), { topics: [{ name: names[5], on: true }] }), null);
+  assert.equal(x.room.settings.topics.filter((t) => t.on).length, 3);
+  const before = JSON.stringify(x.room.settings);
+  assert.equal(x.room.set(host(x), { topics: [] }), '주제를 하나 이상 켜 주세요.');
+  assert.equal(x.room.set(host(x), { topics: ['없는주제'] }), '주제를 하나 이상 켜 주세요.');
+  assert.equal(typeof x.room.set(host(x), { times: { speak: 31 } }), 'string');
+  assert.equal(typeof x.room.set(host(x), 'x'), 'string');
+  assert.equal(JSON.stringify(x.room.settings), before);
+  // wait.set 은 화면이 그릴 방 설정 사본(단어·역할 없음)
+  const w = x.room.view('u1').wait;
+  assert.equal(w.can, true);
+  assert.equal(w.why, null);
+  assert.deepEqual(w.set, JSON.parse(JSON.stringify(x.room.settings)));
+  assert.deepEqual(w.own, {});
 });
 
 test('묶음을 바꾸면 주제 11개 <-> 10개, 전부 켜짐, nextTopic 비움', () => {
@@ -108,20 +179,26 @@ test('주제: 마지막 하나 끄기 거절, 없는 이름은 무시', () => {
   assert.equal(x.room.settings.topics.length, 11);
 });
 
-test('kick 4가지', () => {
-  const x = setup();
+test('kick 4가지 (옛 lg kick 과 공통 kick)', () => {
+  const x = game3();
   assert.equal(typeof x.room.lg(x.ss[1], { a: 'kick', id: 'u2' }), 'string'); // 방장 아님
+  assert.equal(typeof x.room.kick('u1', 'u2'), 'string');
   assert.equal(typeof x.room.lg(host(x), { a: 'kick', id: 'u0' }), 'string'); // 자기 자신
+  assert.equal(typeof x.room.kick('u0', 'u0'), 'string');
   assert.equal(typeof x.room.lg(host(x), { a: 'kick', id: 'nobody' }), 'string'); // 없는 사람
-  x.room.phase = 'speak';
+  assert.equal(typeof x.room.kick('u0', 'nobody'), 'string');
+  x.room.start('u0');
   assert.equal(typeof x.room.lg(host(x), { a: 'kick', id: 'u2' }), 'string'); // 방 대기 아님
-  x.room.phase = 'lobby';
+  assert.equal(typeof x.room.kick('u0', 'u2'), 'string');
+  x.room.lg(host(x), { a: 'end' }); // 방 대기로
   x.out.length = 0;
   assert.equal(x.room.lg(host(x), { a: 'kick', id: 'u2' }), null);
   assert.equal(x.room.members.length, 2);
   const msgs = x.out.filter((o) => o.to === 'u2').map((o) => o.m);
-  assert.deepEqual(msgs[0], { t: 'error', msg: '방장이 내보냈습니다.' });
+  assert.deepEqual(msgs[0], { t: 'error', msg: '방장이 내보냈습니다.', code: 'lg_kicked' });
   assert.ok(msgs.some((m) => m.t === 'room' && m.state === null));
+  assert.equal(x.room.kick('u0', 'u1'), null); // 공통 kick
+  assert.equal(x.room.members.length, 1);
 });
 
 test('faceChanged: 전원에게 한 번씩, 사진 포함', () => {
@@ -131,7 +208,7 @@ test('faceChanged: 전원에게 한 번씩, 사진 포함', () => {
   const faces = x.out.filter((o) => o.m.t === 'event' && o.m.e.k === 'faces');
   assert.equal(faces.length, 3);
   assert.deepEqual(faces.map((f) => f.to).sort(), ['u0', 'u1', 'u2']);
-  assert.deepEqual(faces[0].m.e.items, [{ id: 'u1', avatar: 'new' }]);
+  assert.deepEqual(faces[0].m.e.items, [{ id: 'u1', avatar: 'new', look: {} }]);
   assert.equal(x.out.filter((o) => o.m.t === 'room').length, 0);
 });
 
@@ -292,7 +369,7 @@ test('방장 end → 방 대기, 타이머 0개 / 방장 아니면 거절', () =
   assert.equal(x.lg('u0', { a: 'end' }), null);
   const notices = x.out.filter((o) => o.m.t === 'event' && o.m.e.k === 'chat' && o.m.e.text === '방장이 판을 끝냈습니다.');
   assert.deepEqual(notices.map((o) => o.to).sort(), ['u0', 'u1', 'u2']); // everyone, once
-  assert.equal(x.room.chatLog.at(-1).text, '방장이 판을 끝냈습니다.');
+  assert.equal(notices[0].m.e.kind, 'talk');
   assert.equal(x.room.phase, 'lobby');
   assert.equal(x.room.view('u0').result, null);
   assert.equal(x.timers.size, 0);
@@ -349,7 +426,8 @@ test('say 글 앞 크기 표시는 떼고 엔진에 넘김', () => {
   assert.equal(v.firstSays[0].text, '조용한 곳');
   const chat = x.out.find((o) => o.m.t === 'event' && o.m.e.k === 'chat').m.e;
   assert.equal(chat.name, x.byId(sp).user.name);
-  assert.equal(x.room.chatLog.at(-1).text, '조용한 곳');
+  assert.equal(chat.text, '조용한 곳');
+  assert.equal(chat.kind, 'say');
 });
 
 test('lg: 맨 앞에서 checkLg', () => {
@@ -650,7 +728,7 @@ test('R2b: 음수 delta(-1)도 방 점수에 반영, 누적은 0 아래로 안 �
   const persisted = [];
   x.hub.persist = (u) => persisted.push(u);
   x.room.scores.set('u1', { score: -1, flushed: 0 });
-  x.room.flushOne('u1');
+  x.room.flush();
   assert.equal(x.ss[1].user.stats.liar.score, 0);
   assert.equal(persisted.length, 1);
   x.room.scores.set('u2', { score: 4, flushed: 0 });
@@ -796,4 +874,61 @@ test('사진 바꾸기: 매체가 막힌 단계(unmask)의 새 사진은 풀릴 
   x.ss[0].user.avatar = 'AGAIN';
   x.room.faceChanged(x.ss[0], 'NEWFACE');
   assert.equal(faces()[0].avatar, 'AGAIN');
+});
+
+// ---- 공용 방 틀로 옮긴 뒤 새로 생긴 약속 ----
+
+test('코인: 판이 결과에 닿으면 ctx.finish 가 한 번 (끝까지 한 사람만, 라이어 opp=시민 수), 무효 판은 0번', () => {
+  const x = withStats(atDiscuss(4));
+  const liar = x.liar();
+  finishRound(x);
+  assert.equal(x.hub.awards.length, 1);
+  assert.equal(x.hub.awards[0].mode, 'liar');
+  const rows = x.hub.awards[0].rows;
+  assert.deepEqual(rows.map((r) => r.id).sort(), ['u0', 'u1', 'u2', 'u3']);
+  assert.equal(rows.find((r) => r.id === liar).opp, 3);
+  assert.ok(rows.filter((r) => r.id !== liar).every((r) => r.opp === 1));
+  // 다음 판도 한 번씩
+  x.room.start('u0'); x.until('speak'); x.speakAll();
+  finishRound(x);
+  assert.equal(x.hub.awards.length, 2);
+  // 무효 판(2명만 남음)은 지급 없음
+  const z = withStats(atDiscuss(3));
+  z.room.leave(other(z, z.liar())[0]);
+  assert.equal(z.room.view(z.liar()).result.winner, 'void');
+  assert.equal((z.hub.awards ?? []).length, 0);
+  // 도중에 나간 사람은 지급 대상이 아니다
+  const q = withStats(atDiscuss(5));
+  const gone = other(q, q.liar())[0];
+  q.room.leave(gone);
+  finishRound(q);
+  assert.ok(!q.hub.awards[0].rows.some((r) => r.id === gone));
+});
+
+test('관리자 건너뛰기: 돌고 있는 타이머가 있으면 지금 넘기고, 대기실·결과에서는 false', () => {
+  const x = game3();
+  assert.equal(x.room.impl.skipPhase(), false); // 대기실
+  x.room.start('u0');
+  assert.equal(x.room.phase, 'reveal');
+  assert.equal(x.room.impl.skipPhase(), true);
+  assert.equal(x.room.phase, 'speak');
+  assert.ok(x.timers.size <= 1);
+  x.room.game.phase = 'result'; x.room.sync();
+  assert.equal(x.room.impl.skipPhase(), false);
+});
+
+test('모두 나가면 판이 정리된다(빈 방에 남은 판이 다음 사람에게 보이지 않는다)', () => {
+  const x = game3(3);
+  x.room.start('u0');
+  assert.equal(x.timers.size, 1);
+  for (const s of x.ss) x.room.leave(s.id);
+  assert.equal(x.room.game, null);
+  assert.equal(x.room.phase, 'lobby');
+  assert.ok([...x.timers.values()].every((t) => t.at >= x.clock.now + 60_000)); // 남은 것은 빈 방 지우기(60초) 뿐
+});
+
+test('채팅 80자: 80자는 보내지고 81자는 막힌다(화면 입력 한도 80과 같다)', () => {
+  const x = game3();
+  assert.equal(x.room.chat(x.ss[0], '가'.repeat(80)), undefined);
+  assert.equal(x.room.chat(x.ss[0], '가'.repeat(81)), '채팅은 1~80자여야 합니다.');
 });

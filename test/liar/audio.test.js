@@ -7,53 +7,46 @@ test('이름 15개', () => {
   assert.equal(new Set(SOUND_NAMES).size, 15);
 });
 
-test('AudioContext 없는 node 에서 오류 없이 지나간다', () => {
-  const a = createAudio();
+test('소리 엔진이 없거나 못 내는 곳에서 오류 없이 지나간다', () => {
+  const a = createAudio(null);
   for (const n of SOUND_NAMES) a.play(n);
-  a.play('없는이름'); a.play('constructor'); a.play(undefined);
-  a.unlock();
-  for (const n of SOUND_NAMES) a.play(n);
-  a.setMuted(true);
-  assert.equal(a.muted, true);
-  a.play('phase');
-  a.dispose();
-  a.play('phase');
+  const broken = createAudio({ isMuted: () => false, context() { throw new Error('no audio'); }, output() { return {}; } });
+  for (const n of SOUND_NAMES) broken.play(n);
+  broken.play('없는이름'); broken.play('constructor'); broken.play(undefined);
+  broken.dispose();
+  broken.play('phase');
 });
 
-function fakeCtx(log) {
+function fakeSound(log) {
   const param = () => ({ value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} });
-  return class {
-    constructor() { this.currentTime = 0; this.state = 'running'; this.sampleRate = 8000; this.destination = {}; log.created++; }
-    createGain() { return { gain: param(), connect() {} }; }
-    createOscillator() { log.osc++; return { frequency: param(), connect() {}, start() {}, stop() {} }; }
-    createBiquadFilter() { return { frequency: param(), connect() {} }; }
-    createBuffer(c, len) { return { getChannelData: () => new Float32Array(len) }; }
-    createBufferSource() { return { connect() {}, start() {}, stop() {} }; }
-    resume() {}
-    close() { log.closed++; }
+  const ctx = {
+    currentTime: 0, sampleRate: 8000, state: 'running',
+    createGain() { return { gain: param(), connect() {} }; },
+    createOscillator() { log.osc++; return { frequency: param(), connect() {}, start() {}, stop() {} }; },
+    createBiquadFilter() { return { frequency: param(), connect() {} }; },
+    createBuffer(c, len) { return { getChannelData: () => new Float32Array(len) }; },
+    createBufferSource() { return { connect() {}, start() {}, stop() {} }; },
   };
+  return { muted: false, isMuted() { return this.muted; }, context() { log.ctx++; return ctx; }, output() { return {}; } };
 }
 
-test('가짜 AudioContext: unlock 전에는 만들지 않고, 끔·모르는 이름은 소리 없음', () => {
-  const log = { created: 0, osc: 0, closed: 0 };
-  globalThis.AudioContext = fakeCtx(log);
-  try {
-    const a = createAudio();
-    assert.equal(log.created, 0);
-    a.play('phase');
-    assert.equal(log.osc, 0, '잠금 상태');
-    a.unlock(); a.unlock();
-    assert.equal(log.created, 1);
-    a.play('nope');
-    assert.equal(log.osc, 0);
-    for (const n of SOUND_NAMES) a.play(n);
-    assert.ok(log.osc > 15);
-    const before = log.osc;
-    a.setMuted(true); a.play('win');
-    assert.equal(log.osc, before);
-    a.dispose();
-    assert.equal(log.closed, 1);
-    a.setMuted(false); a.play('win');
-    assert.equal(log.osc, before);
-  } finally { delete globalThis.AudioContext; }
+test('공용 소리 엔진 위에서 재생: 사이트 소리 끄기를 따르고, 모르는 이름은 소리 없음, 정리 뒤에는 조용', () => {
+  const log = { osc: 0, ctx: 0 };
+  const sound = fakeSound(log);
+  const a = createAudio(sound);
+  a.play('nope');
+  assert.equal(log.osc, 0);
+  for (const n of SOUND_NAMES) a.play(n);
+  assert.ok(log.osc > 15);
+  const before = log.osc;
+  sound.muted = true; // 사이트 소리 끄기
+  a.play('win');
+  assert.equal(log.osc, before);
+  sound.muted = false;
+  a.play('win');
+  assert.ok(log.osc > before);
+  const again = log.osc;
+  a.dispose();
+  a.play('win');
+  assert.equal(log.osc, again);
 });

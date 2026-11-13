@@ -253,10 +253,9 @@ export function createEnding(ctx, opts = {}) {
     el.style.setProperty('--c', color);
     wait.textContent = ED.wait;
     cname.textContent = liarP ? liarP.name || '' : '';
-    const url = ctx.faceOf ? ctx.faceOf(liarId) : null;
     face.replaceChildren();
-    if (url) {
-      const img = doc.createElement('img'); img.alt = ''; img.src = url; face.appendChild(img);
+    if (ctx.avatar && liarP) {
+      face.appendChild(ctx.avatar(liarP, 84)); // 공용 프로필 부품
     } else {
       face.textContent = liarP && liarP.name ? [...liarP.name][0] : '?';
     }

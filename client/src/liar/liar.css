@@ -10,9 +10,6 @@
   position: fixed; left: 50%; bottom: calc(12px * var(--lg-k)); transform: translateX(-50%); z-index: 30;
   display: flex; gap: calc(8px * var(--lg-k)); align-items: center; justify-content: center; pointer-events: none;
 }
-/* 방 대기: 설정 창(ui/settings.js)을 담는 상자. 방 대기 단계에서만 보인다. */
-.lg-lobbybox {
-  position: absolute; left: 50%; top: calc(48px * var(--lg-k)); bottom: calc(12px * var(--lg-k)); transform: translateX(-50%);
-  width: min(560px, calc(100vw - 24px)); display: flex; flex-direction: column; z-index: 15; pointer-events: none;
-}
-.lg-lobbybox[hidden] { display: none; }
+/* 공용 프로필 부품(ui/kit/avatar.js)을 이름표·첫 발언·엔딩의 동그라미 칸에 꽉 채운다 */
+.lg-av-fit { display: flex; width: 100%; height: 100%; }
+.lg-av-fit > * { width: 100% !important; height: 100% !important; font-size: inherit !important; }

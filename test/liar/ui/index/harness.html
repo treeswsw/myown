@@ -12,8 +12,9 @@
 <body>
 <div id="ui"></div>
 <script type="module">
-import { mountLiar } from '/client/src/liar/index.js';
+import { mount } from '/client/src/liar/index.js';
 import { make } from '/test/liar/ui/index/fixtures.js';
+import { profile } from '/client/src/ui/kit/avatar.js';
 
 // 소리 호출을 세는 가짜 AudioContext(어떤 소리가 몇 번 났는지만 본다)
 const plays = [];
@@ -22,18 +23,28 @@ const chain = () => new Proxy(function () {}, {
   set: () => true,
   apply: () => chain(),
 });
-window.AudioContext = function () { return chain(); };
-window.webkitAudioContext = window.AudioContext;
+const audioCtx = chain();
+const sound = { isMuted: () => false, context: () => audioCtx, output: () => chain(), unlock() {} };
 
 const h = { sent: [], locks: [], plays, make, errors: [] };
 const calls = [];
 const fakeScene = () => ({ scene: {}, camera: {}, calls, setPlayers() {}, setFace() {}, setView() {}, resize() {}, frame() {}, dispose() {}, screenPos: () => null,
   setVotes: (v) => calls.push(['votes', v]), setJudge: (j) => calls.push(['judge', j]) });
 const stage = { nogl: true, use() {} };
-const chat = { setLock: (l, hint) => h.locks.push([l, hint]) };
-h.liar = mountLiar({ ui: document.getElementById('ui'), stage, send: (m) => h.sent.push(m), getMe: () => null, chat, toast: () => {}, emotePanel: null, sceneFactory: new URLSearchParams(location.search).has('fake') ? fakeScene : undefined });
+const faces = { get: () => ({ avatar: null, look: null }), onChange: () => () => {} };
+const clock = { now: () => Date.now(), sync() {}, left: () => 0 };
+const ctx = {
+  root: document.getElementById('ui'), ui: document.getElementById('ui'), stage, send: (m) => h.sent.push(m), me: () => null,
+  faces, clock, sound, profile, toast: () => {}, toWait: () => h.sent.push({ toWait: true }),
+};
+h.liar = mount(ctx, { sceneFactory: new URLSearchParams(location.search).has('fake') ? fakeScene : undefined });
 h.calls = calls;
-h.apply = (s) => h.liar.applyRoom(s);
+// 틀이 하는 일을 흉내: 상태를 주고, 채팅 칸 잠금(chatRule.lock)을 기록한다
+h.apply = (s) => {
+  h.liar.room(s);
+  if (s) { const l = h.liar.chatRule.lock(s); h.locks.push([l.locked, l.hint]); }
+};
+h.chatMsg = (text) => h.liar.chatRule.route(text);
 window.h = h;
 window.__ready = true;
 </script>

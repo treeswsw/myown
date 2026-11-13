@@ -93,7 +93,17 @@ async function runContext(browser, server, name, cfg) {
     check(`occlusion: ${state}`, bad.length === 0, bad.length ? `\n      ${bad.join('\n      ')}` : '');
   };
 
-  // Liar room: the settings/HUD layout is covered by test/ui/liar-round.mjs; here only the top bar buttons must be on top.
+  // Liar room (common frame): the HUD layout is covered by test/ui/liar-round.mjs; here only the common top bar / waiting-room buttons must be on top.
+  const rmBarOnTop = async (state) => {
+    await page.waitForTimeout(150);
+    const bad = await page.evaluate(() => [...document.querySelectorAll('.rm-bar .rm-btn, .wr-root [data-rm]')].filter((el) => !el.hidden && el.offsetParent !== null).filter((el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !(top && (top === el || el.contains(top)));
+    }).map((el) => el.textContent));
+    check(`liar top bar on top: ${state}`, bad.length === 0, bad.join(','));
+  };
+  // Old-style top bar (draw / gsk / mini until they move to the frame).
   const barOnTop = async (state) => {
     await page.waitForTimeout(150);
     const bad = await page.evaluate(() => [...document.querySelectorAll('.lgbar-btn')].filter((el) => !el.hidden && el.offsetParent !== null).filter((el) => {
@@ -399,34 +409,34 @@ async function runContext(browser, server, name, cfg) {
         if (st?.phase !== 'speak') b._said = false;
       });
     }
-    await step('liar: pick 라이어게임, create a room, two bots join', async () => {
+    await step('liar: pick 라이어게임, create a room → common waiting room; two bots join and 게임 시작 is enabled', async () => {
       await press('.lb-seg-item:has-text("라이어게임")');
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.lgbar-code');
-      await visible('.lg-st-player');
+      await visible('[data-rm="wait-start"]');
       const r = await openRoom('liar');
       for (const b of lgBots) await b.join(r.code);
-      await page.locator('.lg-st-player').nth(2).waitFor({ state: 'visible', timeout: T });
+      await page.waitForFunction(() => document.querySelectorAll('.wr-players li').length === 3 && !document.querySelector('[data-rm="wait-start"]').disabled, null, { timeout: T });
     });
-    await barOnTop('liar room (waiting)');
+    await rmBarOnTop('liar room (waiting)');
     await occlusion('liar room (waiting, settings)');
     await step('liar: lobby is hidden inside the liar room, poker HUD absent', async () => {
-      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root') && !document.querySelector('.lb-root').hidden, cluster: !!document.querySelector('.cluster') && getComputedStyle(document.querySelector('.cluster')).display !== 'none' && document.querySelector('.cluster').offsetParent !== null }));
+      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root:not(.wr-root)') && !document.querySelector('.lb-root:not(.wr-root)').hidden, cluster: !!document.querySelector('.cluster') && getComputedStyle(document.querySelector('.cluster')).display !== 'none' && document.querySelector('.cluster').offsetParent !== null }));
       if (r.lobby) throw new Error('lobby is visible in the liar room');
     });
-    await step('liar: room setting button (host) toggles', async () => {
-      await press('[data-lg="st-liarMode"][aria-pressed="false"]');
-      await visible('[data-lg="st-liarMode"][aria-pressed="true"]');
+    await step('liar: room setting button (host) toggles (set → wait.set)', async () => {
+      await press('.wr-seg[aria-label="라이어 방식"] .wr-opt[aria-checked="false"]');
+      await visible('.wr-seg[aria-label="라이어 방식"] .wr-opt[aria-checked="true"]:has-text("라이어 알림")');
+      await press('.wr-seg[aria-label="라이어 방식"] .wr-opt[aria-checked="false"]'); // back to 다른 제시어
     });
-    await step('liar: shortest times, then 시작 → role card', async () => {
-      for (const key of ['speak', 'discuss', 'rediscuss', 'defense', 'judge', 'guess']) {
-        await press(`[data-lg="st-time"][data-key="${key}"]`, 0);
-        await visible(`[data-lg="st-time"][data-key="${key}"][aria-pressed="true"]`);
+    await step('liar: shortest times, then 게임 시작 → role card', async () => {
+      for (const label of ['첫 설명', '토론·투표', '살린 뒤 토론', '최후 변론', '찬반 투표', '정답 맞히기']) {
+        await press(`.wr-seg[aria-label="${label}"] .wr-opt`, 0);
+        await visible(`.wr-seg[aria-label="${label}"] .wr-opt:first-child[aria-checked="true"]`);
       }
-      await press('button.lgbar-btn:has-text("시작")');
+      await press('[data-rm="wait-start"]');
       await visible('[class*="lg-role-"]');
     });
-    await barOnTop('liar role reveal');
+    await rmBarOnTop('liar role reveal');
     await occlusion('liar role reveal');
     await step('liar: first explanations: chat locked with a note on others\' turns, my own turn types in the chat box', async () => {
       let sawLock = false;
@@ -436,7 +446,7 @@ async function runContext(browser, server, name, cfg) {
         const lockedNow = await page.evaluate(() => { const i = document.querySelector('.chat-in'); return Boolean(i && i.disabled && i.placeholder.includes('첫 설명 중에는')); });
         if (lockedNow) sawLock = true;
         if (!said && await page.getByText('당신의 발언시간입니다').first().isVisible()) {
-          await visible('.chat-in'); // 게임 중에는 아래 채팅 칸이 늘 보인다(채팅 버튼 없음)
+          await visible('.chat-in'); // 내 입력 차례가 오면 채팅 칸이 저절로 열린다
           await page.fill('.chat-in', '제 설명입니다');
           const p = lgBots[0].waitMsg((m) => m.t === 'event' && m.e.k === 'chat' && /제 설명입니다/.test(m.e.text), T, 'my explanation reaches a bot');
           p.catch(() => {});
@@ -449,29 +459,38 @@ async function runContext(browser, server, name, cfg) {
       if (!sawLock) throw new Error('chat was never locked with the 첫 설명 note');
       if (!said) throw new Error('my speaking turn never came');
     });
-    await step('liar: 아래 채팅 칸 "기록" 버튼이 기록 창을 열고 닫는다, 채팅 버튼은 없다', async () => {
+    await step('liar: 사이트 채팅 버튼으로 채팅 칸을 열면 "기록" 버튼이 기록 창을 열고 닫는다', async () => {
       const btnShown = await page.evaluate(() => { const b = document.querySelector('.chat-btn'); return Boolean(b && !b.hidden && b.getClientRects().length); });
-      check('liar in-game: .chat-btn not shown', !btnShown);
+      check('liar in-game: site .chat-btn shown', btnShown);
+      if (!(await page.locator('.chat-in').isVisible())) await press('.chat-btn');
+      await visible('.chat-in');
       await press('.chat-log');
       await visible('.chat-sheet');
       // 이름표는 토론·재투표에서만 눌린다(.lg-vt-can). 그 밖에는 pointer-events:none 이라 캔버스가 맨 위로 잡히는 것이 정상
       await occlusion('liar in-game, 기록 open', '.lg-vt-tag:not(.lg-vt-can)');
       await press('.chat-log');
+      if (await page.locator('.chat-btn[aria-expanded="true"]').count()) await press('.chat-btn'); // 채팅 칸 닫기
     });
     await step('liar: emote panel → emote reaches a bot', async () => {
       const p = lgBots[1].waitMsg((m) => m.t === 'event' && m.e.k === 'emote', T, 'emote event');
       p.catch(() => {});
-      await press('button.lgbar-btn:has-text("이모티콘")');
+      await press('[data-rm="bar-emote"]');
       await visible('.hpanel .ep-btn.glyph');
       await press('.hpanel .ep-btn.glyph', 0);
       await p;
-      if (await loc('.hpanel').count()) await press('button.lgbar-btn:has-text("이모티콘")');
+      if (await loc('.hpanel').count()) await press('[data-rm="bar-emote"]');
       await gone('.hpanel');
     });
-    await step('liar: 나가기 returns to the lobby, bar disappears', async () => {
-      await press('button.lgbar-btn:has-text("나가기")');
+    await step('liar: 나가기 mid-game asks first, 취소 keeps me in, 나가기 returns to the lobby', async () => {
+      await press('[data-rm="bar-leave"]');
+      await visible('.ui-confirm:has-text("나가면 이번 판에서 빠져요")');
+      await press('.ui-mbtn:has-text("취소")');
+      await visible('.rm-bar:not([hidden])');
+      await press('[data-rm="bar-leave"]');
+      await press('.ui-mbtn.ui-danger');
       await visible('button:has-text("방 만들기")');
-      await gone('.lgbar-code');
+      await gone('.rm-bar:not([hidden])');
+      await page.waitForFunction(() => document.querySelector('.lg-root') === null, null, { timeout: T }); // 3D·화면 요소가 남지 않는다
     });
     await step('liar: lobby 라이어 랭킹 button → window → close', async () => {
       await press('.lb-rank-btn');

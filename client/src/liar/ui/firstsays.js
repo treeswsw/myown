@@ -93,11 +93,8 @@ export function createFirstSays(ctx) {
   function avatar(p) {
     const a = el('span', 'lg-fs-av');
     a.style.setProperty('--c', p ? p.color : '#888');
-    const src = p && ctx.faceOf ? ctx.faceOf(p.id) : null;
-    if (src) {
-      const img = el('img', 'lg-fs-img', { alt: '', draggable: 'false' });
-      img.src = src;
-      a.appendChild(img);
+    if (p && ctx.avatar) { // 사진·꾸미기는 공용 프로필 부품(ctx.avatar = ui/kit/avatar.js)
+      a.appendChild(ctx.avatar(p, 32));
     } else {
       a.classList.add('lg-fs-initial');
       a.textContent = p && p.name ? Array.from(p.name)[0] : '?';

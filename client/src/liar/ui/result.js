@@ -98,7 +98,8 @@ export function createResult(ctx) {
   const foot = h('div', 'lg-rs-foot');
   const nextBtn = h('button', 'lg-rs-btn lg-rs-send', '다음 판', 'next'); nextBtn.type = 'button';
   const nextWait = h('div', 'lg-rs-nextwait', '방장이 다음 판을 시작하기를 기다리는 중');
-  foot.append(nextBtn, nextWait);
+  const toWaitBtn = h('button', 'lg-rs-btn', '대기실로', 'to-wait'); toWaitBtn.type = 'button'; // 설정을 바꾸러 대기실로(D5)
+  foot.append(toWaitBtn, nextBtn, nextWait);
   const scroll = h('div', 'lg-rs-scroll');
   scroll.append(body, logBox);
   panel.append(champ, winner, scroll, foot);
@@ -249,6 +250,7 @@ export function createResult(ctx) {
   form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
   nextBtn.addEventListener('click', () => ctx.send({ t: 'start' }));
+  toWaitBtn.addEventListener('click', () => ctx.toWait?.());
 
   return {
     el,

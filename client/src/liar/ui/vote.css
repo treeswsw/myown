@@ -23,7 +23,7 @@
 .lg-vt-av {
   flex: none; width: max(18px, calc(24px * var(--lg-k, 1))); height: max(18px, calc(24px * var(--lg-k, 1)));
   margin-left: -0.3em; border-radius: 50%; border: 2px solid var(--c, #efe6d8); background: #0c0909;
-  overflow: hidden; display: inline-flex; align-items: center; justify-content: center;
+  overflow: visible; display: inline-flex; align-items: center; justify-content: center;
 }
 .lg-vt-av.lg-vt-initial { background: var(--c, #efe6d8); color: #120d0c; font-size: 0.8em; line-height: 1; }
 .lg-vt-img { width: 100%; height: 100%; object-fit: cover; display: block; }
