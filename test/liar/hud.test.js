@@ -31,20 +31,42 @@ for (const phase of PHASES) {
     const spec = base();
     spec.players.find((p) => p.id === 'u5').spectating = true;
     assert.equal(lockedOf(spec), !exp.spec, 'spectator');
-    // 잠기면 hint 는 글자, 안 잠기면 빈 글자
+    // 잠기면 hint 는 글자. 안 잠겼는데 글자가 있으면 hot
     for (const s of [base(), acc, spec]) {
       const r = chatLockFor(s);
       assert.equal(typeof r.hint, 'string');
-      assert.equal(r.hint.length > 0, r.locked);
+      assert.equal(typeof r.hot, 'boolean');
+      if (r.locked) assert.ok(r.hint.length > 0 && !r.hot);
+      else assert.equal(r.hint.length > 0, r.hot);
     }
   });
 }
 
 test('chatLockFor null/방 없음', () => {
-  assert.deepEqual(chatLockFor(null), { locked: false, hint: '' });
+  assert.deepEqual(chatLockFor(null), { locked: false, hint: '', hot: false });
 });
 
 test('chatLockFor 문구', () => {
   assert.match(chatLockFor(stateFor('speak', { you: 'u5' })).hint, /차례인 사람만/);
   assert.match(chatLockFor(stateFor('defense', { you: 'u5' })).hint, /지목된 사람만/);
+});
+
+test('chatLockFor hot: 내 차례·남의 차례·지목된 사람·구경', () => {
+  const mine = chatLockFor(stateFor('speak', { you: 'u1', speaker: 'u1' }));
+  assert.deepEqual(mine, { locked: false, hint: '첫 발언을 입력하세요', hot: true });
+  const other = chatLockFor(stateFor('speak', { you: 'u5', speaker: 'u1' }));
+  assert.equal(other.locked, true);
+  assert.equal(other.hot, false);
+  for (const ph of ['defense', 'judge', 'judged']) {
+    const acc = chatLockFor(stateFor(ph, { you: 'u3', accused: 'u3' }));
+    assert.deepEqual(acc, { locked: false, hint: '최후 변론을 입력하세요', hot: true }, ph);
+  }
+  for (const ph of ['lobby', 'reveal', 'discuss', 'revote', 'result']) {
+    assert.deepEqual(chatLockFor(stateFor(ph, { you: 'u5' })), { locked: false, hint: '', hot: false }, ph);
+  }
+  const spec = stateFor('speak', { you: 'u5', speaker: 'u5' });
+  spec.players.find((p) => p.id === 'u5').spectating = true;
+  const r = chatLockFor(spec);
+  assert.equal(r.locked, true);
+  assert.equal(r.hot, false);
 });
