@@ -147,3 +147,11 @@ test('every class in client/src/liar css starts with lg-', () => {
   for (const f of liar) for (const c of f.classes) if (!c.startsWith('lg-')) bad.push(`${f.rel}: ".${c}"`);
   assert.deepEqual(bad, [], `classes must start with "lg-":\n  ${bad.join('\n  ')}`);
 });
+
+// Yacht module (client/src/yacht/): every class starts with yt-. Passes while no yacht css exists yet.
+test('every class in client/src/yacht css starts with yt-', () => {
+  const yacht = files.filter((f) => f.rel.startsWith('client/src/yacht/'));
+  const bad = [];
+  for (const f of yacht) for (const c of f.classes) if (!c.startsWith('yt-')) bad.push(`${f.rel}: ".${c}"`);
+  assert.deepEqual(bad, [], `classes must start with "yt-":\n  ${bad.join('\n  ')}`);
+});
