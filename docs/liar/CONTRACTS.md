@@ -272,3 +272,15 @@ roundStats(result, playerIds) → { [id]: { games, wins, liarGames, liarWins } }
 - **scores**: 누적에 더할 때 0 아래로 못 깎은 몫은 반영된 것으로 치지 않는다(`flushed`는 실제 반영분만큼만 오른다). 코드 고침은 PLAN v0.12-1.
 - **rank**: 목록은 누적 1점 이상만(상위 20). 0점인 사람은 "내 순위" 줄에만.
 - **판 끝내기 알림**: 방장 이름의 `chat` 한 줄. 새 메시지 종류를 만들지 않는다.
+
+## 9. v0.13 덧붙임 (2026-11-13 iPad 시험 뒤. GDD 13절. 위 절과 다르면 이 절이 우선. 과제는 docs/liar/FIX-IPAD-1.md)
+
+- **메시지 모양은 그대로다.** `picks = { [id]: 'yes' | 'no' }`에 이름이 없으면 **기권**. `DEFAULT_TIMES.judge = 15`(3절 표본의 `judge: 10`도 15로 읽는다).
+- **game**: 처형 = 낸 표 중 `yes` 수 > `no` 수. 점수: 기권 0(성공·실패 모두).
+- **vote**: `judged`에서 안 고른 사람 딱지는 `data-v="abs"` "기권"(이전에는 `no`). `tally`는 조작 줄(`ctx.action`)의 찬반 상자 안, "맞다 N · 아니다 M[ · 기권 K]". 새 메서드 `pick(id)`(이름표를 누른 것과 같다).
+  이름표 자리는 `ctx.tagAnchor`가 있으면 그것을, 없으면 `ctx.anchor`를 쓴다. 돌려받은 값에 `below: true`가 있으면 이름표를 그 점 **아래로** 단다.
+- **ctx(index.js 가 더한다)**: `tagAnchor(id) → { x, y, below? } | null`.
+- **3D**: `tagPos(id) → { x, y, below? } | null`(클로즈업된 사람은 얼굴 아래 점 + `below: true`, 그 밖은 `screenPos`와 같다), `pick(x, y) → id | null`(화면 CSS px. 그 자리의 마네킹 주인).
+- **hud**: `chatLockFor(state) → { locked, hint, hot }`. 내 첫 설명 차례·내 최후 변론(변론·찬반·판정)에는 `locked: false`, `hint`에 안내 글, `hot: true`. 역할(`state.my`)은 보지 않는다.
+- **진행자 chat**: `chat.setLock(locked, note, hot)` — 잠기지 않았어도 `note`가 있으면 안내 글로 쓴다. `chat.setMode('liar')`, `chat.push(msg, { mine, bubble })`. 없는 진행자(gamemine host)에서도 깨지지 않게 index.js 는 더 넘기기만 한다.
+- **index.js**: 토론·투표·재투표 중 캔버스를 누르면 `scene.pick?.(x, y)` → `mods.vote.pick?.(id)`.
