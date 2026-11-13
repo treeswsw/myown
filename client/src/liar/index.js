@@ -77,6 +77,7 @@ function mountLiarInner({ ui, stage, send, getMe, chat, toast, emotePanel, scene
     root, action, send,
     now: () => Date.now() + offset,
     anchor: (id) => (scene ? scene.screenPos(id) : nogl ? (mods.vote?.tagPos(id) ?? rowPos(id)) : null),
+    tagAnchor: (id) => (scene ? (scene.tagPos?.(id) ?? scene.screenPos(id)) : null),
     faceOf: (id) => faces.get(id) ?? null,
     toast, nogl, limits: LIMITS,
   };
@@ -150,7 +151,7 @@ function mountLiarInner({ ui, stage, send, getMe, chat, toast, emotePanel, scene
     each((m) => m.update(s));
     syncScene(s);
     const lock = chatLockFor(s);
-    chat.setLock(lock.locked, lock.hint);
+    chat.setLock(lock.locked, lock.hint, lock.hot);
     if (prevPhase != null && prevPhase !== s.phase) {
       const snd = resultSound(s);
       if (snd) audio.play(snd);
@@ -172,6 +173,15 @@ function mountLiarInner({ ui, stage, send, getMe, chat, toast, emotePanel, scene
     each((m) => m.event?.(ev));
   }
 
+  // 캔버스(마네킹) 누르기 -> 투표 지목
+  const onCanvasClick = (e) => {
+    if (e.target?.tagName !== 'CANVAS' || !scene?.pick) return;
+    if (state?.phase !== 'discuss' && state?.phase !== 'revote') return;
+    const id = scene.pick(e.clientX, e.clientY);
+    if (id) mods.vote?.pick?.(id);
+  };
+  document.addEventListener('click', onCanvasClick);
+
   return {
     applyRoom,
     handleEvent,
@@ -188,6 +198,7 @@ function mountLiarInner({ ui, stage, send, getMe, chat, toast, emotePanel, scene
     },
     dispose() {
       disposed = true;
+      document.removeEventListener('click', onCanvasClick);
       removeEventListener('pointerdown', unlock, { capture: true });
       each((m) => m.dispose?.());
       audio.dispose();

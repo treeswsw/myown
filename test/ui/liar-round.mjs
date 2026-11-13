@@ -106,16 +106,25 @@ const noErrors = (state) => {
   for (const w of wins) if (w.errors.length) throw new Error(`콘솔 오류(${w.who}, ${state}): ${w.errors.join(' | ')}`);
 };
 
-// 게임 중 채팅 칸은 접혀 있다: 채팅 버튼으로 연다. 보낸 뒤 다시 접는다.
+// 게임 중 채팅 칸은 아래에 늘 보인다(채팅 버튼 없음).
 async function say(w, text) {
-  const btn = w.page.locator('.chat-btn');
-  if (!(await w.page.locator('.chat-in').isVisible())) await btn.click();
   const box = w.page.locator('.chat-in');
   await box.waitFor({ state: 'visible' });
   await box.fill(text);
   await box.press('Enter');
-  if (await box.isVisible()) await btn.click();
+  await w.page.locator('.chat-feed', { hasText: text }).first().waitFor({ state: 'attached', timeout: 5000 }).catch(() => {
+    throw new Error(`${w.who}: 보낸 글이 .chat-feed 에 없음(${text})`);
+  });
 }
+const chatBarOk = async (w, state) => {
+  const r = await w.page.evaluate(() => {
+    const b = document.querySelector('.chat-btn'), i = document.querySelector('.chat-in');
+    const vis = (e) => e && !e.hidden && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
+    return { btn: vis(b), input: vis(i) };
+  });
+  if (r.btn) throw new Error(`${w.who} ${state}: 게임 중인데 .chat-btn 이 보임`);
+  if (!r.input) throw new Error(`${w.who} ${state}: .chat-in 이 안 보임`);
+};
 const title = (w) => w.page.locator('[data-lg="hud-title"]');
 const waitTitle = async (w, text, timeout = T) => {
   await w.page.locator('[data-lg="hud-title"]', { hasText: text }).first().waitFor({ state: 'visible', timeout });
@@ -211,6 +220,7 @@ try {
         const dis = await w.page.locator('.chat-in').evaluate((e) => e.disabled || e.readOnly).catch(() => true);
         if (!dis) throw new Error(`차례가 아닌 ${w.who} 창의 채팅 칸이 잠기지 않음`);
       }
+      if (!(await sp.page.locator('.chat-bar.chat-hot').count())) throw new Error(`내 발언 차례인데 .chat-bar.chat-hot 이 없음(${sp.who})`);
       const text = `설명${n}번입니다`;
       said.push({ id: sp.who, text });
       await say(sp, text);
@@ -223,6 +233,7 @@ try {
           if (!ok) check(w.who, '마지막(3번째) 첫 설명이 hud 큰 글에 뜸', false, '토론 단계로 넘어가 큰 글이 뜨지 않음');
         }
       }
+      for (const w of wins) await chatBarOk(w, `speak ${n}`);
       noErrors(`speak ${n}`);
     });
     await step(`첫 설명 ${n}번째: 눌림 검사`, async () => { await occAll(`speak ${n}`); });
@@ -243,6 +254,7 @@ try {
   await step('토론 단계: 이름 버튼으로 지목 (B·C → A, A → B)', async () => {
     for (const w of wins) await waitTitle(w, '투표 결과까지', 20000);
     await occAll('discuss');
+    for (const w of wins) await chatBarOk(w, 'discuss');
     const idOf = async (w, name) => w.page.locator('[data-lg="tag"]', { hasText: name }).first().getAttribute('data-id');
     for (const [w, target] of [[B, 'A'], [C, 'A'], [A, 'B']]) {
       await w.page.locator('[data-lg="tag"]', { hasText: names[target] }).first().click();
@@ -275,12 +287,20 @@ try {
   await step('찬반: 글자 버튼 "맞다" (B·C)', async () => {
     for (const w of wins) await waitTitle(w, '찬반 투표', 40000);
     await occAll('judge');
-    for (const w of [B, C]) await w.page.locator('[data-lg="judge"][data-v="yes"]').click();
+    for (const w of [B, C]) {
+      const hs = await w.page.locator('[data-lg="judge"]').evaluateAll((bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return { h: r.height, lines: Math.round(r.height / parseFloat(getComputedStyle(b).lineHeight || '20')) }; }));
+      if (hs.length !== 2 || Math.abs(hs[0].h - hs[1].h) > 1 || hs[0].h > 80) throw new Error(`${w.who}: 찬반 버튼 높이 이상 ${JSON.stringify(hs)}`);
+    }
+    await B.page.locator('[data-lg="judge"][data-v="yes"]').click(); // C 는 일부러 안 고른다(기권)
     noErrors('judge');
   });
 
   await step('판정(처형) → 정체 공개 글', async () => {
     for (const w of wins) await waitTitle(w, '처형', 20000);
+    for (const w of wins) {
+      const n = await w.page.locator('.lg-vt-jv', { hasText: '기권' }).count();
+      if (n < 1) throw new Error(`${w.who}: 안 고른 사람의 딱지에 "기권"이 없음`);
+    }
     for (const w of wins) await waitTitle(w, '정체 공개', 20000);
     for (const w of wins) await w.page.locator('[data-lg="unmask"]').first().waitFor({ state: 'attached' });
     await occAll('unmask', '.lg-hud-end'); // 정체 공개는 화면 전체를 어둡게 덮는 것이 약속이라 "이 판 끝내기"는 제외

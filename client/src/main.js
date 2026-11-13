@@ -135,8 +135,7 @@ function applyLiarRoom(room) {
   lgCode.textContent = `방 코드 ${room.code}`;
   lgStart.hidden = room.hostId !== room.you || room.phase !== 'lobby';
   chat.setEnabled(true);
-  chat.button.hidden = false;
-  chat.setMode(room.phase === 'lobby' ? 'lobby' : 'game');
+  chat.setMode(room.phase === 'lobby' ? 'lobby' : 'liar');
   if (!liar) {
     liarQ = liarQ.then(async () => {
       if (liar) return; // reconnects can queue several mounts: check again inside the queue
@@ -238,7 +237,7 @@ function handle(msg) {
         else if (e.k === 'sndList') { emotePanel.setRoomSounds(e.items); emotePanel.syncMine(); }
         else if (e.k === 'sndDel') emotePanel.removeRoomSound(e.sid);
         else if (e.k === 'sndRename') emotePanel.renameRoomSound(e.sid, e.name);
-        else if (e.k === 'chat') { chat.push(e, { mine: e.id === state.room?.you }); withLiar((l) => l.handleEvent(e)); }
+        else if (e.k === 'chat') { chat.push(e, { mine: e.id === state.room?.you, bubble: !(e.kind === 'say' || e.kind === 'plea') }); withLiar((l) => l.handleEvent(e)); }
         else if (e.k === 'chatLog') { chat.setLog(e.items, state.room?.you); withLiar((l) => l.handleEvent(e)); }
         else withLiar((l) => l.handleEvent(e)); // includes emote
         break;

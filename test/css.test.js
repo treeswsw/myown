@@ -126,6 +126,7 @@ const CROSS_FILE_ALLOW = new Map([
   ['lg-hud-endbox', 'style.css `.lg-root .lg-hud-endbox`: moved below the 54px .lgbar'],
   ['lg-action', 'style.css `.lg-root .lg-action`: lifted above the docked chat'],
   ['lg-lobbybox', 'style.css `.lg-root .lg-lobbybox`: kept between .lgbar, the action row and the docked chat'],
+  ['lg-rs-panel', 'style.css `.lg-root .lg-rs-panel`: result window kept above the lifted action row and docked chat'],
   ['lobby', 'style.css `.lobby[hidden]` and chat.css `html.chat-docked .lobby` reference the lobby root hook class kept on the element by lobby.js; TODO switch both to `.lb-root`'],
 ]);
 

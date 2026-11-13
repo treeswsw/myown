@@ -390,19 +390,25 @@ async function runContext(browser, server, name, cfg) {
         const lockedNow = await page.evaluate(() => { const i = document.querySelector('.chat-in'); return Boolean(i && i.disabled && i.placeholder.includes('첫 설명 중에는')); });
         if (lockedNow) sawLock = true;
         if (!said && await page.getByText('당신의 발언시간입니다').first().isVisible()) {
-          if (!(await loc('.chat-in').isVisible())) await press('.chat-btn');
+          await visible('.chat-in'); // 게임 중에는 아래 채팅 칸이 늘 보인다(채팅 버튼 없음)
           await page.fill('.chat-in', '제 설명입니다');
           const p = lgBots[0].waitMsg((m) => m.t === 'event' && m.e.k === 'chat' && /제 설명입니다/.test(m.e.text), T, 'my explanation reaches a bot');
           p.catch(() => {});
-          await page.press('.chat-in', 'Enter');
+          await press('.chat-send');
           await p;
           said = true;
-          if (await loc('.chat-in').isVisible()) await press('.chat-btn');
         }
         await page.waitForTimeout(100);
       }
       if (!sawLock) throw new Error('chat was never locked with the 첫 설명 note');
       if (!said) throw new Error('my speaking turn never came');
+    });
+    await step('liar: 아래 채팅 칸 "기록" 버튼이 기록 창을 열고 닫는다, 채팅 버튼은 없다', async () => {
+      const btnShown = await page.evaluate(() => { const b = document.querySelector('.chat-btn'); return Boolean(b && !b.hidden && b.getClientRects().length); });
+      check('liar in-game: .chat-btn not shown', !btnShown);
+      await press('.chat-log');
+      await visible('.chat-sheet');
+      await press('.chat-log');
     });
     await step('liar: emote panel → emote reaches a bot', async () => {
       const p = lgBots[1].waitMsg((m) => m.t === 'event' && m.e.k === 'emote', T, 'emote event');
