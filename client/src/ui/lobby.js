@@ -7,7 +7,11 @@ import { GAME_NAME as DRAW_NAME } from '../../../shared/draw/name.js';
 //              onMode(mode), onStart(), onLeave(), onLogout()})
 // -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), setYacht(visible), setDraw(visible), showRank({top, mine}) }
 // onRank() -> ask the server for the liar ranking, then call showRank.
-// onResetConfirm() is called when the user confirms 전체 초기화.
+// onResetConfirm(adminPw) is called when the user confirms 전체 초기화 (adminPw: string|undefined).
+// onLogin(id, avatar, adminPw, {pin, newPin}) - 4th arg fields are undefined when empty.
+// onCoin('swap'|'draw'|'shop'|'rank'|'pin'): coin buttons in the profile (shown only when user.wallet exists).
+// askPin(msg) shows the PIN field (server pin_need); loginError(code,msg) shows pin_bad/pin_lock/pin_exists/pin_fmt/adm_*;
+// resetError(msg) shows an error inside the reset confirm sheet (adm_pw/adm_lock).
 //    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
 
 const MODES = {
@@ -72,7 +76,7 @@ function segmented(onPick, initKeys = BASE_KEYS) {
   };
 }
 
-export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm, onRank }) {
+export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm, onRank, onCoin }) {
   const el = h('div', 'lb-root lobby');
   let user = null, room = null, pendingAvatar = null, liarOn = false, yachtOn = false, drawOn = false;
 
@@ -126,6 +130,33 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     } else if (pwInput) { pwInput.remove(); pwInput = null; }
   };
   const outErr = err();
+  // PIN (SPEC 22-8): optional 4-digit password. newPin box via checkbox, pin box after pin_need.
+  const pinField = (label, ac) => {
+    const i = h('input', 'lb-field');
+    i.type = 'password';
+    i.inputMode = 'numeric';
+    i.pattern = '[0-9]*';
+    i.autocomplete = ac;
+    i.placeholder = label;
+    i.maxLength = 4;
+    i.setAttribute('aria-label', label);
+    i.addEventListener('input', () => { i.value = i.value.replace(/\D/g, '').slice(0, 4); outErr.textContent = ''; });
+    i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
+    return i;
+  };
+  const pinInput = pinField('비밀번호 4자리', 'current-password');
+  pinInput.hidden = true;
+  const newPinInput = pinField('새 비밀번호 4자리', 'new-password');
+  newPinInput.hidden = true;
+  const pinChk = h('input', 'lb-pin-chk');
+  pinChk.type = 'checkbox';
+  pinChk.id = 'lb-pin-chk';
+  const pinChkRow = h('label', 'lb-pin-row', pinChk, h('span', null, '비밀번호 설정'));
+  pinChkRow.htmlFor = 'lb-pin-chk';
+  pinChk.addEventListener('change', () => {
+    newPinInput.hidden = !pinChk.checked;
+    if (pinChk.checked) newPinInput.focus(); else newPinInput.value = '';
+  });
   function submitLogin() {
     const id = idInput.value.trim();
     if (!ID_RE.test(id)) {
@@ -136,7 +167,9 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     outErr.textContent = '';
     try { localStorage.setItem(LAST_ID_KEY, id); } catch { /* ignore */ }
     syncPw();
-    onLogin(id, pendingAvatar, pwInput && pwInput.value ? pwInput.value : undefined);
+    const pin = !pinInput.hidden && pinInput.value ? pinInput.value : undefined;
+    const newPin = pinChk.checked && newPinInput.value ? newPinInput.value : undefined;
+    onLogin(id, pendingAvatar, pwInput && pwInput.value ? pwInput.value : undefined, { pin, newPin });
   }
   idInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
   idInput.addEventListener('input', syncPw);
@@ -144,7 +177,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   const outInfo = h('p', 'lb-cap lb-center');
   idInput.addEventListener('input', () => { outErr.textContent = ''; outInfo.textContent = ''; });
   const form = h('div', 'lb-stack');
-  form.append(outInfo, idInput, outErr);
+  form.append(outInfo, idInput, pinInput, pinChkRow, newPinInput, outErr);
   syncPw();
   out.append(brand('lb-large'), outPhoto, form, button('입장', 'lb-primary', submitLogin));
   renderOutPhoto();
@@ -166,9 +199,18 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
   const brokeNote = h('div', 'lb-notice', h('p', null, '칩을 모두 잃었습니다. 홀덤은 새 아이디로 다시 시작해야 합니다.'),
     button('새 아이디로 시작', 'lb-text lb-accent', () => onLogout()));
+  const walletRow = h('div', 'lb-sub lb-coins');
+  const coinBtns = h('div', 'lb-coin-btns');
+  for (const [a, label] of [['swap', '교환'], ['draw', '뽑기'], ['shop', '상점'], ['rank', '코인 랭킹']]) {
+    coinBtns.append(button(label, 'lb-tint lb-coin-btn', () => onCoin?.(a)));
+  }
+  const pinBtn = button('비밀번호', 'lb-tint lb-coin-btn lb-pin-btn', () => onCoin?.('pin'));
+  const coinBox = h('div', 'lb-coin-box', coinBtns, pinBtn);
+  coinBox.hidden = true;
+  walletRow.hidden = true;
   const rankBtn = button('라이어 랭킹', 'lb-tint lb-rank-btn', () => onRank?.());
   rankBtn.hidden = true;
-  profile.append(brand('lb-small'), h('div', 'lb-who', meAv, h('div', null, meName, meBank)), brokeNote, stats,
+  profile.append(brand('lb-small'), h('div', 'lb-who', meAv, h('div', null, meName, meBank, walletRow)), brokeNote, coinBox, stats,
     rankBtn, h('div', 'lb-grow'), button('로그아웃', 'lb-text', () => onLogout()));
 
   const play = h('section', 'lb-panel panel');
@@ -269,15 +311,33 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
 
   // ---------- reset confirmation sheet ----------
+  let resetErrEl = null, closeReset = null;
   function showResetConfirm() {
     const prev = document.activeElement;
     const cancel = h('button', 'lb-sheet-btn', '취소');
     const wipe = h('button', 'lb-sheet-btn lb-danger', '전부 지우기');
+    const rpw = h('input', 'lb-field lb-reset-pw');
+    rpw.type = 'password';
+    rpw.inputMode = 'numeric';
+    rpw.autocomplete = 'off';
+    rpw.placeholder = '관리자 비밀번호';
+    rpw.maxLength = 32;
+    rpw.setAttribute('aria-label', '관리자 비밀번호');
+    const rerr = h('p', 'lb-reset-err');
+    rerr.setAttribute('role', 'alert');
+    rpw.addEventListener('input', () => { rerr.textContent = ''; });
+    resetErrEl = rerr;
     cancel.type = wipe.type = 'button';
     cancel.addEventListener('click', () => close());
-    wipe.addEventListener('click', () => { close(); onResetConfirm?.(); });
+    wipe.addEventListener('click', () => {
+      // stays open so adm_pw/adm_lock can be shown here; main.js closes it via the lobby re-render or resetError
+      rerr.textContent = '';
+      onResetConfirm?.(rpw.value || undefined);
+      closeReset = close;
+    });
+    rpw.addEventListener('keydown', (e) => { if (e.key === 'Enter') wipe.click(); });
     const sheet = h('div', 'lb-sheet', h('div', 'lb-sheet-body', h('b', null, '전체 초기화'),
-      h('p', null, '모든 아이디와 칩, 전적, 프로필 사진을 지웁니다. 되돌릴 수 없습니다.')), h('div', 'lb-sheet-btns', cancel, wipe));
+      h('p', null, '모든 아이디와 칩, 전적, 프로필 사진을 지웁니다. 되돌릴 수 없습니다.'), rpw, rerr), h('div', 'lb-sheet-btns', cancel, wipe));
     sheet.setAttribute('role', 'alertdialog');
     sheet.setAttribute('aria-modal', 'true');
     sheet.setAttribute('aria-label', '전체 초기화');
@@ -294,11 +354,14 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     function close() {
       document.removeEventListener('keydown', onKey, true);
       overlay.remove();
+      if (closeReset === close) closeReset = null;
+      if (resetErrEl === rerr) resetErrEl = null;
       prev?.focus?.();
     }
+    closeReset = close;
     document.addEventListener('keydown', onKey, true);
     el.append(overlay);
-    cancel.focus();
+    rpw.focus();
   }
 
   // ---------- liar ranking window ----------
@@ -377,6 +440,11 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
       meName.textContent = user.name;
       const chips = user.chips ?? user.bank ?? 0;
       meBank.textContent = `${fmt(chips)} 칩`;
+      const coins = user.wallet?.coins;
+      walletRow.hidden = !Number.isFinite(coins);
+      if (!walletRow.hidden) walletRow.textContent = `${fmt(coins)} 코인`;
+      coinBox.hidden = !user.wallet;
+      coinBtns.hidden = !user.wallet;
       brokeNote.hidden = chips !== 0;
       for (const [k] of STATS) statVals[k].textContent = fmt(user.stats?.[k] ?? 0);
     }
@@ -388,12 +456,29 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
 
   return {
     el,
-    setUser(u) { user = u; if (!u) room = null; render(); },
+    setUser(u) { if (u !== user) closeReset?.(); user = u; if (!u) { room = null; pinInput.hidden = true; pinInput.value = ''; } render(); },
     setRoom(r) { room = r; render(); },
     setRooms(list) { renderRooms(list); },
     setError(msg) { (!user ? outErr : room ? roomErr : homeErr).textContent = msg || ''; },
     showNotice(text) { outInfo.textContent = text || ''; },
     showResetConfirm,
+    // server said pin_need: reveal the PIN field
+    askPin(msg) {
+      pinInput.hidden = false;
+      pinInput.value = '';
+      const t = msg && typeof msg === 'object' ? msg.msg : msg;
+      outErr.textContent = typeof t === 'string' && t ? t : '비밀번호를 입력하세요.';
+      pinInput.focus();
+    },
+    loginError(code, msg) {
+      if (code === 'pin_need') { this.askPin(msg); return; }
+      if (code === 'pin_bad' || code === 'pin_lock') { pinInput.hidden = false; pinInput.value = ''; }
+      if (code === 'pin_exists') { pinChk.checked = false; newPinInput.hidden = true; newPinInput.value = ''; }
+      if (code === 'pin_fmt') { pinChk.checked = true; newPinInput.hidden = false; newPinInput.value = ''; }
+      outErr.textContent = msg || '';
+    },
+    resetError(msg) { if (resetErrEl) resetErrEl.textContent = msg || ''; },
+    closeReset() { closeReset?.(); },
     setLiar,
     setYacht,
     setDraw,
