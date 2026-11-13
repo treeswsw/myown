@@ -20,7 +20,7 @@ export const PHASES = Object.freeze({
 
 // 방장이 바꿀 수 있는 시간의 기본값 (GDD 4-2)
 export const DEFAULT_TIMES = Object.freeze({
-  speak: 30, discuss: 90, rediscuss: 60, defense: 20, judge: 10, guess: 15,
+  speak: 30, discuss: 90, rediscuss: 60, defense: 20, judge: 15, guess: 15,
 });
 
 // 고를 수 있는 값 (GDD 4-2)

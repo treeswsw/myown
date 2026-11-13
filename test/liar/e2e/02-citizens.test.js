@@ -274,7 +274,7 @@ describe('13-2 시민 승리 한 판', { concurrency: true }, () => {
     const [a, b, c, d] = r.cs.filter((x) => x !== liar);
     await speakAll(r);
     await accuse(r, liar.id);
-    // a b c 맞다, d 안 고름 → 처형 (3 대 1)
+    // a b c 맞다, d 기권 → 처형 (3 대 0)
     await judgeMap(r, { [a.id]: 'yes', [b.id]: 'yes', [c.id]: 'yes' });
     await until(() => r.cs.every((x) => x.state.phase === 'unmask'), 'unmask', { clients: r.cs });
     assert.equal(r.host.state.unmask.id, liar.id);
@@ -288,11 +288,11 @@ describe('13-2 시민 승리 한 판', { concurrency: true }, () => {
     assert.equal(res.winner, 'citizens');
     assert.equal(res.reason, 'executedLiar');
     assert.equal(res.liarId, liar.id);
-    assert.deepEqual(res.delta, { [liar.id]: 0, [a.id]: 2, [b.id]: 2, [c.id]: 2, [d.id]: 1 });
+    assert.deepEqual(res.delta, { [liar.id]: 0, [a.id]: 2, [b.id]: 2, [c.id]: 2, [d.id]: 0 });
     // 방 점수 반영: 모두의 화면에서 같음
     for (const x of r.cs) {
       const scores = Object.fromEntries(x.state.players.map((p) => [p.id, p.score]));
-      assert.deepEqual(scores, { [liar.id]: 0, [a.id]: 2, [b.id]: 2, [c.id]: 2, [d.id]: 1 }, `${x.id} 가 보는 점수`);
+      assert.deepEqual(scores, { [liar.id]: 0, [a.id]: 2, [b.id]: 2, [c.id]: 2, [d.id]: 0 }, `${x.id} 가 보는 점수`);
     }
     // 방에 있는 동안 누적은 아직 그대로 0
     const rank = async (x) => {
@@ -303,7 +303,7 @@ describe('13-2 시민 승리 한 판', { concurrency: true }, () => {
     };
     assert.equal((await rank(a)).mine.score, 0);
     // 나가면 누적에 더해짐
-    for (const [x, want] of [[a, 2], [d, 1], [liar, 0]]) {
+    for (const [x, want] of [[a, 2], [d, 0], [liar, 0]]) {
       x.send({ t: 'leave' });
       await until(() => x.state === null || x.msgs.at(-1)?.t === 'me' || x.msgs.some((m) => m.t === 'room' && m.state === null), `leave ${x.id}`, { clients: r.cs });
       assert.equal((await rank(x)).mine.score, want, `${x.id} 누적`);
