@@ -102,7 +102,7 @@ export function openShop(ctx) {
     }
 
     list.textContent = '';
-    const items = (ITEMS || []).filter((it) => it.slot === slot);
+    const items = (ITEMS || []).filter((it) => it.slot === slot && (it.shop !== false || owned.includes(it.id)));
     if (!items.length) list.append(el('p', 'sh-empty', '아직 물건이 없습니다.'));
     for (const it of items) {
       const row = el('div', 'sh-row');
