@@ -80,7 +80,7 @@ export function openShop(ctx) {
 
     tabs.textContent = '';
     for (const s of slots) {
-      const b = el('button', 'sh-tab' + (s === slot ? ' on' : ''), SLOT_NAME[s] || s);
+      const b = el('button', 'sh-tab' + (s === slot ? ' sh-on' : ''), SLOT_NAME[s] || s);
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.setAttribute('aria-selected', s === slot ? 'true' : 'false');
