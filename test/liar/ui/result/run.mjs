@@ -46,7 +46,6 @@ try {
     await set('guess', { n, you: 'u2', round: n * 10 });
     ok(await vis('guess-input'), `[${n}] 라이어에게 입력칸`);
     ok(await vis('guess-send'), `[${n}] 라이어에게 보내기`);
-    ok(!(await vis('guess-wait')), `[${n}] 라이어에게 대기 문구 없음`);
     ok(await hit('guess-send'), `[${n}] guess-send 중심점`);
     await clear();
     await q('guess-send').click(); // 빈 칸
@@ -66,12 +65,15 @@ try {
     await page.evaluate(() => window.h.mod.update(window.h.state));
     await page.evaluate(() => { const b = document.querySelector('[data-lg="guess-send"]'); b.disabled = false; b.click(); });
     ok((await sent()).length === 1, `[${n}] 다시 그려도 한 번`);
-    // 답이 오면 입력칸은 사라지고 맞음/틀림
+    // 답이 오면 입력칸은 사라진다(맞음/틀림 표시는 엔딩 모듈이 맡는다)
     await set('guess', { n, you: 'u2', round: n * 10, guess: { text: '도서관', correct: true } });
     ok(!(await vis('guess-input')), `[${n}] 답이 오면 입력칸 없음`);
-    ok((await txt('guess-shown')).includes('도서관') && (await txt('guess-shown')).includes('맞음'), `[${n}] 맞음 표시`);
-    await set('guess', { n, you: 'u2', round: n * 10, guess: { text: '서점', correct: false } });
-    ok((await txt('guess-shown')).includes('틀림'), `[${n}] 틀림 표시`);
+    ok(!(await vis('guess-shown')) && !(await vis('guess-wait')), `[${n}] 작은 상자 없음`);
+    // answer 가 되면 입력칸이 바로 사라진다(보내지 못한 라이어도)
+    await set('guess', { n, you: 'u2', round: n * 10 + 5 });
+    ok(await vis('guess-input'), `[${n}] answer 전에는 입력칸`);
+    await set('answer', { n, you: 'u2', round: n * 10 + 5, guess: { text: null, correct: false } });
+    ok(!(await vis('guess-input')) && !(await vis('guess-send')) && !(await vis('result')), `[${n}] answer 에서 전부 숨김`);
     // 새 판이면 다시 보낼 수 있다
     await set('guess', { n, you: 'u2', round: n * 10 + 1 });
     ok(await vis('guess-input') && !(await q('guess-input').isDisabled()), `[${n}] 새 판은 다시 입력 가능`);
@@ -80,21 +82,14 @@ try {
     // ---- guess: 시민 화면 ----
     await set('guess', { n, you: 'u1' });
     ok(!(await vis('guess-input')) && !(await vis('guess-send')), `[${n}] 시민에게 입력칸 없음`);
-    ok((await txt('guess-wait')).includes('라이어가 정답을 고민하고 있습니다'), `[${n}] 대기 문구`);
-    ok((await page.locator('.lg-rs-gsecs').innerText()).includes('15'), `[${n}] 남은 초 15`);
-    await page.evaluate(() => { window.h.clock = 1_008_300; window.h.mod.frame(0.1); });
-    ok((await page.locator('.lg-rs-gsecs').innerText()).includes('7'), `[${n}] 남은 초 7`);
-    await page.evaluate(() => { window.h.clock = 1_099_000; window.h.mod.frame(0.1); });
-    ok((await page.locator('.lg-rs-gsecs').innerText()).includes('0'), `[${n}] 0 아래로 안 감`);
-    await page.evaluate(() => { window.h.clock = 1_000_000; });
-    // 관전자
-    await set('guess', { n, you: 'u1', guess: { text: '도서관', correct: true } });
-    ok((await txt('guess-shown')).includes('도서관'), `[${n}] 시민에게도 답 표시`);
-    ok(!(await vis('guess-wait')), `[${n}] 답이 오면 대기 문구 없음`);
+    ok(!(await vis('guess-wait')) && !(await vis('guess-shown')), `[${n}] 시민에게 작은 상자·남은 시간 없음`);
+    ok((await page.locator('.lg-rs-gsecs, .lg-rs-guess').count()) === 0, `[${n}] 작은 상자 요소 자체가 없음`);
+    await set('answer', { n, you: 'u1', guess: { text: '도서관', correct: true } });
+    ok(!(await vis('guess-input')) && !(await vis('result')), `[${n}] 시민에게도 answer 숨김`);
   }
 
   // ---- 다른 단계·null 에서는 숨김 ----
-  for (const ph of ['unmask', 'speak', 'discuss', 'lobby', 'reveal']) {
+  for (const ph of ['unmask', 'answer', 'speak', 'discuss', 'lobby', 'reveal']) {
     await set(ph, { you: 'u2' });
     ok(!(await vis('guess-input')) && !(await vis('result')) && !(await vis('guess-wait')), `${ph} 에서 숨김`);
   }
@@ -170,9 +165,6 @@ try {
   ok((await page.locator('.lg-rs-root i').count()) === 0, '<i> 가 요소가 되지 않음');
   const rt = await txt('result');
   ok(rt.includes('<i>X</i>') && rt.includes('<i id="evil">Y</i>') && rt.includes('<i>Z</i>'), '제시어·답 글자 그대로');
-  await set('guess', { guess: { text: '<i>Z</i>', correct: false } });
-  ok((await page.locator('.lg-rs-root i').count()) === 0 && (await txt('guess-shown')).includes('<i>Z</i>'), 'guess 답 글자 그대로');
-
   // ---- G1: 라이어가 players 에 없는 결과 / firstVotes ----
   const mut = (fn) => page.evaluate((src) => {
     const st = window.h.state; (new Function('st', src))(st); window.h.mod.update(st);

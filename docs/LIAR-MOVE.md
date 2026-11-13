@@ -236,3 +236,4 @@ M3 = lobby.js·lobby.css, M4 = chat.js·chat.css·chatSize.js·test/chatsize.tes
    ⑤ 미확인 목록: 3D 모양·연출·소리·iPad/Safari·가로 폰 키보드·실제 DB 랭킹.
 8. 되돌리는 길: `LIAR=off`(포커는 그대로 돈다). 포커가 이상하면 병합 커밋을 되돌려 다시 올린다(강제 푸시 금지).
 9. 실기기 확인이 끝나면 사용자에게 다시 묻고 `LIAR=on`(아무도 없을 때).
+- (2026-11-13) 라이어 마지막 단계 개편(새 단계 answer, words 칸, GDD 14절)은 사용자 요청으로 myown 이 gamemine 보다 앞선다. gamemine 에 되옮길지는 총괄이 정한다.

@@ -24,6 +24,7 @@ export function normalizeTool(t) {
     color: ci,
     penW: clampWidth(o.penW, PEN_WIDTH_DEFAULT),
     eraseW: clampWidth(o.eraseW, ERASER_WIDTH_DEFAULT),
+    palm: o.palm !== false, // 손바닥 방지(기본 켜짐)
   };
 }
 

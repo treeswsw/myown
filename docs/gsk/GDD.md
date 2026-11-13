@@ -233,7 +233,7 @@
 
 - 화면 모듈 약속: 갱식마인드 GDD 11-2 와 같다. `createXxx(parent, ctx)` → `{ el, update(state), event(e), dispose() }`, `ctx = { send, meId, now, layout, face(id) }`(`face(id)` = 그 사람 프로필 사진 URL 또는 null). 그림은 모두 `art.js` 에서.
 
-**통합**(한 번에 한 에이전트, 마지막): `server/protocol.js`(`gk` 봉투, `MODES` 에 `gsk`), `server/rooms.js`(`MAX_PLAYERS gsk: 6`, `create`, `gk` 연결, 다른 요청 막기), `server/index.js`(환경 변수 `GSK`), `client/src/main.js`(`import('./gsk/index.js')`, 상단 줄 `.gkbar`), `client/src/ui/lobby.js`(새 게임 다섯 번째 칸 "갱스껄 · 3~6명 · 해골을 피해 꽃 뒤집기"), `test/ui/smoke.mjs`, `test/ui/gsk-round.mjs`, `render.yaml`, SPEC 21절, CLAUDE.md, README.
+**통합**(한 번에 한 에이전트, 마지막): `server/protocol.js`(`gk` 봉투, `MODES` 에 `gsk`), `server/rooms.js`(`MAX_PLAYERS gsk: 6`, `create`, `gk` 연결, 다른 요청 막기), `server/index.js`(환경 변수 `GSK`), `client/src/main.js`(`import('./gsk/index.js')`, 상단 줄 `.gkbar`), `client/src/ui/lobby.js`(새 게임 다섯 번째 칸 "갱스껄 · 3~6명 · 해골을 피해 꽃 뒤집기"), `test/ui/smoke.mjs`, `test/ui/gsk-round.mjs`, `render.yaml`, SPEC 23절, CLAUDE.md, README.
 
 ## 11. 스위치
 

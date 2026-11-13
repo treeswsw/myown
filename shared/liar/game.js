@@ -3,7 +3,7 @@
 //  - 난수는 `rng(n)`(0..n-1 정수)로 받는다. 기본값은 crypto 기반이며 Math.random 은 쓰지 않는다.
 //  - game 은 일반 객체다. 직접 읽지 말고 viewFor 로만 화면에 내보낸다(비밀 유지의 유일한 문).
 // 범위: reveal → speak → discuss → revote → defense → judge → judged → (살림: discuss 반복 / 처형: unmask)
-//       → guess → result, 점수(score), end, away/back/drop(끊김·돌아옴·빠짐. 60초는 방이 잰다).
+//       → guess → answer(정답 공개 연출) → result, 점수(score), end, away/back/drop(끊김·돌아옴·빠짐. 60초는 방이 잰다).
 
 import {
   PHASES as P, MIN_PLAYERS, DEFAULT_TIMES, FIXED_TIMES, LIMITS,
@@ -89,6 +89,7 @@ export function createGame({ players, settings = {}, draw, rng = defaultRng, now
     judge: null,        // { picks, executed } — judge 단계부터. 살리면 비운다
     firstVotes: null,   // 재투표로 넘어간 첫 투표(이 지목의 voteLog 줄에 남긴다)
     guess: null,        // { text, correct } — 제출되거나 시간이 끝난 뒤
+    pendingOutcome: null, // answer 단계 동안 쥐고 있다가 끝나면 finish 로 넘길 결과 사실
     outcome: null,      // result 로 넘어갈 때의 결과 사실(score 가 읽는다)
     result: null,
     failReason: null,   // 'tie' | 'noVotes' (지목 실패 때)
@@ -235,6 +236,7 @@ function stepExpired(g, now, events) {
     case P.JUDGED: afterJudged(g, now, events); return true;
     case P.UNMASK: startGuess(g, now, events); return true;
     case P.GUESS: finishGuess(g, now, events, null, false); return true;
+    case P.ANSWER: finish(g, now, events, g.pendingOutcome); return true;
     default: return false;   // result(끝난 판)
   }
 }
@@ -279,18 +281,24 @@ function startGuess(g, now, events) {
   enter(g, P.GUESS, now, g.times.guess, events);
 }
 
-function finishGuess(g, now, events, text, correct) {
+// 제출 또는 guess 시간 끝: 답을 기록하고 answer(정답 공개 연출)로. 점수·result 는 answer 가 끝난 뒤.
+// immediate: 라이어가 unmask·guess 중에 빠짐 — 연출 없이 바로 result.
+function finishGuess(g, now, events, text, correct, immediate = false) {
   g.guess = { text, correct };
   events.push({ k: 'guess', text, correct });
   const caught = g.unmask?.id != null ? g.unmask.wasLiar : false;
   const reason = g.unmask?.id == null ? g.failReason
     : (g.unmask.wasLiar ? 'executedLiar' : 'executedCitizen');
-  finish(g, now, events, { void: false, caught, guessed: correct, reason });
+  const outcome = { void: false, caught, guessed: correct, reason };
+  if (immediate) { finish(g, now, events, outcome); return; }
+  g.pendingOutcome = outcome;
+  enter(g, P.ANSWER, now, g.liarMode === 'word' ? FIXED_TIMES.answer : FIXED_TIMES.answerNotice, events);
 }
 
 // result 로. outcome 은 score 가 읽는 사실.
 function finish(g, now, events, outcome) {
   g.outcome = outcome;
+  g.pendingOutcome = null;
   enter(g, P.RESULT, now, 0, events);
   g.phaseEndsAt = null;
   g.shortened = false;
@@ -457,9 +465,10 @@ function actDrop(g, { by }, now) {
   if (g.judge) delete g.judge.picks[by];
   if (g.candidates) g.candidates = g.candidates.filter((id) => id !== by);
 
+  if (g.phase === P.ANSWER) return { ok: true, events };   // 정답 공개 중: 무효·끝내기 없이 끝까지 보여 준다(빠진 사람 점수는 0)
   if (by === g.liarId) {
-    if (g.phase === P.UNMASK || g.phase === P.GUESS) {   // 정체 공개 뒤: 오답으로 정상 결과
-      finishGuess(g, now, events, null, false);
+    if (g.phase === P.UNMASK || g.phase === P.GUESS) {   // 정체 공개 뒤: 오답으로 바로 결과(연출 없음)
+      finishGuess(g, now, events, null, false, true);
     } else {
       finish(g, now, events, { void: false, caught: null, guessed: null, reason: 'liarLeft' });
     }
@@ -500,7 +509,8 @@ function actEnd(g, now) {
 export function viewFor(g, playerId) {
   const mine = isActive(g, playerId);   // 빠진 사람은 관전자처럼
   const isLiar = mine && playerId === g.liarId;
-  const revealed = g.phase === P.UNMASK || g.phase === P.GUESS || g.phase === P.RESULT;
+  const revealed = g.phase === P.UNMASK || g.phase === P.GUESS || g.phase === P.ANSWER || g.phase === P.RESULT;
+  const showWords = g.phase === P.ANSWER || g.phase === P.RESULT;
   let word = null;
   let role = null;
   if (mine) {
@@ -532,6 +542,7 @@ export function viewFor(g, playerId) {
     judge: g.judge ? { picks: { ...g.judge.picks }, executed: g.judge.executed } : null,
     unmask: g.unmask ? { ...g.unmask } : null,
     guess: g.guess ? { ...g.guess } : null,
+    words: showWords ? { citizen: g.citizenWord, liar: g.liarMode === 'word' ? g.liarWord : null } : null,
     result: g.result ? JSON.parse(JSON.stringify(g.result)) : null,
   };
 }
