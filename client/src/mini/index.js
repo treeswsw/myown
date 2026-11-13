@@ -4,6 +4,7 @@
 import './mini.css';
 import { renderBoard } from './boards/index.js';
 import { NAMES } from '../../../shared/mini/index.js';
+import { createBetPart } from './bet.js';
 
 // 선(seat 0)과 후(seat 1)의 이름·색
 const SIDES = {
@@ -73,7 +74,8 @@ export function mount(ctx) {
     const [col] = sideOf(rm.game, r.winner);
     const who = rm.names[r.winner] || col;
     const tail = r.reason === 'resign' ? ' (상대 기권)' : r.reason === 'leave' ? ' (상대가 나감)' : '';
-    return `${who} (${col}) 승리${tail}`;
+    const sc = rm.match?.len > 1 ? ` ${rm.match.score[r.winner]}:${rm.match.score[1 - r.winner]}` : '';
+    return `${who} (${col}) 승리${sc}${tail}`;
   }
 
   // 사진·꾸미기는 공용 프로필 부품 하나. 바뀌었을 때만 다시 그린다.
@@ -92,7 +94,9 @@ export function mount(ctx) {
     const rm = room;
     if (!rm) return;
     const play = rm.phase === 'play';
+    const between = rm.phase === 'between';
     const end = rm.phase === 'end';
+    const series = (rm.match?.len ?? 1) > 1;
 
     for (let i = 0; i < 2; i++) {
       const [col] = sideOf(rm.game, i);
@@ -101,6 +105,7 @@ export function mount(ctx) {
       let sub = col;
       if (rm.game === 'reversi' && rm.mn) sub += ` ${countOf(rm.mn.board, i)}`;
       if (rm.game === 'chess' && rm.mn?.check && play && rm.mn.turn === i) sub += ' · 체크!';
+      if (series && rm.match) sub += ` · ${rm.match.score[i]}승`;
       if (i === rm.mySeat) sub += ' · 나';
       ch.sub.textContent = sub;
       ch.c.classList.toggle('mn-turn', play && rm.mn?.turn === i);
@@ -115,9 +120,14 @@ export function mount(ctx) {
       renderBoard(boardEl, rm.game, rm.mn, { mySeat: play && rm.mySeat >= 0 ? rm.mySeat : null, onMove: (move) => send({ t: 'mn', a: 'move', move }) });
     }
 
-    resignBtn.hidden = !(play && rm.mySeat >= 0);
+    resignBtn.hidden = !((play || between) && rm.mySeat >= 0);
     waitBtn.hidden = !end;
-    if (play) {
+    const head = series && rm.match && (play || between) ? `${rm.match.round - (between ? 1 : 0)}/${rm.match.len}판 · ` : '';
+    if (between) {
+      const w = rm.match?.last?.winner;
+      const who = w === 'draw' || w == null ? '무승부' : `${rm.names[w] || sideOf(rm.game, w)[0]} 승`;
+      status.textContent = `${head}${who} · 다음 판이 곧 시작돼요`;
+    } else if (play) {
       const t = rm.mn.turn;
       const [col] = sideOf(rm.game, t);
       let s;
@@ -125,7 +135,8 @@ export function mount(ctx) {
       else if (rm.mySeat < 0) s = `${rm.names[t] || col} (${col}) 차례 · 관전 중`;
       else s = t === rm.mySeat ? `내 차례 (${col})` : `${rm.names[t] || col} (${col}) 차례`;
       if (rm.game === 'chess' && rm.mn.check) s += ' · 체크!';
-      status.textContent = s;
+      if (rm.game === 'gomoku' && rm.mn.rule === 'renju') s += ' · 렌주룰';
+      status.textContent = head + s;
     } else if (end && rm.result) {
       status.textContent = `${NAMES[rm.game] ?? ''} · ${resultText(rm.result, rm)}`;
     } else status.textContent = '';
@@ -152,7 +163,12 @@ export function mount(ctx) {
 
     // 판 중 자리에 앉아 있으면 안내. 결과 화면은 틀이 확인 없이 나가게 한다
     leaveNote(s) {
-      return s?.phase === 'play' && s.mySeat >= 0 ? '나가면 기권 처리돼요' : null;
+      return (s?.phase === 'play' || s?.phase === 'between') && s.mySeat >= 0 ? '나가면 기권 처리돼요' : null;
+    },
+
+    // 대기실 개인 칸: 코인 베팅
+    waitPart(name) {
+      return name === 'mn-bet' ? createBetPart({ send, me: ctx.me }) : null;
     },
 
     unmount() {

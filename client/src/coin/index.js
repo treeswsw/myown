@@ -84,7 +84,10 @@ export function createCoin({ send, root }) {
   function onMsg(msg) {
     if (!msg || typeof msg !== 'object') return false;
     if (msg.t === 'coin') {
-      if (msg.a === 'got') {
+      if (msg.a === 'stake') { // 미니 베팅 정산: 이긴 사람 +N, 진 사람 -N
+        const n = Number(msg.n) || 0;
+        if (n !== 0) flash('toast', `${n > 0 ? '+' : '−'}${Math.abs(n)} 코인`, 3000);
+      } else if (msg.a === 'got') {
         const n = Number(msg.n) || 0;
         // 판 끝 알림(모든 게임 공용): 0 이어도 짧게 알린다. why:'gap' = 같은 게임을 너무 빨리 또 했을 때.
         if (n > 0) flash('toast', `이번 판 코인 +${n}`, 2500);
