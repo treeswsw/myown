@@ -1,0 +1,124 @@
+/* 갱식마인드 색·도구 칸 (접두사 .dr-tb- 만). 시안 design/draw/index.html 의 .dr-pal/.dr-tools/.dr-size/.dr-szpop 을 옮김. */
+.dr-tb {
+  --dr-tb-ink: #fff;
+  --dr-tb-ink2: rgba(255, 255, 255, .62);
+  --dr-tb-fill: rgba(255, 255, 255, .09);
+  --dr-tb-fill2: rgba(255, 255, 255, .16);
+  --dr-tb-hair: rgba(255, 255, 255, .12);
+  --dr-tb-panel: rgba(28, 28, 30, .62);
+  --dr-tb-accent: #f2c444;
+  --dr-tb-paper: #fffdf8;
+  display: contents;
+}
+.dr-tb[hidden] { display: none; }
+.dr-tb button { font: inherit; color: var(--dr-tb-ink); border: 0; background: none; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.dr-tb button:disabled { cursor: default; }
+
+/* 색 (2열 x 6행) */
+.dr-tb-pal {
+  pointer-events: auto;
+  display: grid; grid-template-columns: repeat(2, minmax(28px, 1fr)); gap: 8px; padding: 8px;
+  border-radius: 18px; background: var(--dr-tb-panel); box-shadow: inset 0 0 0 1px var(--dr-tb-hair);
+  align-self: start;
+}
+.dr-tb-sw { aspect-ratio: 1; min-width: 28px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .28); }
+.dr-tb-sw.dr-tb-on { box-shadow: 0 0 0 2px #0c0a09, 0 0 0 4.5px #fff; }
+
+/* 도구 줄 */
+.dr-tb-tools {
+  pointer-events: auto;
+  display: flex; flex-direction: column; gap: 6px; padding: 6px;
+  border-radius: 18px; background: var(--dr-tb-panel); box-shadow: inset 0 0 0 1px var(--dr-tb-hair);
+  align-self: start;
+}
+.dr-tb-tool {
+  height: 54px; min-width: 40px; border-radius: 13px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 10.5px; font-weight: 600; color: var(--dr-tb-ink2); white-space: nowrap;
+}
+.dr-tb-tool svg { width: 22px; height: 22px; color: var(--dr-tb-ink); }
+.dr-tb-tool.dr-tb-on { background: #fff; color: #000; }
+.dr-tb-tool.dr-tb-on svg { color: #000; }
+.dr-tb-tool:disabled { opacity: .35; }
+.dr-tb-hr { border: 0; height: 1px; background: var(--dr-tb-hair); margin: 2px 4px; }
+
+/* 굵기 */
+.dr-tb-under { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.dr-tb-sizes { display: flex; gap: 6px; align-items: center; pointer-events: none; }
+.dr-tb-size {
+  pointer-events: auto; width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; background: var(--dr-tb-fill);
+}
+.dr-tb-size i { display: block; border-radius: 50%; background: #fff; }
+.dr-tb-size svg { width: 20px; height: 20px; color: var(--dr-tb-ink); }
+.dr-tb-size.dr-tb-on { background: #fff; }
+.dr-tb-size.dr-tb-on i { background: #000; }
+.dr-tb-size.dr-tb-on svg { color: #000; }
+.dr-tb-size:disabled { opacity: .35; }
+.dr-tb-ph { display: none; }
+
+/* 굵기 조정 창 */
+.dr-tb-pop {
+  pointer-events: auto; flex: 1; min-width: 0; height: 48px;
+  display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 24px;
+  background: rgba(40, 40, 42, .95); box-shadow: inset 0 0 0 1px var(--dr-tb-hair); color: var(--dr-tb-ink);
+}
+.dr-tb-pop[hidden] { display: none; }
+.dr-tb-prev {
+  width: 44px; height: 44px; flex: none; border-radius: 50%; background: var(--dr-tb-paper);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.dr-tb-prev.erase { background: #c9c9ce; }
+.dr-tb-prev i { display: block; border-radius: 50%; flex: none; }
+.dr-tb-prev.erase i { box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+.dr-tb-num { font-size: 17px; font-weight: 700; min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+.dr-tb-step { width: 36px; height: 36px; border-radius: 50%; background: var(--dr-tb-fill2); font-size: 20px; font-weight: 700; flex: none; line-height: 1; }
+.dr-tb-step:disabled { opacity: .35; }
+.dr-tb-track {
+  flex: 1; min-width: 60px; height: 6px; border-radius: 3px; background: var(--dr-tb-fill2); position: relative;
+  touch-action: none; cursor: pointer; outline-offset: 10px;
+}
+.dr-tb-track::before { content: ""; position: absolute; left: 0; right: 0; top: -14px; bottom: -14px; } /* 누르는 범위를 넓게 */
+.dr-tb-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--dr-tb-accent); }
+.dr-tb-knob {
+  position: absolute; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .5); text-decoration: none;
+}
+
+/* 포기 */
+.dr-tb-giveslot { pointer-events: none; display: flex; }
+.dr-tb-give {
+  pointer-events: auto; height: 44px; border-radius: 22px; padding: 0 20px; font-weight: 600; white-space: nowrap;
+  background: rgba(255, 69, 58, .18); color: #ff453a !important;
+}
+
+/* 휴대폰 가로: 도구 2열 격자, 굵기는 도구 줄 안, 조정 창은 왼쪽 아래(플레이어 목록 위) */
+.dr-tb-phone .dr-tb-pal { grid-template-columns: repeat(2, minmax(28px, 1fr)); gap: 6px; padding: 6px; border-radius: 14px; align-self: center; }
+.dr-tb-phone .dr-tb-tools {
+  display: grid; grid-template-columns: 38px 38px; grid-template-rows: repeat(5, 38px); grid-auto-flow: column;
+  gap: 4px; padding: 4px; border-radius: 14px; align-self: center;
+}
+.dr-tb-phone .dr-tb-hr,
+.dr-tb-phone .dr-tb-txt,
+.dr-tb-phone .dr-tb-wd,
+.dr-tb-phone .dr-tb-sizes { display: none; }
+.dr-tb-phone .dr-tb-ph { display: flex; }
+.dr-tb-phone .dr-tb-clear { order: 1; }
+.dr-tb-phone .dr-tb-tool { height: 38px; width: 38px; min-width: 0; border-radius: 10px; }
+.dr-tb-phone .dr-tb-tool svg { width: 20px; height: 20px; }
+.dr-tb-phone .dr-tb-size.dr-tb-ph { width: 38px; height: 38px; border-radius: 10px; }
+.dr-tb-phone .dr-tb-under { display: contents; }
+.dr-tb-phone .dr-tb-give { height: 32px; padding: 0 12px; font-size: 12.5px; }
+.dr-tb-phone .dr-tb-pop {
+  position: fixed; z-index: 6; left: calc(var(--sl, 0px) + var(--pad, 8px)); bottom: var(--pad, 8px);
+  width: 206px; height: auto; padding: 10px; border-radius: 16px;
+  display: grid; grid-template-columns: 36px 1fr 36px; gap: 8px 6px; align-items: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .6), inset 0 0 0 1px var(--dr-tb-hair);
+}
+.dr-tb-phone .dr-tb-pop[hidden] { display: none; }
+.dr-tb-phone .dr-tb-prev { grid-column: 1 / 3; justify-self: start; }
+.dr-tb-phone .dr-tb-num { grid-column: 3; grid-row: 1; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .dr-tb-tool, .dr-tb-size, .dr-tb-sw { transition: background-color .12s, opacity .12s; }
+}
