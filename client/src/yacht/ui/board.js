@@ -1,8 +1,10 @@
 // 요트다이스 주사위 판: 눌리는 것 전부(컵 흔들기·주사위 보관/빼기)와 판의 글자(N left, 차례, 기다림, 안내, 족보).
-// 그림은 dice2d.js(2D)가 그린다. 약속: docs/YACHT-PLAN.md 3-2. shared/ 를 import 하지 않는다. three.js 도 쓰지 않는다.
+// 그림은 dice2d.js(2D) 또는 dice3d.js(3D, WebGL 을 쓸 수 있을 때만 import() 로 따로 불러온다)가 그린다. 약속: docs/YACHT-PLAN.md 3-2. shared/ 를 import 하지 않는다. three.js 도 쓰지 않는다.
 // 조작은 항상 DOM 버튼이다. 차례인 사람(turn === you)에게만 버튼이 생긴다. 남의 차례·관전은 버튼 0개.
 // 맨 위에서는 document·window 를 만지지 않는다.
 import { createDiceView } from './dice2d.js';
+import { createFx } from '../anim/fx.js';
+import { ytSfx } from '../audio.js';
 
 const COMBO_TEXT = { yacht: '요트!', largeStraight: 'L 스트레이트', smallStraight: 'S 스트레이트', fourKind: '포카드', fullHouse: '풀하우스' };
 const HINT_TEXT = '주사위를 누르면 위 칸에 보관';
@@ -34,7 +36,7 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
   root.appendChild(hud);
   host.appendChild(root);
 
-  const view = createDiceView({ host: root, stage });
+  let view = createDiceView({ host: root, stage });
 
   // 트레이 위에 얹는 글·버튼(트레이와 같은 네모. 눌리는 것만 pointer-events: auto)
   const fx = el('div', 'yt-bd-fx');
@@ -46,6 +48,7 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
   act.appendChild(hintEl);
   fx.append(waitEl, idleEl, comboEl, act);
   root.appendChild(fx);
+  const deco = createFx({ host: fx });   // 색종이(요트)
   const hits = el('div', 'yt-bd-hits');   // 주사위 위 투명 버튼
   root.appendChild(hits);
 
@@ -69,6 +72,23 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
   let ro = null;
   let dead = false;
   let seq = 0;                     // 연출 번호(지난 연출의 뒤처리는 무시)
+  let rattle = false;              // 남이 컵을 흔드는 중(소리)
+  let rattleIn = 0;
+
+  // 그리는 쪽 고르기: 처음에는 2D. WebGL 을 쓸 수 있으면 3D 판을 따로 불러와 바꾼다(?nogl=1 이나 실패하면 2D 그대로).
+  if (stage && !stage.nogl && typeof stage.use === 'function') {
+    const flat = root.querySelector('.yt-bd-view');
+    if (flat) flat.style.visibility = 'hidden';      // 3D 가 올 때까지 2D 그림이 잠깐 비치지 않게
+    import('./dice3d.js').then((m) => {
+      if (dead) return;
+      const v3 = m.createDiceView({ host: root, stage });
+      view.skip(); view.dispose();
+      view = v3;
+      sig = '';
+      if (state) redraw(); else view.draw({ dice: null, shaking: false, cupHasDice: true });
+      layout();
+    }).catch(() => { if (flat) flat.style.visibility = ''; });   // 3D 를 못 쓰면 2D 로 계속
+  }
 
   const tall = () => (typeof window !== 'undefined' ? window.innerHeight >= 720 : true);
   const mine = () => !!state && state.phase === 'playing' && state.turn === state.you && !state.waiting;
@@ -152,8 +172,9 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
     waitEl.textContent = `${nameOf(s.waiting)} 재접속 기다리는 중 (${n}초)`;
   }
 
-  function showCombo(c) {
+  function showCombo(c, seed) {
     if (!c || !COMBO_TEXT[c]) return;
+    if (c === 'yacht') { deco.confetti(seed); ytSfx.yacht(); } else ytSfx.combo();
     comboEl.textContent = COMBO_TEXT[c];
     comboEl.setAttribute('data-combo', c);
     comboEl.hidden = false;
@@ -321,8 +342,9 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
     if (e.k === 'ytRoll') {
       if (e.rollNo <= animatedRollNo) return;
       animatedRollNo = e.rollNo;
-      sentRoll = false; holding = null; shakeOffIn = null;
+      sentRoll = false; holding = null; shakeOffIn = null; rattle = false;
       view.skip();
+      if (!view.is3d) ytSfx.roll();      // 3D 판은 튕기는 순간마다 스스로 소리를 낸다
       liveDice = (e.dice || []).map((d) => ({ ...d }));
       sig = '';
       setBusy(true);
@@ -333,11 +355,12 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
         setBusy(false);
         if (state) { const sg = signature(state); if (state.rollNo >= e.rollNo) { redraw(); } else { sig = sg; } }
         placeHitsAfter();
-        showCombo(e.combo);
+        showCombo(e.combo, e.seed);
         syncCup(); syncHits(); updateHint();
       });
     } else if (e.k === 'ytKeep') {
       view.skip();
+      ytSfx.keep();
       if (liveDice && liveDice[e.i]) {
         liveDice[e.i].slot = e.on ? e.slot : null;
         if (!e.on) { liveDice[e.i].x = e.x; liveDice[e.i].z = e.z; liveDice[e.i].yaw = e.yaw; }
@@ -356,13 +379,16 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
       syncCup(); syncHits();
     } else if (e.k === 'ytShake') {
       if (state && e.id === state.you && holding) return;     // 내가 누르고 있는 동안은 내 화면이 이미 흔들고 있다
+      rattle = !!e.on;
       if (e.on) { shakeOffIn = null; view.setShaking(true); }
       else shakeOffIn = SHAKE_OFF_S;
     } else if (e.k === 'ytStart') {
       animatedRollNo = 0; gameSeen = e.gameNo;
     } else if (e.k === 'ytTurn' || e.k === 'ytDrop') {
-      comboLeft = 0; comboEl.hidden = true;
-    }
+      comboLeft = 0; comboEl.hidden = true; rattle = false; deco.clear();
+      if (e.k === 'ytTurn' && state && e.id === state.you) ytSfx.turn();
+    } else if (e.k === 'ytScore') ytSfx.score();
+    else if (e.k === 'ytEnd') ytSfx.win();
   }
   function placeHitsAfter() { layout(); }
 
@@ -371,6 +397,7 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
     view.frame(dt);
     elapsed += dt;
     if (sentRoll) { sentFor -= dt; if (sentFor <= 0) { sentRoll = false; if (state && !busy) { sig = ''; redraw(); syncCup(); syncHits(); } } }
+    if (holding || rattle) { rattleIn -= dt; if (rattleIn <= 0) { rattleIn = 0.11; ytSfx.shake(); } }
     if (holding) {
       holding.t += dt;
       if (holding.released && holding.t >= MIN_HOLD_S) finishHold();
@@ -404,6 +431,7 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onAway);
     if (typeof window !== 'undefined') window.removeEventListener('blur', onBlur);
     if (ro) ro.disconnect();
+    deco.dispose();
     view.dispose();
     root.remove();
   }

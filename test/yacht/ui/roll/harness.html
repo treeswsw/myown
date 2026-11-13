@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yacht roll harness</title>
+<link rel="stylesheet" href="/client/src/yacht/ui/board.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #38241a; overflow: hidden; }
+  #host { position: fixed; left: 400px; right: 0; top: 54px; bottom: 0; }
+</style>
+</head>
+<body>
+<div id="host"></div>
+<script type="module">
+// 3D 판(dice3d.js)을 렌더러 없이 돌린다: 장면은 진짜(createYachtScene), 그리기만 없다. 시계는 시험이 돌린다.
+// ?board=1 이면 board.js 가 스스로 3D 판을 불러오는 길을 시험한다(진짜 시계).
+import { simulateRoll, restQuat } from '/shared/yacht/sim.js';
+import * as F from '/test/yacht/ui/board/fixtures.js';
+
+const errors = [];
+window.addEventListener('error', (e) => errors.push(String(e.message)));
+window.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
+const q = new URLSearchParams(location.search);
+const host = document.getElementById('host');
+const subs = new Set();
+const used = [];
+const stage = { nogl: false, size: { w: innerWidth, h: innerHeight }, scene: { environment: null }, isLowPower: () => false,
+  onFrame: (f) => { subs.add(f); return () => subs.delete(f); }, use: (s, c) => used.push(!!(s && c)) };
+const r3 = (n) => Math.round(n * 1000) / 1000;
+
+// 서버가 만드는 것과 같은 굴림 알림: 보관 주사위(kept: {번호: 칸})를 빼고 굴리고, 자리는 계산기의 멈춘 자리(소수 3자리)
+function rollEvent(seed, vs, kept = {}, extra = {}) {
+  const thrown = [0, 1, 2, 3, 4].filter((i) => kept[i] == null);
+  const rest = simulateRoll(seed, thrown, { frames: false }).rest;
+  const dice = vs.map((v, i) => {
+    if (kept[i] != null) return { v, slot: kept[i], x: 0, z: 0, yaw: 0 };
+    const r = rest[thrown.indexOf(i)];
+    return { v, slot: null, x: r3(r.x), z: r3(r.z), yaw: r3(r.yaw) };
+  });
+  return { k: 'ytRoll', id: 'me', seed, thrown, dice, rollsLeft: 2, rollNo: 1, combo: null, ...extra, ups: rest.map((r) => r.up) };
+}
+// 기본 번호 배치(+y 1, −y 6, +x 3, −x 4, +z 2, −z 5)에서 지금 위를 보는 눈
+const FACE = [null, [0, 1, 0], [0, 0, 1], [1, 0, 0], [-1, 0, 0], [0, 0, -1], [0, -1, 0]];
+function topOf([x, y, z, w]) {
+  let best = 0, by = -2;
+  for (let v = 1; v <= 6; v++) {
+    const b = FACE[v];
+    const tx = 2 * (y * b[2] - z * b[1]), ty = 2 * (z * b[0] - x * b[2]), tz = 2 * (x * b[1] - y * b[0]);
+    const ny = b[1] + w * ty + (z * tx - x * tz);
+    if (ny > by) { by = ny; best = v; }
+  }
+  return { v: best, cos: by };
+}
+
+const h = { errors, used, F, rollEvent, topOf, restQuat, simulateRoll, now: 0 };
+if (q.get('board') === '1') {
+  const { createBoard } = await import('/client/src/yacht/ui/board.js');
+  h.sent = []; h.busy = [];
+  h.board = createBoard({ host, stage, send: (m) => h.sent.push(m), getFace: () => null, onBusy: (b) => h.busy.push(b) });
+  let prev = performance.now();
+  (function loop(now) { h.board.frame(Math.min(0.1, (now - prev) / 1000)); prev = now; requestAnimationFrame(loop); })(prev);
+} else {
+  const { createDiceView } = await import('/client/src/yacht/ui/dice3d.js');
+  host.className = 'yt-bd-root';
+  host.style.setProperty('--t', '500px'); host.style.setProperty('--tx', '100px'); host.style.setProperty('--ty', '60px');
+  h.make = (opt = {}) => { h.view?.dispose(); h.view = createDiceView({ host, stage, clock: () => h.now, ...opt }); return h.view; };
+  h.make();
+  h.at = (ms) => { h.now = ms; h.view.frame(0); };
+  h.peek = () => [0, 1, 2, 3, 4].map((i) => h.view.peek(i));
+}
+window.h = h;
+window.__ready = true;
+</script>
+</body>
+</html>

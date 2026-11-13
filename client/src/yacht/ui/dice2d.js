@@ -11,7 +11,8 @@ const FELT_CX = 0.5;
 const FELT_CY = 0.593;
 const DIE = 0.11;           // 트레이 위 주사위 한 변
 const SLOT_DIE = 0.12;      // 보관 칸 안 주사위 한 변
-const CUP = { x: 0.74, y: 0.51 };
+// 컵이 쏟는 자리: 약속(shared/yacht/sim.js 의 CUP = 트레이 단위 3.4, 2.4)과 같은 곳
+const CUP = { x: FELT_CX + 3.4 * K, y: FELT_CY + 2.4 * K };
 // 컵 안 주사위 자리(컵 가운데에서의 차이, 트레이 한 변 기준)와 기울기(도)
 const IN_CUP = [[-0.09, -0.09, -18], [0.09, -0.1, 24], [0.0, 0.0, 12], [-0.1, 0.09, -32], [0.1, 0.08, 40]];
 
@@ -46,6 +47,8 @@ export function createDiceView({ host, stage } = {}) {
   const felt = el('div', 'yt-bd-felt');
   const cupTop = el('div', 'yt-bd-cup');            // 위에서 본 컵(주사위가 들어 있을 때)
   const cupSide = el('div', 'yt-bd-cupside');       // 옆으로 누운 컵(쉬는 모습)
+  cupTop.style.left = (CUP.x * 100).toFixed(2) + '%';
+  cupTop.style.top = (CUP.y * 100).toFixed(2) + '%';
   tray.append(slotsBox, felt, cupSide, cupTop);
   const dieEls = [0, 1, 2, 3, 4].map(() => makeDie());
   dieEls.forEach((d, i) => { d.setAttribute('data-yt', `dv-${i}`); tray.appendChild(d); });
