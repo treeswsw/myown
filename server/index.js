@@ -134,9 +134,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     store,
     hubOptions: {
       timing,
-      liar: ['test', 'on'].includes(process.env.LIAR) ? process.env.LIAR : (process.env.LIAR === 'off' ? 'off' : 'test'),
+      liar: ['test', 'off'].includes(process.env.LIAR) ? process.env.LIAR : 'on',
       yacht: ['test', 'off'].includes(process.env.YACHT) ? process.env.YACHT : 'on',
-      draw: ['test', 'on'].includes(process.env.DRAW) ? process.env.DRAW : 'off',
+      draw: ['test', 'off'].includes(process.env.DRAW) ? process.env.DRAW : 'on',
     },
   });
   console.log(`listening on ${app.port}`);

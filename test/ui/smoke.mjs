@@ -672,7 +672,7 @@ try {
   await browser?.close().catch(() => {});
   await server?.stop().catch(() => {});
 }
-/* ---------- LIAR switch: off (default) hides everything, test only with ?liar=1 ---------- */
+/* ---------- LIAR switch: off hides everything, test only with ?liar=1 ---------- */
 async function gateCheck(browser, env, query, expectVisible, label, expectDraw = false) {
   const srv = await startServer({ ROOM_LIST_MS: '100', ...env });
   const ctx = await browser.newContext({ viewport: { width: 844, height: 390 } });
@@ -700,12 +700,14 @@ async function gateCheck(browser, env, query, expectVisible, label, expectDraw =
 }
 try {
   const gb = await chromium.launch();
-  await gateCheck(gb, {}, '', false, 'LIAR unset: no 라이어 choice, no 랭킹 button');
-  await gateCheck(gb, { LIAR: 'test' }, '', false, 'LIAR=test without ?liar=1: hidden');
-  await gateCheck(gb, { LIAR: 'test' }, '&liar=1', true, 'LIAR=test with ?liar=1: visible');
-  await gateCheck(gb, {}, '&draw=1', false, 'DRAW unset: no 갱식마인드 choice');
-  await gateCheck(gb, { DRAW: 'test' }, '', false, 'DRAW=test without ?draw=1: hidden');
-  await gateCheck(gb, { DRAW: 'test' }, '&draw=1', false, 'DRAW=test with ?draw=1: visible', true);
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '', false, 'LIAR=off: no 라이어 choice, no 랭킹 button');
+  await gateCheck(gb, { DRAW: 'off' }, '', true, 'LIAR unset (default on): visible');
+  await gateCheck(gb, { LIAR: 'test', DRAW: 'off' }, '', false, 'LIAR=test without ?liar=1: hidden');
+  await gateCheck(gb, { LIAR: 'test', DRAW: 'off' }, '&liar=1', true, 'LIAR=test with ?liar=1: visible');
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'off' }, '&draw=1', false, 'DRAW=off: no 갱식마인드 choice');
+  await gateCheck(gb, { LIAR: 'off' }, '', false, 'DRAW unset (default on): 갱식마인드 visible', true);
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'test' }, '', false, 'DRAW=test without ?draw=1: hidden');
+  await gateCheck(gb, { LIAR: 'off', DRAW: 'test' }, '&draw=1', false, 'DRAW=test with ?draw=1: visible', true);
   await gb.close();
 } catch (e) {
   results.push({ ctx: 'gate', what: 'gate setup', ok: false, detail: String(e.message || e) });

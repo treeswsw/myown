@@ -33,8 +33,8 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 3D 모양·연출·소리·iPad/Safari는 항상 "미확인(실기기 확인 필요)"으로 보고한다.
 
 ## 라이어게임 (같은 사이트 안의 두 번째 게임)
-- 스위치 환경 변수 `LIAR`: `off`(기본, 화면·서버 흔적 없음) / `test`(주소에 `?liar=1` 일 때만 버튼 보임) / `on`.
-  render.yaml 은 `test`. 사용자 실기기 확인 뒤 `on`으로 바꾼다. 규칙은 docs/liar/GDD.md, 옮긴 방법은 docs/LIAR-MOVE.md.
+- 스위치 환경 변수 `LIAR`: `off`(화면·서버 흔적 없음) / `test`(주소에 `?liar=1` 일 때만 버튼 보임) / `on`.
+  기본 on(2026-11-13 사용자 요청으로 공개, 끄려면 LIAR=off/test). render.yaml 도 `on`. 규칙은 docs/liar/GDD.md, 옮긴 방법은 docs/LIAR-MOVE.md.
 - 반드시 지킬 약속: "다른 제시어" 방식의 라이어는 정체 공개 전까지 자신이 라이어인지 알 수 없다(화면·문구·순서·소리·서버 메시지 모양까지 시민과 같게, test/liar/leaks.test.js).
   남의 제시어·역할은 그 사람 기기에 보내지 않는다. 라이어·순서·자리·단어는 crypto 난수만(Math.random 금지). 시간은 서버가 잰다. 사용자 글자는 textContent 로만.
 - 라이어 전용 요청은 전부 `{t:'lg', a: 종류, ...}`. 라이어 방 상태에는 프로필 사진을 넣지 않는다(`faces` 알림).
@@ -55,7 +55,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 3D 주사위·컵·소리·저사양 폰은 항상 "미확인(실기기 확인 필요)"으로 보고한다. `?nogl=1` 은 2D 판으로 끝까지 된다.
 
 ## 갱식마인드 (같은 사이트 안의 네 번째 게임, 그림 맞히기)
-- 스위치 환경 변수 `DRAW`: `off`(기본, 흔적 없음) / `test`(주소에 `?draw=1` 일 때만 버튼 보임) / `on`. 규칙·통신은 docs/draw/GDD.md (10절이 약속), 사이트 쪽 요약은 SPEC 20절.
+- 스위치 환경 변수 `DRAW`: `off`(흔적 없음) / `test`(주소에 `?draw=1` 일 때만 버튼 보임) / `on`(기본 on, 끄려면 DRAW=off. Render 는 기존 서비스에 render.yaml 환경 변수를 반영하지 않아 서버 기본값 자체를 on 으로 함). 규칙·통신은 docs/draw/GDD.md (10절이 약속), 사이트 쪽 요약은 SPEC 20절.
 - render.yaml 은 `on`(2026-11-13 사용자 요청으로 공개). 서버 기본값은 그대로 `off`.
 - 반드시 지킬 약속: 단어는 그리는 사람 기기(와 이미 맞힌 사람)에만 보낸다. 맞히기 전 사람에게 정답 글·정답자끼리 채팅을 보내지 않는다(test/draw/leaks.test.js). 시간·정답 판정은 서버. 무작위는 crypto 난수만. 사용자 글자는 textContent 로만.
 - 단어는 server/liar/words.json 을 읽기만 한다(고치거나 옮기지 않는다). 이름은 shared/draw/name.js 한 곳.
