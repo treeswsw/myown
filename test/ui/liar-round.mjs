@@ -29,8 +29,10 @@ const check = (who, what, ok, detail = '') => {
 class StepFailed extends Error {}
 
 const wins = [];
+// 화면 크기: 기본 가로 폰(844×390). LG_VP=1000x750 이면 iPad 가로.
+const VP = (() => { const m = /^(\d+)x(\d+)$/.exec(process.env.LG_VP || ''); return m ? { width: +m[1], height: +m[2] } : { width: 844, height: 390 }; })();
 async function openPage(browser, url, who) {
-  const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: false, deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport: VP, hasTouch: false, deviceScaleFactor: 1 });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   const page = await ctx.newPage();
   page.setDefaultTimeout(T);
@@ -89,6 +91,27 @@ async function occlusion(w, state, skip = '') {
     }
     return out;
   }, skip);
+  // 고정 자리끼리 겹침(1절 자리 약속): 상단 줄·끝내기·최근 기록·현황판·채팅 칸·조작 줄 내용
+  const overlaps = await w.page.evaluate(() => {
+    const sels = ['.lgbar', '.lg-hud-endbox', '.chat-feed', '.chat-sheet', '.lg-vt-board', '.chat-bar', '.lg-action > *'];
+    const boxes = [];
+    for (const sel of sels) for (const el of document.querySelectorAll(sel)) {
+      if (el.closest('[hidden]') || !el.getClientRects().length) continue;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || !el.textContent.trim() && !el.querySelector('input')) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      boxes.push({ sel, r });
+    }
+    const out = [];
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i].r, b = boxes[j].r;
+      if (boxes[i].sel === boxes[j].sel) continue;
+      if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) out.push(`${boxes[i].sel} × ${boxes[j].sel}`);
+    }
+    return out;
+  });
+  bad.push(...overlaps.map((o) => `겹침 ${o}`));
   // 알려진 결함은 한 번만 따로 FAIL 로 적고 한 판은 계속 돌린다(끝날 때 실패로 끝남).
   const hard = [];
   for (const b of bad) {

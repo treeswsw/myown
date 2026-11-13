@@ -54,12 +54,12 @@ async function runContext(browser, server, name, cfg) {
 
   // Occlusion: every visible button / [role=button] / .hit / wheel segment must be the topmost thing at its centre.
   // While a modal dialog is open only its own buttons count. A button scrolled out of its scroll box is skipped (reachable by scrolling).
-  const occlusion = async (state) => {
+  const occlusion = async (state, skip = '') => {
     await page.evaluate(() => Promise.race([
       Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))),
       new Promise((r) => setTimeout(r, 1200)),
     ]));
-    const bad = await page.evaluate(() => {
+    const bad = await page.evaluate((skipSel) => {
       const out = [];
       const desc = (e) => `${e.tagName.toLowerCase()}${e.className && typeof e.className === 'string' ? `.${e.className.trim().split(/\s+/).slice(0, 2).join('.')}` : ''}`;
       const modal = [...document.querySelectorAll('[aria-modal="true"]')].find((d) => !d.closest('[hidden]') && d.getClientRects().length);
@@ -72,7 +72,7 @@ async function runContext(browser, server, name, cfg) {
         return false;
       };
       for (const el of (modal ?? document).querySelectorAll('button, [role=button], .hit, .wseg')) {
-        if (el.closest('[hidden]')) continue;
+        if (el.closest('[hidden]') || (skipSel && el.matches(skipSel))) continue;
         let op = 1;
         for (let p = el; p && p.nodeType === 1; p = p.parentElement) op *= Number(getComputedStyle(p).opacity);
         const cs = getComputedStyle(el);
@@ -87,7 +87,7 @@ async function runContext(browser, server, name, cfg) {
         out.push(`${desc(el)} "${label}" at (${Math.round(cx)},${Math.round(cy)}) is covered by ${top ? desc(top) : 'nothing'}`);
       }
       return out;
-    });
+    }, skip);
     check(`occlusion: ${state}`, bad.length === 0, bad.length ? `\n      ${bad.join('\n      ')}` : '');
   };
 
@@ -408,6 +408,8 @@ async function runContext(browser, server, name, cfg) {
       check('liar in-game: .chat-btn not shown', !btnShown);
       await press('.chat-log');
       await visible('.chat-sheet');
+      // 이름표는 토론·재투표에서만 눌린다(.lg-vt-can). 그 밖에는 pointer-events:none 이라 캔버스가 맨 위로 잡히는 것이 정상
+      await occlusion('liar in-game, 기록 open', '.lg-vt-tag:not(.lg-vt-can)');
       await press('.chat-log');
     });
     await step('liar: emote panel → emote reaches a bot', async () => {
