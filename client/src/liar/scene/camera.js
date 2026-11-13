@@ -31,7 +31,7 @@ export function createCameraRig(camera) {
     const px = (min, base) => Math.max(min, base * k);
     const hudH = px(6, 16) + px(10, 12) * 1.45 + 4 * k + px(12, 21) * 1.45 + px(30, 70) * 1.08 + 2 * k + px(13, 21) * 1.35;
     const tagH = px(11, 14) * 2.3 + 6 + px(11, 13) * 1.65 + 5;
-    const barH = px(54, 58) + px(6, 10);
+    const barH = px(54, 58) + px(6, 10) + 60;   // + 채팅 칸(48) 과 간격(12), 배율 없이
     const elev = 0.44, limitX = 0.84;
     const limitTop = 1 - 2 * (hudH + tagH + 6) / vh;
     const limitBottom = 1 - 2 * (vh - barH - 8) / vh;
@@ -64,9 +64,9 @@ export function createCameraRig(camera) {
     const px = (min, base) => Math.max(min, base * k);
     const topPx = px(6, 16) + px(10, 12) * 1.45 + 4 * k + px(12, 21) * 1.45 + px(30, 70) * 1.08 + 2 * k
       + px(13, 21) * 1.35 * 2 + px(6, 18) + px(13, 24) * 1.45 + px(18, 40) * 1.3;
-    const band = Math.max(vh - (px(54, 58) + px(6, 10)) - topPx, 80);
+    const band = Math.max(vh - (px(54, 58) + px(6, 10) + 60) - topPx, 80);   // 60 = 채팅 칸 48 + 간격 12
     const facePx = band * 0.24;
-    const centerPx = topPx + band * 0.4;
+    const centerPx = topPx + band * 0.36;   // 턱 밑 이름표 한 줄(약 40px) 자리를 위해 얼굴을 조금 올림
     const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const d = THREE.MathUtils.clamp((s.faceR * vh) / (2 * facePx * tanHalf), 0.8, 1.4);
     const lift = ((centerPx - vh / 2) / (vh / 2)) * d * tanHalf;
