@@ -396,7 +396,19 @@ function handle(msg) {
       if (msg.code === 'adm_pw' || msg.code === 'adm_lock') { // admin login refused (SPEC 21-1)
         if (msg.code === 'adm_pw') saved.del('gs.adminPw');
         loginId = null; loginPw = null;
-        if (!state.me) { lobby.setError(msg.msg); break; }
+        if (state.me) { // the server session is not an admin one: always fall back to the login screen
+          animator.flush();
+          special.skipAll();
+          state.me = null;
+          admin.setAdmin(false);
+          state.room = null;
+          emotePanel.clearRoom();
+          chat.setLog([]);
+          applyRoom(null);
+          lobby.setUser(null);
+        }
+        lobby.setError(msg.msg);
+        break;
       }
       if (admin.error(msg)) break;
       emotePanel.handleError(msg.msg);

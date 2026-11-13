@@ -33,6 +33,7 @@ async function pokerWin({ showdown, tie }) {
   const names = tie ? ['민수', '지우'] : ['민수'];
   const wins = names.map((nm) => h('div', 'w', h('span', 'ko', nm), h('span', 'num', 'WINS'), h('span', 'num', `+${fmt(12500)}`)));
   const root = mount();
+  try {
   try { sfx.win?.(); } catch { /* 소리는 없어도 된다 */ }
   const overlay = showdown
     ? h('div', `win ${tie ? 'small' : ''}`, h('div', 'sc', h('div', 'ko wt', '풀하우스'), row(), h('div', 'ws', wins)))
@@ -44,35 +45,38 @@ async function pokerWin({ showdown, tie }) {
   while (!st.off && Date.now() - t0 < hold) await sleep(100);
   overlay.classList.add('out');
   await sleep(400);
-  root.remove();
+  } finally { root.remove(); }
 }
 
 async function pokerAllIn() {
   const [{ bigText }, { sfx }] = await Promise.all([import('../anim/fx.js'), import('../audio.js')]);
   const root = mount();
-  bigText(root, 'ALL IN', [innerWidth / 2, innerHeight / 2]);
-  try { sfx.thud?.(); } catch { /* */ }
-  await sleep(1500);
-  root.remove();
+  try {
+    bigText(root, 'ALL IN', [innerWidth / 2, innerHeight / 2]);
+    try { sfx.thud?.(); } catch { /* */ }
+    await sleep(1500);
+  } finally { root.remove(); }
 }
 
 async function pokerFlash() {
   const { flash } = await import('../anim/fx.js');
   const root = mount();
-  flash(root);
-  await sleep(400);
-  root.remove();
+  try {
+    flash(root);
+    await sleep(400);
+  } finally { root.remove(); }
 }
 
 // ---- 요트: 색종이 ----
 async function yachtConfetti() {
   const { createFx } = await import('../yacht/anim/fx.js');
   const host = mount();
-  const fx = createFx({ host });
-  fx.confetti(Date.now() % 1e9, 80);
-  await sleep(2800);
-  fx.dispose();
-  host.remove();
+  let fx = null;
+  try {
+    fx = createFx({ host });
+    fx.confetti(Date.now() % 1e9, 80);
+    await sleep(2800);
+  } finally { try { fx?.dispose(); } finally { host.remove(); } }
 }
 
 // ---- 라이어: 정체 공개 / 정답 공개 (liar/anim 의 실제 모듈을 가짜 상태로 돌린다) ----
@@ -85,23 +89,23 @@ async function liarRun(which, mk, totalSec) {
     import('../liar/anim/unmask.css'), import('../liar/anim/ending.css'),
   ]);
   const root = mount();
-  const inner = document.createElement('div');
-  inner.style.cssText = 'position:absolute;inset:0;background:#040305';
-  root.append(inner);
-  const ctx = { root: inner, nogl: true, now: () => Date.now(), faceOf: () => null, anchor: null };
-  const m = which === 'unmask' ? mod.createUnmask(ctx) : mod.createEnding(ctx);
-  const state = mk(Date.now() + totalSec * 1000);
-  const st = dismissable(root);
-  const t0 = Date.now();
+  let m = null;
   try {
+    const inner = document.createElement('div');
+    inner.style.cssText = 'position:absolute;inset:0;background:#040305';
+    root.append(inner);
+    const ctx = { root: inner, nogl: true, now: () => Date.now(), faceOf: () => null, anchor: null };
+    m = which === 'unmask' ? mod.createUnmask(ctx) : mod.createEnding(ctx);
+    const state = mk(Date.now() + totalSec * 1000);
+    const st = dismissable(root);
+    const t0 = Date.now();
     while (!st.off && Date.now() - t0 < totalSec * 1000 + 300) {
       m.update(state);
       m.frame();
       await sleep(50);
     }
   } finally {
-    m.dispose();
-    root.remove();
+    try { m?.dispose(); } finally { root.remove(); }
   }
 }
 const liarBase = { players: LIAR_PLAYERS, you: 'b', round: 1, accuseNo: 1, settings: { times: { guess: 30 } }, words: { citizen: '사과', liar: '배' } };
