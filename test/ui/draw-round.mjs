@@ -39,7 +39,12 @@ async function openPage(browser, url, who, viewport) {
     window.WebSocket = class extends WS {
       constructor(...a) {
         super(...a);
-        this.addEventListener('message', (ev) => { if (typeof ev.data === 'string' && ev.data.includes('"k":"drSt"')) window.__drSt++; });
+        this.addEventListener('message', (ev) => {
+          if (typeof ev.data !== 'string') return;
+          if (ev.data.includes('"k":"drSt"')) window.__drSt++;
+          // 받은 room.state 를 남긴다(못 맞힌 사람에게 word 가 오는지 서버 메시지로 확인)
+          if (ev.data.startsWith('{"t":"room"')) { try { window.__drRoom = JSON.parse(ev.data).state; } catch { /* 무시 */ } }
+        });
       }
     };
   });
@@ -300,7 +305,8 @@ try {
   await step('1번째 문제: 맞히는 사람 한 명이 정답을 입력 → 정답 표시, 두 번째도 맞히면 정답 공개', async () => {
     const { drawer, word, guessers } = q1;
     const [g1, g2] = guessers;
-    await g1.page.locator('.dr-hud-input').fill('절대아닌말');
+    // 오답은 자모만 쓴다(단어에는 자모가 없다). 예전 '절대아닌말' 은 단어가 '말'·'절'일 때 채팅 줄에 걸려 거짓 실패가 났다.
+    await g1.page.locator('.dr-hud-input').fill('ㅁㄴㅇㄹ');
     await g1.page.locator('.dr-hud-input').press('Enter');
     await g1.page.waitForTimeout(300);
     await g1.page.locator('.dr-hud-input').fill(word);
@@ -309,8 +315,11 @@ try {
     await g1.page.locator('.dr-hud-word', { hasText: word }).waitFor({ state: 'visible' });
     await drawer.page.locator('.dr-pl-hit, .dr-hud-hit', { hasText: /정답|맞힘/ }).first().waitFor({ state: 'attached' });
     // 못 맞힌 사람(g2) 화면에는 단어가 아직 없다
+    const g2st = await g2.page.evaluate(() => { const s = window.__drRoom; return s ? { phase: s.phase, word: s.word, drawerId: s.drawerId, you: s.you } : null; });
+    if (!g2st || g2st.phase !== 'draw' || g2st.word != null) throw new Error(`못 맞힌 사람이 받은 상태에 단어가 있음: ${JSON.stringify(g2st)}`);
+    if (await g2.page.locator('.dr-hud-word').count()) throw new Error('못 맞힌 사람 문제 띠에 단어가 보임');
     const g2txt = await g2.page.evaluate(() => document.querySelector('.dr-root').innerText);
-    if (g2txt.includes(word)) throw new Error('못 맞힌 사람 화면에 단어가 보임');
+    if (g2txt.includes(word)) throw new Error(`못 맞힌 사람 화면에 단어가 보임: ${g2txt.replace(/\s+/g, ' ').slice(0, 300)}`);
     await g2.page.locator('.dr-hud-input').fill(word);
     await g2.page.locator('.dr-hud-input').press('Enter');
     for (const w of wins) await w.page.locator('.dr-rs-answer', { hasText: word }).waitFor({ state: 'visible', timeout: 15000 });
