@@ -52,6 +52,16 @@ test('cameraFor: 단계별', () => {
   }
   assert.deepEqual(cameraFor(null), { mode: 'table' });
 });
+test('cameraFor: guess·answer 는 unmask.liarId 가 있으면 spot, 없으면 table', () => {
+  for (const phase of ['guess', 'answer']) {
+    assert.deepEqual(cameraFor({ phase, unmask: { liarId: 'u2' } }), { mode: 'spot', id: 'u2' });
+    assert.deepEqual(cameraFor({ phase, unmask: {} }), { mode: 'table' });
+    assert.deepEqual(cameraFor({ phase, unmask: null }), { mode: 'table' });
+    assert.deepEqual(cameraFor({ phase }), { mode: 'table' });
+  }
+  assert.deepEqual(cameraFor({ phase: 'result', unmask: { liarId: 'u2' } }), { mode: 'table' });
+  assert.deepEqual(cameraFor({ phase: 'unmask', unmask: { liarId: 'u2' } }), { mode: 'table' });
+});
 
 // arrowPlan: seatOf 는 seatSlots 로 만든다
 const seatsOf = (n) => {
@@ -139,8 +149,45 @@ test('tagPos: 클로즈업이면 below:true 이고 screenPos 보다 아래, 전�
   assert.deepEqual(sc.tagPos('u3'), sc.screenPos('u3'));
   sc.setView({ mode: 'table' }, true);
   assert.deepEqual(sc.tagPos('u2'), sc.screenPos('u2'));
-  sc.setView({ mode: 'liar', id: 'u2' }, true);
-  assert.deepEqual(sc.tagPos('u2'), sc.screenPos('u2'));
+  for (const mode of ['liar', 'spot']) {
+    sc.setView({ mode, id: 'u2' }, true);
+    sc.frame(1);
+    assert.equal(sc.tagPos('u2').below, true, mode + ' 도 얼굴 아래');
+    assert.ok(sc.tagPos('u2').y > sc.screenPos('u2').y);
+  }
   assert.equal(sc.tagPos('nobody'), null);
+  sc.dispose();
+});
+test('조명: liar 는 빨강, spot 은 하양, 빨강에서 하양으로 이어서 바뀐다 / table 이면 꺼진다', () => {
+  const sc = sceneWith(5);
+  assert.equal(sc.stats().light, null);
+  sc.setView({ mode: 'liar', id: 'u2' }, true);
+  for (let i = 0; i < 10; i++) sc.frame(0.5);
+  let st = sc.stats();
+  assert.equal(st.light, 'red'); assert.equal(st.beamOn, true); assert.equal(st.lightHex, 0xff2a22);
+  sc.setView({ mode: 'spot', id: 'u2' });
+  sc.frame(0.05);
+  st = sc.stats();
+  assert.equal(st.light, 'white'); assert.equal(st.beamOn, true, '끄지 않고 이어서 바뀜');
+  assert.notEqual(st.lightHex, 0xffffff, '아직 전환 중');
+  for (let i = 0; i < 40; i++) sc.frame(0.5);
+  assert.equal(sc.stats().lightHex, 0xffffff);
+  sc.setView({ mode: 'table' });
+  assert.equal(sc.stats().light, null);
+  sc.dispose();
+});
+test('spot: 처음부터 spot 이어도 하양, 없는 id 면 table 과 같고 조명 없음', () => {
+  const sc = sceneWith(4, { mode: 'spot', id: 'u1' });
+  assert.equal(sc.stats().light, 'white');
+  sc.setView({ mode: 'spot', id: 'zzz' }, true);
+  assert.equal(sc.stats().light, null);
+  assert.equal(sc.stats().beamOn, false);
+  sc.dispose();
+});
+test('spot: liar 에서 spot 으로 가도 카메라가 다시 밀고 들어가지 않는다(위치 그대로)', () => {
+  const sc = sceneWith(5, { mode: 'liar', id: 'u2' });
+  const p0 = sc.camera.position.clone();
+  sc.setView({ mode: 'spot', id: 'u2' });
+  assert.ok(sc.camera.position.distanceTo(p0) < 1e-9);
   sc.dispose();
 });

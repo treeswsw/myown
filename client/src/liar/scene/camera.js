@@ -86,9 +86,10 @@ export function createCameraRig(camera) {
     out.tgt.set(s.face.x, s.face.y + lift, s.face.z);
   }
 
+  const isClose = (m) => m === 'liar' || m === 'spot';   // 정체 공개 구도 (spot = 같은 구도 + 하얀 조명)
   function aim() {
-    const s = view.mode === 'focus' || view.mode === 'liar' ? seatInfo(view.id) : null;
-    if (s && view.mode === 'liar') revealPose(s, goal);
+    const s = view.mode === 'focus' || isClose(view.mode) ? seatInfo(view.id) : null;
+    if (s && isClose(view.mode)) revealPose(s, goal);
     else if (s) speakPose(s, goal);
     else { goal.pos.copy(tablePose.pos); goal.tgt.copy(tablePose.tgt); }
   }
@@ -109,10 +110,10 @@ export function createCameraRig(camera) {
     },
     setView(v, doCut = false) {
       const was = view;
-      view = v && (v.mode === 'focus' || v.mode === 'liar') ? { mode: v.mode, id: v.id } : { mode: 'table' };
+      view = v && (v.mode === 'focus' || isClose(v.mode)) ? { mode: v.mode, id: v.id } : { mode: 'table' };
       aim();
       if (doCut) cut();
-      else if (view.mode === 'liar' && was.mode !== 'liar' && !reduce() && seatInfo(view.id)) {
+      else if (isClose(view.mode) && !isClose(was.mode) && !reduce() && seatInfo(view.id)) {
         revealPose(seatInfo(view.id), cur, true);   // 조금 물러난 구도에서 천천히 밀고 들어간다
         cutNext = false;
         apply();
@@ -127,7 +128,8 @@ export function createCameraRig(camera) {
     },
     get size() { return { w: vw, h: vh }; },
     get view() { return view; },
-    get focusing() { return (view.mode === 'focus' || view.mode === 'liar') && !!seatInfo(view.id); },
-    get liar() { return view.mode === 'liar' && !!seatInfo(view.id); },
+    get focusing() { return (view.mode === 'focus' || isClose(view.mode)) && !!seatInfo(view.id); },
+    get liar() { return isClose(view.mode) && !!seatInfo(view.id); },
+    get spot() { return view.mode === 'spot' && !!seatInfo(view.id); },
   };
 }
