@@ -37,7 +37,7 @@ function hookYacht(hub, room) {
     const out = settle(...args);
     const g = room.game;
     const r = g?.result;
-    if (!r) return out;
+    if (!r || r.reason === 'alone') return out; // everyone else left: nobody is paid (SPEC 22-2)
     const opp = g.cols.length - 1;
     const rows = r.ranks
       .filter((row) => inRoom(room, row.id))
@@ -52,7 +52,13 @@ function hookYacht(hub, room) {
 function hookDraw(hub, room) {
   const save = need(room, 'save');
   const sync = need(room, 'syncMembers');
+  const apply = need(room, 'apply');
   let starters = null;
+  let alone = false; // the engine ended this game because everyone else left (finished.reason 'alone')
+  room.apply = function coinApply(fx, ...rest) {
+    alone = fx?.finished?.reason === 'alone';
+    try { return apply(fx, ...rest); } finally { alone = false; }
+  };
   room.syncMembers = function coinSync(...args) {
     const out = sync(...args);
     const ph = room.g?.phase;
@@ -62,6 +68,7 @@ function hookDraw(hub, room) {
   };
   room.save = function coinSave(ranking, ...rest) {
     const out = save(ranking, ...rest);
+    if (alone) return out;
     const who = starters ?? new Set(ranking.map((r) => r.id));
     const opp = who.size - 1;
     const rows = ranking

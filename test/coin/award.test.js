@@ -151,7 +151,7 @@ test('draw hook: tied rank 1 both win; left excluded; late joiner excluded', () 
   let players = ['a', 'b', 'c'];
   const room = {
     mode: 'draw', members: [], get g() { return { phase: 'pick', players: players.map((id) => ({ id })) }; },
-    syncMembers() {},
+    syncMembers() {}, apply() {},
     save() {},
   };
   hookRoom(hub, room);
@@ -297,4 +297,56 @@ test('liar: void round (too few players left) pays nobody', async (t) => {
   await L.sleep(100);
   for (const c of r.cs) assert.equal(bal(hub, c.id), 0, c.id);
   assert.ok(!r.host.msgs.some((m) => m.t === 'coin'));
+});
+
+// ---------- alone-end: nobody is paid (SPEC 22-2 "무효") ----------
+
+test('bluff: the last one standing after the others leave gets nothing', async () => {
+  const { hub, clock } = await setup(8);
+  const cs = await lobby(hub, 'bluff', ['ann1', 'bob1']);
+  await cs[0].send({ t: 'start' });
+  await cs[1].send({ t: 'leave' });
+  assert.equal(cs[0].state.phase, 'result');
+  assert.equal(cs[0].state.winnerId, 'ann1');
+  assert.equal(coins(hub, 'ann1'), 0);
+  assert.equal(got(cs[0]).length, 0);
+  clock.advance(6000);
+});
+
+test('yacht: everyone else left (reason alone) pays nobody', async () => {
+  const { hub } = await setup(5);
+  const cs = await lobby(hub, 'yacht', ['ann1', 'bob1']);
+  await cs[0].send({ t: 'start' });
+  const room = [...hub.rooms.values()][0];
+  await cs[1].send({ t: 'leave' });
+  assert.equal(room.game.result?.reason, 'alone');
+  assert.equal(coins(hub, 'ann1'), 0);
+  assert.equal(coins(hub, 'bob1'), 0);
+});
+
+test('draw: everyone else left (finished.reason alone) pays nobody', async () => {
+  const { hub } = await setup(9);
+  const cs = await lobby(hub, 'draw', ['ann1', 'bob1']);
+  await cs[0].send({ t: 'dr', a: 'settings', rounds: 1, time: 60 });
+  await cs[0].send({ t: 'start' });
+  await cs[1].send({ t: 'leave' });
+  assert.equal(coins(hub, 'ann1'), 0);
+  assert.equal(coins(hub, 'bob1'), 0);
+});
+
+test('draw hook: apply() with finished.reason alone skips the award, a normal end still pays', () => {
+  const hub = fakeHub();
+  const room = {
+    mode: 'draw', members: [], get g() { return { phase: 'pick', players: [{ id: 'a' }, { id: 'b' }] }; },
+    syncMembers() {},
+    apply(fx) { if (fx.finished?.save) this.save(fx.finished.ranking); },
+    save() {},
+  };
+  hookRoom(hub, room);
+  const ranking = [{ id: 'a', rank: 1, left: false }, { id: 'b', rank: 2, left: true }];
+  room.syncMembers();
+  room.apply({ finished: { reason: 'alone', save: true, ranking } });
+  assert.deepEqual(hub.calls, []);
+  room.apply({ finished: { reason: 'done', save: true, ranking } });
+  assert.equal(hub.calls.length, 1);
 });

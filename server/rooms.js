@@ -326,7 +326,7 @@ class Room {
         const session = this.hub.sessions.get(id);
         if (session) this.hub.sendMe(session);
       }
-      this.hub.award(this, 'bluff', rows);
+      if (rows.length >= 2) this.hub.award(this, 'bluff', rows); // a lone survivor of leavers gets nothing
       this.phase = 'result';
       this.setTimer('next', this.hub.timing.bluffResult, () => this.toLobby());
     }
