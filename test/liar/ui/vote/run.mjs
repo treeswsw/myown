@@ -117,6 +117,10 @@ for (const mode of ['list', 'pos']) {
     await set('judge', n);
     eq(await count('[data-lg=judge]'), 2, `${L} judge 찬반 버튼 2개`);
     await centerHits('[data-lg=judge]', `${L} 찬반 버튼`);
+    {
+      const bs = await page.evaluate(() => [...document.querySelectorAll('[data-lg=judge]')].map((b) => { const r = b.getBoundingClientRect(); return [r.width, r.height, b.scrollHeight <= b.clientHeight + 2]; }));
+      ok(bs.every(([w, h, one]) => w >= 132 && h >= 60 && one), `${L} 찬반 버튼 크기·한 줄 ${JSON.stringify(bs)}`);
+    }
     await clear();
     await page.click('[data-lg=judge][data-v=yes]');
     eq(await sent(), [{ t: 'lg', a: 'judge', v: 'yes' }], `${L} 맞다 클릭 → judge`);
@@ -137,6 +141,19 @@ for (const mode of ['list', 'pos']) {
     ok(/^맞다/.test(await text('[data-lg=tally]')), `${L} 지목된 사람에게도 tally`);
     await set('judged', n);
     ok(await vis('[data-lg=tally]'), `${L} judged 에도 tally`);
+    {
+      const jt = await text('[data-lg=tally]');
+      if (n === 8) { ok(/ · 기권 \d+$/.test(jt), `${L} judged 집계에 기권 ${jt}`); eq(await page.textContent(`${tag('u5')} .lg-vt-jv`), '기권', `${L} judged 안 고른 사람 딱지 기권`); }
+      await set('judge-picks', n);
+      ok(!(await text('[data-lg=tally]')).includes('기권'), `${L} judge 집계에는 기권 글 없음`);
+    }
+    await set('discuss', n);
+    await clear();
+    await page.evaluate(() => window.h.mod.pick('u2'));
+    eq(await sent(), [{ t: 'lg', a: 'vote', target: 'u2' }], `${L} pick(id) → vote`);
+    await clear();
+    await page.evaluate(() => window.h.mod.pick('u0'));
+    eq(await sent(), [], `${L} pick(나) 거절`);
 
     // 끊김, 이름 그대로
     const base = await page.evaluate(([nn]) => window.h.fixture('discuss', nn), [n]);
@@ -186,6 +203,15 @@ for (const n of [8, 3]) {
   const a0 = await page.evaluate(() => window.h.anchor('u0'));
   ok(t0 && Math.abs(t0.x - a0.x) < 40, `${L} 이름표가 좌표를 따라감 ${JSON.stringify([t0, a0])}`);
   await centerHits('[data-lg=tag]:not([aria-disabled=true])', `${L} 좌표 모드 이름표`);
+  {
+    const old = await page.evaluate(() => { window.h._a = window.h.anchor; return window.h.tagPos?.('u0') ?? null; });
+    await page.evaluate(() => { const o = window.h._a; window.h.anchor = (id) => { const a = o(id); return a && { x: a.x, y: 150, below: id === 'u0' }; }; });
+    await page.waitForTimeout(80);
+    const r0 = await page.evaluate(() => document.querySelector('[data-lg=tag][data-id=u0]').getBoundingClientRect().top);
+    ok(Math.abs(r0 - 150) < 3, `${L} below 이름표는 점 아래에 붙음 (top ${r0})`);
+    await page.evaluate(() => { window.h.anchor = window.h._a; });
+    await page.waitForTimeout(80);
+  }
   await clear();
   await page.click(tag('u1'));
   eq(await sent(), [{ t: 'lg', a: 'vote', target: 'u1' }], `${L} 좌표 모드 클릭`);
