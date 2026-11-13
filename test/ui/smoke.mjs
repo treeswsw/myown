@@ -800,6 +800,18 @@ async function adminCheck(browser) {
       await b.page.click('.adm-row .adm-btn:has-text("봇 추가")');
       await b.page.waitForFunction(() => /봇 \d+명/.test(document.querySelector('.adm-status')?.textContent || ''), null, { timeout: 4000 });
       rep('봇 추가 shows 봇 N명', true);
+      await b.page.click('.adm-row .adm-btn:has-text("봇 빼기")');
+      await b.page.waitForFunction(() => /봇 0명/.test(document.querySelector('.adm-status')?.textContent || ''), null, { timeout: 4000 });
+      rep('봇 빼기 shows 봇 0명', true);
+      await b.page.click('.adm-row .adm-btn:has-text("단계 건너뛰기")');
+      await b.page.waitForFunction(() => (document.querySelector('.adm-status')?.textContent || '').includes('건너뛸 단계가 없습니다.'), null, { timeout: 4000 });
+      rep('단계 건너뛰기 in a fresh lobby says nothing to skip', true);
+      await b.page.click('.adm-fx:has-text("화면 번쩍")');
+      await b.page.waitForSelector('[data-admin-fx]', { state: 'attached', timeout: 2000 }).catch(() => {});
+      await b.page.waitForSelector('[data-admin-fx]', { state: 'detached', timeout: 4000 });
+      await b.page.click('.adm-close');
+      await b.page.locator('.lb-actions .lb-danger').click({ trial: true, timeout: 3000 });
+      rep('연출 button ends, no [data-admin-fx] left, game button still clickable', true);
       await b.page.reload();
       await b.page.waitForSelector('.adm-toggle', { state: 'visible', timeout: 4000 });
       rep('reload re-logs in with the remembered password', true);

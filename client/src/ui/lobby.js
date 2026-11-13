@@ -106,15 +106,25 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   idInput.setAttribute('aria-label', '아이디');
   idInput.value = (() => { try { return localStorage.getItem(LAST_ID_KEY) || ''; } catch { return ''; } })();
   // admin (SPEC 21-1): the password field only exists while the ID is exactly 관리자
-  const pwInput = h('input', 'lb-field');
-  pwInput.type = 'password';
-  pwInput.inputMode = 'numeric';
-  pwInput.autocomplete = 'current-password';
-  pwInput.placeholder = '비밀번호';
-  pwInput.maxLength = 32;
-  pwInput.setAttribute('aria-label', '관리자 비밀번호');
-  pwInput.hidden = true;
-  const syncPw = () => { pwInput.hidden = idInput.value.trim() !== '관리자'; };
+  // created lazily so normal users have no admin trace in the DOM
+  let pwInput = null;
+  const makePw = () => {
+    const i = h('input', 'lb-field');
+    i.type = 'password';
+    i.inputMode = 'numeric';
+    i.autocomplete = 'current-password';
+    i.placeholder = '비밀번호';
+    i.maxLength = 32;
+    i.setAttribute('aria-label', '관리자 비밀번호');
+    i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
+    i.addEventListener('input', () => { outErr.textContent = ''; });
+    return i;
+  };
+  const syncPw = () => {
+    if (idInput.value.trim() === '관리자') {
+      if (!pwInput) { pwInput = makePw(); idInput.after(pwInput); }
+    } else if (pwInput) { pwInput.remove(); pwInput = null; }
+  };
   const outErr = err();
   function submitLogin() {
     const id = idInput.value.trim();
@@ -126,17 +136,16 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     outErr.textContent = '';
     try { localStorage.setItem(LAST_ID_KEY, id); } catch { /* ignore */ }
     syncPw();
-    onLogin(id, pendingAvatar, !pwInput.hidden && pwInput.value ? pwInput.value : undefined);
+    onLogin(id, pendingAvatar, pwInput && pwInput.value ? pwInput.value : undefined);
   }
   idInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
-  pwInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
-  pwInput.addEventListener('input', () => { outErr.textContent = ''; });
   idInput.addEventListener('input', syncPw);
   syncPw();
   const outInfo = h('p', 'lb-cap lb-center');
   idInput.addEventListener('input', () => { outErr.textContent = ''; outInfo.textContent = ''; });
   const form = h('div', 'lb-stack');
-  form.append(outInfo, idInput, pwInput, outErr);
+  form.append(outInfo, idInput, outErr);
+  syncPw();
   out.append(brand('lb-large'), outPhoto, form, button('입장', 'lb-primary', submitLogin));
   renderOutPhoto();
 

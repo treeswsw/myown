@@ -57,7 +57,9 @@ export function createAdmin({ send, getRoom }) {
     status = el('p', 'adm-status');
     status.setAttribute('role', 'status');
     fxBox = el('div', 'adm-fxbox');
-    panel.append(el('h3', 'adm-title', '관리자'), el('div', 'adm-row', ...roomBtns), status,
+    const row = el('div', 'adm-row');
+    row.append(...roomBtns);
+    panel.append(el('h3', 'adm-title', '관리자'), row, status,
       el('h4', 'adm-sub', '연출 보기'), fxBox, btn('adm-btn adm-close', '닫기', () => { panel.hidden = true; }));
     root.append(panel, toggle);
     document.body.append(root);
@@ -75,7 +77,9 @@ export function createAdmin({ send, getRoom }) {
     // true: this error belongs to the panel (the caller shows no toast)
     error(msg) {
       if (!root) return false;
-      const mine = (typeof msg.code === 'string' && msg.code.startsWith('adm_')) || Date.now() - lastReq < RECENT_MS;
+      // adm_ codes, or an uncoded error (the room's join-refusal text for bot+) right after an admin request; other coded errors keep their normal handling
+      const coded = typeof msg.code === 'string' && msg.code !== '';
+      const mine = coded ? msg.code.startsWith('adm_') : Date.now() - lastReq < RECENT_MS;
       if (!mine) return false;
       lastReq = 0;
       setStatus(msg.msg);
