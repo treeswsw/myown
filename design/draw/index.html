@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>그림 눈치 — 정적 시안</title>
+<title>갱식마인드 — 정적 시안</title>
 <!--
   정적 시안(가짜 데이터). 실제 코드가 아니다. 외부 파일 없음.
   화면 고르기: 왼쪽 아래 버튼, 또는 주소 ?s=lobby|room|pick|draw|guess|kb|reveal|final  (&shot=1 이면 버튼 숨김)
@@ -70,9 +70,10 @@ svg{display:block}
 .dr-who>div{min-width:0}
 .dr-nm{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dr-sc{font-size:12.5px;color:var(--ink2);white-space:nowrap}
-.dr-sc b{color:var(--accent);font-size:15px;margin-left:3px}
+.dr-sc b{color:var(--accent);font-size:15px;margin-right:1px}
 .dr-tag{align-self:flex-start;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px;background:var(--accent);color:var(--on-accent)}
 .dr-tag.host{background:var(--fill2);color:var(--ink)}
+.dr-tag.ok{background:var(--green);color:#fff}
 .dr-say{font-size:13px;line-height:1.3;padding:5px 9px;border-radius:11px 11px 11px 3px;background:#fff;color:#111;align-self:flex-start;max-width:100%;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .dr-say.ok{background:var(--green);color:#fff;font-weight:700}
@@ -144,6 +145,10 @@ svg{display:block}
 .dr-new{font-size:10.5px;font-weight:800;background:var(--accent);color:var(--on-accent);border-radius:7px;padding:1px 5px;margin-left:6px;vertical-align:2px}
 .dr-set{display:flex;flex-direction:column;gap:5px}
 .dr-set label{font-size:13px;color:var(--ink2)}
+.dr-set label small{color:var(--ink3)}
+.dr-chips{display:flex;flex-wrap:wrap;gap:6px}
+.dr-chips span{height:30px;padding:0 11px;border-radius:15px;display:flex;align-items:center;font-size:13px;font-weight:600;background:var(--fill);color:var(--ink3);white-space:nowrap}
+.dr-chips span.on{background:rgba(242,196,68,.2);color:var(--accent);box-shadow:inset 0 0 0 1px rgba(242,196,68,.55)}
 .dr-grow{flex:1}
 .dr-codebig{font-size:34px;font-weight:800;letter-spacing:.16em;color:var(--accent)}
 .dr-row{display:flex;gap:10px;align-items:center}
@@ -190,10 +195,13 @@ svg{display:block}
   .dr-stage{align-content:start}.dr-seats{align-self:stretch}
   .dr-tag{align-self:center;font-size:0;padding:1px 5px;flex:none}
   .dr-tag::before{content:'✎';font-size:11px}
+  .dr-tag.ok::before{content:'✓'}
   .dr-tag.host{display:none}
   .dr-seat:has(.dr-plus) .dr-tag{display:none}
+  .dr-seat:has(.dr-plus) .dr-sc{font-size:0}
+  .dr-plus{font-size:12.5px}
   .dr-say{display:none}
-  .dr-plus{position:static;font-size:14px}
+  .dr-plus{position:static}
   .dr-board{grid-column:3;grid-row:1/3}
   .dr-pal{grid-column:2;grid-row:1/3;margin-top:0;gap:6px;padding:6px;border-radius:14px;align-self:center}
   .dr-tools{grid-column:4;grid-row:1/3;margin-top:0;gap:4px;padding:4px;border-radius:14px;align-self:center}
@@ -233,6 +241,7 @@ svg{display:block}
   .dr-list small{font-size:11.5px}
   .dr-codebig{font-size:24px}
   .dr-set{gap:3px}.dr-set label{font-size:11.5px}
+  .dr-chips{gap:4px}.dr-chips span{height:24px;padding:0 8px;font-size:11.5px}
   .dr-final{width:calc(100vw - 104px);gap:16px}
   .dr-pod{width:76px;gap:3px}.dr-pod .dr-av{width:38px;height:38px;font-size:15px}.dr-pod.first .dr-av{width:50px;height:50px;font-size:20px}
   .dr-pod .st{font-size:17px}.dr-pod.first .st{height:72px}.dr-pod.second .st{height:56px}.dr-pod.third .st{height:44px}
@@ -245,6 +254,9 @@ svg{display:block}
 <div id="app"></div>
 <nav class="mk-nav" id="nav"></nav>
 <script>
+// 게임 이름은 여기 한 곳만 바꾸면 시안 전체가 바뀐다(이름 미정).
+const GAME_NAME = '갱식마인드';
+document.title = GAME_NAME + ' — 정적 시안';
 const P = new URLSearchParams(location.search);
 const S = P.get('s') || 'draw';
 const SCREENS = [['lobby','a1 로비'],['room','a2 방 대기'],['pick','b1 단어 고르기'],['draw','b2 내가 그림'],['guess','c 맞히기'],['kb','c2 키보드(폰)'],['reveal','d 정답 공개'],['final','e 최종 순위']];
@@ -253,8 +265,8 @@ if (P.get('shot') !== '1') document.getElementById('nav').innerHTML = SCREENS.ma
 // 색 12개 (기획서 6-2와 같은 값·순서)
 const COLORS = ['#1c1c1e','#8e8e93','#8a5a2b','#f5c9a3','#e5352b','#ff8a1f','#ffd426','#1fa34a','#3bb8f5','#1f55d6','#8b45d1','#ff7eb8'];
 const PL = [
-  { n: '강식', c: '#b5651d', s: 3, host: 1 }, { n: '지호', c: '#2f6fde', s: 2 }, { n: '민수', c: '#1fa34a', s: 4 }, { n: '서연', c: '#d1456f', s: 1 },
-  { n: '태양', c: '#8b45d1', s: 2 }, { n: '유나', c: '#e08a1a', s: 0 }, { n: '도윤', c: '#3a9aa8', s: 1, off: 1 }, null,
+  { n: '강식', c: '#b5651d', s: 310, host: 1 }, { n: '지호', c: '#2f6fde', s: 240 }, { n: '민수', c: '#1fa34a', s: 420 }, { n: '서연', c: '#d1456f', s: 150 },
+  { n: '태양', c: '#8b45d1', s: 260 }, { n: '유나', c: '#e08a1a', s: 80 }, { n: '도윤', c: '#3a9aa8', s: 120, off: 1 }, null,
 ];
 const I = {
   menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg>',
@@ -278,29 +290,30 @@ const ART = `<svg viewBox="0 0 800 600" fill="none" stroke-linecap="round" strok
 
 function seat(p, i, o) {
   if (!p) return `<div class="dr-seat empty">빈 자리</div>`;
-  const cls = [p.off ? 'off' : '', o.turn === i ? 'turn' : '', o.hit === i ? 'hit' : ''].join(' ');
+  const gain = o.gain && o.gain[i];                 // 정답 공개 때 이번 문제로 얻은 점수
+  const hit = (o.hits || []).includes(i) || (gain && o.turn !== i);
+  const cls = [p.off ? 'off' : '', o.turn === i ? 'turn' : '', hit ? 'hit' : ''].join(' ');
   const say = o.says && o.says[i];
-  const sc = p.s + ((o.hit === i || (o.hit != null && o.turn === i)) ? 1 : 0);
   return `<div class="dr-seat ${cls}">
-    <div class="dr-who"><span class="dr-av" style="background:${p.c}">${p.n[0]}</span><div><div class="dr-nm">${p.n}</div><div class="dr-sc">정답<b>${sc}</b></div></div></div>
-    ${o.turn === i ? '<span class="dr-tag">그리는 중</span>' : p.host ? '<span class="dr-tag host">방장</span>' : ''}
+    <div class="dr-who"><span class="dr-av" style="background:${p.c}">${p.n[0]}</span><div><div class="dr-nm">${p.n}</div><div class="dr-sc"><b>${p.s + (gain || 0)}</b>점</div></div></div>
+    ${o.turn === i ? '<span class="dr-tag">그리는 중</span>' : hit && !gain ? '<span class="dr-tag ok">맞힘</span>' : p.host ? '<span class="dr-tag host">방장</span>' : ''}
     ${p.off ? '<span class="dr-sc">연결 끊김</span>' : ''}
-    ${say ? `<div class="dr-say ${o.hit === i ? 'ok' : ''}">${say}</div>` : ''}
-    ${(o.hit === i || (o.hit != null && o.turn === i)) ? '<span class="dr-plus">+1</span>' : ''}
+    ${say && !hit ? `<div class="dr-say">${say}</div>` : ''}
+    ${gain ? `<span class="dr-plus">+${gain}</span>` : ''}
   </div>`;
 }
 function game(o) {
   const me = o.me;                       // 내가 그리는 사람인가
-  const wordHtml = me || o.hit != null ? `<span class="dr-word">짜장면</span>` : `<span class="dr-word blank">□□□</span><span class="dr-len">3글자</span>`;
+  const wordHtml = me || o.rev ? `<span class="dr-word">짜장면</span>` : `<span class="dr-word blank">□□□</span><span class="dr-len">3글자</span>`;
   const q = `<span class="dr-q">문제</span>${o.pick ? `<span class="dr-len">${me ? '단어를 골라 주세요' : '지호 님이 고르는 중'}</span>` : wordHtml}`;
   const timer = `<span class="dr-timer ${o.low ? 'low' : ''}">${o.time}</span>`;
   const tools = me && !o.pick;
   return `<div class="dr-root ${me ? 'mine' : 'guess'} ${o.kb ? 'kb' : ''}">
    <div class="dr-bar">
      <button class="dr-ic" aria-label="메뉴">${I.menu}</button>
-     <span class="dr-brand">그림 눈치</span><span class="dr-code">KQZT</span>
+     <span class="dr-brand">${GAME_NAME}</span><span class="dr-code">KQZT</span>
      <span class="dr-topq">${q}</span>
-     <span class="dr-topin">${o.hit == null && !o.pick ? '<input class="dr-input" placeholder="정답 입력"><button class="dr-btn primary">보내기</button>' : ''}</span>
+     <span class="dr-topin">${!o.rev && !o.pick ? '<input class="dr-input" placeholder="정답 입력"><button class="dr-btn primary">보내기</button>' : ''}</span>
      <span class="dr-sp"></span>
      <span class="dr-round">문제 <b>5</b> / 14</span>
      <span class="dr-topq">${timer}</span>
@@ -312,19 +325,19 @@ function game(o) {
      <div class="dr-seats l">${PL.slice(0, 4).map((p, i) => seat(p, i, o)).join('')}</div>
      ${tools ? `<div class="dr-pal" role="radiogroup" aria-label="색">${COLORS.map((c, i) => `<button class="dr-sw ${i === 2 ? 'on' : ''}" style="background:${c}" aria-label="색 ${i + 1}"></button>`).join('')}</div>` : ''}
      <div class="dr-board">
-       <div class="dr-strip">${q}<span class="dr-sp"></span>${timer}</div>
+       <div class="dr-strip">${q}<span class="dr-sp"></span>${o.hits ? `<span class="dr-len">맞힌 사람 ${o.hits.length} / 5</span>` : ''}${timer}</div>
        <div class="dr-canvas">${o.pick ? '' : ART}<div class="dr-tbar" style="width:${o.bar}%"></div>
          ${o.pick && me ? `<div class="dr-over"><h3>그릴 단어를 고르세요</h3><div class="dr-picks">
             <button class="dr-pick"><small>음식</small><b>짜장면</b></button><button class="dr-pick"><small>동물</small><b>기린</b></button><button class="dr-pick"><small>탈것</small><b>잠수함</b></button></div>
             <span class="dr-count">7초 뒤 자동으로 고릅니다</span><p>글자·숫자는 쓰지 않고 그림으로만 설명해요</p></div>` : ''}
-         ${o.hit != null ? `<div class="dr-rev"><small>정답</small><b>짜장면</b><span>민수 님 정답! <em>+1</em> · 그린 사람 지호 <em>+1</em></span><small>3초 뒤 다음 문제 · 다음 차례 민수</small></div>` : ''}
+         ${o.rev ? `<div class="dr-rev"><small>정답 · 5명 중 3명이 맞혔어요</small><b>짜장면</b><span>민수 <em>+112</em> · 태양 <em>+74</em> · 강식 <em>+61</em> · 그린 사람 지호 <em>+60</em></span><small>3초 뒤 다음 문제 · 다음 차례 민수</small></div>` : ''}
        </div>
        <div class="dr-under">${tools ? `
           <div class="dr-sizes" role="radiogroup" aria-label="굵기">
             <button class="dr-size"><i style="width:5px;height:5px"></i></button><button class="dr-size on"><i style="width:11px;height:11px"></i></button><button class="dr-size"><i style="width:24px;height:24px"></i></button></div>
-          <span class="dr-hint">글자·숫자는 쓰지 않기 · 20초 동안 안 그리면 넘어가요</span>
+          <span class="dr-hint">글자·숫자는 쓰지 않기 · 모두 맞히면 바로 끝나요</span>
           <button class="dr-btn danger">포기</button>`
-        : o.hit != null || o.pick ? `<span class="dr-hint">${o.pick ? (me ? '' : '곧 그림이 시작됩니다') : ''}</span>`
+        : o.rev || o.pick ? `<span class="dr-hint">${o.pick ? (me ? '' : '곧 그림이 시작됩니다') : ''}</span>`
         : `<input class="dr-input" placeholder="정답을 입력하세요 (Enter)"><button class="dr-btn primary">보내기</button>`}</div>
      </div>
      ${tools ? `<div class="dr-tools">
@@ -332,7 +345,7 @@ function game(o) {
         ${[5, 11, 22].map((d, i) => `<button class="dr-size dr-ph ${i === 1 ? 'on' : ''}"><i style="width:${d}px;height:${d}px"></i></button>`).join('')}<hr class="dr-ph">
         <button class="dr-tool">${I.undo}되돌리기</button><button class="dr-tool">${I.trash}전체 지우기</button></div>` : ''}
      <div class="dr-seats r">${PL.slice(4).map((p, i) => seat(p, i + 4, o)).join('')}</div>
-     <div class="dr-log"><p><b>서연</b>우동</p><p><b>태양</b>라면??</p><p><b>유나</b>스파게티</p><p><b>민수</b>국수</p>${o.hit != null ? '<p class="sys">민수 님 정답!</p>' : '<p><b>강식</b>젓가락</p>'}</div>
+     <div class="dr-log"><p><b>서연</b>우동</p><p><b>태양</b>라면??</p><p><b>유나</b>스파게티</p><p class="sys">민수 님 정답!</p>${o.rev ? '<p class="sys">태양 님 정답!</p><p class="sys">강식 님 정답!</p>' : '<p><b>강식</b>젓가락</p>'}</div>
    </div>
    ${o.kb ? `<div class="mk-kb">${'<i></i>'.repeat(40)}</div>` : ''}
   </div>`;
@@ -340,43 +353,43 @@ function game(o) {
 const says = { 0: '젓가락', 3: '우동', 4: '라면??', 5: '스파게티', 2: '국수' };
 const VIEWS = {
   pick: () => game({ me: 1, pick: 1, turn: 1, time: '0:07', bar: 100 }),
-  draw: () => game({ me: 1, turn: 1, time: '1:34', bar: 67, says }),
-  guess: () => game({ turn: 1, time: '1:34', bar: 67, says }),
-  kb: () => game({ turn: 1, time: '1:34', bar: 67, says, kb: 1 }),
-  reveal: () => game({ turn: 1, hit: 2, time: '1:21', bar: 58, says: { ...says, 2: '짜장면' } }),
+  draw: () => game({ me: 1, turn: 1, time: '0:26', bar: 19, says, hits: [2] }),
+  guess: () => game({ turn: 1, time: '0:26', bar: 19, says, hits: [2] }),
+  kb: () => game({ turn: 1, time: '0:26', bar: 19, says, kb: 1, hits: [2] }),
+  reveal: () => game({ turn: 1, rev: 1, time: '0:00', bar: 0, says, gain: { 2: 112, 4: 74, 0: 61, 1: 60 } }),
   lobby: () => `<div class="dr-center">
     <section class="dr-panel"><h1>♠ 갱식 클럽</h1>
-      <div class="dr-row"><span class="dr-av" style="background:#b5651d;width:64px;height:64px;font-size:26px">강</span><div><h2>강식</h2><p class="dr-cap">칩 12,400 · 그림 정답 37</p></div></div>
+      <div class="dr-row"><span class="dr-av" style="background:#b5651d;width:64px;height:64px;font-size:26px">강</span><div><h2>강식</h2><p class="dr-cap">칩 12,400 · 그림 1등 4번</p></div></div>
       <span class="dr-grow"></span><button class="dr-btn tint">라이어 랭킹</button><p class="dr-cap">사진 바꾸기 · 로그아웃</p></section>
     <section class="dr-panel"><h2>새 게임</h2>
-      <div class="dr-seg" style="--n:4"><span>홀덤</span><span>블러핑</span><span>라이어</span><span class="on">그림 눈치</span></div>
+      <div class="dr-seg" style="--n:4"><span>홀덤</span><span>블러핑</span><span>라이어</span><span class="on">${GAME_NAME}</span></div>
       <p class="dr-cap">2~8명 · 그림 보고 단어 맞히기</p>
       <button class="dr-btn primary">방 만들기</button>
       <h2>열린 방</h2>
-      <ul class="dr-list"><li><span class="g"><b>그림 눈치</b><span class="dr-new">NEW</span> <small>지호 님의 방</small></span><small>3/8 · 대기</small></li>
+      <ul class="dr-list"><li><span class="g"><b>${GAME_NAME}</b><span class="dr-new">NEW</span> <small>지호 님의 방</small></span><small>3/8 · 대기</small></li>
         <li><span class="g"><b>텍사스 홀덤</b> <small>민수 님의 방</small></span><small>4/6 · 게임 중</small></li></ul>
-      <span class="dr-grow"></span><p class="dr-cap">주소에 ?draw=1 이 있을 때만 "그림 눈치" 칸이 보입니다 (숨김 스위치 DRAW=test)</p></section></div>`,
+      <span class="dr-grow"></span><p class="dr-cap">주소에 ?draw=1 이 있을 때만 "${GAME_NAME}" 칸이 보입니다 (숨김 스위치 DRAW=test)</p></section></div>`,
   room: () => `<div class="dr-center">
-    <section class="dr-panel"><p class="dr-cap">그림 눈치 · 방 코드</p>
+    <section class="dr-panel"><p class="dr-cap">${GAME_NAME} · 방 코드</p>
       <div class="dr-row"><span class="dr-codebig">KQZT</span><span class="dr-grow"></span><button class="dr-btn tint">복사</button></div>
       <h2>참가자 5 / 8</h2>
       <ul class="dr-list">${PL.slice(0, 5).map((p) => `<li><span class="dr-av" style="background:${p.c}">${p.n[0]}</span><span class="g">${p.n}</span><small>${p.host ? '방장' : ''}</small></li>`).join('')}</ul>
       <span class="dr-grow"></span><input class="dr-input" style="flex:none" placeholder="채팅"></section>
     <section class="dr-panel"><h2>방 설정 <small class="dr-cap">방장만 바꿀 수 있어요</small></h2>
+      <div class="dr-set"><label>출제 순서 <small>· 자리 순서대로 돌아가며 그려요</small></label><div class="dr-seg" style="--n:3"><span class="on">순서대로</span><span>맞힌 사람</span><span>랜덤</span></div></div>
+      <div class="dr-set"><label>라운드 수 <small>· 한 라운드에 모두 한 번씩 그려요</small></label><div class="dr-seg" style="--n:4"><span>1</span><span class="on">2</span><span>3</span><span>5</span></div></div>
       <div class="dr-set"><label>그리는 시간</label><div class="dr-seg" style="--n:3"><span>60초</span><span>90초</span><span class="on">2분 20초</span></div></div>
-      <div class="dr-set"><label>한 사람이 그리는 횟수</label><div class="dr-seg" style="--n:3"><span>1번</span><span class="on">2번</span><span>3번</span></div></div>
-      <div class="dr-set"><label>단어</label><div class="dr-seg" style="--n:2"><span class="on">3개 중 고르기</span><span>자동으로 받기</span></div></div>
-      <div class="dr-set"><label>글자 수 알려 주기</label><div class="dr-seg" style="--n:2"><span class="on">켬</span><span>끔</span></div></div>
-      <p class="dr-cap">문제 10개 · 주제 8개 사용 중</p>
+      <div class="dr-set"><label>주제 <small>· 눌러서 켜고 끄기</small></label><div class="dr-chips">${['음식', '동물', '직업', '장소', '스포츠', '물건', '취미', '탈것'].map((t) => `<span class="on">${t}</span>`).join('')}${['영화·만화', '나라·도시', '인물'].map((t) => `<span>${t}</span>`).join('')}</div></div>
+      <p class="dr-cap">5명 × 2라운드 = 문제 10개 · 단어 3개 중 고르기 · 글자 수 표시</p>
       <span class="dr-grow"></span>
       <div class="dr-row"><button class="dr-btn danger" style="flex:0 0 auto">나가기</button><button class="dr-btn primary">시작</button></div></section></div>`,
   final: () => {
-    const r = [['민수', '#1fa34a', 9, 4], ['강식', '#b5651d', 7, 3], ['지호', '#2f6fde', 6, 4], ['태양', '#8b45d1', 4, 2], ['서연', '#d1456f', 3, 3], ['유나', '#e08a1a', 2, 1], ['도윤', '#3a9aa8', 1, 0]];
-    const pod = (i, cls, rank) => `<div class="dr-pod ${cls}"><span class="dr-av" style="background:${r[i][1]}">${r[i][0][0]}</span><span class="nm">${r[i][0]}</span><div class="st">${rank}<small>정답 ${r[i][2]}</small></div></div>`;
+    const r = [['민수', '#1fa34a', 1120, 9], ['강식', '#b5651d', 960, 8], ['지호', '#2f6fde', 890, 7], ['태양', '#8b45d1', 720, 7], ['서연', '#d1456f', 540, 5], ['유나', '#e08a1a', 410, 4], ['도윤', '#3a9aa8', 180, 2]];
+    const pod = (i, cls, rank) => `<div class="dr-pod ${cls}"><span class="dr-av" style="background:${r[i][1]}">${r[i][0][0]}</span><span class="nm">${r[i][0]}</span><div class="st">${rank}<small>${r[i][2]}점</small></div></div>`;
     return `<div class="dr-center"><section class="dr-panel dr-final">
       <div><h2>최종 순위</h2><div class="dr-podium">${pod(1, 'second', 2)}${pod(0, 'first', 1)}${pod(2, 'third', 3)}</div></div>
-      <div><ul class="dr-list">${r.slice(3).map((p, i) => `<li><small>${i + 4}</small><span class="dr-av" style="background:${p[1]}">${p[0][0]}</span><span class="g">${p[0]}</span><small>그림 성공 ${p[3]}</small><b class="s">정답 ${p[2]}</b></li>`).join('')}</ul>
-        <p class="dr-cap">정답 수 = 맞힌 횟수 + 내 그림을 누가 맞힌 횟수. 같으면 맞힌 횟수가 많은 사람이 위.</p>
+      <div><ul class="dr-list">${r.slice(3).map((p, i) => `<li><small>${i + 4}</small><span class="dr-av" style="background:${p[1]}">${p[0][0]}</span><span class="g">${p[0]}</span><small>맞힘 ${p[3]}</small><b class="s">${p[2]}점</b></li>`).join('')}</ul>
+        <p class="dr-cap">빨리 맞힐수록, 내 그림을 많이 맞힐수록 점수가 높아요. 점수가 같으면 맞힌 횟수가 많은 사람이 위.</p>
         <span class="dr-grow"></span>
         <div class="dr-row"><button class="dr-btn tint">방으로</button><button class="dr-btn primary">한 판 더</button></div></div>
     </section></div>`;
