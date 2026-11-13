@@ -14,6 +14,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 이모티콘·사운드: client/src/ui/emotePanel.*, client/src/media.js, audio.js
 - 게임 UI: client/src/ui/hud.js, cluster.js, wheel.js, bluff.js, pins.js
 - 라이어게임: shared/liar/, server/liar/, client/src/liar/, test/liar/, scripts/build-words.mjs, docs/liar/ (한 과제는 그 안의 한 모듈만. 구역 나눔·모듈 접두사는 docs/liar/GDD.md 와 gamemine CLAUDE.md 의 요약대로: 설정 .lg-st-, 첫 발언 .lg-fs-, 상단 표시 .lg-hud-, 역할 .lg-role-, 투표 .lg-vt-, 결과 .lg-rs-, 랭킹 .lg-rk-, 규칙 .lg-rule-, 이모티콘 .lg-em-, 정체 공개 .lg-um-. 라이어 CSS 클래스는 전부 `.lg-`)
+- 갱식마인드: shared/draw/, server/draw/, client/src/draw/, test/draw/, docs/draw/, design/draw/ (한 과제는 그 안의 한 모듈만. CSS 는 전부 .dr-, 모듈 접두사 GDD 11-1)
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
 - UI 시험: test/ui/, client/src/mock.js
 - 통합(한 번에 한 에이전트만): client/src/main.js, style.css, ui/dom.js, index.html,
@@ -38,6 +39,13 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - main.js 의 라이어 연결: `import('./liar/index.js')` 로 따로 불러온다(포커만 하는 사람은 받지 않는다). 상단 줄은 `.lgbar`(style.css).
 - `npm test` 는 라이어 한 판(test/ui/liar-round.mjs)을 포함한다. 새 라이어 화면이 생기면 거기에도 클릭 한 줄을 추가한다.
 - 복사해 온 라이어 폴더는 gamemine 과 같게 유지한다. 라이어 모듈 안의 버그는 고치지 말고 보고(총괄이 정한다).
+
+## 갱식마인드 (같은 사이트 안의 세 번째 게임, 그림 맞히기)
+- 스위치 환경 변수 `DRAW`: `off`(기본, 흔적 없음) / `test`(주소에 `?draw=1` 일 때만 버튼 보임) / `on`. 규칙·통신은 docs/draw/GDD.md (10절이 약속).
+- 반드시 지킬 약속: 단어는 그리는 사람 기기(와 이미 맞힌 사람)에만 보낸다. 맞히기 전 사람에게 정답 글·정답자끼리 채팅을 보내지 않는다(test/draw/leaks.test.js). 시간·정답 판정은 서버. 무작위는 crypto 난수만. 사용자 글자는 textContent 로만.
+- 단어는 server/liar/words.json 을 읽기만 한다(고치거나 옮기지 않는다). 이름은 shared/draw/name.js 한 곳.
+- main.js 의 연결: `import('./draw/index.js')` 로 따로 불러온다. 전용 요청은 전부 `{t:'dr', a: 종류, ...}`.
+- 선 느낌·펜슬·손바닥·키보드·모션·소리는 항상 "미확인(실기기 확인 필요)"으로 보고한다.
 
 ## CSS
 - 접두사: 로비 .lb-, 채팅 .chat-, 이모티콘·사운드 .ep-. 새 모듈은 새 접두사.
