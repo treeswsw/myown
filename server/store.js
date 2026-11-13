@@ -91,10 +91,11 @@ function createMemoryStore() {
 const USER_COLS = 'id, name, bank, avatar, stats, coins, coins_total, gear, pin';
 const COIN_TOP_SQL = `SELECT name, coins_total AS total FROM users
   WHERE coins_total > 0 AND id <> $2 ORDER BY coins_total DESC, name COLLATE "C" ASC LIMIT $1`;
-const COIN_RANK_SQL = `SELECT total, CASE WHEN total > 0 THEN rank END AS rank FROM (
-  SELECT id, coins_total AS total,
-    row_number() OVER (ORDER BY coins_total DESC, name COLLATE "C" ASC) AS rank
-  FROM users WHERE id <> $2) t WHERE id = $1`;
+const COIN_RANK_SQL = `SELECT u.coins_total AS total, CASE WHEN u.coins_total > 0 THEN t.rank END AS rank
+  FROM users u LEFT JOIN (
+    SELECT id, row_number() OVER (ORDER BY coins_total DESC, name COLLATE "C" ASC) AS rank
+    FROM users WHERE id <> $2) t ON t.id = u.id
+  WHERE u.id = $1`;
 
 const LIAR_SCORE = "COALESCE((stats->'liar'->>'score')::integer, 0)";
 const LIAR_GAMES = "COALESCE((stats->'liar'->>'games')::integer, 0)";
