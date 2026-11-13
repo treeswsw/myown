@@ -15,7 +15,8 @@ export function connect(onMessage, onStatus) {
       delay = 500;
       onStatus(true);
       const id = saved.get('gs.lastId');
-      if (id) ws.send(JSON.stringify({ t: 'login', id }));
+      const pw = id === '관리자' ? saved.get('gs.adminPw') : null;
+      if (id) ws.send(JSON.stringify(pw ? { t: 'login', id, pw } : { t: 'login', id }));
     };
     ws.onmessage = (ev) => {
       try { onMessage(JSON.parse(ev.data)); } catch (err) { console.error('bad message', err); }

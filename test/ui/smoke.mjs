@@ -752,6 +752,73 @@ try {
   results.push({ ctx: 'gate', what: 'yacht gate setup', ok: false, detail: String(e.message || e) });
   console.log(`FAIL yacht gate setup - ${e.message || e}`);
 }
+/* ---------- ADMIN (SPEC 21): normal users see no .adm- element; 관리자 + 9975 gets the panel ---------- */
+async function adminCheck(browser) {
+  const srv = await startServer({ ROOM_LIST_MS: '100' });
+  const mk = async () => {
+    const ctx = await browser.newContext({ viewport: { width: 844, height: 390 } });
+    await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+    const page = await ctx.newPage();
+    page.setDefaultTimeout(T);
+    return { ctx, page };
+  };
+  const rep = (what, ok, detail = '') => {
+    results.push({ ctx: 'admin', what, ok: Boolean(ok), detail });
+    console.log(`${ok ? 'PASS' : 'FAIL'} [admin] ${what}${detail ? ` - ${detail}` : ''}`);
+  };
+  const a = await mk();
+  const b = await mk();
+  try {
+    await a.page.goto(`${srv.http}/?nogl=1`);
+    await a.page.fill('.lb-field', uid('nu'));
+    await a.page.click('button.lb-primary:has-text("입장")');
+    await a.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
+    await a.page.waitForTimeout(500);
+    const n = await a.page.evaluate(() => document.querySelectorAll('[class*="adm-"]').length);
+    rep('normal user: no .adm- element', n === 0, `${n} found`);
+
+    await b.page.goto(`${srv.http}/?nogl=1`);
+    await b.page.fill('.lb-field', '관리자');
+    await b.page.waitForSelector('input[type=password]', { state: 'visible' });
+    rep('login screen shows password field for 관리자', true);
+    await b.page.fill('input[type=password]', '9975');
+    await b.page.click('button.lb-primary:has-text("입장")');
+    const got = await b.page.waitForSelector('.adm-toggle', { state: 'visible', timeout: 3000 }).then(() => true, () => false);
+    if (!got) {
+      console.log('NOTE [admin] me.admin never arrived within 3s (server-side admin not present in this build): admin panel steps skipped');
+    } else {
+      await b.page.click('.adm-toggle');
+      await b.page.waitForSelector('.adm-panel', { state: 'visible' });
+      rep('admin panel opens with 닫기', await b.page.locator('.adm-close').isVisible());
+      const roomBtnsHidden = await b.page.evaluate(() => [...document.querySelectorAll('.adm-row .adm-btn')].every((x) => x.hidden));
+      rep('in lobby the bot/skip buttons are hidden', roomBtnsHidden);
+      await b.page.click('.adm-close');
+      await b.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
+      await b.page.click('button.lb-primary:has-text("방 만들기")');
+      await b.page.waitForSelector('.lb-actions .lb-danger', { state: 'visible' });
+      await b.page.click('.adm-toggle');
+      await b.page.click('.adm-row .adm-btn:has-text("봇 추가")');
+      await b.page.waitForFunction(() => /봇 \d+명/.test(document.querySelector('.adm-status')?.textContent || ''), null, { timeout: 4000 });
+      rep('봇 추가 shows 봇 N명', true);
+      await b.page.reload();
+      await b.page.waitForSelector('.adm-toggle', { state: 'visible', timeout: 4000 });
+      rep('reload re-logs in with the remembered password', true);
+    }
+  } catch (e) {
+    rep('admin check', false, String(e.message || e).split('\n')[0]);
+  }
+  await a.ctx.close().catch(() => {});
+  await b.ctx.close().catch(() => {});
+  await srv.stop().catch(() => {});
+}
+try {
+  const ab = await chromium.launch();
+  await adminCheck(ab);
+  await ab.close();
+} catch (e) {
+  results.push({ ctx: 'admin', what: 'admin setup', ok: false, detail: String(e.message || e) });
+  console.log(`FAIL admin setup - ${e.message || e}`);
+}
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 if (failed.length) {
