@@ -1,81 +1,73 @@
-# 새 게임 추가 지침 (초안)
+# 새 게임 추가 지침
 
-상태: **초안.** 아래 "공용 부품"은 2026-11-13 코드 검토에서 정한 목표 모양이고, 아직 다 만들어지지 않았다.
-공통화 작업이 끝나면 이 문서의 파일 이름·함수 모양을 실제 코드에 맞춰 확정하고 "초안"을 뗀다.
-그 전에 게임을 추가해야 하면 5절(공통화 전 임시 규칙)을 따른다.
+상태: **확정(2026-11-13, 묶음 2 청소 X).** 모든 게임(홀덤·블러핑·라이어·요트·갱식마인드·갱스껄·미니)이 이 방식으로 돌아간다.
+약속의 자세한 모양(훅 표, ctx, 통신)은 docs/COMMON-CONTRACT.md 1~4절. 이 문서는 새 게임을 붙이는 순서와 규칙이다.
 
 ## 1. 원칙
 
 1. **게임 폴더에는 그 게임만의 것만 둔다.** 규칙, 판(게임 화면), 그 게임만의 연출·소리 표.
 2. **모든 게임이 똑같이 쓰는 것은 공용 부품을 가져다 쓴다.** 새로 만들지 않고, 복사하지도 않는다.
-3. **다르게 해야 하면 "예외"로 신고한다.** 공용 부품을 복사해서 고치지 않는다. 공용 부품에 규칙 훅(끼워 넣는 자리)을 쓰고, 4절의 예외 표에 한 줄 적는다.
-4. **게임 추가는 등록표 한 줄이다.** 서버 한 줄, 화면 한 줄. `if (mode === '새게임')` 같은 분기를 공용 파일에 늘리지 않는다.
-5. **한 곳을 고치면 모든 게임에 적용돼야 한다.** 새 게임 때문에 공용 부품을 고쳤다면 모든 게임의 공통 시험이 통과해야 한다.
+3. **다르게 해야 하면 "예외"로 신고한다.** 공용 부품을 복사해서 고치지 않는다. 훅(끼워 넣는 자리)을 쓰고, 4절 예외 표에 한 줄 적는다.
+4. **게임 추가는 등록표 세 줄이다.** `shared/games.js`(사실), `server/games.js`(서버), `client/src/games.js`(화면). `if (mode === '새게임')` 같은 분기를 공용 파일에 늘리지 않는다.
+5. **한 곳을 고치면 모든 게임에 적용돼야 한다.** 공용 부품을 고쳤다면 test/common 의 모든 게임 칸이 통과해야 한다.
 
 ## 2. 게임이 만들지 않는 것 (공용 부품)
 
-| 기능 | 공용이 하는 일 | 게임이 주는 것 |
+| 기능 | 공용(파일) | 게임이 주는 것 |
 |---|---|---|
-| 방 만들기·입장·나가기·빈 방 지우기 | 전부 | 정원(최소·최대 인원) |
-| 방장, 방장 넘김, 강퇴 | 전부 | 없음 |
-| 게임 시작 버튼과 시작 조건 안내 | 버튼·안내·권한 검사 | "지금 시작할 수 있나"와 안 되는 이유 |
-| 방장 설정 창 | 창 틀, 저장, 방송 | 설정 항목 목록(이름·종류·범위·기본값) |
-| 끊김·재접속 | 유예 시간, 표시, 복구 | 끊긴 사람 차례를 어떻게 할지(기다림/넘김/기권) |
-| 채팅 | 입력칸, 목록, 말풍선, 길이·도배 제한, 기록 | 규칙 훅(있을 때만): 보내도 되나, 누구에게 보이나, 글을 가리나 |
-| 이모티콘·사진 이모티콘·사운드 | 패널, 표시, 서버 처리, 제한 | 각 사람 자리가 화면 어디인지(`anchorOf(id)`), 막아야 하는 단계 |
-| 소리 | 소리 장치 하나, 소리 끄기, iPad 잠금 해제 | 소리 표(이름 → 소리) |
-| 상단 줄 | 방 코드, 소리, 이모티콘, 시작, 나가기 | 옵션(위치 등)과 게임 전용 버튼이 있으면 그것만 |
-| 프로필 사진·색 | 그리기, 색 규칙, `faces` 받기 | 없음 (방 상태에 사진을 넣지 않는다) |
-| 창·확인 창·알림 | 전부 | 내용 |
-| 오류 응답 | 모양 `{msg, code}`, 알림 표시 | 오류 코드 접두사와 문구 |
-| 타이머 | 서버 타이머(예외 안전), 화면 남은 시간 표시 | 마감 시각 |
-| 난수 | `hub.rng` 와 공용 섞기·뽑기 | 없음 (Math.random·crypto 직접 호출 금지) |
-| 코인 | 판 끝 정산 | 등록표의 코인 규칙 한 줄과 "판이 끝났다, 이긴 사람은 누구" 알림 |
-| 관리자 봇 | 봇 틀 | 봇이 두는 수(`server/admin/games/<모드>.js`), 없으면 "봇 불가"로 등록 |
-| 스위치 | `off` / `test`(`?<모드>=1`) / `on` | 환경 변수 이름 |
+| 방 만들기·입장·나가기·빈 방·정원 | `server/room/shell.js` | `shared/games.js` 의 `min`·`max` |
+| 방장, 방장 넘김, 강퇴 | shell.js (`{t:'kick'}`) | 없음 (엔진이 방장을 들고 있으면 `onHost`) |
+| 대기실·게임 시작·설정 | 서버 shell.js `start/set/pick`, 화면 `client/src/room/wait.js` | `canStart`·`onStart`·`setSettings`·`pick`·`waitInfo`, 스키마 `shared/<모드>/settings.js` 의 `SETTINGS`·`OWN`, 특수 칸은 `waitPart(name)` |
+| 끊김·재접속 | shell.js (60초 유예, `away/back`) | `onAway`·`onBack`·`onLeave(id, reason)` |
+| 채팅 | 서버 `server/room/chat.js`, 화면 `ui/chat.js` + 틀 | 훅(있을 때만): `chatCheck`·`chatKind`·`chatOwn`, 화면 `chatRule` |
+| 이모티콘·사진·사운드·faces | 서버 `server/room/media.js`, 화면 frame + `ui/emotePanel.js` + `room/float.js` | `anchorOf(id)`, 막을 단계는 `mediaBlocked` |
+| 소리 | `client/src/sound/core.js` (끄기 하나, iPad 잠금 해제) | 소리 표 |
+| 상단 줄·나가기 확인 | `client/src/room/bar.js`, frame `leave` | `leaveNote(state)`, 줄 왼쪽 자리는 등록표 `bar: {leftVar}` |
+| 프로필 사진·칭호 | `client/src/ui/kit/avatar.js`, `room/faces.js` | 없음 (방 상태에 사진을 넣지 않는다) |
+| 창·확인 창·알림 | `client/src/ui/kit/{modal,toast}.js` (ctx.modal·confirm·toast) | 내용 |
+| 오류 | `{msg, code}`, 알림은 틀이 한 번 | 접두사(`err`), 문구는 `ctx.err(code, msg)` 또는 등록표 `errors` |
+| 타이머·시간 | `ctx.timer/clear`(예외 안전, 방이 비면 정리), 화면 `ctx.clock` | 마감 시각 |
+| 난수 | `ctx.rng` (= hub.rng, crypto) | 없음 (Math.random·crypto 직접 호출 금지) |
+| 코인 | `ctx.finish(rows)` → `hub.award` (판마다 한 번) | 등록표 `coin` 키 + `shared/coin/rules.js` 의 `COIN_RULES` 한 줄, 판 끝 `ctx.finish([{id, won, opp}])` |
+| 관리자 봇 | `server/admin/bots.js` | `server/admin/games/<모드>.js`(`createBrain`, `skip`), 없으면 `bot: false` |
+| 스위치 | `off` / `test`(`?<flag>=1`) / `on` | 등록표 `flag`, server/index.js 의 환경 변수 한 줄 |
 
 ## 3. 게임이 만드는 것
 
 ### 3-1. 정할 것 (코드보다 먼저)
-- 모드 이름(영문 소문자), 화면에 보이는 이름(한 곳: `shared/<모드>/name.js`), CSS 접두사(두세 글자, 기존과 겹치지 않게), 요청 봉투 글자(`{t:'xx', a: 종류}`), 오류 코드 접두사(`xx_`), 스위치 환경 변수.
-- 기획 문서 `docs/<모드>/GDD.md`: 규칙, 단계, 통신 모양, **비밀 목록**(누구 기기에만 가야 하는 정보), 예외(4절).
-- SPEC 7절에 통신 모양을 먼저 적는다.
+- 모드 이름(영문 소문자), 화면 이름(`shared/<모드>/name.js` 한 곳), CSS 접두사(`css`, 기존과 서로 접두사가 아니게), 요청 봉투(`msgs`, `{t:'xx', a: 종류}`), 오류 접두사(`err`, `xx_`), 스위치(`flag`).
+- 기획 문서 `docs/<모드>/GDD.md`: 규칙, 단계, 통신 모양, **비밀 목록**(누구 기기에만 가야 하는 정보), 예외(4절). SPEC 7절에 통신 모양을 먼저 적는다.
 
 ### 3-2. 폴더
 ```
-shared/<모드>/    규칙만 (서버·화면·시험이 같이 쓴다. DOM·ws·시간 직접 사용 금지)
-server/<모드>/    방 = 공용 방 기반 + 이 게임의 훅
-client/src/<모드>/  판 화면 (index.js 가 입구)
-test/<모드>/      규칙 시험, 비밀 누출 시험(leaks.test.js)
-docs/<모드>/      GDD
+shared/<모드>/      규칙 + settings.js(SETTINGS·OWN) (DOM·ws·시간 직접 사용 금지)
+server/<모드>/room.js  make(ctx, opt) → 게임 객체(훅)
+client/src/<모드>/  판 화면 (index.js 의 mount(ctx) 가 입구)
+test/<모드>/        규칙 시험, 비밀 누출 시험(leaks.test.js)
+docs/<모드>/        GDD
 ```
 
-### 3-3. 서버 훅 (공용 방 기반에 끼우는 것)
-- `seats`: 최소·최대 인원
-- `canStart(room)`: 시작 가능 여부와 이유
-- `settings`: 방장 설정 항목
-- `onStart`, `onAction(session, msg)`: 게임 진행
-- `viewFor(session)`: 그 사람에게 보낼 상태 (**비밀은 여기서 걸러 낸다**)
-- `onDisconnect / onReconnect / onLeave`: 끊긴 사람 처리 방식
-- `chatRule`, `mediaRule` (있을 때만): 채팅·이모티콘을 막거나 가리는 규칙
-- `onFinish`: 결과(순위·이긴 사람) → 코인 정산은 공용이 한다
+### 3-3. 서버 훅 (`server/games.js` 의 `make(ctx, opt)` 가 돌려주는 객체, COMMON-CONTRACT 1-4)
+- 필수: `view(viewerId)`(**비밀은 여기서 걸러 낸다**), `phase()`, `isWaiting()`, `canStart()`(부작용 금지), `onStart(byId)`, `onAction(session, msg)`.
+- 있을 때만: `setSettings`·`pick`·`waitInfo`(대기실 값, 비밀 금지), `onJoin`·`onAway`·`onBack`·`onLeave`·`onHost`·`onEmpty`, `chatCheck`·`chatKind`·`chatOwn`+`chatLogFor`, `mediaBlocked`, `extrasFor`, `flush`, `listExtra`.
+- ctx 로 쓰는 것: `members()`·`member(id)`·`hostId()`, `timer/clear`, `emit/push/pushTo/sendTo`, `chatLine`, `finish(rows)`, `drop(id, reason)`, `err(code, msg)`. 공용 이벤트 `joined/left/away/back` 은 Shell 만 보낸다.
+- 오류는 언제나 `{msg, code}`. 훅이 던져도 Shell 은 나가기·방장 넘김·빈 방 정리를 끝까지 한다.
 
-### 3-4. 화면 계약
+### 3-4. 화면 계약 (`client/src/<모드>/index.js`, COMMON-CONTRACT 4-2)
 ```js
-export function mount(ctx) {
-  // ctx: 판을 그릴 자리, 보내기(send), 내 정보, 공용 부품(알림·창·소리·프로필)
+export function mount(ctx) { // ctx: root, ui, stage(등록표 stage 일 때), send, me(), faces, clock, sound, toast, confirm, modal, profile, openEmote, leave, toWait
   return {
-    room(state) {},      // 방 상태가 올 때
-    event(ev) {},        // 게임 전용 알림이 올 때
-    error(err) {},       // 이 게임의 오류 코드일 때 (알림은 공용이 띄운다)
-    anchorOf(id) {},     // 그 사람 자리의 화면 위치 (말풍선·이모티콘용)
-    unmount() {},        // 리스너·타이머·3D 자원을 전부 치운다
+    room(state) {},        // 상태가 올 때마다(대기 중에도. 대기실은 틀이 그린다)
+    event(e) {},           // 공용이 다 쓰지 않은 이벤트
+    error(err) {},         // 이 게임 접두사 오류 (알림은 틀이 띄운다)
+    anchorOf(id) {},       // 말풍선·이모티콘 자리
+    // 있을 때만: frame(dt), chatRule {maxLen, lock, route, bubble, own, input}, waitPart(name), leaveNote(state), showEmote, holdWait
+    unmount() {},          // 리스너·타이머·3D·소리 전부. 틀은 이것이 끝난 뒤 다음 mount
   };
 }
 ```
-- `main.js` 는 `import('./<모드>/index.js')` 로 따로 불러온다(그 게임을 안 하는 사람은 받지 않는다).
-- 화면은 서버가 준 결과로만 끝낸다. 시간은 서버 마감 시각으로 계산한다. 사용자 글자는 `textContent` 로만.
-- `?nogl=1` 에서 끝까지 진행돼야 한다.
+- 화면 등록표 한 줄: `<모드>: { load: () => import('./<모드>/index.js'), stage, mount: true, bar? }`. main.js 는 고치지 않는다(틀이 불러온다, 그 게임을 안 하는 사람은 받지 않는다).
+- 화면은 서버가 준 결과로만 끝낸다. 시간은 서버 마감 시각(`ctx.clock`)으로. 사용자 글자는 `textContent` 로만. `?nogl=1` 에서 끝까지 진행돼야 한다.
 
 ## 4. 예외 표
 
@@ -83,43 +75,36 @@ export function mount(ctx) {
 
 | 게임 | 예외 | 근거 |
 |---|---|---|
-| 라이어 | 단계별 채팅 잠금, 첫 설명 차례, 80자, 정체 공개 중 이모티콘·매체 금지 | docs/liar/GDD.md |
-| 갱식마인드 | 정답 판정, 정답자끼리 글 가리기, 그리는 사람 채팅·이모티콘 금지, 도배 제한 값 | docs/draw/GDD.md 10절 |
+| 라이어 | 단계별 채팅 잠금, 첫 설명 차례(입력 줄 열어 둠 `chatRule.input`), 80자, 정체 공개 중 이모티콘·매체 금지 | docs/liar/GDD.md |
+| 갱식마인드 | 정답 판정, 정답자끼리 글 가리기, 그리는 사람 채팅·이모티콘 금지, 40자·도배 제한 값(엔진 `chatOwn`), 게임 중 자기 입력칸, 그리는 사람 끊김 15초 | docs/draw/GDD.md 10절 |
 | 요트 | 끊긴 사람 차례는 기다리고 60초에 기권 | docs/yacht/GDD.md |
 | (새 게임) | | |
 
-위 표는 후보이고, 사용자와 상의해 확정한다. 새 예외는 사용자 확인을 받은 뒤 적는다.
+새 예외는 사용자 확인을 받은 뒤 적는다.
 
-## 5. 공통화 전 임시 규칙
-
-공용 부품이 아직 없는 기능은, 가장 가까운 기존 게임의 코드를 **그대로** 가져다 쓰고(값·동작을 바꾸지 않는다),
-가져온 곳을 과제 보고에 적는다. 나중에 공통화할 때 한 번에 바꿀 수 있어야 한다.
-
-## 6. 추가 순서와 체크리스트
+## 5. 추가 순서와 체크리스트
 
 1. [ ] GDD 와 SPEC 7절(통신), 비밀 목록, 예외 확정 (화면이 있으면 시안 먼저)
 2. [ ] `shared/<모드>/` 규칙 + 규칙 시험
-3. [ ] 서버 훅 + 서버 등록표 한 줄 (정원, 스위치, 봉투 글자, 코인 규칙, 봇 가능 여부)
-4. [ ] 비밀 누출 시험 `test/<모드>/leaks.test.js`
-5. [ ] 화면 `mount` + 화면 등록표 한 줄 + 로비 버튼
-6. [ ] `test/ui/smoke.mjs` 에 한 판 클릭 추가
+3. [ ] 등록표 세 줄: `shared/games.js`(이름·정원·flag·msgs·err·css·coin·chat·settings·own), `server/games.js`(`make`, `bot`), `client/src/games.js`(`load`, `stage`, `mount: true`)
+4. [ ] 서버 훅 `server/<모드>/room.js` + 비밀 누출 시험 `test/<모드>/leaks.test.js`
+5. [ ] 화면 `mount(ctx)` (로비 버튼은 등록표에서 자동)
+6. [ ] `test/common/rooms.test.js` 의 MODES 에 한 줄, `test/ui/smoke.mjs` 에 한 판 클릭 추가
 7. [ ] CLAUDE.md 구역 지도와 게임 절, README 환경 변수 표
 8. [ ] 스위치 `test` 로 배포해 `?<모드>=1` 로 확인한 뒤 `on`
 
-## 7. 완료 조건
+## 6. 완료 조건
 
 - `npm run check` 와 `npm test` 통과.
-- **공통 표 시험**이 새 게임 칸까지 통과: 채팅, 이모티콘, 사진 이모티콘, 사운드, 나가기, 방장 넘김, 끊김 유예, 재접속. (등록표를 돌며 자동으로 새 게임을 포함해야 한다.)
+- **공통 표 시험**이 새 게임 칸까지 통과: `test/common/rooms.test.js`(채팅·이모티콘·사진·사운드·나가기·방장 넘김·끊김 유예·재접속·강퇴·set 기본값·결과 뒤 시작), `test/common/games.test.js`(등록표 칸·스키마 모양), `test/ui-room.test.js`(모든 게임이 mount).
 - 공용 파일에 새 게임 이름으로 된 분기가 없다(등록표 제외).
 - 게임 폴더에 채팅·이모티콘·소리 장치·상단 줄·나가기·창을 새로 만든 코드가 없다.
 - 3D·소리·iPad 는 "미확인(실기기 확인 필요)"으로 보고.
 
-## 8. 공통화 작업이 지켜야 할 확장성 조건
+## 7. 확장성 조건 (공용 부품을 고칠 때 지킨다)
 
-코드 정리(공통화)를 할 때 아래를 만족하도록 만든다. 이것이 되어야 위 지침이 성립한다.
-
-- 서버·화면 등록표가 **유일한 게임 목록**이다. 정원, 스위치, 봉투 글자, 오류 접두사, 코인 규칙, 봇, 로비 버튼, CSS 접두사 검사가 전부 등록표에서 나온다.
+- 등록표 세 곳(`shared/games.js`·`server/games.js`·`client/src/games.js`)이 **유일한 게임 목록**이다. 정원, 스위치, 봉투 글자, 오류 접두사, 코인 규칙, 봇, 로비 버튼, CSS 접두사 검사가 전부 등록표에서 나온다.
 - 등록표에 빠진 칸이 있으면 시험이 실패한다(예: 코인 규칙 없음, 봇 여부 없음).
-- 공통 표 시험과 CSS 접두사 검사는 등록표를 읽어 돈다. 게임을 추가해도 시험 파일을 고치지 않는다.
+- CSS 접두사 검사·등록표 검사(games.test)·set 기본값 시험은 등록표를 읽어 돈다. 공통 표(rooms.test)는 MODES 한 줄만 더하고, 빠지면 games.test 가 실패한다.
 - 공용 부품은 게임 이름을 모른다. 게임별 차이는 훅과 옵션으로만 받는다.
 - 화면 `unmount` 는 반드시 불리고, 다시 들어오면 새로 `mount` 한다.

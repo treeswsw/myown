@@ -21,3 +21,5 @@
 .lg-rk-score { font-variant-numeric: tabular-nums; font-weight: 700; }
 .lg-rk-games { color: var(--lg-ink-dim, #a39a8f); font-variant-numeric: tabular-nums; }
 .lg-rk-mine { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--lg-line, rgba(239,230,216,.16)); color: var(--lg-gold, #d9b26a); font-weight: 700; font-size: max(13px, calc(15px * var(--lg-k, 1))); }
+.lg-rk-wbox { display: flex; flex-direction: column; gap: 8px; color: #efe6d8; text-align: left; }
+.lg-rk-wbody { max-height: min(50dvh, 360px); }

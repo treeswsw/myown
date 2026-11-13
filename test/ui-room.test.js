@@ -92,10 +92,9 @@ test('faces: 받은 사람만 덮어쓰고 잘못된 사진은 버림', () => {
   assert.equal(n, 2);
 });
 
-test('games.js: 화면 등록표와 게임 사실의 키가 같고, 옮긴 게임만 mount 가 있다', () => {
+test('games.js: 화면 등록표와 게임 사실의 키가 같고, 모든 게임이 공통 틀(mount)로 그려진다', () => {
   assert.deepEqual(Object.keys(CLIENT_GAMES), Object.keys(GAMES));
-  const MOVED = ['yacht', 'mini', 'gsk', 'draw', 'holdem', 'bluff', 'liar']; // 옮기기 과제가 끝날 때마다 한 줄씩 늘린다
-  assert.deepEqual(Object.keys(GAMES).filter((k) => isFramed(k)).sort(), [...MOVED].sort());
+  for (const k of Object.keys(GAMES)) assert.ok(isFramed(k), `${k}: CLIENT_GAMES 에 load·mount: true 가 있어야 한다`);
   assert.deepEqual(visibleModes({}, ''), ['holdem', 'bluff']);
   assert.deepEqual(visibleModes({ liar: 'on', yacht: 'test', mini: 'test' }, '?mini=1'), ['holdem', 'bluff', 'liar', 'mini']);
 });

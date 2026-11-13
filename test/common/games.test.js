@@ -82,9 +82,9 @@ test('coin 은 COIN_RULES 에 있고, COIN_RULES 의 키는 모두 어떤 게임
   for (const r of Object.keys(COIN_RULES)) assert.ok(used.has(r), `COIN_RULES.${r} 를 쓰는 게임이 없음`);
 });
 
-test('서버 항목: make 와 legacy 중 정확히 하나, bot 은 false 또는 {createBrain, skip}', () => {
+test('서버 항목: make 가 있고, bot 은 false 또는 {createBrain, skip}', () => {
   for (const [k, e] of Object.entries(SERVER_GAMES)) {
-    assert.ok((typeof e.make === 'function') !== (typeof e.legacy === 'function'), `${k}: make/legacy 중 하나만`);
+    assert.equal(typeof e.make, 'function', `${k}: make 없음`);
     assert.ok(e.bot === false || (typeof e.bot?.createBrain === 'function' && typeof e.bot?.skip === 'function'), `${k}.bot`);
     if (e.hubMsg !== undefined) assert.equal(typeof e.hubMsg, 'function', `${k}.hubMsg`);
   }
@@ -114,9 +114,8 @@ test('settings·own 의 각 칸은 4-3 모양', () => {
 const patchOf = (k, v) => k.split('.').reduceRight((acc, part) => ({ [part]: acc }), v);
 const valueAt = (obj, k) => k.split('.').reduce((o, part) => o?.[part], obj);
 
-// 옮긴 게임(legacy 아님)만: 대기실 기본값을 set/pick 으로 그대로 보내면 거절되지 않는다(실제 허브).
+// 모든 게임: 대기실 기본값을 set/pick 으로 그대로 보내면 거절되지 않는다(실제 허브).
 for (const [k, g] of Object.entries(GAMES)) {
-  if (SERVER_GAMES[k].legacy) continue;
   test(`${k}: set/pick 으로 기본값을 보내면 거절되지 않는다`, async () => {
     const h = makeHub({ startCoins: 0 });
     const cs = [];

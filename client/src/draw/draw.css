@@ -19,7 +19,7 @@
   --pw: clamp(92px, 8.5vw, 112px); --palw: 0px; --toolw: 64px; /* PC·iPad: 색은 그림판 아래 줄로 옮겨 왼쪽 색 열(palw)은 0 */
   --sl: 0px; --sr: 0px;
   --logrow: 0px;                      /* PC·iPad: 그림판 아래 채팅 기록 줄 높이(+간격). dr-lg-* 가 정한다 */
-  --dr-bar-l: 150px; --dr-bar-r: 330px; /* PC·iPad 윗줄: 사이트 상단 줄(.lgbar)의 방 코드·버튼 자리를 비워 둠. 통합 때 맞춘다 */
+  --dr-bar-l: 150px; --dr-bar-r: 330px; /* PC·iPad 윗줄: 공용 상단 줄(.rm-bar)의 방 코드·버튼 자리를 비워 둠 */
   --ch: min(calc(100dvh - var(--bar) - var(--pad) * 2 - var(--strip) - var(--under) - var(--logrow) - 20px),
             calc((100vw - var(--pad) * 2 - var(--pw) * 2 - var(--palw) - var(--toolw) - var(--gap) * 4) * .75));
   --cw: calc(var(--ch) * 4 / 3);

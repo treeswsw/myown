@@ -2,7 +2,6 @@ import { secureRng } from '../shared/cards.js';
 import { GAMES } from '../shared/games.js';
 import { SERVER_GAMES } from './games.js';
 import { createRoomShell } from './room/shell.js';
-import { tooSoon } from './room/media.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 import { createAdmin, ADMIN_ID } from './admin/bots.js';
 import { installWallet, walletOf } from './coin/wallet.js';
@@ -21,7 +20,6 @@ export const DEFAULT_TIMING = {
   roomList: 500, // open-room list broadcasts are coalesced to one per this interval
   reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
-const MEDIA = new Set(['emote', 'pemote', 'snd', 'sndAdd', 'sndRename']);
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
 export const REPLACED_CODE = 4001;
@@ -83,11 +81,7 @@ export function createHub({
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
-      return [...hub.rooms.values()].filter((r) => r.members.length > 0).map((r) => (r.shell ? r.listInfo() : {
-        code: r.code, mode: r.mode, hostName: (r.member(r.hostId) ?? r.members[0]).session.user.name,
-        count: r.members.length, max: GAMES[r.mode].max, phase: r.phase,
-        ...(r.mode === 'mini' ? { game: r.game } : {}),
-      }));
+      return [...hub.rooms.values()].filter((r) => r.members.length > 0).map((r) => r.listInfo());
     },
     sendRooms(session) {
       if (!session.room) hub.send(session, { t: 'rooms', list: hub.roomList() });
@@ -147,14 +141,7 @@ export function createHub({
           }
         }
       }
-      for (const room of hub.rooms.values()) {
-        if (room.shell) {
-          room.close();
-          continue;
-        }
-        for (const name of Object.keys(room.timers)) room.clearTimer(name);
-        for (const m of room.members) if (m.grace !== null) timers.clearTimeout(m.grace);
-      }
+      for (const room of hub.rooms.values()) room.close();
       return Promise.allSettled([...hub.pendingSaves]);
     },
   };
@@ -339,10 +326,6 @@ async function dispatch(hub, conn, msg) {
   const session = conn.session;
   if (!session) return '먼저 로그인하세요.';
   const room = session.room;
-  // (old rooms) A draw room has its own {t:'dr'} requests: the other games' requests (even the overall liar ranking) are refused first.
-  if (room && !room.shell && room.mode === 'draw' && ['mode', 'act', 'play', 'liar', 'lg'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'dr_now' };
-  // A gsk room has its own {t:'gk'} requests too.
-  if (room && !room.shell && room.mode === 'gsk' && ['mode', 'act', 'play', 'liar', 'lg', 'yt', 'dr', 'mn'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'gk_now' };
   // Hub-level requests of a game (liar ranking): answered by the hub itself, in the lobby or in a room (never passed to the room).
   for (const g of Object.values(SERVER_GAMES)) {
     const answer = g.hubMsg?.(hub, session, msg);
@@ -354,10 +337,7 @@ async function dispatch(hub, conn, msg) {
       session.user.avatar = msg.data;
       hub.persist(session.user);
       hub.sendMe(session);
-      if (room) {
-        if (room.faceChanged) room.faceChanged(session, prevAvatar);
-        else room.push();
-      }
+      room?.faceChanged(session, prevAvatar);
       return null;
     case 'create': {
       if (room) return '이미 방에 있습니다.';
@@ -366,8 +346,7 @@ async function dispatch(hub, conn, msg) {
       if (g.flag && hub.flags[msg.mode] === 'off') return offErr(msg.mode);
       const entry = SERVER_GAMES[msg.mode];
       const code = newCode(hub);
-      // Old rooms (`legacy`) get their coin hooks inside the factory; a Shell room pays through ctx.finish (no hookRoom).
-      const r = entry.legacy ? entry.legacy(hub, code, msg) : createRoomShell(hub, code, { mode: msg.mode, ...g, ...entry }, msg);
+      const r = createRoomShell(hub, code, { mode: msg.mode, ...g, ...entry }, msg); // coins: the game calls ctx.finish
       hub.rooms.set(code, r);
       return r.join(session);
     }
@@ -384,68 +363,6 @@ async function dispatch(hub, conn, msg) {
   }
   if (!room) return '방에 들어가 있지 않습니다.';
   // 방 안 게임 바꾸기는 없어졌다(COMMON-CONTRACT 7-3): 포커 방은 한 배포 동안 받아서 안내만(pk_mode). 묶음 3 청소 때 삭제.
-  if (room.shell && msg.t === 'mode' && room.entry?.modeMsg) return room.entry.modeMsg(msg);
-  if (room.shell) return room.request(session, msg);
-  // A room may refuse emotes/photos/sounds for now (liar room: during the unmask animation etc.).
-  if (MEDIA.has(msg.t)) {
-    const why = room.mediaBlocked?.(session, msg.t);
-    if (why) return why;
-  }
-  switch (msg.t) {
-    case 'leave': room.leave(session.id); return null;
-    case 'lg': return room.lg ? room.lg(session, msg) : '알 수 없는 요청입니다.';
-    case 'yt': return room.yt ? room.yt(session, msg) : '알 수 없는 요청입니다.';
-    case 'gk': return room.mode === 'gsk' ? room.gk(session, msg) : '알 수 없는 요청입니다.';
-    case 'mn': return room.mode === 'mini' ? room.request(session, msg) : { msg: '알 수 없는 요청입니다.', code: 'mn_bad' };
-    case 'dr': return room.mode === 'draw' ? room.dr(session, msg) : '알 수 없는 요청입니다.';
-    case 'start': return room.start(session.id);
-    case 'mode':
-    case 'act':
-    case 'play':
-    case 'liar':
-      // Poker/bluff requests. A liar room has its own methods of the same names (play), so test the mode, not the method.
-      if (room.mode === 'liar' || room.mode === 'yacht' || room.mode === 'mini') return '지금은 할 수 없습니다.';
-      if (msg.t === 'mode') {
-        if (msg.mode === 'yacht') return '요트다이스는 방을 새로 만들어 주세요.';
-        if (msg.mode === 'draw' || msg.mode === 'mini') return '방을 새로 만들어 주세요.';
-        if (msg.mode === 'gsk') return '갱스껄은 방을 새로 만들어 주세요.';
-        return msg.mode === 'liar' ? '라이어게임은 방을 새로 만들어 주세요.' : room.setMode(session.id, msg.mode);
-      }
-      if (msg.t === 'act') return room.act(session.id, msg.a, msg.amount);
-      if (msg.t === 'play') return room.play(session.id, msg.cards);
-      return room.liar(session.id);
-    case 'emote': room.emote(session.id, msg.e); return null;
-    case 'pemote':
-      if (tooSoon(hub, session, 'pemote', 3000)) return '사진 이모티콘을 너무 빨리 보내고 있습니다';
-      room.sendEvents([{ k: 'pemote', id: session.id, data: msg.data }]);
-      return null;
-    case 'sndAdd':
-      if (tooSoon(hub, session, 'sndAdd', 10_000)) return '소리를 너무 빨리 올리고 있습니다';
-      return room.addSound(session, msg.sid, msg.name, msg.data);
-    case 'sndDel':
-    case 'sndRename': {
-      // 2 edits per second per account
-      const t = hub.now();
-      const recent = session.editTimes.filter((x) => t - x < 1000);
-      if (recent.length >= 2) return '소리를 너무 빨리 수정하고 있습니다';
-      recent.push(t);
-      session.editTimes = recent;
-      return room.editSound(session, msg.sid, msg.t === 'sndRename' ? { name: msg.name } : {});
-    }
-    case 'snd':
-      if (tooSoon(hub, session, 'snd', 2000)) return '소리를 너무 빨리 재생하고 있습니다';
-      return room.playSound(session, msg.sid);
-    case 'chat': {
-      if (room.mode === 'draw') return room.chat(session, msg.text) ?? null; // the engine counts chat speed itself
-      const t = hub.now();
-      // Kept on the account, not the socket, so reconnecting or taking over does not reset it.
-      const times = session.chatTimes.filter((x) => t - x < 10_000);
-      const last = times.at(-1);
-      if (times.length >= 5 || (last !== undefined && t - last < 1000)) return '채팅을 너무 빨리 보내고 있습니다';
-      times.push(t);
-      session.chatTimes = times;
-      return room.chat(session, msg.text) ?? null;
-    }
-    default: return '알 수 없는 요청입니다.';
-  }
+  if (msg.t === 'mode' && room.entry.modeMsg) return room.entry.modeMsg(msg);
+  return room.request(session, msg);
 }

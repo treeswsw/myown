@@ -3,6 +3,8 @@
 // opt: { chatOwn: true }  -> chatOwn/chatLogFor 사용
 //      { block: {on} }    -> block.on 이면 mediaBlocked 가 막는다(시험이 켜고 끈다)
 //      { mute: Set(ids) } -> chatCheck 가 그 사람 글을 막는다
+//      { boom: true }     -> onLeave·onHost·onEmpty 가 던진다 / 아이디가 boom 으로 시작하면 onJoin 이 던진다
+//      { spec: Set(ids) } -> view 가 그 사람을 관전(spectating: true)으로 낸다
 import { createRoomShell } from '../../server/room/shell.js';
 
 export function makeDummy(ctx, opt = {}) {
@@ -17,7 +19,7 @@ export function makeDummy(ctx, opt = {}) {
     calls,
     get ticks() { return ticks; },
     view: (id) => ({
-      players: ctx.members().map((m) => ({ id: m.id, color: own[m.id]?.color ?? null })),
+      players: ctx.members().map((m) => ({ id: m.id, color: own[m.id]?.color ?? null, ...(opt.spec?.has(m.id) ? { spectating: true } : {}) })),
       secret: id === ctx.hostId() ? 'host-only' : null,
     }),
     phase: () => phase,
@@ -69,6 +71,7 @@ export function makeDummy(ctx, opt = {}) {
     waitInfo: () => ({ set: { ...set }, own: structuredClone(own) }),
     onJoin(m) {
       calls.push(['join', m.id]);
+      if (m.id.startsWith('boom')) throw new Error('onJoin 터짐');
       return m.id.startsWith('no') ? ctx.err('dm_bad', '들어올 수 없습니다.') : null;
     },
     onAway(id) { calls.push(['away', id]); return [{ k: 'dmAway', id }]; },
@@ -76,10 +79,11 @@ export function makeDummy(ctx, opt = {}) {
     onLeave(id, reason) {
       calls.push(['leave', id, reason, !!ctx.member(id)]);
       delete own[id];
+      if (opt.boom) throw new Error('onLeave 터짐');
       return [{ k: 'dmLeft', id }];
     },
-    onHost(id) { calls.push(['host', id]); },
-    onEmpty() { calls.push(['empty']); phase = 'lobby'; },
+    onHost(id) { calls.push(['host', id]); if (opt.boom) throw new Error('onHost 터짐'); },
+    onEmpty() { calls.push(['empty']); phase = 'lobby'; if (opt.boom) throw new Error('onEmpty 터짐'); },
     chatCheck: (session) => (opt.mute?.has(session.id) ? ctx.err('dm_mute', '지금은 글을 쓸 수 없습니다.') : null),
     chatKind: () => 'talk',
     mediaBlocked: (session, kind) => (opt.block?.on ? ctx.err('dm_media', `${kind} 막힘`) : null),

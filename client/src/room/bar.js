@@ -1,5 +1,5 @@
 // 게임 중 상단 줄 (COMMON-CONTRACT 4-1): 방 코드 · 소리 · 이모티콘 · 나가기. 시작 버튼은 두지 않는다(대기실 안에만).
-// 이모티콘 창 열고 닫기·바깥 누름 닫기는 createEmoteToggle 하나(옛 상단 줄 .lgbar/.gkbar/.ytbar 도 이것을 쓴다).
+// 이모티콘 창 열고 닫기·바깥 누름 닫기는 createEmoteToggle 하나.
 import { h, svg } from '../ui/dom.js';
 
 export const ICON = {

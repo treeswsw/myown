@@ -251,7 +251,7 @@ return {
 ```
 - 틀이 먼저 처리하는 이벤트: `emote pemote snd sndAdd sndList sndDel sndRename`(게임에 안 넘김), `faces chat chatLog joined left away back`(처리하고 게임에도 넘김). `joined/left` 는 채팅에 시스템 줄("○○ 님이 들어왔어요").
 - 화면 전환: `state.wait && (state.phase === 'lobby' || toWait 를 눌렀음)` 이면 대기실, 아니면 게임 판 + 상단 줄. 새 판이 시작되면(phase 가 대기에서 벗어남) toWait 표시를 지운다.
-- 불러오기 실패: `staleReload`(main.js:151) 를 틀이 쓴다(B15). 게임이 바뀌면 `await current.unmount()` 뒤 새 mount(B16·S6).
+- 불러오기 실패: 게임 파일을 못 받으면(동적 import 실패) 틀 안 `staleReload` 가 "새 버전" 안내(B15), `mount` 안의 오류는 일반 오류 알림. 게임이 바뀌면 `await current.unmount()` 뒤 새 mount(B16·S6).
 - 소리 버튼: 대기실 머리줄·상단 줄 모두 `sound.setMuted`. 게임 audio.js 는 core 위에서 소리 표만(B20).
 
 ### 4-3. 설정 스키마 (`shared/<모드>/settings.js` 의 `SETTINGS`·`OWN` 배열)
@@ -274,6 +274,7 @@ return {
 | 라이어 | `maxLen 80`, `lock` = chatLockFor, `route` = chatMsgFor(say/chat), `bubble` = kind 가 say·plea 면 false | liar/index.js:179·213, main.js:85·556 |
 | 갱식마인드 | `maxLen 40`, `own(state)` = 대기·최종이 아니면 true(그동안 사이트 입력칸 숨김, 기록은 계속 받음) | B10·B12, D8 |
 | 나머지 | 없음(120자, 말풍선) | |
+- (X 추가) `chatRule.input?(state) → bool`: 참인 동안 게임 중 입력 줄을 열어 둔다. 참이 되면 틀이 `chat.open()`, 거짓이 되면 틀이 연 것만 `chat.close()`. 라이어 = 내 입력 차례(첫 설명·최후 변론, `chatLockFor(s).hot`).
 
 ### 4-5. main.js 에서 없어지는 것 / 남는 것
 | 없어짐 (→ 어디로) | 줄 |

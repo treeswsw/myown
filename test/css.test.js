@@ -122,11 +122,9 @@ const CROSS_FILE_ALLOW = new Map([
   ['letter', 'dom.js avatar() adds it to every avatar; style.css styles `.pav.letter`, lobby.css styles `.lb-av.letter` (each scoped by its own base class)'],
   ['big', 'TODO: style.css `.ic.big` and chat.css `.chat-b.big` are unrelated modifiers scoped by different base classes; rename chat.css one to chat-big'],
   ['chat-btn', 'TODO: style.css `.chat-btn::after` (hit-area extension) targets the chat.css button; move that rule into chat.css'],
-  // Host-side layout overrides for the copied liar module (client/src/liar stays identical to gamemine); positions only, scoped by `.lg-root`.
-  ['lg-root', 'style.css overrides liar positions for the site top bar / docked chat; client/src/liar must stay a copy of gamemine'],
-  ['lg-hud-endbox', 'style.css `.lg-root .lg-hud-endbox`: moved below the 54px .lgbar'],
+  // Host-side layout overrides for the liar module; positions only, scoped by `.lg-root`.
+  ['lg-root', 'style.css lifts liar parts above the docked chat (chat.css --chat-docked-h)'],
   ['lg-action', 'style.css `.lg-root .lg-action`: lifted above the docked chat'],
-  ['lg-lobbybox', 'style.css `.lg-root .lg-lobbybox`: kept between .lgbar, the action row and the docked chat'],
   ['lg-rs-panel', 'style.css `.lg-root .lg-rs-panel`: result window kept above the lifted action row and docked chat'],
   ['lobby', 'style.css `.lobby[hidden]` and chat.css `html.chat-docked .lobby` reference the lobby root hook class kept on the element by lobby.js; TODO switch both to `.lb-root`'],
   // 입구가 .dr-root 에 붙이는 키보드 상태 클래스, 모듈은 조상 선택자로 읽기만

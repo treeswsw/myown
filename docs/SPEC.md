@@ -541,7 +541,7 @@ design/   시안
 - **최소 간격**: 같은 사람이 같은 게임에서 코인을 받은 지 표의 시간이 안 지났으면 이번 것은 0(알림도 없음). 서버 메모리에만 기억한다(`hub.now`).
 - **라이어 시점**: 라운드가 `result` 단계에 들어간 순간(정체 공개·정답 판정이 끝난 뒤)에만 준다. 그 전에는 코인 잔액도 알림도 바뀌지 않는다. 갱식마인드는 최종 순위가 나올 때, 요트는 결과 화면, 블러핑은 승자가 정해질 때.
 - 서버 함수 하나: `hub.award(room, mode, rows)`, `rows = [{id, won, opp}]`(끝까지 한 사람만, `opp` = 그 사람의 상대 수). 하는 일: 봇 방·최소 간격·봇 아이디 거르기 → `coins`·`coinsTotal` 더하기 → 저장 → 장부 `earn` → `me` 다시 보내기 → `{t:'coin', a:'got'}`.
-- 부르는 곳: 블러핑은 `server/rooms.js` `afterBluff`의 `done`에서 직접. 라이어·요트·갱식마인드는 게임 폴더를 고치지 않고 `server/coin/hooks.js`의 `hookRoom(hub, room)`이 방을 만든 직후 정산 함수를 감싼다(원래 함수 실행 뒤 결과를 읽어 `hub.award`): 라이어 `settle`(`game.result.winner`, `liarId`, `players − dropped`), 요트 `settle`(`result.ranks`, `winners`), 갱식마인드 `save(ranking)`(`rank===1`, `left`). 감쌀 함수가 없으면 방 만들기에서 오류를 던진다.
+- 부르는 곳: 블러핑은 `server/rooms.js` `afterBluff`의 `done`에서 직접. (2026-11-13 묶음 2 이후) 모든 게임은 판 끝에 공용 방 틀의 `ctx.finish(rows)` 를 판마다 한 번 부르고, 틀이 등록표 `coin` 키로 `hub.award` 를 부른다(COMMON-CONTRACT 1-3, D4. 옛 `server/coin/hooks.js` 감싸기는 지웠다): 라이어 결과(`winner`, `liarId`, `players − dropped`), 요트 결과(`ranks`, `winners`), 갱식마인드 순위(`rank===1`, `left`).
 
 ### 22-3. 교환
 - 1코인 = 100칩. 한도 없음. 칩 → 코인은 없다.
@@ -664,7 +664,7 @@ design/   시안
 
 ### 22-13. 새 게임에 붙이는 방법
 1. `shared/coin/rules.js`의 `COIN_RULES`에 한 줄: `<mode>: {finish, win, gapMs}`.
-2. 그 게임이 한 판을 정산하는 곳에서 `hub.award(room, '<mode>', rows)`를 한 번 부른다(`rows` = 끝까지 한 사람마다 `{id, won, opp}`). 게임 폴더를 못 고치면 `server/coin/hooks.js`에 감싸기 한 덩어리.
+2. 그 게임이 한 판을 정산하는 곳에서 `hub.award(room, '<mode>', rows)`를 한 번 부른다(`rows` = 끝까지 한 사람마다 `{id, won, opp}`). 방 안에서는 `ctx.finish(rows)` 로 부른다(공용 방 틀이 `hub.award` 로 넘긴다).
 3. 비밀이 있는 게임이면 결과가 모두에게 공개된 뒤에만 부르고, `test/coin/leaks.test.js`에 한 판을 더한다.
 4. `test/coin/award.test.js`에 표 한 줄, 한 판 클릭 시험에 알림 확인 한 줄.
 

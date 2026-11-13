@@ -103,16 +103,6 @@ async function runContext(browser, server, name, cfg) {
     }).map((el) => el.textContent));
     check(`liar top bar on top: ${state}`, bad.length === 0, bad.join(','));
   };
-  // Old-style top bar (draw / gsk / mini until they move to the frame).
-  const barOnTop = async (state) => {
-    await page.waitForTimeout(150);
-    const bad = await page.evaluate(() => [...document.querySelectorAll('.lgbar-btn')].filter((el) => !el.hidden && el.offsetParent !== null).filter((el) => {
-      const r = el.getBoundingClientRect();
-      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      return !(top && (top === el || el.contains(top)));
-    }).map((el) => el.textContent));
-    check(`liar top bar on top: ${state}`, bad.length === 0, bad.join(','));
-  };
 
   // Leaving a poker room from the HUD menu: a confirm window while the table plays (press 나가기), none when already waiting.
   const leaveConfirm = async (ms) => {
@@ -423,6 +413,12 @@ async function runContext(browser, server, name, cfg) {
       const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root:not(.wr-root)') && !document.querySelector('.lb-root:not(.wr-root)').hidden, cluster: !!document.querySelector('.cluster') && getComputedStyle(document.querySelector('.cluster')).display !== 'none' && document.querySelector('.cluster').offsetParent !== null }));
       if (r.lobby) throw new Error('lobby is visible in the liar room');
     });
+    await step('liar: waiting room 전체 랭킹 (waitPart lg-rank) opens the ranking window, 닫기 closes it', async () => {
+      await press('[data-lg="rank-wait"]');
+      await visible('.ui-modal [data-lg="rank-mine"]');
+      await press('.ui-modal .ui-mbtn:has-text("닫기")');
+      await page.waitForSelector('.ui-modal', { state: 'detached', timeout: T });
+    });
     await step('liar: room setting button (host) toggles (set → wait.set)', async () => {
       await press('.wr-seg[aria-label="라이어 방식"] .wr-opt[aria-checked="false"]');
       await visible('.wr-seg[aria-label="라이어 방식"] .wr-opt[aria-checked="true"]:has-text("라이어 알림")');
@@ -564,8 +560,8 @@ async function runContext(browser, server, name, cfg) {
     });
     await ytBarOnTop('yacht room (waiting)');
     await occlusion('yacht room (waiting)');
-    await step('yacht: lobby hidden inside the room, liar bar absent', async () => {
-      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root:not(.wr-root)') && !document.querySelector('.lb-root:not(.wr-root)').hidden, lg: !document.querySelector('.lgbar').hidden }));
+    await step('yacht: lobby hidden inside the room, old top bars gone', async () => {
+      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root:not(.wr-root)') && !document.querySelector('.lb-root:not(.wr-root)').hidden, lg: !!document.querySelector('.lgbar, .ytbar, .gkbar') }));
       if (r.lobby || r.lg) throw new Error(`lobby=${r.lobby} liarBar=${r.lg}`);
     });
     await step('yacht: 시작 → my turn comes (cup button)', async () => {

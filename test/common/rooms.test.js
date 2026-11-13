@@ -1,14 +1,13 @@
 // 방 공통 기능 안전망 (모드 x 기능 표). 실제 허브(server/rooms.js) + 가짜 시계 + 메모리 저장소.
 //
 // 목적: 서버의 방 공통 기능(채팅·이모티콘·사운드·나가기·방장·끊김·시작)을 게임별 복사본에서 공용 모듈로 옮기는
-// 정리가 동작을 깨면 바로 잡히게 한다. 기대값은 "지금 동작 그대로"다. 게임마다 다른 곳은 `// 통일 예정:` 주석으로 표시했다
-// (docs/REFACTOR-PLAN.md 1절: 끊김 60초 통일, 방장은 연결된 사람에게 등). 통일하면 그 칸의 기대값만 바꾼다.
+// 정리가 동작을 깨면 바로 잡히게 한다. 기대값은 "지금 동작 그대로"다. 모든 게임이 공용 방 틀(server/room/)로 옮겨져
+// 공통 칸은 통일됐고, 남은 차이는 규칙상 예외(`// 예외` 주석, docs/NEW-GAME.md 4절)뿐이다.
 //
 // 새 게임을 추가하면 아래 MODES 에 한 줄(표 한 칸 묶음)을 더하면 된다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeHub, freeLimits, events, drain } from '../lib/hub.js';
-import { SERVER_GAMES } from '../../server/games.js';
 
 const JPG = 'data:image/jpeg;base64,/9j/AAAA';
 const AUD = 'data:audio/webm;base64,AAAA';
@@ -532,9 +531,9 @@ for (const spec of MODES) {
   });
 }
 
-// ---- 공통 방(Shell)으로 옮긴 게임만 (server/games.js 에서 legacy 가 아닌 줄). docs/COMMON-CONTRACT.md 5-4 마지막 줄 ----
+// ---- 공통 방(Shell) 칸: 강퇴·set 기본값·결과 뒤 시작·wait.why. docs/COMMON-CONTRACT.md 5-4 마지막 줄 ----
 // "결과 뒤 대기실 시작" 은 게임마다 판을 끝내는 길이 달라 각 게임 과제가 자기 시험에 둔다.
-for (const spec of MODES.filter((s) => !SERVER_GAMES[s.mode].legacy)) {
+for (const spec of MODES) {
   const M = spec.mode;
 
   test(`${M}: 공통 방 - wait 모양(대기 중에만), 강퇴(방장·대기·자기 아님)`, async () => {

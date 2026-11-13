@@ -71,6 +71,47 @@ test('입장 되돌리기: onJoin 이 오류면 멤버·방장이 그대로, 방
   assert.equal(h.hub.rooms.has('DUMY'), false);
 });
 
+test('입장 되돌리기: onJoin 이 던져도 멤버·방장이 그대로, 오류를 돌려준다', async () => {
+  const r = await setup(1);
+  const quiet = console.error; console.error = () => {};
+  try {
+    const x = await r.login('boom1');
+    await x.send({ t: 'join', code: 'DUMY' });
+    assert.equal(lastErr(x).code, 'dm_bad');
+    assert.equal(x.state, null);
+    assert.deepEqual(r.room.members.map((m) => m.id), ['ann1']);
+    assert.equal(r.room.hostId, 'ann1');
+    assert.equal(r.hub.sessions.get('boom1').room, null);
+  } finally { console.error = quiet; }
+});
+
+test('나가기: onLeave·onHost·onEmpty 가 던져도 명단 제거·방장 넘김·빈 방 정리는 끝까지', async () => {
+  const r = await setup(2, { boom: true });
+  const [a, b] = r.cs;
+  const quiet = console.error; console.error = () => {};
+  try {
+    await a.send({ t: 'leave' });
+    assert.equal(a.state, null);
+    assert.deepEqual(r.room.members.map((m) => m.id), ['bob1']);
+    assert.equal(r.room.hostId, 'bob1');
+    await b.send({ t: 'leave' });
+    assert.equal(r.room.members.length, 0);
+    await r.tick(GRACE + 1);
+    assert.equal(r.hub.rooms.has('DUMY'), false, '빈 방은 gc 로 지워진다');
+  } finally { console.error = quiet; }
+});
+
+test('끊긴 관전자(자리 없음)에게는 awayUntil 을 붙이지 않는다', async () => {
+  const r = await setup(3, { spec: new Set(['cat1']) });
+  const [a, b, c] = r.cs;
+  b.conn.close();
+  c.conn.close();
+  const row = (id) => a.state.players.find((x) => x.id === id);
+  assert.equal(row('bob1').awayUntil, r.clock.now() + GRACE);
+  assert.equal(row('cat1').connected, false);
+  assert.equal(row('cat1').awayUntil, null);
+});
+
 test('정원: entry.max 넘으면 dm_full', async () => {
   const r = await setup(3);
   const d = await r.login('dan1');

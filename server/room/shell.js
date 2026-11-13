@@ -77,6 +77,12 @@ export function createRoomShell(hub, code, entry, opt = {}) {
   };
 
   const basePlayer = (m) => ({ id: m.id, name: m.session.user.name, connected: m.connected, awayUntil: m.awayUntil, spectating: false });
+  // 게임 줄을 공통 칸 위에 얹는다. 자리 없는 사람(관전)에게는 끊김 시계(awayUntil)를 보이지 않는다: 기다릴 차례가 없다.
+  const playerRow = (m, x) => { const row = { ...basePlayer(m), ...x }; if (row.spectating) row.awayUntil = null; return row; };
+  // 게임 훅이 던져도 방 정리는 끝까지 한다(나가기·방장 넘김·빈 방).
+  const hook = (name, fn, fb) => {
+    try { return fn(); } catch (e) { console.error(`room ${code}: ${name} failed:`, e?.stack ?? e); return fb; }
+  };
   const notHost = (msg) => err(`${p}host`, msg);
 
   const shell = {
@@ -95,7 +101,13 @@ export function createRoomShell(hub, code, entry, opt = {}) {
       members.push(m);
       hostId ??= session.id;
       session.room = shell;
-      const bad = shell.impl.onJoin?.(m);
+      let bad;
+      try {
+        bad = shell.impl.onJoin?.(m);
+      } catch (e) {
+        console.error(`room ${code}: onJoin failed:`, e?.stack ?? e);
+        bad = err(`${p}bad`, '방에 들어가지 못했습니다.');
+      }
       if (bad) {
         members = members.filter((x) => x !== m);
         hostId = prevHost;
@@ -117,19 +129,19 @@ export function createRoomShell(hub, code, entry, opt = {}) {
       try {
         if (m.grace !== null) hub.timers.clearTimeout(m.grace);
         m.grace = null;
-        const events = shell.impl.onLeave?.(id, reason) ?? [];
+        const events = hook('onLeave', () => shell.impl.onLeave?.(id, reason), null) ?? [];
         members = members.filter((x) => x !== m);
         m.session.room = null;
         if (hostId === id) {
           hostId = (members.find((x) => x.connected) ?? members[0])?.id ?? null;
-          if (hostId !== null) shell.impl.onHost?.(hostId);
+          if (hostId !== null) hook('onHost', () => shell.impl.onHost?.(hostId));
         }
         hub.send(m.session, { t: 'room', state: null });
         hub.sendMe(m.session);
         hub.sendRooms(m.session);
         if (!m.session.conn) hub.sessions.delete(id);
         if (members.length === 0) {
-          shell.impl.onEmpty?.();
+          hook('onEmpty', () => shell.impl.onEmpty?.());
           clearAll();
           hub.roomsChanged();
           gc = hub.timers.setTimeout(hub.guard(() => hub.rooms.delete(code)), hub.timing.roomGc);
@@ -215,7 +227,7 @@ export function createRoomShell(hub, code, entry, opt = {}) {
       const impl = shell.impl;
       const v = impl.view(id);
       const players = Array.isArray(v.players)
-        ? v.players.map((x) => { const m = member(x.id); return m ? { ...basePlayer(m), ...x } : x; })
+        ? v.players.map((x) => { const m = member(x.id); return m ? playerRow(m, x) : x; })
         : members.map(basePlayer);
       let wait = null;
       if (impl.isWaiting()) {

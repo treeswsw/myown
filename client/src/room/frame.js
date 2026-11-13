@@ -1,13 +1,14 @@
-// 화면 공통 방 틀 (COMMON-CONTRACT 4-1·4-2). CLIENT_GAMES[mode].mount 가 true 인 게임만 이 틀로 그린다(나머지는 main.js 옛 길).
+// 화면 공통 방 틀 (COMMON-CONTRACT 4-1·4-2). 모든 게임 방을 이 틀로 그린다(CLIENT_GAMES 의 mount: true).
 // createRoomFrame(deps) -> { apply(state|null) -> bool, event(e) -> bool, error(err) -> bool, frame(dt), current(),
 //                             anchorOf(id), chatMsg(text), enqueue(fn) }
-//   apply: 이 틀이 그리는 방이면 true(main.js 는 옛 길을 건너뛴다). 다른 방·null 이면 그리던 게임을 unmount 하고 false.
-//   enqueue: 게임 모듈 불러오기·호출 줄 하나(stage.use 가 하나라 옛 길 라이어·요트·미니도 이 줄을 쓴다, 옛 liarQ).
+//   apply: 방이면 true. null 이면 그리던 게임을 unmount 하고 false(main.js 가 로비를 보인다).
+//   enqueue: 게임 모듈 불러오기·호출 줄 하나(stage.use 가 하나라 다음 mount 전에 unmount 가 끝나야 한다).
+//   불러오기 실패: 게임 파일을 못 받으면(보통 새 버전 배포) "새 버전" 안내, mount 안의 오류는 일반 오류 알림.
 //   anchorOf: 대기실이면 참가자 줄 사진 위, 게임 판이면 게임의 anchorOf. chatMsg: 채팅 글 → 보낼 메시지(게임 chatRule.route).
 //   (G-poker 덧붙임) CLIENT_GAMES[mode].bar === false 면 게임 중 상단 줄을 그리지 않는다(게임이 자기 줄을 가짐, 포커 HUD).
 //   게임 훅 holdWait?(state) -> bool: true 인 동안은 대기 상태여도 게임 판을 보여 준다(포커: 챔피언·우승 연출이 끝날 때까지).
 //   끝나면 게임이 ctx.toWait() 를 불러 다시 고르게 한다.
-// deps = { ui, stage, send, chat, emotePanel, emote(createEmoteToggle), sound, getMe, toast, staleReload, onEnter?(), onExit?() }
+// deps = { ui, stage, send, chat, emotePanel, emote(createEmoteToggle), sound, getMe, toast, onEnter?(), onExit?() }
 import './room.css';
 import { h } from '../ui/dom.js';
 import { GAMES, CLIENT_GAMES, isFramed } from '../games.js';
@@ -31,7 +32,12 @@ export function createClock() {
 }
 
 export function createRoomFrame(deps) {
-  const { ui, stage, send, chat, emotePanel, emote, sound, getMe, toast, staleReload } = deps;
+  const { ui, stage, send, chat, emotePanel, emote, sound, getMe, toast } = deps;
+  // 게임 화면 파일을 못 받음(보통 새 버전 배포): 누를 때까지 남고, 누르면 새로고침
+  const staleReload = (e) => {
+    console.error(e);
+    toast('새 버전이 나왔어요. 눌러서 새로고침', { ms: 0, key: 'stale', onClick: () => location.reload() });
+  };
   const faces = createFaces();
   const clock = createClock();
   let q = Promise.resolve();
@@ -44,6 +50,8 @@ export function createRoomFrame(deps) {
   let state = null;
   let toWait = false;
   let showingWait = false;
+  let inputWas = false; // chatRule.input(state) 가 지난번에 참이었나
+  let inputByUs = false; // 그때 틀이 채팅 입력 줄을 열었나(닫을 때 그것만 닫는다)
 
   const rule = () => cur?.game?.chatRule ?? null;
   const safe = (fn, fb = null) => { try { return fn(); } catch (e) { console.error(e); return fb; } };
@@ -89,6 +97,11 @@ export function createRoomFrame(deps) {
     }
     const lk = r?.lock ? safe(() => r.lock(s), null) : null;
     chat.setLock(Boolean(lk?.locked), lk?.hint, lk?.hot);
+    // 게임 중 입력 줄 열어 두기(4-4 input): 켜지면 열고, 꺼지면 틀이 연 것만 닫는다
+    const want = !showingWait && Boolean(r?.input) && safe(() => Boolean(r.input(s)), false);
+    if (want && !inputWas) inputByUs = chat.button.getAttribute('aria-expanded') !== 'true' && (chat.open(), true);
+    else if (!want && inputWas && inputByUs) { chat.close(); inputByUs = false; }
+    inputWas = want;
   }
 
   function ctxFor(r) {
@@ -137,6 +150,8 @@ export function createRoomFrame(deps) {
     state = null;
     showingWait = false;
     toWait = false;
+    inputWas = false;
+    inputByUs = false;
     r.wait.dispose();
     bar.el.hidden = true;
     root.hidden = true;

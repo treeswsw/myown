@@ -1,13 +1,12 @@
 // 서버 게임 등록표 (docs/COMMON-CONTRACT.md 2-2). 키는 shared/games.js 와 같다.
-// 항목마다 make(ctx, opt) 또는 legacy(hub, code, opt) 중 정확히 하나. 이행 중에는 모두 legacy(옛 방 그대로).
-// 옮기기 과제가 자기 줄을 legacy -> make 로 바꾼다. bot: false = 관리자 봇 없음(adm_nobot).
+// 항목마다 make(ctx, opt): 게임 객체(훅 모음, 1-4)를 돌려준다. 공용 방 틀(server/room/shell.js)이 그것을 품는다.
+// bot: false = 관리자 봇 없음(adm_nobot). errors = 그 게임만의 오류 문구. hubMsg = 방 밖에서도 허브가 답하는 요청.
 import { makeLiarGame } from './liar/room.js';
 import { makeYachtGame } from './yacht/room.js';
 import { makeDrawGame } from './draw/room.js';
 import { makeGskGame } from './gsk/room.js';
 import { makeMiniGame } from './mini/room.js';
 import { makePoker, pokerModeMsg } from './poker/room.js';
-import { hookRoom } from './coin/hooks.js';
 import * as holdemBot from './admin/games/holdem.js';
 import * as bluffBot from './admin/games/bluff.js';
 import * as liarBot from './admin/games/liar.js';

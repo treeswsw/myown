@@ -14,11 +14,12 @@ test('timeLabel', () => {
   assert.equal(timeLabel(0), '0초');
 });
 
-test('스키마: 옛 설정 화면이 보여 주던 칸이 모두 있다(방식·묶음·주제 방식·주제·시간 6개·목표 점수)', () => {
+test('스키마: 옛 설정 화면이 보여 주던 칸이 모두 있다(방식·묶음·주제 방식·주제·시간 6개·목표 점수·전체 랭킹)', () => {
   assert.deepEqual(OWN, []);
   const ks = SETTINGS.map((r) => r.k);
   assert.deepEqual(ks, ['liarMode', 'wordSet', 'topicMode', 'topics', 'nextTopic',
-    'times.speak', 'times.discuss', 'times.rediscuss', 'times.defense', 'times.judge', 'times.guess', 'goal']);
+    'times.speak', 'times.discuss', 'times.rediscuss', 'times.defense', 'times.judge', 'times.guess', 'goal', 'rank']);
+  assert.deepEqual(SETTINGS.find((r) => r.k === 'rank'), { k: 'rank', label: '전체 랭킹', group: '점수', type: 'custom', part: 'lg-rank' }, '대기실 랭킹 버튼(waitPart)');
   for (const key of Object.keys(TIME_CHOICES)) {
     const row = SETTINGS.find((r) => r.k === `times.${key}`);
     assert.deepEqual(row.opts.map((o) => o[0]), [...TIME_CHOICES[key]]);

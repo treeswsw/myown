@@ -20,7 +20,7 @@ import { createResult } from './ui/result.js';
 import { createRole } from './ui/role.js';
 import { createFirstSays } from './ui/firstsays.js';
 import { createRules } from './ui/rules.js';
-import { createRank } from './ui/rank.js';
+import { createRank, createRankPart } from './ui/rank.js';
 import { createUnmask } from './anim/unmask.js';
 import { createEnding } from './anim/ending.js';
 import { createAudio } from './audio.js';
@@ -33,20 +33,6 @@ const el = (tag, cls) => {
   if (cls) e.className = cls;
   return e;
 };
-
-// 내 입력 차례(첫 설명 차례·최후 변론)가 새로 왔을 때 채팅 칸을 열어 준다(게임 중 채팅은 사이트 채팅 버튼 뒤에 있다).
-const wantsInput = (s) => Boolean(s) && Boolean(chatLockFor(s).hot);
-const chatBtn = () => document.querySelector('.chat-btn');
-function openChatInput() { // 연 적이 있으면 true
-  const b = chatBtn();
-  if (!b || b.hidden || b.getAttribute('aria-expanded') === 'true') return false;
-  b.click();
-  return true;
-}
-function closeChatInput() {
-  const b = chatBtn();
-  if (b && !b.hidden && b.getAttribute('aria-expanded') === 'true') b.click();
-}
 
 export function mount(ctx, opts = {}) {
   const { ui, stage, send, faces, clock, profile, sound } = ctx;
@@ -61,10 +47,9 @@ export function mount(ctx, opts = {}) {
   let loading = null; // 3D 장면을 불러오는 중이면 그 약속
   let state = null;
   let prevPhase = null;
-  let prevHot = false;
-  let openedByUs = false;
   let size = '';
   let disposed = false;
+  let rankPart = null; // 대기실 칸 'lg-rank'(틀이 만들고 대기실을 걷을 때 dispose)
   const audio = createAudio(sound);
   sound.unlock?.();
 
@@ -173,8 +158,6 @@ export function mount(ctx, opts = {}) {
       if (!s) { // 틀은 부르지 않지만(방을 나가면 unmount) 시험이 화면을 비울 때 쓴다
         state = null;
         prevPhase = null;
-        prevHot = false;
-        openedByUs = false;
         root.hidden = true;
         root.dataset.ed = '';
         each((m) => m.update(null));
@@ -195,16 +178,11 @@ export function mount(ctx, opts = {}) {
         if (snd) audio.play(snd);
       }
       prevPhase = s.phase;
-      // 내 입력 차례가 오면 채팅 칸을 열어 주고, 차례가 끝나면 우리가 연 것은 닫는다(오른쪽 위를 계속 덮지 않게)
-      const hot = wantsInput(s);
-      if (hot && !prevHot) openedByUs = openChatInput();
-      else if (!hot && prevHot && openedByUs) { closeChatInput(); openedByUs = false; }
-      prevHot = hot;
     },
 
     event(e) {
       if (!e || disposed) return;
-      if (e.k === 'lgRank') { mods.rank?.event?.(e); return; }
+      if (e.k === 'lgRank') { mods.rank?.event?.(e); rankPart?.event(e); return; }
       if (e.k === 'faces') return; // 틀의 faces 가 받아 onChange 로 알려 준다
       const snd = soundForEvent(e, state?.you);
       if (snd) audio.play(snd);
@@ -212,12 +190,24 @@ export function mount(ctx, opts = {}) {
       each((m) => m.event?.(ev));
     },
 
-    // 채팅 칸 규칙(COMMON-CONTRACT 4-4): 80자, 단계별 잠금, 내 설명 차례면 say, 설명·변론은 말풍선 없이 큰 글로만
+    // 채팅 칸 규칙(COMMON-CONTRACT 4-4): 80자, 단계별 잠금, 내 설명 차례면 say, 설명·변론은 말풍선 없이 큰 글로만.
+    // 내 입력 차례(첫 설명·최후 변론)에는 입력 줄을 열어 둔다(input, 차례가 끝나면 틀이 닫는다)
     chatRule: {
       maxLen: LIMITS.chat,
       lock: (s) => chatLockFor(s),
+      input: (s) => Boolean(s) && Boolean(chatLockFor(s).hot),
       route: (text) => chatMsgFor(state, text),
       bubble: (e) => e.kind !== 'say' && e.kind !== 'plea',
+    },
+
+    // 대기실 칸: 'lg-rank' = 전체 랭킹 버튼(shared/liar/settings.js 의 custom 줄)
+    waitPart(name) {
+      if (name !== 'lg-rank') return null;
+      const part = createRankPart({ send, modal: ctx.modal });
+      const dispose = part.dispose;
+      part.dispose = () => { dispose(); if (rankPart === part) rankPart = null; };
+      rankPart = part;
+      return part;
     },
 
     // 판 도중(참가자)이면 안내. 대기·결과·구경은 null (결과는 틀이 확인 없이 나간다)

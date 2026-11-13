@@ -36,6 +36,7 @@ export const SETTINGS = [
     k: `times.${key}`, label, group: '시간', type: 'seg', opts: TIME_CHOICES[key].map((v) => [v, timeLabel(v)]),
   })),
   { k: 'goal', label: '목표 점수', group: '점수', type: 'seg', opts: GOAL_CHOICES.map((g) => [g, g === 0 ? '없음' : `${g}점`]) },
+  { k: 'rank', label: '전체 랭킹', group: '점수', type: 'custom', part: 'lg-rank' }, // 화면 waitPart('lg-rank'): 랭킹 버튼(값 없음, 보내지 않음)
 ];
 
 export const OWN = [];
