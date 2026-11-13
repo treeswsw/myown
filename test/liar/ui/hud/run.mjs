@@ -41,7 +41,7 @@ try {
   // 단계 11개
   const want = {
     reveal: '역할', speak: '남은 발언시간', discuss: '투표 결과까지', revote: '재투표', defense: '최후 변론',
-    judge: '찬반 투표', judged: '처형', unmask: '정체', guess: '정답', result: '결과',
+    judge: '찬반 투표', judged: '처형', unmask: '정체', result: '결과',
   };
   await set('lobby');
   ok(!(await visible('hud-title')), 'lobby: 상단 표시 숨김');
@@ -49,6 +49,16 @@ try {
     await set(phase);
     ok((await text('hud-title')).includes(w), `${phase}: 제목에 "${w}" (${await text('hud-title')})`);
   }
+  // guess·answer: 맨 위 작은 줄(Round·주제)만. 제목·초·안내 숨김
+  for (const phase of ['guess', 'answer']) {
+    await set(phase);
+    ok((await text('hud-kicker')).includes('Round') && await visible('hud-kicker'), `${phase}: Round·주제 줄 보임`);
+    ok(!(await visible('hud-title')) && !(await visible('hud-secs')) && !(await visible('hud-alert')), `${phase}: 제목·초·안내 숨김`);
+  }
+  await set('guess', { hostId: 'u0', you: 'u0' });
+  ok(await visible('end'), 'guess: 방장에게 end 보임');
+  await set('answer', { hostId: 'u0', you: 'u0' });
+  ok(!(await visible('end')), 'answer: end 숨김');
   await set('judged', { judge: { picks: {}, executed: false } });
   ok((await text('hud-title')).includes('살림'), 'judged(살림): 제목 살림');
 

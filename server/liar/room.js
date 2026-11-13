@@ -539,6 +539,7 @@ class LiarRoom {
       judge: v ? v.judge : null,
       unmask: v ? v.unmask : null,
       guess: v ? v.guess : null,
+      words: v ? v.words : null,
       result: v?.result ? { ...v.result, liarName: this.liarName } : null,
     };
   }

@@ -2,16 +2,6 @@
 .lg-rs-root { position: absolute; inset: 0; pointer-events: none; z-index: 60; color: var(--lg-ink, #efe6d8); font-family: var(--lg-sans, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif); }
 .lg-rs-root[hidden], .lg-rs-root [hidden] { display: none !important; }
 
-.lg-rs-guess {
-  position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%);
-  min-width: calc(220px * var(--lg-k, 1)); max-width: calc(520px * var(--lg-k, 1)); padding: calc(12px * var(--lg-k, 1)) calc(20px * var(--lg-k, 1));
-  text-align: center; background: var(--lg-panel, rgba(13,10,11,.8)); border: 1px solid var(--lg-line, rgba(239,230,216,.16)); border-radius: 8px;
-}
-.lg-rs-gtitle { font-family: var(--lg-serif, "Noto Serif KR", serif); font-weight: 900; font-size: max(16px, calc(22px * var(--lg-k, 1))); color: var(--lg-red, #ea3a3d); letter-spacing: .06em; }
-.lg-rs-gwait { margin-top: calc(6px * var(--lg-k, 1)); font-size: max(13px, calc(16px * var(--lg-k, 1))); }
-.lg-rs-gsecs { margin-top: calc(4px * var(--lg-k, 1)); color: var(--lg-ink-dim, #a39a8f); font-size: max(12px, calc(14px * var(--lg-k, 1))); font-variant-numeric: tabular-nums; }
-.lg-rs-gshown { margin-top: calc(6px * var(--lg-k, 1)); font-size: max(14px, calc(18px * var(--lg-k, 1))); overflow-wrap: anywhere; }
-.lg-rs-gans { font-family: var(--lg-serif, "Noto Serif KR", serif); }
 .lg-rs-ok { color: var(--lg-gold, #d9b26a); font-weight: 700; }
 .lg-rs-no { color: var(--lg-red, #ea3a3d); font-weight: 700; }
 .lg-rs-dim { color: var(--lg-ink-dim, #a39a8f); }

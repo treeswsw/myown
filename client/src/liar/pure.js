@@ -24,7 +24,7 @@ export function soundForEvent(e, you) {
     case 'accused': return 'accused';
     case 'judge': return 'judge';
     case 'judged': return e.executed ? 'executed' : 'spared';
-    case 'guess': return e.correct ? 'guessOk' : 'guessNo';
+    case 'guess': return null; // 맞음/틀림 소리는 엔딩이 판정 글이 다 써진 순간에 낸다
     default: return null;
   }
 }
