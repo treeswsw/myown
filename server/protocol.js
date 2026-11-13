@@ -1,4 +1,5 @@
 // Validation of everything a client may send. Returns sanitized messages only.
+import { GAME_IDS } from '../shared/mini/index.js';
 export const MAX_RAW = 70_000; // every message except sndAdd
 export const MAX_FRAME = 300_000; // WebSocket frame limit: room for sndAdd
 export const MAX_PEMOTE = 40 * 1024;
@@ -12,7 +13,7 @@ const ID_RE = /^[\p{Script=Hangul}A-Za-z0-9_]{2,12}$/u;
 const CODE_RE = /^[A-HJ-NP-Z]{4}$/;
 const JPEG_MAGIC = '/9j/'; // base64 of FF D8 FF
 const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
-const MODES = ['holdem', 'bluff', 'liar', 'yacht', 'draw'];
+const MODES = ['holdem', 'bluff', 'liar', 'yacht', 'draw', 'mini'];
 const ACTIONS = ['fold', 'check', 'call', 'raise', 'allin'];
 
 // Account key (case-insensitive) and display name, or null if the ID breaks the rules.
@@ -81,6 +82,7 @@ export function parseMessage(raw) {
       return validAvatar(m.data) ? good({ t: 'avatar', data: m.data }) : bad('프로필 사진은 60KB 이하의 JPEG여야 합니다.');
     case 'create':
     case 'mode':
+      if (m.t === 'create' && m.mode === 'mini') return good({ t: 'create', mode: 'mini', game: GAME_IDS.includes(m.game) ? m.game : 'gomoku' });
       return MODES.includes(m.mode) ? good({ t: m.t, mode: m.mode }) : bad('알 수 없는 게임입니다.');
     case 'join': {
       const code = typeof m.code === 'string' ? m.code.trim().toUpperCase() : '';
@@ -95,6 +97,7 @@ export function parseMessage(raw) {
     case 'dr':
     case 'lg':
     case 'yt':
+    case 'mn':
       // Only the envelope is checked here; the liar / yacht / draw room validates the contents.
       return typeof m.a === 'string' && m.a.length > 0 && m.a.length <= 20 ? good(m) : bad('잘못된 메시지 형식입니다.');
     case 'act': {
