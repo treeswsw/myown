@@ -404,6 +404,7 @@ WebSocket `/ws`, JSON, `{t: 종류, ...}`. 기존 SPEC 7절을 그대로 쓰고 
 ```js
 {
   code: 'KQZT', mode: 'draw', hostId: 'gangsik', you: 'jiho',
+  now: epochMs,                                 // 서버 시각(화면 시계 보정용, room.js 가 붙임)
   phase: 'lobby' | 'pick' | 'draw' | 'reveal' | 'final',
   settings: { order: 'seq'|'hit'|'rand', rounds: 1|2|3|5, time: 60|90|140, len: true|false,
               topics: ['음식', ...],            // 켜진 주제
