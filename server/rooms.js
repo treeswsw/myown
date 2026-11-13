@@ -491,7 +491,7 @@ class Room {
 }
 
 export function createHub({
-  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', gsk = 'off', mini = 'off', adminKey, coinSeed = 0,
+  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', gsk = 'off', mini = 'off', adminKey, coinSeed = 0, startCoins = 0,
 }) {
   const hub = {
     store, rng, now, timers, timing: { ...DEFAULT_TIMING, ...timing },
@@ -506,6 +506,7 @@ export function createHub({
     },
     roomsTimer: null,
     coinSeed,
+    startCoins, // 새 계정 시작 코인(배포 설정 20, 시험 기본 0). 랭킹(번 합)에는 넣지 않는다.
     liar, // 'off' | 'test' | 'on'
     yacht, // 'off' | 'test' | 'on'
     draw, // 'off' | 'test' | 'on'
@@ -708,10 +709,11 @@ async function login(hub, conn, msg) {
   let gate;
   try {
     if (!session) {
-      const existed = hub.coinSeed > 0 || msg.newPin !== undefined ? await hub.store.exists(msg.key) : true;
+      const existed = hub.coinSeed > 0 || hub.startCoins > 0 || msg.newPin !== undefined ? await hub.store.exists(msg.key) : true;
       user = await hub.store.getOrCreate(msg.key, msg.name);
       fresh = !existed;
-      if (fresh && !user.coins) user.coins = hub.coinSeed; // tests only (hubOptions.coinSeed)
+      if (fresh && hub.coinSeed > 0) user.coins = hub.coinSeed; // tests only (hubOptions.coinSeed)
+      else if (fresh && hub.startCoins > 0) user.coins = hub.startCoins;
       if (epoch !== hub.epoch) return RESET_BUSY_MSG; // a wipe happened while loading: the user is stale
       hub.userEpoch.set(user, epoch);
       session = hub.sessions.get(msg.key);

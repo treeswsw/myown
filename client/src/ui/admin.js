@@ -68,7 +68,18 @@ export function createAdmin({ send, getRoom }) {
       lastReq = Date.now(); setStatus('');
       send({ t: 'adm', a: 'pinclr', id });
     }));
-    panel.append(el('h3', 'adm-title', '관리자'), row, pinRow, status,
+    const chipN = el('input', 'adm-input');
+    chipN.type = 'text'; chipN.inputMode = 'numeric'; chipN.placeholder = '칩'; chipN.maxLength = 8; chipN.autocomplete = 'off';
+    chipN.setAttribute('aria-label', '추가할 칩');
+    const chipRow = el('div', 'adm-row', chipN, btn('adm-btn', '칩 추가', () => {
+      const id = pinId.value.trim();
+      const n = Number(chipN.value.replace(/[^\d]/g, ''));
+      if (!id) { setStatus('아이디를 적으세요.'); return; }
+      if (!n) { setStatus('칩 수를 적으세요.'); return; }
+      lastReq = Date.now(); setStatus('');
+      send({ t: 'adm', a: 'chips', id, n });
+    }));
+    panel.append(el('h3', 'adm-title', '관리자'), row, pinRow, chipRow, status,
       el('h4', 'adm-sub', '연출 보기'), fxBox, btn('adm-btn adm-close', '닫기', () => { panel.hidden = true; }));
     root.append(panel, toggle);
     document.body.append(root);
@@ -81,6 +92,7 @@ export function createAdmin({ send, getRoom }) {
     refresh,
     ok(msg) {
       if (msg.a === 'pinclr') { setStatus('비밀번호를 지웠습니다.'); return; }
+      if (msg.a === 'chips') { setStatus(`${msg.id}에게 칩 ${Number(msg.n).toLocaleString('ko-KR')}개 추가 (지금 ${Number(msg.bank).toLocaleString('ko-KR')})`); return; }
       if (Number.isFinite(msg.bots)) bots = msg.bots;
       setStatus(bots == null ? '완료' : `봇 ${bots}명`);
     },

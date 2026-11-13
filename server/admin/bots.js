@@ -75,6 +75,23 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         hub.send(session, { t: 'admOk', a: 'pinclr' });
         return null;
       }
+      if (msg.a === 'chips') {
+        // 관리자 칩 추가(2026-11-13). 접속 중이면 그 세션의 user, 아니면 저장소에서 읽는다.
+        const live = hub.sessions.get(msg.id);
+        let user = live?.user;
+        if (!user) {
+          if (!(await hub.store.exists(msg.id))) return admErr('adm_noid');
+          user = await hub.store.getOrCreate(msg.id);
+          hub.userEpoch?.set(user, hub.epoch);
+          user = hub.sessions.get(msg.id)?.user ?? user; // logged in meanwhile
+        }
+        user.bank = Math.min(2_000_000_000, (user.bank | 0) + msg.n);
+        hub.persist(user);
+        const s2 = hub.sessions.get(msg.id);
+        if (s2?.conn) hub.sendMe(s2);
+        hub.send(session, { t: 'admOk', a: 'chips', id: msg.id, n: msg.n, bank: user.bank });
+        return null;
+      }
       if (!room) return admErr('adm_room');
       if (room.members.some((m) => m.id !== session.id && !m.session.bot)) return admErr('adm_people');
       const done = () => {

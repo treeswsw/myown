@@ -88,6 +88,8 @@ export function openShop(ctx) {
   close.setAttribute('aria-label', '로비로 돌아가기');
   close.append(backIcon());
   const swap = el('button', 'sh-swap', '칩 교환');
+  const toDraw = el('button', 'sh-swap', '카드 뽑기');
+  const toCap = el('button', 'sh-swap', '칭호 뽑기');
   swap.type = 'button';
   const coinsB = el('b', 'sh-num');
   const coinsP = el('div', 'sh-pill sh-coins');
@@ -95,7 +97,8 @@ export function openShop(ctx) {
   const chipsB = el('b', 'sh-num');
   const chipsP = el('div', 'sh-pill sh-chips');
   chipsP.append(chipsB, el('span', null, '칩'));
-  head.append(close, el('h2', 'sh-title', '딜러의 테이블'), el('div', 'sh-grow'), swap, coinsP, chipsP);
+  head.append(close, el('h2', 'sh-title', '딜러의 테이블'), el('div', 'sh-grow'), swap, toDraw, toCap, coinsP, chipsP);
+  toDraw.type = toCap.type = 'button';
 
   // 왼쪽: 회원증 + 딜러 + 버튼
   const side = el('section', 'sh-side');
@@ -442,6 +445,8 @@ export function openShop(ctx) {
   window.addEventListener('resize', onSize);
   close.addEventListener('click', end);
   swap.addEventListener('click', () => { if (typeof ctx.open === 'function') ctx.open('swap'); });
+  toDraw.addEventListener('click', () => { if (typeof ctx.open === 'function') { end(); ctx.open('draw'); } });
+  toCap.addEventListener('click', () => { if (typeof ctx.open === 'function') { end(); ctx.open('cap'); } });
 
   render();
   return end;

@@ -107,6 +107,12 @@ export function parseMessage(raw) {
         const target = normalizeId(m.id);
         return target ? good({ t: 'adm', a: 'pinclr', id: target.key }) : bad('없는 아이디입니다.', 'adm_noid');
       }
+      if (m.a === 'chips') {
+        const target = normalizeId(m.id);
+        const n = m.n;
+        if (!target) return bad('없는 아이디입니다.', 'adm_noid');
+        return Number.isInteger(n) && n >= 1 && n <= 10_000_000 ? good({ t: 'adm', a: 'chips', id: target.key, n }) : bad('칩은 1~10,000,000 사이 정수입니다.', 'adm_bad');
+      }
       return ['bot+', 'bot-', 'skip'].includes(m.a) ? good({ t: 'adm', a: m.a }) : bad('알 수 없는 요청입니다.');
     }
     case 'pin': {

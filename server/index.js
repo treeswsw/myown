@@ -140,6 +140,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
       draw: ['test', 'off'].includes(process.env.DRAW) ? process.env.DRAW : 'on',
       mini: ['test', 'off'].includes(process.env.MINI) ? process.env.MINI : 'on',
       adminKey: process.env.ADMIN_KEY || undefined, // default 9975 (SPEC 21-1)
+      startCoins: 20, // 새 계정 20코인으로 시작(2026-11-13 사용자 요청). 칩은 START_BANK 10,000.
       coinSeed: Number(process.env.COIN_SEED) > 0 ? Math.floor(Number(process.env.COIN_SEED)) : 0, // click tests only (SPEC 22-12)
     },
   });
