@@ -19,6 +19,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 갱식마인드: shared/draw/, server/draw/, client/src/draw/, test/draw/, docs/draw/, design/draw/ (한 과제는 그 안의 한 모듈만. CSS 는 전부 .dr-, 모듈 접두사 GDD 11-1)
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
 - UI 시험: test/ui/, client/src/mock.js
+- 관리자(SPEC 21절): 서버 틀 server/admin/*.js, 게임별 봇 server/admin/games/<모드>.js (한 과제는 한 게임만), 시험 test/admin/, 화면 client/src/ui/admin.*(.adm-), 연출 목록 client/src/admin/
 - 통합(한 번에 한 에이전트만): client/src/yacht/index.js, yacht.css, client/src/main.js, style.css, ui/dom.js, index.html,
   net.js, state.js, vite.config.js, package.json, README.md, docs/, CLAUDE.md, .claude/
 - 통신 메시지가 바뀌면 먼저 SPEC 7절에 모양을 적고, 그다음 서버·화면을 병렬로 띄운다.
