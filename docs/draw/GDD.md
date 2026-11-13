@@ -538,6 +538,8 @@ WebSocket `/ws`, JSON, `{t: 종류, ...}`. 기존 SPEC 7절을 그대로 쓰고 
   - `event(e)`: 10-5 의 `event.e` 하나. 자기와 상관없는 `k` 는 무시한다.
   - `ctx = { send(msg), meId(), now() , layout() }`. `send` 는 `{t:'dr', a, ...}` 나 기존 메시지(`chat` 등)를 그대로 보낸다. `now()` 는 서버 시각 보정된 epochMs. `layout()` 은 `'wide'`(PC·iPad) 또는 `'phone'`(휴대폰 가로).
   - 모듈 사이 직접 호출은 하지 않는다. 필요한 것은 `ctx` 에 콜백으로 추가하며, 추가는 index.js 과제가 한다. 예외: 그림판과 도구 사이의 "지금 고른 도구·색·굵기"는 `ctx.tool` 객체 `{ get(), set(patch), on(fn) }` 로 주고받는다(`get()` = `{ tool:'pen'|'erase'|'strokeErase', color, penW, eraseW }`).
+- `ctx.localAct(a)` (a = `'undo'|'redo'|'clear'`): 도구 칸이 `send` 직전에 부른다. index.js 가 그림판의 로컬 되돌리기·다시 하기·전체 지우기에 연결한다(그리는 사람은 `drUndo` 등을 받지 않으므로). 서버가 막으면 `drSync` 로 바로잡힌다.
+- 도구 세부: 지우개 상태에서 색을 누르면 펜으로 돌아간다. 획 지우개일 때 굵기 버튼은 꺼진다. 포기 버튼은 확인 창 없이 바로.
 - 사용자 글자는 `textContent` 로만 넣는다. CSS 는 자기 접두사만(11-1 표). `#ui` 는 pointer-events:none 이므로 눌러야 하는 요소는 스스로 `pointer-events:auto`.
 - 각 모듈은 `client/src/draw/dev.html` 같은 별도 데모를 만들지 않는다. 화면 확인은 통합 뒤 실제 서버에서 한다(CLAUDE.md). 모듈 단위 시험은 `test/draw/` 의 순수 함수 시험(DOM 없이 계산 가능한 부분은 `*.pure.js` 로 떼어 시험)으로 한다.
 
