@@ -30,3 +30,10 @@
 ## 시안 캔버스
 - 사용자 시안: https://claude.ai/artifact/GMJRU9ZYZTVvEePejfgjjb (공개 링크라 고쳐 올리려면 사용자 승인 필요)
 - 총괄 시안(비공개): https://claude.ai/artifact/SQZc5yC3utSiCRugg8uJg8 (옛 시안 3장. 새 시안 작업은 중간에 멈춤)
+
+## 다른 대화의 새 게임(갱스껄, 브랜치 claude/ecstatic-knuth-w3wto3)과 합칠 때
+- 시험 병합 결과 겹치는 파일: CLAUDE.md, client/src/main.js, client/src/ui/lobby.js, docs/SPEC.md, package.json, server/rooms.js. 둘 다 "더하기"라 양쪽을 모두 살리면 된다.
+- server/rooms.js `sendMe`: 갱스껄의 `gsk: hub.gsk` 와 코인의 `wallet: walletOf(...)`, `admin` 칸을 모두 남긴다. `createHub` 인자에 `gsk` 와 `coinSeed` 둘 다. dispatch 의 `gk` 줄과 `coin`/`pin` 줄 둘 다.
+- package.json 시험 목록: `test/coin/*.test.js` 와 갱스껄 시험을 둘 다.
+- 갱스껄 코인 적립은 아직 없음(COIN_RULES 에 없으면 0). 넣으려면 SPEC 22-13 대로 `shared/coin/rules.js` 한 줄 + `server/coin/hooks.js` 에 정산 감싸기(방 만들 때 `hookRoom`).
+- 갱스껄 방 안의 코인 요청: 교환·뽑기·사기는 방 밖에서만이라 영향 없음. 끼기(equip)·`+N 코인` 알림은 방 종류와 무관하게 동작.
