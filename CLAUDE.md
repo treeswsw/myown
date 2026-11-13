@@ -67,7 +67,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 선 느낌·펜슬·손바닥·키보드·모션·소리는 항상 "미확인(실기기 확인 필요)"으로 보고한다.
 
 ## 갱스껄 (같은 사이트 안의 다섯 번째 게임, 해골 피하기 블러핑)
-- 스위치 환경 변수 `GSK`: `off`(흔적 없음) / `test`(주소에 `?gsk=1` 일 때만 버튼 보임) / `on`. 서버 기본값 `test`, render.yaml 도 `test`(Render 는 기존 서비스에 환경 변수를 반영하지 않음). 사용자가 확인한 뒤 `on`. 규칙·통신은 docs/gsk/GDD.md (9절 통신, 4절 비밀), 사이트 쪽 요약은 SPEC 23절.
+- 스위치 환경 변수 `GSK`: `off`(흔적 없음) / `test`(주소에 `?gsk=1` 일 때만 버튼 보임) / `on`. 서버 기본값 `on`, render.yaml 도 `on`(2026-11-13 사용자 요청으로 모두에게 공개, 끄려면 GSK=off/test. Render 는 기존 서비스에 환경 변수를 반영하지 않아 서버 기본값 자체를 on 으로 함). 규칙·통신은 docs/gsk/GDD.md (9절 통신, 4절 비밀), 사이트 쪽 요약은 SPEC 23절.
 - 반드시 지킬 약속: 공개 전 원판 종류·손 구성·버린 종류는 그 사람 기기 밖으로 보내지 않는다(test/gsk/leaks.test.js). 시간·판정은 서버, 무작위는 crypto 난수만. 사용자 글자는 textContent 로만. 갱스껄 방 상태에는 프로필 사진을 넣지 않는다(`faces` 알림).
 - 전용 요청은 전부 `{t:'gk', a: 종류, ...}`. 이름은 shared/gsk/name.js 한 곳.
 - main.js 의 연결: `import('./gsk/index.js')` 의 `mountGsk(opts)` 로 따로 불러온다. 상단 줄은 `.gkbar`(style.css).
