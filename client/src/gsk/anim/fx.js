@@ -12,7 +12,7 @@
 // 무작위 없음: 꽃잎·반짝임 배치는 고정 계산(fx.pure.js) → 모든 사람이 같은 모습.
 import './fx.css';
 import { createAudio } from '../audio.js';
-import { discBackUrl, discFlowerUrl, discSkullUrl, matUrl } from '../art.js';
+import { discBackUrl, discFlowerUrl, discSkullUrl, matUrl, setSkullImg } from '../art.js';
 import {
   levelFor, isTease, flipTimeline, flipDuration, effLevel, burstSpec, WIN_BURST, petalAt, sparkAt,
   auraPaths, HORNS, REVEAL_HOLD_MS, PLACE_MS, LINGER_MAX_MS, doomLine, winLine,
@@ -269,6 +269,8 @@ export function createFx(parent, ctx = {}) {
       const inn = mk('div', 'gk-fx-in');
       const f = mk('div', 'gk-fx-f');
       const face = img('', typeof faceIn === 'string' ? faceIn : '');
+      // 공개된 해골은 주인의 프로필 사진으로(없으면 그림 해골)
+      if (disc === 'S' && !info.face) setSkullImg(face, color, ctx.face && e.p ? ctx.face(e.p) : null, () => !disposed);
       if (faceIn && typeof faceIn.then === 'function') {
         faceIn.then((url) => { if (url) face.src = url; }, () => { face.src = disc === 'S' ? discSkullUrl(color) : discFlowerUrl(color); });
       }

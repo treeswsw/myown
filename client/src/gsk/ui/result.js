@@ -3,7 +3,7 @@
 // ctx 에서 쓰는 것: send, meId, face, busy, toWait(결과 화면의 "대기실로")
 import './result.css';
 import { requestFor } from '../actions.js';
-import { COLORS, discFlowerUrl, discSkullUrl, matUrl, skullPhotoUrl } from '../art.js';
+import { COLORS, discFlowerUrl, discSkullUrl, matUrl, setSkullImg } from '../art.js';
 import { penaltyPlan, rankRows, winnerInfo, winCaption } from './result.pure.js';
 
 const GONE_MS = 360;
@@ -92,10 +92,7 @@ export function createResult(parent, ctx) {
       b.type = 'button';
       const skull = c.k === 'S';
       const i = img(skull ? discSkullUrl(color) : discFlowerUrl(color), 'gk-rs-discimg');
-      if (skull) {
-        const photo = ctx.face && ctx.face(ctx.meId());
-        if (photo) skullPhotoUrl(color, photo).then((u) => { if (!disposed) i.src = u; });
-      }
+      if (skull) setSkullImg(i, color, ctx.face && ctx.face(ctx.meId()), () => !disposed);
       b.append(i);
       b.append(h('span', 'gk-rs-cnt', `×${c.count}`));
       b.setAttribute('aria-label', skull ? '해골 원판' : '꽃 원판');
@@ -122,7 +119,7 @@ export function createResult(parent, ctx) {
       const face = h('div', 'gk-rs-ph');
       // 사진이 없으면 그 색 해골 원판
       const f = img(discSkullUrl(info.color), 'gk-rs-phimg');
-      if (photo) skullPhotoUrl(info.color, photo).then((u) => { if (!disposed) f.src = u; });
+      setSkullImg(f, info.color, photo, () => !disposed);
       face.append(f);
       art.append(face);
     }
