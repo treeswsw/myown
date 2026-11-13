@@ -124,3 +124,34 @@ test('decideDown: 손바닥·펜슬 규칙', () => {
   assert.equal(P.decideDown({ ...base, type: 'mouse', button: 2 }), 'ignore');
   assert.equal(P.decideDown({ ...base, type: 'mouse', width: 1, height: 1 }), 'start');
 });
+
+test('confirmedSegments·tailSegment: 꼬리를 뺀 확정 조각만', () => {
+  const a = [0, 0, 10, 0, 10, 10, 0, 10];
+  assert.equal(P.confirmedSegments(a, 0, 4).length, 3); // 0,1,2 번 (3 번이 꼬리)
+  assert.deepEqual(P.tailSegment(a, 4), P.segmentsFrom(a, 3, 4)[0]);
+  assert.equal(P.confirmedSegments(a, 0, 2).length, 1); // 점 둘: 첫 조각만 확정, 꼬리는 따로
+  assert.deepEqual(P.confirmedSegments([5, 6], 0, 1), [{ dot: true, x: 5, y: 6 }]); // 점 하나는 확정
+  assert.equal(P.tailSegment([5, 6], 1), null);
+  // 점이 늘어난 뒤 이어 그리면 확정 조각이 빠짐없이 한 번씩만 이어진다
+  const seen = [];
+  let prevN = 0;
+  for (const n of [1, 2, 3, 4]) {
+    for (const g of P.confirmedSegments(a, prevN > 0 ? prevN - 1 : 0, n)) seen.push(g.dot ? 'dot' : `${g.x0},${g.y0}`);
+    prevN = n;
+  }
+  assert.deepEqual(seen, ['dot', '0,0', '5,0', '10,5']);
+  // 모든 확정 조각 + 마지막 꼬리 = 선 전체 조각
+  assert.equal(P.confirmedSegments(a, 0, 4).length + 1, P.segmentsFrom(a, 0, 4).length);
+});
+
+test('finalPoint: 뗀 자리를 마지막 점으로(간격 규칙 지킴)', () => {
+  const last = { x: 100, y: 100 };
+  assert.deepEqual(P.finalPoint(last, { x: 150, y: 100 }), { x: 150, y: 100 });
+  assert.equal(P.finalPoint(last, { x: 102, y: 101 }), null); // 너무 가까움(논리 4 미만)
+  assert.equal(P.finalPoint(last, { x: NaN, y: 1 }), null);
+  assert.equal(P.finalPoint(last, null), null);
+  // 손가락 보정 뒤 남은 거리를 메운다: 보정 점 → 뗀 자리
+  const sm = P.smoothToward(last, { x: 200, y: 100 }, 0.65);
+  assert.ok(sm.x < 200);
+  assert.deepEqual(P.finalPoint(sm, { x: 200, y: 100 }), { x: 200, y: 100 });
+});
