@@ -29,6 +29,7 @@ const check = (who, what, ok, detail = '') => {
 class StepFailed extends Error {}
 
 const wins = [];
+const wordOf = {}; // 각 창이 역할 카드에서 본 제시어 (창 이름 → 글)
 // 화면 크기: 기본 가로 폰(844×390). LG_VP=1000x750 이면 iPad 가로.
 const VP = (() => { const m = /^(\d+)x(\d+)$/.exec(process.env.LG_VP || ''); return m ? { width: +m[1], height: +m[2] } : { width: 844, height: 390 }; })();
 async function openPage(browser, url, who) {
@@ -227,6 +228,7 @@ try {
         const e = document.querySelector('[data-lg="role-word"]');
         return e && e.textContent.trim().length > 0 && getComputedStyle(e).visibility !== 'hidden';
       });
+      wordOf[w.who] = (await w.page.locator('[data-lg="role-word"]').innerText()).trim();
       await w.page.mouse.up();
       await w.page.waitForFunction(() => {
         const e = document.querySelector('[data-lg="role-card"]');
@@ -329,17 +331,58 @@ try {
   });
 
   let liarWin;
-  await step('정답 맞히기: 라이어 창에서 정답을 입력한다', async () => {
+  await step('정답 맞히기(guess): 모든 창에 엔딩 제목·큰 초, 라이어 창에서 입력→보내기', async () => {
     liarWin = await anyWin((w) => w.page.locator('[data-lg="guess-input"]').isVisible(), 30000);
+    for (const w of wins) {
+      await w.page.locator('[data-lg="ending"][data-stage="ask"]').waitFor({ state: 'visible' });
+      await w.page.locator('[data-lg="ed-title"]').waitFor({ state: 'visible' });
+      await w.page.waitForFunction(() => document.querySelector('[data-lg="ed-title"]')?.querySelectorAll('.lg-ed-on').length >= 10);
+      await w.page.locator('[data-lg="ed-secs"]').waitFor({ state: 'visible' });
+      const secs = await w.page.locator('[data-lg="ed-secs"]').innerText();
+      if (!/^\d+초$/.test(secs.trim())) throw new Error(`${w.who}: 큰 초 글이 이상함 "${secs}"`);
+    }
     await occAll('guess');
+    // 답을 내기 전: 라이어 창 어디에도 시민 제시어가 없다 (라이어가 받은 제시어와 시민 제시어가 다를 때)
+    const citizen = wins.filter((w) => w !== liarWin).map((w) => wordOf[w.who]).find(Boolean);
+    const own = wordOf[liarWin.who];
+    if (citizen && own && citizen !== own && !citizen.includes(own) && !own.includes(citizen)) {
+      const body = await liarWin.page.evaluate(() => document.body.innerText);
+      if (body.includes(citizen)) throw new Error(`라이어 창 글에 시민 제시어 "${citizen}" 가 보임`);
+    }
     await liarWin.page.locator('[data-lg="guess-input"]').fill('아무거나');
     await liarWin.page.locator('[data-lg="guess-send"]').click();
     noErrors('guess');
   });
 
+  await step('정답 공개(answer): 제시어·미스매치 → 라이어의 답 → 판정이 차례로 보인다', async () => {
+    const typed = (w, sel) => w.page.locator(`[data-lg="${sel}"] .lg-ed-on`).allInnerTexts().then((a) => a.join(''));
+    for (const w of wins) {
+      await w.page.locator('[data-lg="ending"][data-stage="word"], [data-lg="ending"][data-stage="mismatch"], [data-lg="ending"][data-stage="answer"]').first().waitFor({ state: 'attached', timeout: 12000 });
+      await w.page.locator('[data-lg="ed-word"]').waitFor({ state: 'visible' });
+      const word = (await w.page.locator('[data-lg="ed-word"]').innerText()).trim();
+      if (!word.startsWith('제시어')) throw new Error(`${w.who}: 제시어 줄 이상함 "${word}"`);
+      const mis = await w.page.locator('[data-lg="ed-mismatch"]').innerText().catch(() => '');
+      if (!mis.includes('미스매치')) throw new Error(`${w.who}: 미스매치 줄 이상함 "${mis}"`);
+    }
+    for (const w of wins) {
+      await w.page.waitForFunction(() => (document.querySelector('[data-lg="ed-answer"]')?.textContent || '').includes('아무거나') && document.querySelectorAll('[data-lg="ed-answer"] .lg-ed-on').length >= 4, null, { timeout: 12000 });
+      const a = await typed(w, 'ed-answer');
+      if (!a.includes('아무거나')) throw new Error(`${w.who}: 라이어의 답이 안 써짐 "${a}"`);
+    }
+    for (const w of wins) {
+      await w.page.waitForFunction(() => (() => { const c = document.querySelectorAll('[data-lg="ed-verdict"] .lg-ed-ch'); return c.length > 0 && document.querySelectorAll('[data-lg="ed-verdict"] .lg-ed-on').length === c.length; })(), null, { timeout: 12000 });
+      const v = await w.page.locator('[data-lg="ed-verdict"]').innerText();
+      if (!/라이어가 답을 맞(혔|히지 못했)습니다/.test(v)) throw new Error(`${w.who}: 판정 글 이상함 "${v}"`);
+    }
+    await liarWin.page.waitForTimeout(600);
+    if (process.env.LG_ED_SHOT) await liarWin.page.screenshot({ path: process.env.LG_ED_SHOT });
+    await occAll('answer');
+    noErrors('answer');
+  });
+
   await step('결과: 승자·점수·투표 내역', async () => {
     for (const w of wins) {
-      await w.page.locator('[data-lg="result-winner"]').waitFor({ state: 'visible', timeout: 20000 });
+      await w.page.locator('[data-lg="result-winner"]').waitFor({ state: 'visible', timeout: 40000 });
       await w.page.locator('[data-lg="result"]').waitFor({ state: 'visible' });
     }
     const t = await A.page.locator('[data-lg="result-winner"]').innerText();
