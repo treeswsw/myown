@@ -62,7 +62,7 @@ class DrawRoom {
     this.allTopics = listTopics();
     this.rng = intRng(hub.rng);
     this.lastSync = new Map(); // id -> 마지막으로 거절 뒤 drSync 를 보낸 시각
-    this.users = new Map(); // id -> session (판이 끝날 때 나간 사람의 기록도 남기려고)
+    this.drawnQ = 0; // 그림을 비운 마지막 문제 번호
   }
 
   member(id) { return this.members.find((m) => m.id === id); }
@@ -83,7 +83,7 @@ class DrawRoom {
 
   // ---- 모든 진입점: 먼저 tick, 끝나면 타이머 다시 걸기 ----
 
-  act(fn) {
+  run(fn) {
     const now = this.hub.now();
     if (this.g) this.apply(tick(this.g, now, this.env(now)));
     const r = fn(now);
@@ -104,7 +104,13 @@ class DrawRoom {
     this.timers.game = null;
     if (!this.g) return;
     const now = this.hub.now();
-    this.apply(tick(this.g, now, this.env(now)));
+    try {
+      this.apply(tick(this.g, now, this.env(now)));
+    } catch (err) {
+      console.error(`draw room ${this.code}: timer failed:`, err.stack);
+      this.setTimer('game', 1000, () => this.onTimer());
+      return;
+    }
     const next = this.members.length ? nextDeadline(this.g) : null;
     if (next !== null && next <= now) { // 일이 없는데 시각이 과거면 무한 반복이 된다: 1초 뒤에 다시
       console.error(`draw room ${this.code}: tick made no progress in phase ${this.g.phase}`);
@@ -118,7 +124,10 @@ class DrawRoom {
 
   apply(fx) {
     if (!fx) return;
-    if (fx.events.some((x) => x.e.k === 'drNew')) this.drawing = ops.createDrawing();
+    if (this.g.q !== this.drawnQ && this.g.q > 0) { // 새 문제가 시작됨(받는 사람이 없어도)
+      this.drawing = ops.createDrawing();
+      this.drawnQ = this.g.q;
+    }
     for (const w of fx.use) this.picker.use(w);
     for (const id of fx.kicked) {
       const m = this.member(id);
@@ -149,7 +158,10 @@ class DrawRoom {
     }
     this.hostId = g.hostId;
     this.phase = g.phase === 'lobby' || g.phase === 'final' ? 'lobby' : 'playing';
-    if (g.phase === 'lobby' && (this.drawing.ops.length || this.drawing.cur)) this.drawing = ops.createDrawing();
+    if (g.phase === 'lobby') {
+      this.drawnQ = 0;
+      if (this.drawing.ops.length || this.drawing.cur) this.drawing = ops.createDrawing();
+    }
     this.hub.roomsChanged();
     if (this.members.length === 0 && this.timers.gc === null) {
       this.clearTimer('game');
@@ -165,14 +177,15 @@ class DrawRoom {
     }));
     if (this.saveDraw) { this.saveDraw(rows); return; }
     for (const row of rows) {
-      const session = this.users.get(row.id);
+      // 지금 로그인해 있는 사람의 지금 user 만 쓴다(옛 사본을 저장하면 그 사이 바뀐 값을 덮어쓴다)
+      const session = this.member(row.id)?.session ?? this.hub.sessions.get(row.id);
       const user = session?.user;
       if (!user) continue;
       user.stats ??= {};
       const d = (user.stats.draw ??= { games: 0, wins: 0, correct: 0, points: 0 });
       d.games += row.games; d.wins += row.wins; d.correct += row.correct; d.points += row.points;
       this.hub.persist(user);
-      if (this.member(row.id)?.connected) this.hub.sendMe(session);
+      if (session.conn) this.hub.sendMe(session);
     }
   }
 
@@ -203,14 +216,13 @@ class DrawRoom {
   // ---- 들어오기·나가기·끊김 ----
 
   join(session) {
-    return this.act((now) => {
+    return this.run((now) => {
       if (this.members.length >= MAX_PLAYERS) return '방이 가득 찼습니다.';
       const user = { id: session.id, name: session.user.name };
       if (!this.g) {
         this.g = createRoom({ code: this.code, host: user, allTopics: this.allTopics, topics: defaultTopics(), now });
         this.members.push({ id: session.id, session, connected: true, grace: null });
         session.room = this;
-        this.users.set(session.id, session);
         this.clearTimer('gc');
         this.syncMembers();
         this.push();
@@ -222,7 +234,6 @@ class DrawRoom {
       this.clearTimer('gc');
       this.members.push({ id: session.id, session, connected: true, grace: null });
       session.room = this;
-      this.users.set(session.id, session);
       this.apply(fx);
       this.sendFaces([session.id], (m) => m.id !== session.id);
       this.sendExtras(session);
@@ -253,7 +264,7 @@ class DrawRoom {
   }
 
   setConnected(id, connected) {
-    this.act((now) => {
+    this.run((now) => {
       const m = this.member(id);
       if (!m || m.connected === connected) return; // 같은 아이디로 가로채기 접속은 끊긴 적이 없다
       m.connected = connected;
@@ -262,7 +273,7 @@ class DrawRoom {
   }
 
   leave(id) {
-    this.act((now) => {
+    this.run((now) => {
       if (!this.member(id)) return;
       this.apply(gLeave(this.g, id, this.env(now)));
     });
@@ -271,7 +282,7 @@ class DrawRoom {
   // ---- 시작과 요청 ----
 
   start(id) {
-    return this.act((now) => {
+    return this.run((now) => {
       if (!this.g || !this.member(id)) return errOf('dr_now');
       let fx;
       try {
@@ -288,7 +299,7 @@ class DrawRoom {
 
   // 모든 {t:'dr'} 요청
   dr(session, raw) {
-    return this.act((now) => {
+    return this.run((now) => {
       const id = session.id;
       if (!this.g || !this.member(id)) return errOf('dr_now');
       const c = checkDr(raw);
@@ -363,7 +374,7 @@ class DrawRoom {
   // ---- 채팅·이모티콘·사운드 ----
 
   chat(session, text) {
-    return this.act((now) => {
+    return this.run((now) => {
       if (!this.g || !this.member(session.id)) return errOf('dr_now');
       const fx = gChat(this.g, session.id, text, this.env(now));
       if (!fx.ok) return errFx(fx);
@@ -374,7 +385,7 @@ class DrawRoom {
 
   // 허브가 emote/pemote/snd/sndAdd 를 처리하기 전에 부른다. kind = 그 메시지의 t
   mediaBlocked(session, kind) {
-    return this.act(() => {
+    return this.run(() => {
       if (!this.g) return errOf('dr_now');
       const r = mediaCheck(this.g, session.id, kind === 'emote' ? 'basic' : 'media');
       return r.ok ? null : errFx(r);

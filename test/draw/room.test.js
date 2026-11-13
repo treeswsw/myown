@@ -52,7 +52,7 @@ function setup(n = 3, { saveDraw } = {}) {
   const to = (id, from = 0) => out.slice(from).filter((o) => o.to === id).map((o) => o.m);
   const events = (id, k2, from = 0) => to(id, from).filter((m) => m.t === 'event' && m.e.k === k2).map((m) => m.e);
   const lastState = (id) => to(id).filter((m) => m.t === 'room' && m.state).at(-1).state;
-  return { room, ss, out, hub, advance, dr, to, events, lastState, addUser, persisted, clock: () => now };
+  return { room, ss, out, hub, pending, advance, dr, to, events, lastState, addUser, persisted, clock: () => now };
 }
 
 const LINE = { c: 1, w: 10, e: 0, p: [100, 100, 5, 5, 5, 5] };
@@ -335,4 +335,81 @@ test('나가기·내보내기·방 비면 정리', () => {
   x.hub.rooms.set('ABCD', x.room);
   x.advance(60_000);
   assert.equal(x.hub.rooms.has('ABCD'), false);
+});
+
+test('판이 끝날 때 나간 사람은 지금 로그인한 user 객체에만 저장하고 옛 사본은 건드리지 않는다', () => {
+  const x = setup(3);
+  startPick(x);
+  const oldUser = x.ss[2].user;
+  x.room.leave('u2');
+  const fresh = { name: 'N2', bank: 777, stats: { hands: 5 } };
+  x.hub.sessions.set('u2', { id: 'u2', user: fresh, conn: {}, room: null });
+  for (let i = 0; i < 6 && x.lastState('u0').phase !== 'final'; i++) {
+    if (['pick', 'draw'].includes(x.lastState('u0').phase)) x.dr(x.ss[0], { a: 'skip' });
+    x.advance(5000);
+  }
+  assert.equal(x.lastState('u0').phase, 'final');
+  assert.ok(x.persisted.includes(fresh));
+  assert.ok(!x.persisted.includes(oldUser));
+  assert.equal(fresh.bank, 777);
+  assert.equal(fresh.stats.hands, 5);
+  assert.equal(fresh.stats.draw.games, 1);
+  assert.equal(oldUser.stats.draw, undefined);
+});
+
+test('새 문제가 시작되면 그림이 비워져 늦게 온 사람의 drSync 는 ops:[]', () => {
+  const x = setup(3);
+  startPick(x);
+  x.dr(x.ss[0], { a: 'pick', i: 0 });
+  x.dr(x.ss[0], { a: 'st', ...LINE });
+  x.dr(x.ss[0], { a: 'pt', p: [], f: 1 });
+  x.dr(x.ss[0], { a: 'give' });
+  x.advance(5000);
+  assert.equal(x.lastState('u1').phase, 'pick');
+  const s3 = x.addUser(3);
+  const from = x.out.length;
+  x.room.sendExtras(s3);
+  const sync = x.events('u3', 'drSync', from)[0];
+  assert.deepEqual(sync.ops, []);
+  assert.equal(sync.cur, null);
+});
+
+test('끊긴 지 60초 뒤 타이머로 방에서 빠지고 허브 세션도 정리된다', () => {
+  const x = setup(3);
+  x.ss[2].conn = null;
+  x.room.setConnected('u2', false);
+  assert.equal(x.room.members.length, 3);
+  x.advance(59_000);
+  assert.equal(x.room.members.length, 3);
+  x.advance(1000);
+  assert.equal(x.room.members.length, 2);
+  assert.equal(x.hub.sessions.has('u2'), false);
+  assert.equal(x.ss[2].room, null);
+});
+
+test('그리는 사람이 15초 끊기면 그 문제는 reveal why:left', () => {
+  const x = setup(3);
+  startPick(x);
+  x.dr(x.ss[0], { a: 'pick', i: 0 });
+  x.dr(x.ss[0], { a: 'st', ...LINE });
+  x.room.setConnected('u0', false);
+  x.advance(14_000);
+  assert.equal(x.lastState('u1').phase, 'draw');
+  x.advance(1000);
+  const st = x.lastState('u1');
+  assert.equal(st.phase, 'reveal');
+  assert.equal(st.reveal.why, 'left');
+});
+
+test('게임 중 전원이 나가면 게임 타이머 없이 정리 타이머 하나만 남는다', () => {
+  const x = setup(3);
+  startPick(x);
+  assert.equal(x.room.timers.game !== null, true);
+  x.room.leave('u1');
+  x.room.leave('u2');
+  x.room.leave('u0');
+  assert.equal(x.room.members.length, 0);
+  assert.equal(x.room.timers.game, null);
+  assert.equal(x.pending.length, 1);
+  assert.equal(x.room.timers.gc, x.pending[0].id);
 });
