@@ -9,7 +9,7 @@
 ## 일하는 방식 (사용자 지시)
 - 기획·중요 화면(상점, 뽑기 화면 등)은 Fable, 단순 제작·덜 중요한 것(치장템 그림 등)은 Fable 지침대로 Sonnet. 검토는 돈·서버 묶음만 Opus.
 - 토큰을 아낄 것: 과제를 작게, 무거운 전체 시험은 총괄이 합칠 때 한 번만.
-- 브랜치: 개발 `claude/inspiring-wright-aq28a0` (세션 지정). 배포는 main(사용자에게 먼저 물어봄, 서버 재시작).
+- 브랜치: 개발 `claude/great-noether-tnbqu5` (2026-11-13 두 번째 대화. 그 전은 `claude/inspiring-wright-aq28a0`). 배포는 main(사용자에게 먼저 물어봄, 서버 재시작).
 
 ## 된 것 (개발 브랜치에 있음, 아직 main 배포 안 함)
 - 코인 적립(블러핑·라이어·요트·갱식마인드, 홀덤 제외), 혼자 남은 판·봇 방 제외, 최소 간격.
@@ -37,3 +37,10 @@
 - package.json 시험 목록: `test/coin/*.test.js` 와 갱스껄 시험을 둘 다.
 - 갱스껄 코인 적립은 아직 없음(COIN_RULES 에 없으면 0). 넣으려면 SPEC 22-13 대로 `shared/coin/rules.js` 한 줄 + `server/coin/hooks.js` 에 정산 감싸기(방 만들 때 `hookRoom`).
 - 갱스껄 방 안의 코인 요청: 교환·뽑기·사기는 방 밖에서만이라 영향 없음. 끼기(equip)·`+N 코인` 알림은 방 종류와 무관하게 동작.
+
+## 2026-11-13 두 번째 대화에서 한 것
+- 상점 진열(SPEC 22-18): 사람마다, 위 5칸 5분 / 아래 5칸 1시간, 서버+화면 완료. 시안 그림 docs/coin/shop-preview.png. 가격 두 번 눌러 사기.
+- 캡슐 뽑기 서버(cap·craft·pos, 조각, 수집 보상) 다시 만듦(옛 작업본은 원격에 없어 사라졌음).
+- 준비중 규칙(SPEC 22-19). 로비 버튼: 상점·뽑기·캡슐·꾸미기·교환·코인 랭킹.
+- 진행 중이던 것(끝났는지 git log 로 확인): 카드 뽑기 화면(Fable, worktree-agent-aec3cce…), 캡슐 기계·내 꾸미기 화면(Fable, worktree-agent-a3ba2d08…). 끝나지 않았으면 client/src/coin/capsule.js·lookwin.js 는 "준비중" 자리 파일.
+- 남은 것: 위 두 화면 병합 → lobby.js SHOW_DRAW=true, 버튼 이름 '카드 뽑기' → 돈·서버 묶음(진열+캡슐) Opus 검토 → npm test → 배포(사용자에게 먼저 묻기). 치장템 그림, 방 안 looks, 무료 뽑기 주기 결정.
