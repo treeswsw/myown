@@ -46,3 +46,6 @@
 @keyframes gkHdShade { 0% { opacity: 0; transform: scale(.7); } 40% { opacity: .9; transform: scale(1.08); } 100% { opacity: .55; transform: scale(1); } }
 @keyframes gkHdDust { 0% { opacity: .9; transform: scale(.72); } 100% { opacity: 0; transform: scale(1.34); } }
 @keyframes gkHdPuff { 0% { opacity: .8; transform: scale(.6); } 100% { opacity: 0; transform: scale(1.25); } }
+.gk-hd-coin.gk-hd-sel { background: radial-gradient(circle at 50% 35%, #e6c987, #c9a45c); box-shadow: 0 0 0 3px #1c1410, 0 0 0 4px #ecd296, 0 6px 12px rgba(0,0,0,.45); }
+.gk-hd-btn.gk-hd-confirm { min-width: 160px; }
+.gk-hd-btn:disabled { opacity: .4; filter: grayscale(.4); cursor: default; pointer-events: none; }

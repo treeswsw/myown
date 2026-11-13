@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { handList, splitRows, bidNums, plan, normalizeLocal, slot } from '../../client/src/gsk/ui/hand.pure.js';
+import { pickSel, handList, splitRows, bidNums, plan, normalizeLocal, slot } from '../../client/src/gsk/ui/hand.pure.js';
 
 const view = (o = {}) => ({
   phase: 'playing', step: 'turn', me: { seated: true, hand: { F: 3, S: 1 } },
@@ -51,6 +51,12 @@ test('원판 내기 갈래: 손패 펼침 + 취소', () => {
 test('도전 갈래: 숫자 동전 + 취소', () => {
   const p = plan(view(), { mode: 'bid' }, null);
   assert.deepEqual(p.coins.rows, [[1, 2]]);
+  assert.equal(p.coins.sel, 1);
+  assert.deepEqual(p.coins.confirm, { key: 'bid-1', label: '1 도전', enabled: true });
+  const q = plan(view(), { mode: 'bid', sel: 2 }, null);
+  assert.equal(q.coins.sel, 2);
+  assert.equal(q.coins.confirm.key, 'bid-2');
+  assert.equal(q.coins.confirm.label, '2 도전');
   assert.equal(p.cancel, true);
   assert.equal(p.pass, false);
 });
@@ -66,6 +72,8 @@ test('경매: 올리기 동전 + 패스', () => {
   const v = view({ step: 'bid', actions: [{ key: 'bid-4', a: 'bid', n: 4 }, { key: 'pass', a: 'pass' }], ranges: { bid: { min: 4, max: 4 } } });
   const p = plan(v, { mode: 'idle' }, null);
   assert.deepEqual(p.coins.rows, [[4]]);
+  assert.deepEqual(p.coins.confirm, { key: 'bid-4', label: '4 올리기', enabled: true });
+  assert.equal(plan(v, { mode: 'idle', sel: 9 }, null).coins.sel, 4);
   assert.equal(p.pass, true);
   assert.equal(p.cancel, false);
 });
@@ -102,4 +110,12 @@ test('손패 자리', () => {
   assert.equal(slot(1, 3, true).x - o.x, 134);
   assert.deepEqual(slot(2, 3, false), { x: 36 + 68, y: 632, s: 0.5 });
   assert.equal(slot(0, 1, false, { x: 10, y: 20 }).x, 10);
+});
+
+test('고른 숫자: 범위 밖이면 최소값', () => {
+  assert.equal(pickSel([3, 4, 5], 4), 4);
+  assert.equal(pickSel([3, 4, 5], 1), 3);
+  assert.equal(pickSel([3, 4, 5], undefined), 3);
+  assert.equal(pickSel([], 2), null);
+  assert.equal(normalizeLocal(view({ step: 'bid' }), { mode: 'idle', sel: 5 }).sel, 5);
 });

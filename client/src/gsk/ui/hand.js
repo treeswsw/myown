@@ -119,7 +119,7 @@ export function createHand(parent, ctx) {
   const send = (req) => { if (req && !disposed) ctx.send(req); };
   const actionByKey = (key) => (view && view.actions.find((a) => a.key === key)) || null;
   const sound = (name) => { try { ctx.fx && ctx.fx.sound && ctx.fx.sound(name); } catch (e) { /* 소리 없음 */ } };
-  const setMode = (mode) => { local = { mode }; render(); };
+  const setMode = (mode) => { local = { mode, sel: local && local.sel }; render(); };
 
   function clearPending() {
     pending = null;
@@ -203,17 +203,30 @@ export function createHand(parent, ctx) {
         for (const n of nums) {
           const c = el('button', 'gk-hd-coin', String(n));
           c.type = 'button';
-          c.dataset.gk = `bid-${n}`;
+          c.dataset.gk = `pick-${n}`;
           c.setAttribute('aria-label', `${n}`);
-          c.addEventListener('click', () => {
-            const a = actionByKey(`bid-${n}`);
-            if (a) send(requestFor(a));
-            local = { mode: 'idle' };
-          });
+          c.setAttribute('aria-pressed', n === p.coins.sel ? 'true' : 'false');
+          if (n === p.coins.sel) c.classList.add('gk-hd-sel');
+          c.addEventListener('click', () => { local = { ...local, sel: n }; render(); });
           row.append(c);
         }
-        if (ri === rows.length - 1 && (p.cancel || p.pass)) {
+        if (ri === rows.length - 1) {
           row.append(el('i', 'gk-hd-sep'));
+          const cf = p.coins.confirm;
+          const ok = el('button', 'gk-hd-btn gk-hd-confirm');
+          ok.type = 'button';
+          ok.dataset.gk = cf.key || 'bid-none';
+          ok.disabled = !cf.enabled;
+          ok.append(diamond(), el('span', '', cf.label), diamond());
+          ok.addEventListener('click', () => {
+            const a = actionByKey(cf.key);
+            if (!a) return;
+            send(requestFor(a));
+            local = { mode: 'idle' };
+          });
+          row.append(ok);
+        }
+        if (ri === rows.length - 1 && (p.cancel || p.pass)) {
           if (p.cancel) {
             const g = el('button', 'gk-hd-ghost', '취소');
             g.type = 'button';

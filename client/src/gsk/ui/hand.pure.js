@@ -34,9 +34,22 @@ export function bidNums(view) {
   return out;
 }
 
+// 고른 숫자: 범위 안이면 그대로, 아니면(처음·범위 바뀜) 최소값으로 미리 골라 둔다.
+export function pickSel(nums, sel) {
+  if (!nums.length) return null;
+  return nums.includes(sel) ? sel : nums[0];
+}
+
+function coinPlan(view, local, ask, verb, acts) {
+  const nums = bidNums(view);
+  const sel = pickSel(nums, local && local.sel);
+  const key = sel == null ? '' : `bid-${sel}`;
+  return { rows: splitRows(nums), ask, sel, confirm: { key, label: sel == null ? verb : `${sel} ${verb}`, enabled: !!key && acts.some((a) => a.key === key) } };
+}
+
 // 화면 계획. 반환:
 // { visible, hand:[kinds], open, discMode:'place'|'open'|null, buttons:[{key,label,tone}],
-//   coins:{rows,ask}|null, pass:bool, cancel:bool, caption }
+//   coins:{rows,ask,sel,confirm:{key,label,enabled}}|null, pass:bool, cancel:bool, caption }
 export function plan(view, local, pending) {
   const none = { visible: false, hand: [], open: false, discMode: null, buttons: [], coins: null, pass: false, cancel: false, caption: '' };
   if (!view || view.phase !== 'playing' || !view.me || !view.me.seated) return none;
@@ -51,14 +64,14 @@ export function plan(view, local, pending) {
   if (view.step === 'setup' && hasPlace) return { ...res, open: true, discMode: 'place' };
   if (view.step === 'turn' && (hasPlace || bidActs)) {
     if (mode === 'place' && hasPlace) return { ...res, open: true, discMode: 'place', cancel: true };
-    if (mode === 'bid' && bidActs) return { ...res, coins: { rows: splitRows(bidNums(view)), ask: '꽃만 몇 개 뒤집겠습니까' }, cancel: true };
+    if (mode === 'bid' && bidActs) return { ...res, coins: coinPlan(view, local, '꽃만 몇 개 뒤집겠습니까', '도전', acts), cancel: true };
     const buttons = [];
     if (hasPlace) buttons.push({ key: 'choose-place', label: '원판 내기', tone: 'paper' });
     if (bidActs) buttons.push({ key: 'choose-bid', label: '도전', tone: 'ink' });
     return { ...res, buttons, discMode: hasPlace ? 'open' : null };
   }
   if (view.step === 'bid' && (bidActs || hasPass)) {
-    return { ...res, coins: { rows: splitRows(bidNums(view)), ask: '몇으로 올리겠습니까' }, pass: hasPass };
+    return { ...res, coins: coinPlan(view, local, '몇으로 올리겠습니까', '올리기', acts), pass: hasPass };
   }
   return res;
 }
@@ -67,6 +80,7 @@ export function plan(view, local, pending) {
 export function normalizeLocal(view, local) {
   const acts = (view && view.actions) || [];
   const mode = (local && local.mode) || 'idle';
+  if (view && view.step === 'bid') return local && local.sel != null ? { mode: 'idle', sel: local.sel } : { mode: 'idle' };
   if (view && view.step === 'turn') {
     if (mode === 'place' && acts.some((a) => a.a === 'place')) return local;
     if (mode === 'bid' && acts.some((a) => a.a === 'bid')) return local;
