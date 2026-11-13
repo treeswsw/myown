@@ -149,8 +149,8 @@ test('liar module css exists', () => {
   assert.ok(files.some((f) => f.rel === 'client/src/liar/liar.css'), 'client/src/liar/liar.css missing');
 });
 
-// Known unprefixed modifiers per game. TODO(G-gsk): rename the hand.css modifiers to gk-* and drop these.
-const GAME_CSS_ALLOW = { gsk: new Set(['abs', 'coins', 'ink', 'pass', 'two']) };
+// Known unprefixed classes per game. Empty: every class in a game folder starts with the game's prefix.
+const GAME_CSS_ALLOW = {};
 
 for (const [mode, g] of Object.entries(GAMES)) {
   if (!g.css) continue;

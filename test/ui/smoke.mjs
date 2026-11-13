@@ -666,29 +666,25 @@ async function runContext(browser, server, name, cfg) {
       await press('.lb-seg-item:has-text("갱스껄")');
       await page.waitForSelector('.lb-cap:has-text("3~6명 · 해골을 피해 꽃 뒤집기")', { state: 'attached', timeout: T });
     });
-    await step('gsk: create a room → room code appears in the top bar', async () => {
+    await step('gsk: create a room → common waiting room (code, 내 색 고르기); 시작은 대기실 버튼 하나뿐', async () => {
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.gkbar-code');
-      await page.waitForFunction(() => /방 코드 [A-Z0-9]{4,}/.test(document.querySelector('.gkbar-code')?.textContent ?? ''), null, { timeout: T });
+      await visible('[data-rm="wait-start"]');
+      await page.waitForFunction(() => /[A-Z0-9]{4,}/.test(document.querySelector('[data-rm="wait-code"] b')?.textContent ?? ''), null, { timeout: T });
+      const own = await page.evaluate(() => ({ gkStart: !!document.querySelector('[data-gk="start"]'), gkbar: !!document.querySelector('.gkbar:not([hidden])') }));
+      if (own.gkStart || own.gkbar) throw new Error(`old start/bar left: ${JSON.stringify(own)}`);
     });
-    await step('gsk: in the room, color-0 shows and can be pressed (임시 화면 data-gk)', async () => {
+    await step('gsk: in the waiting room, color-0 shows and can be pressed (pick) → my row gets the color dot', async () => {
       await visible('[data-gk="color-0"]');
       await press('[data-gk="color-0"]');
-      await page.waitForFunction(() => /초록/.test(document.querySelector('[data-gk-seat]')?.textContent ?? ''), null, { timeout: T });
+      await page.waitForFunction(() => !!document.querySelector('.wr-players .wr-dot'), null, { timeout: T });
     });
-    await step('gsk: 방장에게 시작 버튼이 보인다(3명 전에는 흐림). 원판 내기·도전 버튼(choose-place)은 3명 판이 필요해 gsk-round.mjs 가 본다', async () => {
-      await visible('[data-gk="start"]');
+    await step('gsk: 시작 버튼은 3명 전에는 꺼져 있다. 원판 내기·도전 버튼(choose-place)은 3명 판이 필요해 gsk-round.mjs 가 본다', async () => {
+      await page.waitForFunction(() => document.querySelector('[data-rm="wait-start"]')?.disabled === true, null, { timeout: T });
     });
-    await step('gsk: 상단 이모티콘 버튼은 누르면 열리고 다시 누르면 닫힌다', async () => {
-      await press('[data-gk="bar-emote"]');
-      await visible('.hpanel.lgpanel');
-      await press('[data-gk="bar-emote"]');
-      await gone('.hpanel.lgpanel');
-    });
-    await step('gsk: 나가기 returns to the lobby, bar disappears', async () => {
-      await press('button.gkbar-btn:has-text("나가기")');
+    await step('gsk: 나가기 (대기실은 확인 없이) returns to the lobby', async () => {
+      await press('[data-rm="wait-leave"]');
       await visible('button:has-text("방 만들기")');
-      await gone('.gkbar-code');
+      await gone('.wr-root:not([hidden])');
     });
     /* ---------- mini games 미니게임 (server MINI default on) ---------- */
     const mBot = new Bot(server.url, uid('mb'), { autoplay: false });

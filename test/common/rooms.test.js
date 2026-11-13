@@ -124,7 +124,7 @@ const MODES = [
   {
     mode: 'gsk', create: { mode: 'gsk' }, max: 6, chatMax: 120, chatLong: HUB_LONG, flood: HUB_FLOOD,
     startFew: 'gk_few', startNonHost: 'gk_host', startedPhase: 'playing',
-    hostWhenNextAway: 'cat1', // 연결된 사람 우선 (엔진 dropMember)
+    hostWhenNextAway: 'cat1', // 연결된 사람 우선 (Shell)
     leftEvent: true, awayEvents: true, faces: true,
     stages: [plain()],
   },

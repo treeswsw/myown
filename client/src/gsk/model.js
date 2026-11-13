@@ -10,13 +10,13 @@
 //   hostId, isHost, penalty({by,target,n,faceUp}) | null, outcome({ok,skullOf}) | null,
 //   bid: { n, by, byName } | null, progress: { flipped, need } | null (flip·reveal·penalty 동안),
 //   actions: [{ key, a, ...값 }],     // 지금 내가 할 수 있는 행동 전부. key 는 data-gk 값
-//   ranges: { bid:{min,max}|null, flipPiles:[id], colorsFree:[0..5], canStart:bool },
+//   ranges: { bid:{min,max}|null, flipPiles:[id] },
 //   result: state.result 그대로(이름 포함) | null,
 // }
 // 남의 원판 종류는 서버가 주지 않으므로 여기서도 쓰지 않는다(shown 만 공개된 것).
-// 행동 key: place-F place-S bid-<n> pass flip-<id> discard-F discard-S color-<c> start
+// 행동 key: place-F place-S bid-<n> pass flip-<id> discard-F discard-S
+// (색 고르기·시작은 공통 대기실이 한다: 색은 state.wait.own, 시작 버튼은 대기실 하나)
 
-const MIN_PLAYERS = 3;
 
 const nameOf = (state, id) => {
   if (!id) return '';
@@ -48,10 +48,7 @@ function statusOf(state, s) {
 function centerText(state, meId) {
   const n = (id) => `${nameOf(state, id)} 님`;
   const waitNote = state.waiting ? ` (${n(state.waiting)} 연결 끊김, 기다리는 중)` : '';
-  if (state.phase === 'lobby') {
-    const c = (state.seats || []).length;
-    return `참가자를 기다리는 중 (${c}명, ${MIN_PLAYERS}명 이상 필요)`;
-  }
+  if (state.phase === 'lobby') return '대기실';
   if (state.phase === 'result') {
     const r = state.result;
     if (r && r.winner) return `${n(r.winner)} 승리!`;
@@ -113,7 +110,7 @@ export function toView(state, meId) {
   }));
 
   const actions = [];
-  const ranges = { bid: null, flipPiles: [], colorsFree: [], canStart: false };
+  const ranges = { bid: null, flipPiles: [] };
   const hand = mine && mine.hand ? mine.hand : { F: 0, S: 0 };
   const placeActs = () => {
     for (const k of ['F', 'S']) if ((hand[k] || 0) > 0) actions.push({ key: `place-${k}`, a: 'place', k });
@@ -125,19 +122,6 @@ export function toView(state, meId) {
   };
   const total = state.total || 0;
 
-  if (state.phase === 'lobby' && mySeat) {
-    const taken = new Set(rawSeats.filter((s) => s.id !== me && s.color != null).map((s) => s.color));
-    for (let c = 0; c < 6; c++) {
-      if (taken.has(c)) continue;
-      ranges.colorsFree.push(c);
-      actions.push({ key: `color-${c}`, a: 'color', c });
-    }
-  }
-  if (state.phase === 'lobby' || state.phase === 'result') {
-    const conn = (state.players || []).filter((p) => p.connected && (state.phase === 'result' || !p.spectating)).length;
-    ranges.canStart = state.hostId === me && conn >= MIN_PLAYERS;
-    if (ranges.canStart) actions.push({ key: 'start', a: 'start' });
-  }
   if (state.phase === 'playing' && iAmAlive) {
     const step = state.step;
     if (step === 'setup' && !mySeat.placed) placeActs();
