@@ -144,7 +144,7 @@ test('avatar in a yacht room goes out as a faces event, never in the room state'
   const JPG = 'data:image/jpeg;base64,/9j/AAAA';
   await cs[1].send({ t: 'avatar', data: JPG });
   const faces = cs[0].sock.msgs.filter((m) => m.t === 'event' && m.e.k === 'faces').at(-1).e;
-  assert.deepEqual(faces.items, [{ id: 'bob1', avatar: JPG }]);
+  assert.deepEqual(faces.items, [{ id: 'bob1', avatar: JPG, look: {} }]); // 공용 faces 알림은 look(꾸미기)도 싣는다
   assert.equal(JSON.stringify(cs[0].sock.msgs.filter((m) => m.t === 'room')).includes('data:image'), false);
 });
 

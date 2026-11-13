@@ -83,7 +83,7 @@ test('yacht: 3 players finish: 3 each, winner +4 per opponent; spectator 0', asy
   await cs[0].send({ t: 'start' });
   const spec = await login(hub, 'dan1');
   await spec.send({ t: 'join', code: cs[0].state.code });
-  const room = [...hub.rooms.values()][0];
+  const room = [...hub.rooms.values()][0].impl; // 요트는 공용 방 틀(Shell) 안의 게임 객체
   await playYacht(clock, cs, room);
   assert.equal(room.game.phase, 'result');
   const r = room.game.result;
@@ -99,7 +99,7 @@ test('yacht: a forfeiter gets 0, opponents still count the leaver', async () => 
   const { hub, clock } = await setup(5);
   const cs = await lobby(hub, 'yacht', ['ann1', 'bob1', 'cat1']);
   await cs[0].send({ t: 'start' });
-  const room = [...hub.rooms.values()][0];
+  const room = [...hub.rooms.values()][0].impl;
   await playYacht(clock, cs, room, { stop: () => room.game.round >= 2 });
   const leaver = room.game.cols[(room.game.turnIdx + 1) % 3].id;
   await cs.find((c) => c.id === leaver).send({ t: 'leave' });
@@ -115,7 +115,7 @@ test('yacht: a room with a bot pays nobody', async () => {
   const { hub, clock } = await setup(5);
   const cs = await lobby(hub, 'yacht', ['ann1', 'bob1']);
   await cs[0].send({ t: 'start' });
-  const room = [...hub.rooms.values()][0];
+  const room = [...hub.rooms.values()][0].impl;
   hub.sessions.get('bob1').bot = true;
   await playYacht(clock, cs, room);
   assert.equal(room.game.phase, 'result');
@@ -317,7 +317,7 @@ test('yacht: everyone else left (reason alone) pays nobody', async () => {
   const { hub } = await setup(5);
   const cs = await lobby(hub, 'yacht', ['ann1', 'bob1']);
   await cs[0].send({ t: 'start' });
-  const room = [...hub.rooms.values()][0];
+  const room = [...hub.rooms.values()][0].impl;
   await cs[1].send({ t: 'leave' });
   assert.equal(room.game.result?.reason, 'alone');
   assert.equal(coins(hub, 'ann1'), 0);

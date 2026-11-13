@@ -81,8 +81,8 @@ const MODES = [
   },
   {
     mode: 'yacht', create: { mode: 'yacht' }, max: 4, chatMax: 120, chatLong: HUB_LONG, flood: HUB_FLOOD,
-    startFew: '2명 이상 필요합니다.', startNonHost: HOST_ERR, startedPhase: 'playing',
-    hostWhenNextAway: 'bob1', // 통일 예정: 방장은 연결된 사람에게
+    startFew: 'yt_need2', startNonHost: 'yt_host', startedPhase: 'playing',
+    hostWhenNextAway: 'cat1', // 연결된 사람 우선 (Shell)
     leftEvent: true, awayEvents: true, faces: true,
     stages: [plain()],
   },

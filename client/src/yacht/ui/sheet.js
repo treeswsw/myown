@@ -10,8 +10,8 @@ const NAME = {
   choice: '초이스', fourKind: '포카드', fullHouse: '풀하우스', smallStraight: 'S 스트레이트', largeStraight: 'L 스트레이트', yacht: '요트',
 };
 const PIP = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
-const COLORS = ['#3b6fd4', '#d4573b', '#2f9e6e', '#8a55c9'];
-const JPEG = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
+import { createWho } from './who.js';
+
 const SVGNS = 'http://www.w3.org/2000/svg';
 
 function el(tag, cls, text) {
@@ -50,9 +50,8 @@ function icon(k) {
 function crown() {
   return svg([sv('path', { d: 'M2 15h16l1-9-5 4-4-7-4 7-5-4z', fill: '#ffc62a', stroke: '#1a1613', 'stroke-width': 1.6, 'stroke-linejoin': 'round' })], 'yt-sc-crown');
 }
-function hash(s) { let h = 0; for (const ch of String(s)) h = (h * 31 + ch.codePointAt(0)) >>> 0; return h; }
 
-export function createSheet({ host, send, getFace }) {
+export function createSheet({ host, send, who = createWho() }) {
   const root = el('div', 'yt-sc');
   root.dataset.yt = 'sheet';
   host.append(root);
@@ -142,21 +141,10 @@ export function createSheet({ host, send, getFace }) {
 
   function setFace(i, c) {
     const box = refs.face[i];
-    const src = getFace ? getFace(c.id) : null;
-    const ok = typeof src === 'string' && JPEG.test(src);
-    const k = ok ? 'f:' + src : 'c:' + (c.name || '?') + c.id;
+    const k = who.key(c.id) + '|' + (c.name || '?');
     if (box.dataset.k === k) return;
     box.dataset.k = k;
-    box.replaceChildren();
-    if (ok) {
-      const img = el('img');
-      img.alt = ''; img.draggable = false; img.src = src;
-      box.style.background = '';
-      box.append(img);
-    } else {
-      box.style.background = COLORS[hash(c.id) % COLORS.length];
-      box.append(el('span', '', [...(c.name || '?')][0]));
-    }
+    box.replaceChildren(who.face(c.id, c.name, 'yt-sc-avi', 32));
   }
 
   // 칸 안: 숫자(.yt-sc-n)와 작은 글(.yt-sc-tag)
@@ -254,6 +242,7 @@ export function createSheet({ host, send, getFace }) {
 
   function update(next, opts = {}) {
     state = next || null;
+    who.setPlayers(state && state.players);
     settled = !opts || opts.settled !== false;
     localPick = null;
     render();

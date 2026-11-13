@@ -92,9 +92,10 @@ test('faces: 받은 사람만 덮어쓰고 잘못된 사진은 버림', () => {
   assert.equal(n, 2);
 });
 
-test('games.js: 화면 등록표와 게임 사실의 키가 같고, 아직 옮긴 게임이 없다(옛 길)', () => {
+test('games.js: 화면 등록표와 게임 사실의 키가 같고, 옮긴 게임만 mount 가 있다', () => {
   assert.deepEqual(Object.keys(CLIENT_GAMES), Object.keys(GAMES));
-  assert.ok(Object.keys(GAMES).every((k) => !isFramed(k)), 'C1 단계: mount 를 등록한 게임 없음');
+  const MOVED = ['yacht']; // 옮기기 과제가 끝날 때마다 한 줄씩 늘린다
+  assert.deepEqual(Object.keys(GAMES).filter((k) => isFramed(k)), MOVED);
   assert.deepEqual(visibleModes({}, ''), ['holdem', 'bluff']);
   assert.deepEqual(visibleModes({ liar: 'on', yacht: 'test', mini: 'test' }, '?mini=1'), ['holdem', 'bluff', 'liar', 'mini']);
 });

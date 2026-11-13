@@ -244,7 +244,7 @@ return {
   frame?(dt),                  // 초 단위
   chatRule?: { maxLen, lock(state) → {locked, hint, hot}, route(text) → msg, bubble(e) → bool, own(state) → bool },
   waitPart?(name) → { el, update(state), dispose() },  // 대기실 커스텀 칸
-  leaveNote?(state) → string | null,                    // 게임 중 나가기 확인 창 글("나가면 기권이 됩니다" 등)
+  leaveNote?(state) → string | null,                    // 게임 중 나가기 확인 창 글("나가면 기권이 됩니다" 등). null 이고 state.wait 가 있으면(결과 화면) 확인 없이 바로 나감, null 이고 게임 중이면(관전 등) 글 없는 기본 확인 [G-yacht 가 확정]
   showEmote?(id, i) → bool,    // 스스로 그리면 true (포커 pins.emote)
   unmount(),                   // 리스너·타이머·3D·소리 전부. 방을 나가면 반드시 불리고, 다시 들어오면 새 mount
 }

@@ -57,6 +57,7 @@ export function createRoomFrame(deps) {
     if (!cur) return;
     if (showingWait || !state) { send({ t: 'leave' }); return; }
     const note = safe(() => cur.game?.leaveNote?.(state) ?? null);
+    if (note === null && state.wait) { send({ t: 'leave' }); return; } // 결과 화면(대기 상태)에서 나가기는 확인 없이
     confirmBox({ title: '방에서 나갈까요?', text: note ?? '', ok: '나가기', danger: true }).then((ok) => { if (ok) send({ t: 'leave' }); });
   }
   const bar = createRoomBar({ ui, sound, emote, onLeave: leave });

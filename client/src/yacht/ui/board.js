@@ -5,6 +5,7 @@
 import { createDiceView } from './dice2d.js';
 import { createFx } from '../anim/fx.js';
 import { ytSfx } from '../audio.js';
+import { createWho } from './who.js';
 
 const COMBO_TEXT = { yacht: '요트!', largeStraight: 'L 스트레이트', smallStraight: 'S 스트레이트', fourKind: '포카드', fullHouse: '풀하우스' };
 const HINT_TEXT = '주사위를 누르면 위 칸에 보관';
@@ -12,7 +13,6 @@ const HINT_MS = 3;          // 초
 const COMBO_S = 1.8;        // 초
 const MIN_HOLD_S = 0.4;     // 톡 눌러도 이만큼 흔든 뒤 굴린다
 const SHAKE_OFF_S = 0.3;    // 흔들기 끝 알림 뒤 굴림이 안 오면 컵에서 꺼낸다
-const COLORS = ['#3b6fd4', '#d4573b', '#2f9e6e', '#8a55c9', '#c9922f', '#2b9bb5'];
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -21,11 +21,10 @@ function el(tag, cls, text) {
   return e;
 }
 const f3 = (n) => (Number.isFinite(n) ? n : 0).toFixed(3);
-const colorOf = (id) => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
 const SVG_DIE = '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="1.5" y="1.5" width="17" height="17" rx="4" fill="#fff"/>'
   + [[5, 5], [15, 5], [10, 10], [5, 15], [15, 15]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.7" fill="#1a1613"/>`).join('') + '</svg>';
 
-export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
+export function createBoard({ host, stage, send, who = createWho(), onBusy } = {}) {
   const nogl = typeof location !== 'undefined' && /[?&]nogl=1/.test(location.search || '');
   const root = el('div', 'yt-bd-root');
   // 위 줄: 차례인 사람, N left
@@ -110,19 +109,7 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
   }
 
   // ---------- 보여 주기 ----------
-  function faceOf(id) {
-    let f = null;
-    try { f = getFace ? getFace(id) : null; } catch { f = null; }
-    const src = typeof f === 'string' ? f : (f && f.avatar) || null;
-    return typeof src === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(src) ? src : null;
-  }
-  function avatar(id, name) {
-    const a = el('span', 'yt-bd-av');
-    const src = faceOf(id);
-    if (src) { const im = el('img'); im.alt = ''; im.src = src; a.appendChild(im); }
-    else { a.textContent = (name || '?').trim().slice(0, 1); a.style.background = colorOf(id); }
-    return a;
-  }
+  const avatar = (id, name) => who.face(id, name, 'yt-bd-av', 28);
   const nameOf = (id) => {
     const p = (state.players || []).find((x) => x.id === id) || (state.cols || []).find((x) => x.id === id);
     return p ? p.name : '';
@@ -320,6 +307,7 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
 
   function update(next) {
     state = next || null;
+    who.setPlayers(state && state.players);
     if (holding && !mine()) { holding = null; shakeOffIn = null; view.setShaking(false); }   // 누르는 중 차례가 끝남
     elapsed = 0; lastWaitN = null;
     if (!state) {
