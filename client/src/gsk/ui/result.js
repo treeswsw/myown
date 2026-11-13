@@ -3,7 +3,7 @@
 // ctx 에서 쓰는 것: send, meId, face, busy
 import './result.css';
 import { requestFor } from '../actions.js';
-import { COLORS, discBackUrl, discFlowerUrl, discSkullUrl, matUrl, skullPhotoUrl } from '../art.js';
+import { COLORS, discFlowerUrl, discSkullUrl, matUrl, skullPhotoUrl } from '../art.js';
 import { penaltyPlan, rankRows, winnerInfo, winCaption } from './result.pure.js';
 
 const GONE_MS = 360;
@@ -85,29 +85,21 @@ export function createResult(parent, ctx) {
     const me = lastView.seats.find((s) => s.isMe);
     const color = me && me.color != null ? me.color : 0;
     wrap.append(h('div', 'gk-rs-ask', '하나를 골라 버리세요'));
-    wrap.append(h('div', 'gk-rs-asksub', plan.mode === 'back' ? '무엇인지는 주인만 압니다' : '내 원판 중에서 버립니다'));
+    wrap.append(h('div', 'gk-rs-asksub', '내 원판 중에서 버립니다. 무엇을 버렸는지는 나만 압니다'));
     const row = h('div', 'gk-rs-pen-row');
-    plan.cells.forEach((c, n) => {
+    plan.cells.forEach((c) => {
       const b = h('button', 'gk-rs-disc');
       b.type = 'button';
-      if (plan.mode === 'back') {
-        // 자리마다 각도를 조금씩 달리(순서는 서버가 섞은 그대로, 화면은 0..n-1)
-        const i = img(discBackUrl(0), 'gk-rs-discimg');
-        i.style.transform = `rotate(${((n * 53 + 18) % 90) - 40}deg)`;
-        b.append(i);
-        b.setAttribute('aria-label', `${n + 1}번째 원판`);
-      } else {
-        const skull = c.k === 'S';
-        const i = img(skull ? discSkullUrl(color) : discFlowerUrl(color), 'gk-rs-discimg');
-        if (skull) {
-          const photo = ctx.face && ctx.face(ctx.meId());
-          if (photo) skullPhotoUrl(color, photo).then((u) => { if (!disposed) i.src = u; });
-        }
-        b.append(i);
-        b.append(h('span', 'gk-rs-cnt', `×${c.count}`));
-        b.setAttribute('aria-label', skull ? '해골 원판' : '꽃 원판');
-        b.append(h('span', 'gk-rs-kind', skull ? '해골' : '꽃'));
+      const skull = c.k === 'S';
+      const i = img(skull ? discSkullUrl(color) : discFlowerUrl(color), 'gk-rs-discimg');
+      if (skull) {
+        const photo = ctx.face && ctx.face(ctx.meId());
+        if (photo) skullPhotoUrl(color, photo).then((u) => { if (!disposed) i.src = u; });
       }
+      b.append(i);
+      b.append(h('span', 'gk-rs-cnt', `×${c.count}`));
+      b.setAttribute('aria-label', skull ? '해골 원판' : '꽃 원판');
+      b.append(h('span', 'gk-rs-kind', skull ? '해골' : '꽃'));
       pickCell(b, c.key);
       row.append(b);
     });

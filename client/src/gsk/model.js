@@ -7,13 +7,14 @@
 //             placed, passed, out, connected, status }],   // 내 자리가 맨 앞(참가자일 때), 나머지는 시계 방향
 //   me: { seated, hand:{F,S}, stack:[], lost:[] } | null,
 //   center: '상황 한 줄',
-//   bid: { n, by, byName } | null, progress: { flipped, need } | null,
+//   hostId, isHost, penalty({by,target,n,faceUp}) | null, outcome({ok,skullOf}) | null,
+//   bid: { n, by, byName } | null, progress: { flipped, need } | null (flip·reveal·penalty 동안),
 //   actions: [{ key, a, ...값 }],     // 지금 내가 할 수 있는 행동 전부. key 는 data-gk 값
 //   ranges: { bid:{min,max}|null, flipPiles:[id], colorsFree:[0..5], canStart:bool },
 //   result: state.result 그대로(이름 포함) | null,
 // }
 // 남의 원판 종류는 서버가 주지 않으므로 여기서도 쓰지 않는다(shown 만 공개된 것).
-// 행동 key: place-F place-S bid-<n> pass flip-<id> discard-<i> discard-F discard-S color-<c> start
+// 행동 key: place-F place-S bid-<n> pass flip-<id> discard-F discard-S color-<c> start
 
 const MIN_PLAYERS = 3;
 
@@ -154,24 +155,22 @@ export function toView(state, meId) {
         }
       }
     } else if (step === 'penalty' && state.penalty && state.penalty.by === me) {
-      const pen = state.penalty;
-      if (pen.faceUp) {
-        const cnt = { F: hand.F || 0, S: hand.S || 0 };
-        for (const k of (mine && mine.stack) || []) cnt[k] = (cnt[k] || 0) + 1;
-        for (const k of ['F', 'S']) if (cnt[k] > 0) actions.push({ key: `discard-${k}`, a: 'discard', k });
-      } else {
-        for (let i = 0; i < pen.n; i++) actions.push({ key: `discard-${i}`, a: 'discard', i });
-      }
+      // GDD 17절: 벌칙은 항상 도전자 본인이 앞면(손 + 판 위 전부)을 보고 종류로 고른다
+      const cnt = { F: hand.F || 0, S: hand.S || 0 };
+      for (const k of (mine && mine.stack) || []) cnt[k] = (cnt[k] || 0) + 1;
+      for (const k of ['F', 'S']) if (cnt[k] > 0) actions.push({ key: `discard-${k}`, a: 'discard', k });
     }
   }
 
   return {
-    phase: state.phase, step: state.step || null, round: state.round || 0, total,
+    phase: state.phase, step: state.step || null, hostId: state.hostId || null, isHost: !!me && state.hostId === me, round: state.round || 0, total,
     seats,
     me: mySeat ? { seated: true, hand: { F: hand.F || 0, S: hand.S || 0 }, stack: (mine && mine.stack) || [], lost: (mine && mine.lost) || [] } : null,
     center: centerText(state, me),
     bid: state.bid ? { n: state.bid.n, by: state.bid.by, byName: nameOf(state, state.bid.by) } : null,
-    progress: state.step === 'flip' ? { flipped: state.flipped || 0, need: state.need || 0 } : null,
+    penalty: state.penalty || null,
+    outcome: state.outcome || null,
+    progress: ['flip', 'reveal', 'penalty'].includes(state.step) ? { flipped: state.flipped || 0, need: state.need || 0 } : null,
     actions, ranges,
     result: state.result || null,
   };

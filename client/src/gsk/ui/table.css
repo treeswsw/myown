@@ -106,3 +106,13 @@
 
 /* 손이 접혀 있을 때 놓이는 자리(보이지 않는 칸, 손·연출이 위치를 잴 때) */
 .gk-tb-dock { position: absolute; pointer-events: none; }
+
+/* 연출 층·벌칙 창과 겹치지 않게: 판정 중에는 가운데 글자를, 벌칙 중에는 가운데 전체를 감춘다(글자는 DOM 에 그대로) */
+.gk-tb[data-step="reveal"] .gk-tb-saybox, .gk-tb[data-step="penalty"] .gk-tb-saybox { opacity: 0; }
+.gk-tb[data-step="penalty"] .gk-tb-mid, .gk-tb[data-step="penalty"] .gk-tb-row { opacity: 0; transition: opacity .2s; }
+.gk-tb[data-phase="result"] .gk-tb-mid { opacity: 0; }
+/* 도전자 판 움찔 / 가운데 숫자 튐 */
+@keyframes gk-tb-flinch { 0%, 100% { transform: none; } 15% { transform: translate(-5px, 2px) rotate(-1.4deg); } 35% { transform: translate(6px, -2px) rotate(1.2deg); } 55% { transform: translate(-4px, 1px); } 75% { transform: translate(3px, 0); } }
+.gk-tb-flinch .gk-tb-board { animation: gk-tb-flinch .5s ease-out 1; }
+@keyframes gk-tb-pop { 0% { transform: scale(1); } 40% { transform: scale(1.32); } 100% { transform: scale(1); } }
+.gk-tb-num.gk-tb-pop { display: inline-block; animation: gk-tb-pop .38s ease-out 1; }

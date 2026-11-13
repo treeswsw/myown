@@ -79,15 +79,32 @@ test('reveal: 성공/실패 문구, 행동 없음', () => {
   assert.equal(toView(bad, 'p0').center, '해골! N0 님 실패');
 });
 
-test('penalty: 남이 고르면 칸 번호, 자기 해골이면 종류', () => {
-  const s = base({ step: 'penalty', turn: null, challenger: 'p1', penalty: { by: 'p0', target: 'p1', n: 3, faceUp: false } });
-  assert.deepEqual(keys(toView(s, 'p0')), ['discard-0', 'discard-1', 'discard-2']);
-  assert.equal(toView(s, 'p0').center, '버릴 원판을 고르세요');
-  assert.equal(toView(s, 'p2').center, 'N0 님이 버릴 원판을 고르는 중');
+test('penalty: 도전자만 앞면 종류로 고르고 남은 지켜본다', () => {
+  const pen = { by: 'p1', target: 'p1', n: 4, faceUp: true };
+  const s = base({ you: 'p1', step: 'penalty', turn: null, challenger: 'p1', penalty: pen, outcome: { ok: false, skullOf: 'p0' },
+    flipped: 2, need: 3, mine: { hand: { F: 2, S: 0 }, stack: ['F', 'S'], lost: [] } });
+  const v = toView(s, 'p1');
+  assert.deepEqual(keys(v), ['discard-F', 'discard-S']);
+  assert.equal(v.center, '버릴 원판을 고르세요');
+  assert.deepEqual(v.penalty, pen);
+  assert.deepEqual(v.outcome, { ok: false, skullOf: 'p0' });
+  assert.deepEqual(v.progress, { flipped: 2, need: 3 });
+  // 가진 종류만
+  const only = toView({ ...s, mine: { hand: { F: 3, S: 0 }, stack: [], lost: [] } }, 'p1');
+  assert.deepEqual(keys(only), ['discard-F']);
+  // 해골 주인이든 구경꾼이든 행동 없음
+  assert.deepEqual(keys(toView(s, 'p0')), []);
+  assert.equal(toView(s, 'p2').center, 'N1 님이 버릴 원판을 고르는 중');
   assert.deepEqual(keys(toView(s, 'p2')), []);
-  const self = base({ step: 'penalty', turn: null, challenger: 'p0', penalty: { by: 'p0', target: 'p0', n: 4, faceUp: true },
-    mine: { hand: { F: 2, S: 0 }, stack: ['F', 'S'], lost: [] } });
-  assert.deepEqual(keys(toView(self, 'p0')), ['discard-F', 'discard-S']);
+});
+
+test('hostId·isHost·progress', () => {
+  const v = toView(base({ step: 'flip', challenger: 'p0', flipped: 1, need: 3 }), 'p0');
+  assert.equal(v.hostId, 'p0');
+  assert.equal(v.isHost, true);
+  assert.equal(toView(base(), 'p1').isHost, false);
+  assert.deepEqual(v.progress, { flipped: 1, need: 3 });
+  assert.equal(toView(base({ step: 'turn' }), 'p0').progress, null);
 });
 
 test('between / result', () => {
@@ -119,8 +136,6 @@ test('actions 모양', () => {
   assert.deepEqual(A.bid(3), { t: 'gk', a: 'bid', n: 3 });
   assert.deepEqual(A.pass(), { t: 'gk', a: 'pass' });
   assert.deepEqual(A.flip('p1'), { t: 'gk', a: 'flip', p: 'p1' });
-  assert.deepEqual(A.discard({ i: 2 }), { t: 'gk', a: 'discard', i: 2 });
-  assert.deepEqual(A.discard({ i: 0 }), { t: 'gk', a: 'discard', i: 0 });
   assert.deepEqual(A.discard({ k: 'S' }), { t: 'gk', a: 'discard', k: 'S' });
   assert.deepEqual(A.color(4), { t: 'gk', a: 'color', c: 4 });
   assert.deepEqual(A.start(), { t: 'start' });
