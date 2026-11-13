@@ -211,3 +211,12 @@ export function decideDown(info) {
   if (type === 'touch' && Math.max(width || 0, height || 0) > PALM_MAX_CONTACT) return 'ignore';
   return 'start';
 }
+
+// 새 누름(next = { id, type, isPrimary })이 왔을 때, 아직 긋는 중으로 기억한 포인터(active = { id, type })가
+// 사실은 이미 떨어졌나(pointerup·lostpointercapture 를 못 받았거나 늦음). 그렇다면 앞 선을 끝내고 새 선을 받는다.
+// ① 같은 포인터 번호가 다시 눌림 ② 같은 종류이고 isPrimary(펜·마우스는 기기가 하나, 손가락은 "지금 닿은 다른 손가락 없음")
+export function staleActive(active, next) {
+  if (!active || !next) return false;
+  if (next.id === active.id) return true;
+  return next.type === active.type && next.isPrimary === true;
+}
