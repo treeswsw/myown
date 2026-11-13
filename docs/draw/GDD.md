@@ -538,6 +538,9 @@ WebSocket `/ws`, JSON, `{t: 종류, ...}`. 기존 SPEC 7절을 그대로 쓰고 
   - `event(e)`: 10-5 의 `event.e` 하나. 자기와 상관없는 `k` 는 무시한다.
   - `ctx = { send(msg), meId(), now() , layout() }`. `send` 는 `{t:'dr', a, ...}` 나 기존 메시지(`chat` 등)를 그대로 보낸다. `now()` 는 서버 시각 보정된 epochMs. `layout()` 은 `'wide'`(PC·iPad) 또는 `'phone'`(휴대폰 가로).
   - 모듈 사이 직접 호출은 하지 않는다. 필요한 것은 `ctx` 에 콜백으로 추가하며, 추가는 index.js 과제가 한다. 예외: 그림판과 도구 사이의 "지금 고른 도구·색·굵기"는 `ctx.tool` 객체 `{ get(), set(patch), on(fn) }` 로 주고받는다(`get()` = `{ tool:'pen'|'erase'|'strokeErase', color, penW, eraseW }`).
+- `ctx.localAct(a)` (a = `'undo'|'redo'|'clear'`): 도구 칸이 `send` 직전에 부른다. index.js 가 그림판의 로컬 되돌리기·다시 하기·전체 지우기에 연결한다(그리는 사람은 `drUndo` 등을 받지 않으므로). 서버가 막으면 `drSync` 로 바로잡힌다.
+- `ctx.history = { get(): {canUndo, canRedo}, on(fn): off }`: 그림판(board)이 자기 로컬 한 일 목록(ops.js)으로 만들어 내놓고, index.js 가 도구 칸에 넘긴다. 되돌리기·다시 하기 버튼과 단축키는 이것만 본다. `room.state` 는 그림이 바뀔 때 다시 오지 않으므로 `state.canUndo/canRedo` 로 판단하지 않는다(10-4 의 두 칸은 참고용, 입장·재접속 때만 맞다). 다시 하기는 긋는 중이면 꺼진다(15절).
+- 도구 세부: 지우개 상태에서 색을 누르면 펜으로 돌아간다. 획 지우개일 때 굵기 버튼은 꺼진다. 포기 버튼은 확인 창 없이 바로.
 - 사용자 글자는 `textContent` 로만 넣는다. CSS 는 자기 접두사만(11-1 표). `#ui` 는 pointer-events:none 이므로 눌러야 하는 요소는 스스로 `pointer-events:auto`.
 - 각 모듈은 `client/src/draw/dev.html` 같은 별도 데모를 만들지 않는다. 화면 확인은 통합 뒤 실제 서버에서 한다(CLAUDE.md). 모듈 단위 시험은 `test/draw/` 의 순수 함수 시험(DOM 없이 계산 가능한 부분은 `*.pure.js` 로 떼어 시험)으로 한다.
 
@@ -583,3 +586,5 @@ WebSocket `/ws`, JSON, `{t: 종류, ...}`. 기존 SPEC 7절을 그대로 쓰고 
 - 2026-11-13 통신 세부 결정: `settings`에 고칠 칸이 하나도 없으면 `dr_bad`. (10-2)
 - 2026-11-13 통신 세부 결정: 시간 상수 이름은 `shared/draw/constants.js`의 `TIMES{pick, reveal, rush, idle, drawerAway, seatKeep}`를 따른다. (10-1)
 - 2026-11-13 정답·점수·단어 세부(검토 반영): ① 화면 `choices`에는 `{w, topic}`만, 정답 판정은 `entry(w)`(다른 이름 포함)와 `isCorrect`. ② 고른 단어(자동 선택 포함)는 `use(w)`로 기억. 한 방에서는 "한 판 더"를 해도 기억을 비우지 않는다(`reset()`은 부르지 않음, 남은 단어가 3개 미만이면 words.js가 그 주제 기록만 비움). ③ 첫 정답자 점수는 30초 단축 전 끝 시각으로 계산한 뒤 끝 시각을 줄이고, 이후 정답자는 줄어든 끝 시각 기준, 분모는 `settings.time`. ④ 채팅 앞 크기 표시(`#`,`*`)는 game이 떼고 `isCorrect`를 부른다. ⑤ 켜진 주제가 없으면 설정 단계에서 `dr_bad`로 막는다. ⑥ 공동 순위는 점수와 맞힌 횟수가 모두 같을 때, 1·1·3 식.
+- 2026-11-13 그림 기록 세부(검토 반영): ① room 상태의 `canRedo`는 `!cur && canRedo(s)`(긋는 동안 다시 하기 흐림). ② `drSync`는 한 사람에게 1초에 1번 이하로 줄여 보낸다(한 번 최대 약 0.8MB). ③ `dr_canvas_full`이면 `drCx`는 그리는 사람을 뺀 방 전원, 그리는 사람에게는 오류 글과 `drSync`. ④ 화면은 `dr_canvas_full`이나 `drSync`를 받으면 긋던 선을 멈추고 다음 누를 때 새 `st`. ⑤ 화면은 손을 뗄 때 반드시 `pt f:1`을 보낸다. ⑥ 10-8 어림: 한도까지 찬 그림은 약 0.5MB, 최악 0.8MB.
+- 2026-11-13 되돌리기 가능 여부: 화면은 `room.state.canUndo/canRedo` 대신 그림판 로컬 상태(`ctx.history`, 11-2)로 판단한다(검토 지적: 상태는 그림 변경 때 안 옴).
