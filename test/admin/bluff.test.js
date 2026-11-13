@@ -89,7 +89,7 @@ test('bots play and call LIAR on their own', async () => {
 
 test('skip: nothing to skip in the lobby or on a turn; ends the penalty display and the winner display at once', async () => {
   await withErrorCapture(async (errors) => {
-    const env = await setupAdmin({ mode: 'bluff', bots: 1, seed: 5 });
+    const env = await setupAdmin({ mode: 'bluff', bots: 1, seed: 6 });
     let r = await env.adm('skip');
     assert.equal(r.ok, false);
     assert.equal(r.error.code, 'adm_noskip');
