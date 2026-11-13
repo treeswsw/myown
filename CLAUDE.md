@@ -17,6 +17,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 요트다이스: shared/yacht/, server/yacht/, client/src/yacht/, test/yacht/, docs/yacht/ (한 과제는 그 안의 한 모듈만. 모듈·접두사는 docs/YACHT-PLAN.md 1절:
   규칙 shared/yacht/{constants,score,game,protocol}.js, 굴림 계산기 shared/yacht/sim.js, 점수표 .yt-sc-, 결과 .yt-rs-, 판 .yt-bd-, 연출 .yt-fx-, 3D 모델 client/src/yacht/scene/. 요트 CSS 클래스는 전부 `.yt-`)
 - 갱식마인드: shared/draw/, server/draw/, client/src/draw/, test/draw/, docs/draw/, design/draw/ (한 과제는 그 안의 한 모듈만. CSS 는 전부 .dr-, 모듈 접두사 GDD 11-1)
+- 코인(SPEC 22절, 모든 게임 공용): shared/coin/, server/coin/, client/src/coin/, test/coin/ (CSS 지갑·랭킹 .cn-, 뽑기 .gc-, 상점 .sh-, 비밀번호 .pn-). 게임 폴더는 고치지 않고 server/coin/hooks.js 에서 감싼다. 무작위는 hub.rng(crypto)만.
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
 - UI 시험: test/ui/, client/src/mock.js
 - 관리자(SPEC 21절): 서버 틀 server/admin/*.js, 게임별 봇 server/admin/games/<모드>.js (한 과제는 한 게임만), 시험 test/admin/, 화면 client/src/ui/admin.*(.adm-), 연출 목록 client/src/admin/
