@@ -101,3 +101,46 @@ test('arrowPlan: 같은 입력이면 같은 결과(순서 무관)', () => {
   const b = arrowPlan({ u3: 'u0', u2: 'u0', u1: 'u0' }, seatsOf(4));
   assert.deepEqual(a, b);
 });
+
+// pick / tagPos (실제 장면, GPU 없이 node 에서)
+import { createLiarScene } from '../../client/src/liar/scene/index.js';
+
+function sceneWith(n, view) {
+  const sc = createLiarScene();
+  sc.resize(1000, 750);
+  sc.setPlayers(Array.from({ length: n }, (_, i) => ({ id: 'u' + i, seat: i, name: 'P' + i, color: '#c33', body: 0 })), 'u0');
+  if (view) sc.setView(view, true);
+  sc.frame(1);
+  return sc;
+}
+for (const n of [3, 8]) {
+  test(`pick: ${n}명 모두 화면을 훑으면 잡히고 / 빈 곳은 null`, () => {
+    const sc = sceneWith(n);
+    const found = new Map();
+    for (let y = 0; y < 750; y += 8) for (let x = 0; x < 1000; x += 8) {
+      const id = sc.pick(x, y);
+      if (id) found.set(id, [...(found.get(id) || []), [x, y]]);
+    }
+    for (let i = 0; i < n; i++) assert.ok(found.has('u' + i), `u${i} 가 한 번도 안 잡힘`);
+    assert.equal(sc.pick(2, 2), null);
+    assert.equal(sc.pick(998, 748), null);
+    // 잡힌 점을 다시 누르면 같은 사람
+    for (const [id, pts] of found) assert.equal(sc.pick(...pts[Math.floor(pts.length / 2)]), id);
+    sc.dispose();
+  });
+}
+test('tagPos: 클로즈업이면 below:true 이고 screenPos 보다 아래, 전체 보기에서는 screenPos 와 같음', () => {
+  const sc = sceneWith(5, { mode: 'focus', id: 'u2' });
+  const t = sc.tagPos('u2');
+  const s = sc.screenPos('u2');
+  assert.equal(t.below, true);
+  assert.ok(t.y > s.y, 'tagPos 는 screenPos 보다 아래');
+  // 클로즈업 아닌 사람은 screenPos 와 같다
+  assert.deepEqual(sc.tagPos('u3'), sc.screenPos('u3'));
+  sc.setView({ mode: 'table' }, true);
+  assert.deepEqual(sc.tagPos('u2'), sc.screenPos('u2'));
+  sc.setView({ mode: 'liar', id: 'u2' }, true);
+  assert.deepEqual(sc.tagPos('u2'), sc.screenPos('u2'));
+  assert.equal(sc.tagPos('nobody'), null);
+  sc.dispose();
+});
