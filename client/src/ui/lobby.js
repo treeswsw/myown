@@ -3,6 +3,7 @@ import { openAvatarCrop } from './avatarCrop.js';
 import { h, svg, avatar, fmt } from './dom.js';
 import { GAME_NAME as GSK_NAME } from '../../../shared/gsk/name.js';
 import { GAME_NAME as DRAW_NAME } from '../../../shared/draw/name.js';
+import { NAMES as MINI_NAMES, GAME_IDS as MINI_IDS } from '../../../shared/mini/index.js';
 import { item as shopItem, GRADES } from '../../../shared/coin/shop.js';
 
 // 뽑기 버튼은 나중에 공개. true 로 바꾸면 다시 보인다.
@@ -10,7 +11,7 @@ const SHOW_DRAW = false;
 
 // createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
-// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), setYacht(visible), setDraw(visible), setGsk(visible), showRank({top, mine}) }
+// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), setYacht(visible), setDraw(visible), setGsk(visible), setMini(visible), showRank({top, mine}) }
 // onRank() -> ask the server for the liar ranking, then call showRank.
 // onResetConfirm(adminPw) is called when the user confirms 전체 초기화 (adminPw: string|undefined).
 // onLogin(id, avatar, adminPw, {pin, newPin}) - 4th arg fields are undefined when empty.
@@ -26,10 +27,11 @@ const MODES = {
   yacht: { name: '요트다이스', desc: '2~4명 · 주사위 5개', max: 4 },
   draw: { name: DRAW_NAME, desc: '2~8명 · 그림 보고 단어 맞히기', max: 8 },
   gsk: { name: GSK_NAME, desc: '3~6명 · 해골을 피해 꽃 뒤집기', max: 6 },
+  mini: { name: '미니게임', desc: '2명 · 오목·리버시·체커·체스·커넥트포', max: 8 },
 };
 const BASE_KEYS = ['holdem', 'bluff'];
-// Home picker order is fixed: holdem, bluff, liar, yacht, draw, gsk (only the visible ones).
-const keysFor = (liar, yacht, draw, gsk) => [...BASE_KEYS, ...(liar ? ['liar'] : []), ...(yacht ? ['yacht'] : []), ...(draw ? ['draw'] : []), ...(gsk ? ['gsk'] : [])];
+// Home picker order is fixed: holdem, bluff, liar, yacht, draw, gsk, mini (only the visible ones).
+const keysFor = (liar, yacht, draw, gsk, mini) => [...BASE_KEYS, ...(liar ? ['liar'] : []), ...(yacht ? ['yacht'] : []), ...(draw ? ['draw'] : []), ...(gsk ? ['gsk'] : []), ...(mini ? ['mini'] : [])];
 const ID_RE = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9_]{2,12}$/;
 const LAST_ID_KEY = 'gs.lastId';
 const SPADE = '<path d="M12 2C8 7 3 9.5 3 14a4.5 4.5 0 0 0 7.6 3.2L9.5 22h5l-1.1-4.8A4.5 4.5 0 0 0 21 14c0-4.5-5-7-9-12z"/>';
@@ -69,7 +71,10 @@ function segmented(onPick, initKeys = BASE_KEYS) {
     // 3 or fewer: one row. 4+: two rows (top row gets the extra one), each row centred on a 6-column grid.
     const n = keys.length, top = n > 3 ? Math.ceil(n / 2) : n;
     const span = 6 / top, m = n - top;
-    btns.forEach((b, i) => { b.style.gridColumn = i === top && m ? `${1 + (6 - m * span) / 2} / span ${span}` : `span ${span}`; });
+    if (n > 6) { // 7+: rows of 3, the leftover row centred (7 = 3/3/1)
+      const full = n - (n % 3 || 3);
+      btns.forEach((b, i) => { b.style.gridColumn = i === full ? `${1 + (6 - (n - full) * 2) / 2} / span 2` : 'span 2'; });
+    } else btns.forEach((b, i) => { b.style.gridColumn = i === top && m ? `${1 + (6 - m * span) / 2} / span ${span}` : `span ${span}`; });
     el.classList.toggle('lb-seg-2row', n > 3);
     el.replaceChildren(...btns);
   }
@@ -86,7 +91,7 @@ function segmented(onPick, initKeys = BASE_KEYS) {
 
 export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm, onRank, onCoin }) {
   const el = h('div', 'lb-root lobby');
-  let user = null, room = null, pendingAvatar = null, liarOn = false, yachtOn = false, drawOn = false, gskOn = false;
+  let user = null, room = null, pendingAvatar = null, liarOn = false, yachtOn = false, drawOn = false, gskOn = false, miniOn = false;
 
   const fileInput = h('input');
   fileInput.type = 'file';
@@ -239,9 +244,28 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
 
   const play = h('section', 'lb-panel panel');
   let pickedMode = 'holdem';
-  const homeSeg = segmented((m) => { pickedMode = m; homeSeg.set(m); updateCreate(); });
+  const homeSeg = segmented((m) => { pickedMode = m; homeSeg.set(m); syncMini(); updateCreate(); });
   homeSeg.set(pickedMode);
-  const createBtn = button('방 만들기', 'lb-primary', () => { homeErr.textContent = ''; onCreate(pickedMode); });
+  let pickedMini = 'gomoku';
+  const miniBox = h('div', 'lb-mini-pick');
+  miniBox.setAttribute('role', 'radiogroup');
+  miniBox.setAttribute('aria-label', '미니게임 분류');
+  const miniBtns = MINI_IDS.map((g) => {
+    const b = h('button', 'lb-seg-item lb-mini-item', MINI_NAMES[g]);
+    b.type = 'button';
+    b.dataset.mini = g;
+    b.setAttribute('role', 'radio');
+    b.addEventListener('click', () => { pickedMini = g; syncMini(); });
+    return b;
+  });
+  miniBox.append(...miniBtns);
+  miniBox.hidden = true;
+  function syncMini() {
+    miniBox.hidden = pickedMode !== 'mini';
+    miniBtns.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mini === pickedMini)));
+  }
+  syncMini();
+  const createBtn = button('방 만들기', 'lb-primary', () => { homeErr.textContent = ''; onCreate(pickedMode, pickedMode === 'mini' ? pickedMini : undefined); });
   const createNote = h('p', 'lb-cap');
   const isBroke = () => user != null && (user.chips ?? user.bank) === 0;
   function updateCreate() {
@@ -254,7 +278,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   const emptyNote = h('p', 'lb-empty', '열린 방이 없습니다. 새 게임을 만들어 보세요.');
   const rows = new Map();
   let lastRooms = [];
-  play.append(h('h2', null, '새 게임'), h('div', 'lb-stack lb-seg-box', homeSeg.el, homeSeg.caption),
+  play.append(h('h2', null, '새 게임'), h('div', 'lb-stack lb-seg-box', homeSeg.el, homeSeg.caption, miniBox),
     createBtn, createNote,
     h('hr'), h('h2', null, '열린 방'), roomList, emptyNote, homeErr);
 
@@ -270,7 +294,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
   function renderRooms(all) {
     lastRooms = all;
-    const list = all.filter((r) => (r.mode !== 'liar' || liarOn) && (r.mode !== 'yacht' || yachtOn) && (r.mode !== 'draw' || drawOn) && (r.mode !== 'gsk' || gskOn));
+    const list = all.filter((r) => (r.mode !== 'liar' || liarOn) && (r.mode !== 'yacht' || yachtOn) && (r.mode !== 'draw' || drawOn) && (r.mode !== 'gsk' || gskOn) && (r.mode !== 'mini' || miniOn));
     const seen = new Set();
     let ref = roomList.firstChild;
     for (const r of list) {
@@ -278,7 +302,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
       let row = rows.get(r.code);
       if (!row) rows.set(r.code, row = roomRow(r.code));
       const full = r.count >= r.max;
-      row.title.textContent = MODES[r.mode]?.name ?? r.mode;
+      row.title.textContent = r.mode === 'mini' && MINI_NAMES[r.game] ? `미니게임 · ${MINI_NAMES[r.game]}` : (MODES[r.mode]?.name ?? r.mode);
       row.host.textContent = `${r.hostName}의 방`;
       row.count.textContent = `${r.count}/${r.max}`;
       row.state.textContent = full ? '가득 참' : r.phase === 'lobby' ? '대기 중' : '게임 중';
@@ -427,9 +451,10 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
 
   function applyKeys() {
-    homeSeg.setKeys(keysFor(liarOn, yachtOn, drawOn, gskOn));
-    if ((!liarOn && pickedMode === 'liar') || (!yachtOn && pickedMode === 'yacht') || (!drawOn && pickedMode === 'draw') || (!gskOn && pickedMode === 'gsk')) pickedMode = 'holdem';
+    homeSeg.setKeys(keysFor(liarOn, yachtOn, drawOn, gskOn, miniOn));
+    if ((!liarOn && pickedMode === 'liar') || (!yachtOn && pickedMode === 'yacht') || (!drawOn && pickedMode === 'draw') || (!gskOn && pickedMode === 'gsk') || (!miniOn && pickedMode === 'mini')) pickedMode = 'holdem';
     homeSeg.set(pickedMode);
+    syncMini();
     updateCreate();
     renderRooms(lastRooms);
   }
@@ -456,6 +481,13 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     on = !!on;
     if (on === drawOn) return;
     drawOn = on;
+    applyKeys();
+  }
+
+  function setMini(on) {
+    on = !!on;
+    if (on === miniOn) return;
+    miniOn = on;
     applyKeys();
   }
 
@@ -524,6 +556,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     setYacht,
     setDraw,
     setGsk,
+    setMini,
     showRank,
     show() { el.hidden = false; },
     hide() { el.hidden = true; },

@@ -6,6 +6,7 @@ import { createLiarRoom } from './liar/room.js';
 import { createYachtRoom } from './yacht/room.js';
 import { createDrawRoom } from './draw/room.js';
 import { createGskRoom } from './gsk/room.js';
+import { createMiniRoom } from './mini/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 import { createAdmin, ADMIN_ID } from './admin/bots.js';
 import { installWallet, walletOf } from './coin/wallet.js';
@@ -25,7 +26,7 @@ export const DEFAULT_TIMING = {
   roomList: 500, // open-room list broadcasts are coalesced to one per this interval
   reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
-const MAX_PLAYERS = { holdem: 6, bluff: 4, liar: 8, yacht: 4, draw: 8, gsk: 6 };
+const MAX_PLAYERS = { holdem: 6, bluff: 4, liar: 8, yacht: 4, draw: 8, gsk: 6, mini: 8 };
 const MEDIA = new Set(['emote', 'pemote', 'snd', 'sndAdd']);
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
@@ -490,7 +491,7 @@ class Room {
 }
 
 export function createHub({
-  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', gsk = 'off', adminKey, coinSeed = 0,
+  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', gsk = 'off', mini = 'off', adminKey, coinSeed = 0,
 }) {
   const hub = {
     store, rng, now, timers, timing: { ...DEFAULT_TIMING, ...timing },
@@ -509,6 +510,7 @@ export function createHub({
     yacht, // 'off' | 'test' | 'on'
     draw, // 'off' | 'test' | 'on'
     gsk, // 'off' | 'test' | 'on'
+    mini, // 'off' | 'test' | 'on'
     pendingSaves: new Set(),
     epoch: 0, // bumped by a reset: user objects from an older epoch are never saved again
     userEpoch: new WeakMap(),
@@ -524,13 +526,14 @@ export function createHub({
     },
     sendMe(...sessions) {
       // admin: true only for the admin session; nobody else gets the field.
-      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, gsk: hub.gsk, wallet: walletOf(s.user, hub), ...(s.admin ? { admin: true } : {}) });
+      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, gsk: hub.gsk, mini: hub.mini, wallet: walletOf(s.user, hub), ...(s.admin ? { admin: true } : {}) });
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
       return [...hub.rooms.values()].filter((r) => r.members.length > 0).map((r) => ({
         code: r.code, mode: r.mode, hostName: (r.member(r.hostId) ?? r.members[0]).session.user.name,
         count: r.members.length, max: MAX_PLAYERS[r.mode], phase: r.phase,
+        ...(r.mode === 'mini' ? { game: r.game } : {}),
       }));
     },
     sendRooms(session) {
@@ -785,7 +788,7 @@ async function dispatch(hub, conn, msg) {
   // A draw room has its own {t:'dr'} requests: the other games' requests (even the overall liar ranking) are refused first.
   if (room?.mode === 'draw' && ['mode', 'act', 'play', 'liar', 'lg'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'dr_now' };
   // A gsk room has its own {t:'gk'} requests too.
-  if (room?.mode === 'gsk' && ['mode', 'act', 'play', 'liar', 'lg', 'yt', 'dr'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'gk_now' };
+  if (room?.mode === 'gsk' && ['mode', 'act', 'play', 'liar', 'lg', 'yt', 'dr', 'mn'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'gk_now' };
   // Overall liar ranking: answered by the hub itself, in the lobby or in a room (never passed to the room).
   if (msg.t === 'lg' && msg.a === 'rank') {
     if (hub.liar === 'off') return '라이어게임은 아직 열리지 않았습니다.';
@@ -838,6 +841,12 @@ async function dispatch(hub, conn, msg) {
         hub.rooms.set(gr.code, gr);
         return gr.join(session);
       }
+      if (msg.mode === 'mini') {
+        if (hub.mini === 'off') return { msg: '미니게임은 아직 열리지 않았습니다.', code: 'mn_off' };
+        const mr = createMiniRoom(hub, newCode(hub), msg.game);
+        hub.rooms.set(mr.code, mr);
+        return mr.join(session);
+      }
       const r = new Room(hub, newCode(hub), msg.mode);
       hub.rooms.set(r.code, r);
       return r.join(session);
@@ -864,6 +873,7 @@ async function dispatch(hub, conn, msg) {
     case 'lg': return room.lg ? room.lg(session, msg) : '알 수 없는 요청입니다.';
     case 'yt': return room.yt ? room.yt(session, msg) : '알 수 없는 요청입니다.';
     case 'gk': return room.mode === 'gsk' ? room.gk(session, msg) : '알 수 없는 요청입니다.';
+    case 'mn': return room.mode === 'mini' ? room.request(session, msg) : { msg: '알 수 없는 요청입니다.', code: 'mn_bad' };
     case 'dr': return room.mode === 'draw' ? room.dr(session, msg) : '알 수 없는 요청입니다.';
     case 'start': return room.start(session.id);
     case 'mode':
@@ -871,10 +881,10 @@ async function dispatch(hub, conn, msg) {
     case 'play':
     case 'liar':
       // Poker/bluff requests. A liar room has its own methods of the same names (play), so test the mode, not the method.
-      if (room.mode === 'liar' || room.mode === 'yacht') return '지금은 할 수 없습니다.';
+      if (room.mode === 'liar' || room.mode === 'yacht' || room.mode === 'mini') return '지금은 할 수 없습니다.';
       if (msg.t === 'mode') {
         if (msg.mode === 'yacht') return '요트다이스는 방을 새로 만들어 주세요.';
-        if (msg.mode === 'draw') return '방을 새로 만들어 주세요.';
+        if (msg.mode === 'draw' || msg.mode === 'mini') return '방을 새로 만들어 주세요.';
         if (msg.mode === 'gsk') return '갱스껄은 방을 새로 만들어 주세요.';
         return msg.mode === 'liar' ? '라이어게임은 방을 새로 만들어 주세요.' : room.setMode(session.id, msg.mode);
       }

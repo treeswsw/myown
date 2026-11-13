@@ -743,3 +743,7 @@ design/   시안
 - 통신은 GDD 9절(`{t:'gk', a, ...}` 한 봉투, 모양 검사는 `shared/gsk/protocol.js`). 남의 원판 종류는 공개 전에 아무에게도 보내지 않고, 시간·판정·무작위는 서버(crypto 난수)가 한다. gsk 방에서는 `mode act play liar lg yt dr` 요청을 `gk_now` 로 거절한다.
 - 화면 쪽: `main.js` 가 `import('./gsk/index.js')` 의 `mountGsk(opts)` 를 따로 불러오고, 상단 줄은 `.gkbar`(방 코드·이모티콘·시작·나가기). 사이트 채팅을 쓴다. 가로 전용(세로는 `#rotate` 안내).
 - 시험: `npm test`(+ `test/gsk/`, 이음매 `test/gsk-seam.test.js`). 3D·움직임·소리·iPad/Safari 는 실기기 확인이 필요하다.
+
+## 24. 미니게임 (2026-11-13 사용자 요청)
+
+오목·리버시·체커·체스·커넥트포를 한 모드(`mini`)로 묶은 2명용 게임. 규칙·통신·방 상태는 전부 docs/mini/PLAN.md 를 따른다(요청 `{t:'mn'}`, 방 만들기 `{t:'create', mode:'mini', game}`, 스위치 `MINI`).

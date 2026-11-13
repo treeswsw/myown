@@ -186,3 +186,7 @@
 .lb-title-badge{display:inline-block;max-width:100%;margin-bottom:3px;padding:1px 8px;font-size:11px;line-height:16px;border:1.5px solid #9a9a9a;border-radius:999px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lb-title-badge[hidden]{display:none}
 .lb-title-badge.lb-rainbow{border:1.5px solid transparent;background:linear-gradient(#1c1c1e,#1c1c1e) padding-box,linear-gradient(90deg,#ff5a5a,#ffc93c,#5adf7a,#3d8bff,#b45cff) border-box}
+.lb-mini-pick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.lb-mini-pick[hidden]{display:none}
+.lb-mini-item{flex:1 1 auto;padding:0 10px;border-radius:8px;background:rgba(128,128,128,.15)}
+.lb-mini-item[aria-checked=true]{background:var(--accent,#ea3a3d);color:var(--on-accent,#fff)}

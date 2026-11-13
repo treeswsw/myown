@@ -675,6 +675,65 @@ async function runContext(browser, server, name, cfg) {
       await visible('button:has-text("방 만들기")');
       await gone('.gkbar-code');
     });
+    /* ---------- mini games 미니게임 (server MINI default on) ---------- */
+    const mBot = new Bot(server.url, uid('mb'), { autoplay: false });
+    await mBot.connect();
+    await mBot.login();
+    const mState = () => mBot.state;
+    await step('mini: lobby shows 미니게임 with the five-game picker', async () => {
+      await press('.lb-seg-item:has-text("미니게임")');
+      for (const g of ['오목', '리버시', '체커', '체스', '커넥트포']) await visible(`.lb-mini-item:has-text("${g}")`);
+    });
+    await step('mini: pick 커넥트포, create a room → waiting room, the room list names the game', async () => {
+      await press('.lb-mini-item:has-text("커넥트포")');
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.lgbar-code');
+      await visible('[data-mn="start"]');
+      const r = await openRoom('mini');
+      if (r.game !== 'connect4') throw new Error(`room list game=${r.game}`);
+      await mBot.join(r.code);
+      await visible('.mn-wait-note:has-text("시작을 누르세요")');
+    });
+    await occlusion('mini room (waiting)');
+    await step('mini: the host switches the game to 체스 in the waiting room, then back to 커넥트포', async () => {
+      await press('[data-mn="game-chess"]');
+      await mBot.waitFor((b) => b.state?.game === 'chess', T, 'game chess');
+      await press('[data-mn="game-connect4"]');
+      await mBot.waitFor((b) => b.state?.game === 'connect4', T, 'game connect4');
+    });
+    await step('mini: 시작 → board shows, status says whose turn', async () => {
+      await press('[data-mn="start"]');
+      await mBot.waitFor((b) => b.state?.phase === 'play', T, 'play phase');
+      await visible('.mn-board');
+      await page.waitForFunction(() => /차례/.test(document.querySelector('[data-mn="status"]')?.textContent || ''), null, { timeout: T });
+    });
+    await step('mini: both players drop four stones in a column → result text shows 승리', async () => {
+      const bs = () => mState();
+      const count = (st) => st.mn.board.reduce((n, row) => n + row.filter((v) => v != null).length, 0);
+      for (let i = 0; i < 7; i++) {
+        const st = bs();
+        const n = count(st);
+        const botTurn = st.mn.turn === st.mySeat;
+        const x = st.mn.turn === 0 ? 0 : 1; // seat 0 stacks column 0, seat 1 plays column 1
+        if (botTurn) mBot.send({ t: 'mn', a: 'move', move: { x } });
+        else await press(`.mn-board .mn-hit[data-x="${x}"]`);
+        await mBot.waitFor((b) => count(b.state) === n + 1 || b.state.phase === 'end', T, `stone ${i + 1}`);
+      }
+      await mBot.waitFor((b) => b.state?.phase === 'end', T, 'end phase');
+      await page.waitForFunction(() => /승리/.test(document.querySelector('[data-mn="status"]')?.textContent || ''), null, { timeout: T });
+    });
+    await step('mini: 다시 (host) returns to the waiting room', async () => {
+      await press('[data-mn="again"]');
+      await mBot.waitFor((b) => b.state?.phase === 'lobby', T, 'lobby phase');
+      await visible('[data-mn="start"]');
+    });
+    await step('mini: 나가기 returns to the lobby, bar and board disappear', async () => {
+      await press('button.lgbar-btn:has-text("나가기")');
+      await visible('button:has-text("방 만들기")');
+      await gone('.lgbar-code');
+      await page.waitForFunction(() => document.querySelector('.mn-root')?.hidden !== false);
+    });
+    mBot.close();
   } catch (e) {
     if (!(e instanceof StepFailed)) check('unexpected error', false, String(e.stack || e).split('\n').slice(0, 3).join(' | '));
     const shot = path.join(os.tmpdir(), `smoke-fail-${name}.png`);
