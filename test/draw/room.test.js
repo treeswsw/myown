@@ -420,3 +420,16 @@ test('상태에 서버 시각 now 가 들어 있다', () => {
   x.advance(500);
   assert.equal(x.room.view('u1').now, x.clock());
 });
+
+test('방장이 나가면 나간 사람에게 방 목록을 보낼 때 이미 새 방장(남은 사람)이다', () => {
+  const x = setup(3);
+  const seen = [];
+  x.hub.sendRooms = () => {
+    // rooms.js roomList() 처럼 방장을 멤버에서 찾는다: 없으면 예외
+    seen.push(x.room.member(x.room.hostId).session.user.name);
+  };
+  assert.equal(x.room.hostId, 'u0');
+  x.room.leave('u0');
+  assert.deepEqual(seen, ['N1']);
+  assert.equal(x.room.hostId, 'u1');
+});

@@ -148,6 +148,7 @@ class DrawRoom {
     const alive = new Set(g.players.map((p) => p.id));
     const gone = this.members.filter((m) => !alive.has(m.id));
     this.members = this.members.filter((m) => alive.has(m.id));
+    this.hostId = g.hostId; // 나간 사람에게 방 목록을 보내기 전에 새 방장으로 바꿔 둔다
     for (const m of gone) {
       if (m.session.room === this) m.session.room = null;
       this.lastSync.delete(m.id);
@@ -156,7 +157,6 @@ class DrawRoom {
       this.hub.sendRooms(m.session);
       if (!m.session.conn) this.hub.sessions.delete(m.id);
     }
-    this.hostId = g.hostId;
     this.phase = g.phase === 'lobby' || g.phase === 'final' ? 'lobby' : 'playing';
     if (g.phase === 'lobby') {
       this.drawnQ = 0;

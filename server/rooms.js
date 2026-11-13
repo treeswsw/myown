@@ -487,7 +487,7 @@ export function createHub({
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
       return [...hub.rooms.values()].filter((r) => r.members.length > 0).map((r) => ({
-        code: r.code, mode: r.mode, hostName: r.member(r.hostId).session.user.name,
+        code: r.code, mode: r.mode, hostName: (r.member(r.hostId) ?? r.members[0]).session.user.name,
         count: r.members.length, max: MAX_PLAYERS[r.mode], phase: r.phase,
       }));
     },
