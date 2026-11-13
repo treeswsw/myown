@@ -6,6 +6,7 @@ import { createLiarRoom } from './liar/room.js';
 import { createYachtRoom } from './yacht/room.js';
 import { createDrawRoom } from './draw/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
+import { createAdmin, ADMIN_ID } from './admin/bots.js';
 
 export const DEFAULT_TIMING = {
   grace: 60_000, // a disconnected player is auto-played (if on turn) and removed after this
@@ -455,7 +456,7 @@ class Room {
 }
 
 export function createHub({
-  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off',
+  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', adminKey,
 }) {
   const hub = {
     store, rng, now, timers, timing: { ...DEFAULT_TIMING, ...timing },
@@ -485,7 +486,8 @@ export function createHub({
       session.conn?.send(obj);
     },
     sendMe(...sessions) {
-      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw });
+      // admin: true only for the admin session; nobody else gets the field.
+      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, ...(s.admin ? { admin: true } : {}) });
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
@@ -525,6 +527,7 @@ export function createHub({
       hub.rooms.clear();
       hub.roomsSig = '[]';
       hub.sessions.clear();
+      hub.conns.forEach((c) => { if (c.session?.bot) hub.conns.delete(c); });
       for (const c of hub.conns) c.session = null;
       try {
         await store.clear();
@@ -537,6 +540,7 @@ export function createHub({
     },
     // Resolves once pending saves finished. Rooms get one flush() first (liar scores -> totals), but not on a reset (it wipes everything).
     close() {
+      hub.admin.closeAll();
       if (hub.roomsTimer !== null) timers.clearTimeout(hub.roomsTimer);
       hub.roomsTimer = null;
       if (!hub.resetting) {
@@ -555,6 +559,7 @@ export function createHub({
       return Promise.allSettled([...hub.pendingSaves]);
     },
   };
+  hub.admin = createAdmin(hub, adminKey ?? '9975');
   return hub;
 }
 
@@ -635,6 +640,10 @@ async function login(hub, conn, msg) {
     conn.send({ t: 'resetAsk' });
     return null;
   }
+  if (msg.key === ADMIN_ID) {
+    const denied = hub.admin.checkLogin(msg.pw);
+    if (denied) return denied;
+  }
   if (conn.session) {
     if (conn.session.id !== msg.key) return '이미 로그인되어 있습니다.';
     return null;
@@ -649,6 +658,7 @@ async function login(hub, conn, msg) {
     session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [], editTimes: [], lastSent: {} };
     hub.sessions.set(msg.key, session);
   }
+  if (msg.key === ADMIN_ID) session.admin = true;
   const old = session.conn;
   if (old && old !== conn) {
     old.session = null; // so its close does not mark the seat as disconnected
@@ -739,8 +749,10 @@ async function dispatch(hub, conn, msg) {
     case 'join': {
       if (room) return '이미 방에 있습니다.';
       const r = hub.rooms.get(msg.code);
-      return r ? r.join(session) : '존재하지 않는 방입니다.';
+      if (!r) return '존재하지 않는 방입니다.';
+      return hub.admin.refuseHuman(r, session) ?? r.join(session);
     }
+    case 'adm': return hub.admin.handle(session, room, msg);
     default:
   }
   if (!room) return '방에 들어가 있지 않습니다.';
