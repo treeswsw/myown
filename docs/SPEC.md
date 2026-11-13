@@ -471,3 +471,7 @@ design/   시안
    - `skip(room)` 은 성공하면 `true`, 건너뛸 것이 없으면 `false`.
 2. 화면: `client/src/admin/fx.js` 의 목록에 `{mode, id, label, play()}` 를 더한다.
 3. 시험: `test/admin/<모드>.test.js` — 관리자 혼자 + 봇으로 한 판이 끝까지 간다.
+
+## 22. 미니게임 (2026-11-13 사용자 요청)
+
+오목·리버시·체커·체스·커넥트포를 한 모드(`mini`)로 묶은 2명용 게임. 규칙·통신·방 상태는 전부 docs/mini/PLAN.md 를 따른다(요청 `{t:'mn'}`, 방 만들기 `{t:'create', mode:'mini', game}`, 스위치 `MINI`).

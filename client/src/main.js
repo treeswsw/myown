@@ -45,8 +45,13 @@ const liarAnchor = (id) => (liar && inLiar() ? liar.anchorOf(id) : null);
 let yacht = null;
 const withYacht = (fn) => { liarQ = liarQ.then(async () => { if (yacht) fn(yacht); }).catch((e) => console.error(e)); };
 const inYacht = () => state.room?.mode === 'yacht';
+
+/* mini games (미니게임): same queue as liar/yacht, own chunk */
+let mini = null;
+const withMini = (fn) => { liarQ = liarQ.then(async () => { if (mini) fn(mini); }).catch((e) => console.error(e)); };
+const inMini = () => state.room?.mode === 'mini';
 const yachtAnchor = (id) => (yacht && inYacht() ? yacht.anchorOf(id) : null);
-const anchorOf = (id) => (inLiar() ? liarAnchor(id) : inYacht() ? yachtAnchor(id) : inDraw() ? null : pins.anchor(id));
+const anchorOf = (id) => (inLiar() ? liarAnchor(id) : inYacht() ? yachtAnchor(id) : inDraw() || inMini() ? null : pins.anchor(id));
 
 const table = createTable(stage);
 table.reset();
@@ -85,7 +90,7 @@ const lobby = createLobby({
   onLogin: (id, avatar, pw) => { pendingAvatar = avatar; loginId = id; loginPw = pw ?? null; send(pw ? { t: 'login', id, pw } : { t: 'login', id }); },
   onResetConfirm: () => send({ t: 'reset', confirm: true }),
   onAvatar: (data) => send({ t: 'avatar', data }),
-  onCreate: (mode) => send({ t: 'create', mode }),
+  onCreate: (mode, game) => send(mode === 'mini' ? { t: 'create', mode, game } : { t: 'create', mode }),
   onJoin: (code) => send({ t: 'join', code }),
   onMode: (mode) => send({ t: 'mode', mode }),
   onStart: () => send({ t: 'start' }),
@@ -158,6 +163,7 @@ let wasMyTurn = false;
 let emphasized = false; // showdown emphasis is on screen
 let liarShown = false; // the screen currently shows a liar room (poker parts are cleared)
 let yachtShown = false; // the screen currently shows a yacht room (poker parts are cleared)
+let miniShown = false; // the screen currently shows a mini-game room (poker parts are cleared)
 let drawShown = false; // the screen currently shows a draw room (poker parts are cleared)
 let lastDrawToast = 0;
 const drawToast = (msg) => { lastDrawToast = Date.now(); toast(msg); };
@@ -234,7 +240,40 @@ function applyYachtRoom(room) {
   }
   withYacht((y) => y.applyRoom(state.room));
 }
+function applyMiniRoom(room) {
+  shown = room;
+  if (!miniShown) {
+    miniShown = true;
+    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null);
+    cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
+    wasMyTurn = false;
+  }
+  lobby.hide();
+  lgBar.hidden = false;
+  lgCode.textContent = `방 코드 ${room.code}`;
+  lgStart.hidden = true; // the mini screen has its own start button
+  lgBar.classList.add('lgbar-mini');
+  chat.setEnabled(true);
+  chat.button.hidden = false;
+  chat.setMode('game');
+  if (!mini) {
+    liarQ = liarQ.then(async () => {
+      if (mini) return;
+      const { mountMini } = await import('./mini/index.js');
+      mini = mountMini({ ui, send });
+    }).catch((e) => console.error(e));
+  }
+  withMini((m) => m.applyRoom(state.room));
+}
 function applyRoom(room) {
+  if (miniShown && room?.mode !== 'mini') {
+    miniShown = false;
+    lgBar.hidden = true;
+    lgBar.classList.remove('lgbar-mini');
+    lgStart.hidden = false;
+    closeLiarPanel();
+    withMini((m) => m.applyRoom(null));
+  }
   // Leaving one game's screen first clears it, whichever screen comes next.
   if (yachtShown && room?.mode !== 'yacht') {
     yachtShown = false;
@@ -255,6 +294,7 @@ function applyRoom(room) {
     closeLiarPanel();
     withLiar((l) => l.applyRoom(null));
   }
+  if (room?.mode === 'mini') { applyMiniRoom(room); return; }
   if (room?.mode === 'yacht') { applyYachtRoom(room); return; }
   if (room?.mode === 'liar') { applyLiarRoom(room); return; }
   if (room?.mode === 'draw') { applyDrawRoom(room); return; }
@@ -309,6 +349,7 @@ function handle(msg) {
       lobby.setLiar(msg.liar === 'on' || (msg.liar === 'test' && new URLSearchParams(location.search).get('liar') === '1'));
       lobby.setYacht(msg.yacht === 'on' || (msg.yacht === 'test' && new URLSearchParams(location.search).get('yacht') === '1'));
       lobby.setDraw(msg.draw === 'on' || (msg.draw === 'test' && new URLSearchParams(location.search).get('draw') === '1'));
+      lobby.setMini(msg.mini === 'on' || (msg.mini === 'test' && new URLSearchParams(location.search).get('mini') === '1'));
       if (pendingAvatar && !msg.user.avatar) send({ t: 'avatar', data: pendingAvatar });
       pendingAvatar = null;
       break;
@@ -317,8 +358,8 @@ function handle(msg) {
       if (msg.state?.code !== state.room?.code) { chat.setLog([]); emotePanel.clearRoom(); }
       state.room = msg.state;
       admin.refresh();
-      if ((msg.state?.mode === 'liar' && !liarShown) || (msg.state?.mode === 'yacht' && !yachtShown) || (msg.state?.mode === 'draw' && !drawShown)) { animator.flush(); special.skipAll(); }
-      if (msg.state?.mode === 'liar' || msg.state?.mode === 'yacht' || msg.state?.mode === 'draw' || !animator.busy()) applyRoom(msg.state);
+      if ((msg.state?.mode === 'liar' && !liarShown) || (msg.state?.mode === 'yacht' && !yachtShown) || (msg.state?.mode === 'draw' && !drawShown) || (msg.state?.mode === 'mini' && !miniShown)) { animator.flush(); special.skipAll(); }
+      if (msg.state?.mode === 'liar' || msg.state?.mode === 'yacht' || msg.state?.mode === 'draw' || msg.state?.mode === 'mini' || !animator.busy()) applyRoom(msg.state);
       break;
     case 'resetAsk': loginId = null; lobby.showResetConfirm(); break;
     case 'resetDone':
@@ -351,6 +392,19 @@ function handle(msg) {
         else if (e.k === 'sndDel') emotePanel.removeRoomSound(e.sid);
         else if (e.k === 'sndRename') emotePanel.renameRoomSound(e.sid, e.name);
         else withDraw((d) => d.event(e)); // includes emote, faces, chat, chatLog, left, drSt ...
+        break;
+      }
+      if (inMini()) { // mini rooms: no poker animator; site chat and emote panel as in yacht
+        const e = msg.e;
+        if (e.k === 'pemote') emotePanel.showPhoto(e.id, e.data);
+        else if (e.k === 'snd') emotePanel.playSound(e.id, e.sid);
+        else if (e.k === 'sndAdd') emotePanel.addRoomSound(e);
+        else if (e.k === 'sndList') { emotePanel.setRoomSounds(e.items); emotePanel.syncMine(); }
+        else if (e.k === 'sndDel') emotePanel.removeRoomSound(e.sid);
+        else if (e.k === 'sndRename') emotePanel.renameRoomSound(e.sid, e.name);
+        else if (e.k === 'chat') chat.push(e, { mine: e.id === state.room?.you });
+        else if (e.k === 'chatLog') chat.setLog(e.items, state.room?.you);
+        else withMini((m) => m.handleEvent(e));
         break;
       }
       if (inYacht()) { // yacht rooms never use the poker animator either
@@ -419,14 +473,14 @@ function handle(msg) {
         else lobby.setError(msg.msg);
         break;
       }
-      if (inLiar() || inYacht() || inDraw() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
+      if (inLiar() || inYacht() || inDraw() || inMini() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
       break;
     default: break;
   }
 }
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { animator.flush(); applyRoom(state.room); } });
-stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); emotePanel.update(); liar?.frame(dt / 1000); yacht?.frame(dt / 1000); }); // onFrame is ms, the games take seconds
+stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); emotePanel.update(); liar?.frame(dt / 1000); yacht?.frame(dt / 1000); mini?.frame(dt / 1000); }); // onFrame is ms, the games take seconds
 
 const mock = new URLSearchParams(location.search).get('mock');
 if (mock) {

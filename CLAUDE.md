@@ -17,6 +17,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 요트다이스: shared/yacht/, server/yacht/, client/src/yacht/, test/yacht/, docs/yacht/ (한 과제는 그 안의 한 모듈만. 모듈·접두사는 docs/YACHT-PLAN.md 1절:
   규칙 shared/yacht/{constants,score,game,protocol}.js, 굴림 계산기 shared/yacht/sim.js, 점수표 .yt-sc-, 결과 .yt-rs-, 판 .yt-bd-, 연출 .yt-fx-, 3D 모델 client/src/yacht/scene/. 요트 CSS 클래스는 전부 `.yt-`)
 - 갱식마인드: shared/draw/, server/draw/, client/src/draw/, test/draw/, docs/draw/, design/draw/ (한 과제는 그 안의 한 모듈만. CSS 는 전부 .dr-, 모듈 접두사 GDD 11-1)
+- 미니게임: shared/mini/, server/mini/, client/src/mini/, test/mini/, docs/mini/ (CSS 는 전부 .mn-)
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
 - UI 시험: test/ui/, client/src/mock.js
 - 관리자(SPEC 21절): 서버 틀 server/admin/*.js, 게임별 봇 server/admin/games/<모드>.js (한 과제는 한 게임만), 시험 test/admin/, 화면 client/src/ui/admin.*(.adm-), 연출 목록 client/src/admin/
@@ -63,6 +64,13 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - main.js 의 연결: `import('./draw/index.js')` 로 따로 불러온다. 전용 요청은 전부 `{t:'dr', a: 종류, ...}`.
 - `npm test` 는 갱식마인드 한 판(test/ui/draw-round.mjs)을 포함한다.
 - 선 느낌·펜슬·손바닥·키보드·모션·소리는 항상 "미확인(실기기 확인 필요)"으로 보고한다.
+
+## 미니게임 (같은 사이트 안의 다섯 번째 모드: 오목·리버시·체커·체스·커넥트포, 2명)
+- 스위치 환경 변수 `MINI`: `off` / `test`(주소에 `?mini=1` 일 때만 보임) / `on`(기본 on). render.yaml 도 `on`. 약속·규칙·통신은 docs/mini/PLAN.md.
+- 구역: shared/mini(규칙), server/mini(방), client/src/mini(화면, boards/ 는 판 그림), test/mini. CSS 는 `.mn-`. 전용 요청은 전부 `{t:'mn', a: 종류, ...}`, 오류 코드 `mn_`.
+- 방 만들기는 `{t:'create', mode:'mini', game}`. 방 상태에 프로필 사진을 넣지 않는다(`faces` 알림).
+- main.js 의 연결: `import('./mini/index.js')` 로 따로 불러온다. 상단 줄은 `.lgbar` 재사용, 대기줄은 `liarQ` 공유. 사이트 채팅·이모티콘은 요트처럼.
+- test/ui/smoke.mjs 에 미니게임 한 판(커넥트포) 클릭이 있다. 판 모양·소리·터치 느낌은 "미확인(실기기 확인 필요)".
 
 ## CSS
 - 접두사: 로비 .lb-, 채팅 .chat-, 이모티콘·사운드 .ep-. 새 모듈은 새 접두사.

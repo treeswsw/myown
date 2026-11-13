@@ -263,6 +263,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .lgbar-btn { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); font-weight: 700; }
 .lgbar-btn.main { background: #ea3a3d; }
 .lgbar-btn[hidden] { display: none; }
+@media (max-height: 719px) { .lgbar-mini { right: calc(22px + 34px * var(--k, 1)); } } /* 미니게임: 낮은 화면에서 채팅 버튼 자리를 비운다 */
 /* 요트다이스 방 상단 줄 (방 코드 · 소리 · 이모티콘 · 시작 · 나가기). 점수표(--yt-sheet-w, yacht/index.js 가 잰다) 오른쪽에만, 높이 54px.
    채팅 버튼(오른쪽 위 고정)은 이 줄 바로 아래(top 56px)라 겹치지 않는다 */
 .ytbar { position: fixed; left: var(--yt-sheet-w, 0px); right: 0; top: 0; z-index: 32; height: 54px; display: flex; gap: 5px; align-items: center; padding: 6px 8px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); box-sizing: border-box; pointer-events: none; }
