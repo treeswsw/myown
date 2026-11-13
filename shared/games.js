@@ -4,7 +4,7 @@ import { GAME_NAME as DRAW_NAME } from './draw/name.js';
 import { GAME_NAME as GSK_NAME } from './gsk/name.js';
 import { SETTINGS as LIAR_SET } from './liar/settings.js';
 import { SETTINGS as DRAW_SET } from './draw/settings.js';
-import { SETTINGS as MINI_SET } from './mini/settings.js';
+import { SETTINGS as MINI_SET, OWN as MINI_OWN } from './mini/settings.js';
 import { OWN as GSK_OWN } from './gsk/settings.js';
 
 const CHAT = { maxLen: 120, log: 30 };
@@ -44,6 +44,6 @@ export const GAMES = {
   mini: {
     name: '미니게임', desc: '2명 · 오목·리버시·체커·체스·커넥트포',
     about: '2명 · 오목·리버시·체커·체스·커넥트포. 둘이서 두는 판 게임입니다. 종목과 승부 방식은 여기서 정합니다.',
-    min: 2, max: 8, flag: 'mini', msgs: ['mn'], err: 'mn_', css: 'mn-', coin: 'mini', chat: CHAT, settings: MINI_SET, own: [],
+    min: 2, max: 8, flag: 'mini', msgs: ['mn'], err: 'mn_', css: 'mn-', coin: 'mini', chat: CHAT, settings: MINI_SET, own: MINI_OWN,
   },
 };

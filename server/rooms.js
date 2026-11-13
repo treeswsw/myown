@@ -302,6 +302,7 @@ async function login(hub, conn, msg) {
   session.conn = conn;
   conn.session = session;
   conn.tokHash = gate.hash ?? null;
+  hub.recoverStake?.(session); // 서버가 다시 켜져 아무도 맡지 않는 베팅 코인은 돌려준다 (SPEC 22-20)
   hub.sendMe(session);
   if (gate.tok) hub.send(session, { t: 'pin', a: 'ok', has: true, tok: gate.tok });
   if (session.room) session.room.setConnected(session.id, true);

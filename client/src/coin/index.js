@@ -84,7 +84,10 @@ export function createCoin({ send, root }) {
   function onMsg(msg) {
     if (!msg || typeof msg !== 'object') return false;
     if (msg.t === 'coin') {
-      if (msg.a === 'got') {
+      if (msg.a === 'stake') { // 미니 베팅 정산: 이긴 사람 +N, 진 사람 -N
+        const n = Number(msg.n) || 0;
+        if (n !== 0) flash('toast', `${n > 0 ? '+' : '−'}${Math.abs(n)} 코인`, 3000);
+      } else if (msg.a === 'got') {
         const n = Number(msg.n) || 0;
         if (n > 0) flash('toast', `+${n} 코인`, 2500);
       } else if (msg.a === 'news') {

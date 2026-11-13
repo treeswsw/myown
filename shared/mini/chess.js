@@ -148,8 +148,18 @@ export function legalMoves(s) {
 
 function insufficient(b) {
   const rest = [];
-  for (const r of b) for (const p of r) if (p && p[1] !== 'K') rest.push(p[1]);
-  return rest.length === 0 || (rest.length === 1 && (rest[0] === 'B' || rest[0] === 'N'));
+  const bishopSquares = []; // 비숍이 선 칸 색 (x+y 의 홀짝)
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      const p = b[y][x];
+      if (!p || p[1] === 'K') continue;
+      rest.push(p[1]);
+      if (p[1] === 'B') bishopSquares.push((x + y) % 2);
+    }
+  }
+  if (rest.length === 0 || (rest.length === 1 && (rest[0] === 'B' || rest[0] === 'N'))) return true;
+  // 킹+비숍 대 킹+비숍 도 비숍이 같은 색 칸이면 체크메이트를 만들 수 없다
+  return rest.every((t) => t === 'B') && bishopSquares.every((c) => c === bishopSquares[0]);
 }
 
 export function apply(s, m) {

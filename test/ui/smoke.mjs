@@ -747,6 +747,30 @@ async function runContext(browser, server, name, cfg) {
       await press('.wr-root .lb-seg-item:has-text("커넥트포")');
       await mBot.waitFor((b) => b.state?.game === 'connect4', T, 'game connect4');
     });
+    await step('mini: 승부 방식 3판 2선승 → 단판 (set); the 코인 베팅 panel shows', async () => {
+      await press('.wr-root .lb-seg-item:has-text("3판 2선승")');
+      await mBot.waitFor((b) => b.state?.wait?.set?.len === 3, T, 'len 3');
+      await press('.wr-root .lb-seg-item:has-text("단판")');
+      await mBot.waitFor((b) => b.state?.wait?.set?.len === 1, T, 'len 1');
+      await visible('[data-mn="bet-input"]');
+    });
+    await step('mini: 베팅 + makes the bets differ (start blocked with the reason), 상대 베팅에 맞추기 equalises, back to 0', async () => {
+      const host = () => mState().hostId; // the page user created the room
+      const betOf = (b, id) => b.state?.wait?.own?.[id]?.bet;
+      await press('[data-mn="bet-plus"]');
+      await mBot.waitFor((b) => betOf(b, b.state.hostId) === 1, T, 'host bet 1');
+      await page.waitForFunction(() => document.querySelector('[data-rm="wait-start"]')?.disabled, null, { timeout: T });
+      await visible('.wr-why:has-text("서로 달라요")');
+      mBot.send({ t: 'pick', patch: { bet: 2 } });
+      await mBot.waitFor((b) => betOf(b, b.id) === 2, T, 'bot bet 2');
+      await press('[data-mn="bet-match"]');
+      await mBot.waitFor((b) => betOf(b, b.state.hostId) === 2, T, 'matched to 2');
+      await page.waitForFunction(() => !document.querySelector('[data-rm="wait-start"]')?.disabled, null, { timeout: T });
+      mBot.send({ t: 'pick', patch: { bet: 0 } });
+      await mBot.waitFor((b) => betOf(b, b.id) === 0, T, 'bot bet 0');
+      await press('[data-mn="bet-match"]');
+      await mBot.waitFor((b) => betOf(b, host()) === 0, T, 'host back to 0');
+    });
     await step('mini: 시작 → board shows, status says whose turn', async () => {
       await press('[data-rm="wait-start"]');
       await mBot.waitFor((b) => b.state?.phase === 'play', T, 'play phase');

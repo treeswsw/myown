@@ -116,3 +116,17 @@
 .mn-act.mn-main { background: #ea3a3d; }
 .mn-act[hidden] { display: none; }
 .mn-act:disabled { opacity: .5; }
+
+/* 대기실 개인 칸: 코인 베팅 (.mn-bet). 공통 대기실(.wr-) 왼쪽 칸 안이라 판 배율을 쓰지 않는다. */
+.mn-bet { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.mn-bet-coins { font-size: 13px; opacity: .75; }
+.mn-bet-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 6px; align-items: center; }
+.mn-bet-step { min-height: 40px; border-radius: 10px; border: 1px solid rgba(128, 128, 128, .45); background: rgba(128, 128, 128, .14); color: inherit; font: 700 20px/1 system-ui, sans-serif; touch-action: manipulation; }
+.mn-bet-step:disabled { opacity: .4; }
+.mn-bet-input { min-height: 40px; width: 100%; box-sizing: border-box; text-align: center; font: 700 18px/1 system-ui, sans-serif; border-radius: 10px; border: 1px solid rgba(128, 128, 128, .45); background: rgba(255, 255, 255, .6); color: inherit; -moz-appearance: textfield; }
+.mn-bet-input::-webkit-outer-spin-button, .mn-bet-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.mn-bet-opp { font-size: 13px; font-weight: 700; }
+.mn-bet-match { min-height: 36px; border-radius: 10px; border: 1px solid rgba(128, 128, 128, .45); background: rgba(128, 128, 128, .14); color: inherit; font-weight: 700; touch-action: manipulation; }
+.mn-bet-match:disabled { opacity: .4; }
+.mn-bet-match[hidden] { display: none; }
+.mn-bet-note { font-size: 12px; line-height: 1.35; opacity: .75; word-break: keep-all; }

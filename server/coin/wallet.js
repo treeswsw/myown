@@ -130,6 +130,87 @@ export function installWallet(hub) {
     }
   };
 
+  // ---- Escrow for a two-sided bet (mini match, SPEC 22-20). ----
+  // stake(key, rows, info): takes rows [{id, n}] off the players' coins and holds them under `key` (any unique object; the
+  // game passes its own ctx). Everything or nothing: checked for every row first, then taken. The held amount is also written
+  // on the account (gear.escrow = {code, n}) so a restart cannot lose it: the next login of that account gives it back
+  // (recoverStake). settleStake(key, winnerId|null): the winner gets the whole pot, null = everybody gets their own back.
+  // Settling twice does nothing. Returns null (ok) or an error {msg, code, id?}.
+  const stakes = new Map(); // key -> { rows: [{id, n, user}], mode, code }
+  hub.stakes = stakes;
+  const isBotId = (id) => String(id).startsWith('~bot');
+  const holding = (user) => [...stakes.values()].some((s) => s.rows.some((r) => r.user === user));
+  const liveUser = (r) => hub.sessions.get(r.id)?.user ?? r.user;
+
+  hub.stake = (key, rows, info = {}) => {
+    if (!key || stakes.has(key) || !Array.isArray(rows) || rows.length < 2) return coinErr('coin_bad');
+    const picked = [];
+    const seen = new Set();
+    for (const row of rows) {
+      const session = hub.sessions.get(row?.id);
+      if (!session || session.bot || isBotId(row.id) || seen.has(row.id)) return coinErr('coin_bad');
+      if (!Number.isInteger(row.n) || row.n <= 0) return coinErr('coin_bad');
+      const u = session.user;
+      if (u.gear?.escrow || holding(u)) return coinErr('coin_bad');
+      if (!Number.isInteger(u.coins) || u.coins < row.n) return { ...coinErr('coin_low'), id: row.id };
+      seen.add(row.id);
+      picked.push({ id: row.id, n: row.n, user: u });
+    }
+    const mode = info.mode ?? '';
+    const code = info.code ?? '';
+    for (const r of picked) {
+      const u = r.user;
+      u.coins -= r.n;
+      (u.gear ?? (u.gear = {})).escrow = { code, n: r.n };
+      changed(hub.sessions.get(r.id), { kind: 'stake', delta: -r.n, bal: u.coins, note: { mode, code } });
+    }
+    stakes.set(key, { rows: picked, mode, code });
+    return null;
+  };
+
+  hub.settleStake = (key, winnerId = null) => {
+    const st = stakes.get(key);
+    if (!st) return null;
+    stakes.delete(key);
+    const total = st.rows.reduce((a, r) => a + r.n, 0);
+    const won = winnerId !== null && st.rows.some((r) => r.id === winnerId);
+    const result = [];
+    for (const r of st.rows) {
+      const u = liveUser(r);
+      if (u.gear) delete u.gear.escrow;
+      let back = 0; // coins returned to the account now
+      let net = 0; // what the player gained (+) or lost (-) over the whole bet
+      let kind = 'stake_back';
+      if (!won) back = r.n;
+      else if (r.id === winnerId) { back = total; net = total - r.n; kind = 'stake_win'; u.coinsTotal = (u.coinsTotal ?? 0) + net; }
+      else { net = -r.n; kind = 'stake_lose'; }
+      u.coins = (u.coins ?? 0) + back;
+      hub.persist(u);
+      ledger({ uid: r.id, kind, delta: back, bal: u.coins, note: { mode: st.mode, code: st.code, net } });
+      const session = hub.sessions.get(r.id);
+      if (session) {
+        hub.sendMe(session);
+        if (net !== 0) hub.send(session, { t: 'coin', a: 'stake', n: net, mode: st.mode });
+      }
+      result.push({ id: r.id, net });
+    }
+    return result;
+  };
+
+  // Login: a bet that nobody holds any more (the server restarted) is given back.
+  hub.recoverStake = (session) => {
+    const u = session?.user;
+    const e = u?.gear?.escrow;
+    if (!e) return;
+    if (holding(u)) return;
+    delete u.gear.escrow;
+    if (Number.isInteger(e.n) && e.n > 0) {
+      u.coins = (u.coins ?? 0) + e.n;
+      ledger({ uid: session.id, kind: 'stake_back', delta: e.n, bal: u.coins, note: { code: e.code ?? '', recovered: true } });
+    }
+    changed(session, null);
+  };
+
   function news(session, pull, name) {
     if (session.id === ADMIN_ID) return;
     const msg = { t: 'coin', a: 'news', name, chips: pull.chips, tier: pull.tier };

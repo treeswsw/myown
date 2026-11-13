@@ -12,6 +12,7 @@ import * as bluffBot from './admin/games/bluff.js';
 import * as liarBot from './admin/games/liar.js';
 import * as yachtBot from './admin/games/yacht.js';
 import * as drawBot from './admin/games/draw.js';
+import * as miniBot from './admin/games/mini.js';
 
 // {t:'lg', a:'rank'}: 라이어 전체 랭킹. 방 밖에서도, 어느 방 안에서도 허브가 답한다(방에 넘기지 않는다).
 // 이 메시지가 아니면 undefined.
@@ -38,5 +39,5 @@ export const SERVER_GAMES = {
   yacht: { make: makeYachtGame, bot: yachtBot },
   draw: { make: makeDrawGame, bot: drawBot },
   gsk: { make: makeGskGame, bot: false, errors: { gk_off: '갱스껄은 지금 열려 있지 않습니다.' } },
-  mini: { make: makeMiniGame, bot: false },
+  mini: { make: makeMiniGame, bot: miniBot },
 };
