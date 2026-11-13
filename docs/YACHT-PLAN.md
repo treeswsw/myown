@@ -5,8 +5,12 @@
 > "너무 유명한 게임이고 규칙은 하나밖에 없어서 만들기 쉬울거야. 내가 만든 시안을 레퍼런스로 첨부할테니 그대로 만들어주면 돼. 게임 이름은 요트다이스야."
 > 추가: ① 참여자·관전자 모두 같은 화면(같은 트레이, 같은 주사위 위치·움직임) ② 움직이는 것은 주사위와 컵뿐, 3D로 품질 높게 ③ 자기 차례인 사람만 조작
 > ④ 점수 칸은 두 번 눌러 기록(첫 누름 = 선택, 같은 칸 다시 = 기록, 다른 조작을 하면 선택 해제) ⑤ 선택한 칸은 방 전체에 실시간으로 보인다.
+> 확정 답(2026-11-13): "2.이미 쓴칸에는 못쓰는거고. 그 모든 룰은 요트 다이스 공식 룰로 가고. 시간제한은 그냥 없애도 될듯? 8.끊긴 사람있으면 최대한 기다려줘. 1분이상 안들어오면 기권으로만. 게임은 가로로만 플레이 할수있게 15. 가로로볼때 두덩이로 나눠줘. 16. 그대로 17. 너가 판단 나머지는 알아서 해"
 
-**시작 조건**: GDD 0절(확정 대기 18개)에 사용자 "이대로"를 받은 뒤 과제를 띄운다. 답이 바뀌면 GDD·SPEC 을 먼저 고친다.
+**시작 조건**: 충족(2026-11-13, GDD 0절 "확정 사항" Q1~Q21). 답이 다시 바뀌면 GDD·SPEC 을 먼저 고친다.
+요약: 공식 룰 점수(GDD 3-2), **차례 시간 없음**(자동 굴림·자동 기록 없음), 끊긴 사람 차례는 멈추고 기다림 → 끊긴 지 60초 뒤 기권, **가로 전용**, 휴대폰 가로 점수표 두 덩어리(44px), "N left" 영어, 휴대폰 보관 안내는 첫 굴림 뒤 3초 한 번.
+
+**모델 배정**(사용자 지시): Fable = Y4C(3D 판·컵·주사위 모델)·Y4D(3D 굴림 재생·연출) 두 과제만. Opus = Y1S(굴림 계산기), 검토, 최종 확인(검토자와 다른 새 에이전트). 나머지 코드 과제(Y1·Y2·Y3·Y4A·Y5·Y6·Y7)는 Sonnet.
 스킬 2-1(시안 먼저): 참고 화면 4장이 시안 역할을 한다. Y3·Y4A 의 시험 페이지 캡처(844×390, 1280×720)를 사용자에게 한 번 보여 주고 통합(Y6)으로 넘어가길 권한다.
 
 ## 0. 원칙
@@ -41,7 +45,7 @@ CSS 접두사(전부 `.yt-`): 틀 `.yt-root`(yacht.css) / 점수표 `.yt-sc-` / 
 1차(동시 6개): Y1 규칙 | Y1S 굴림 계산기 | Y3 점수표 | Y4A 판(조작·2D) | Y4C 3D 모델 | Y5 로비
 2차(동시 2개): Y2 서버(Y1·Y1S 병합 뒤) | Y4D 3D 재생·연출(Y1S·Y4A·Y4C 병합 뒤)
 3차(혼자):     Y6 통합(Y2·Y3·Y4A·Y5 병합 뒤. Y4D 는 기다리지 않아도 된다 — ?nogl=1 로 끝까지 된다)
-4차:           Y7 실행 시험(다른 Sonnet, 코드 안 고침) → Opus 검토 → Fable 최종 확인
+4차:           Y7 실행 시험(다른 Sonnet, 코드 안 고침) → Opus 검토 → Opus 최종 확인(검토자와 다른 새 에이전트)
 ```
 
 - 관리자가 처음에 말한 ①~⑤ 와의 대응: ① = Y1 + Y1S, ② = Y2, ③ = Y3, ④ = Y4A + Y4C + Y4D(사용자 지시 "3D 품질 높게"에 따라 셋으로 나눔), ⑤ = Y5(로비는 구역이 달라 따로) + Y6.
@@ -63,15 +67,15 @@ scoreOf(cat, dice) -> n
 previewOf(dice, scores) -> {빈칸: n}
 totals(scores) -> { upper, bonus, total }
 comboOf(dice) -> null | 'yacht' | 'largeStraight' | 'fourKind' | 'fullHouse' | 'smallStraight'
-autoPick(dice, scores, pick) -> cat            // GDD 5-2
 
 // game.js  (시계 없음. rng = () => [0,1), 방이 hub.rng 를 넘긴다. 모든 함수는 { ok, error?, events } 를 돌려준다)
 createGame({ players: [{id, name}], rng }) -> { game, events }     // 순서 섞기, ytStart·ytTurn
 shake(game, id, on) / roll(game, id, rng, place) / keep(game, id, i, on, freeSpot) / pick(game, id, cat) / score(game, id, cat)
 //   place(seed, thrown) -> [{i, x, z, yaw}] 와 freeSpot 은 주입받는다(방이 sim.js 것을 넘긴다. 엔진은 sim.js 를 import 하지 않는다)
-timeout(game, rng, place) // GDD 5-2. 안 굴렸으면 자동 굴림만 하고 { rolled: true } 를 함께 돌려준다(방이 2.5초 뒤 다시 부른다)
-drop(game, id)            // 기권. 1명 남으면 끝
+//   시간 제한·자동 기록이 없으므로 timeout()·autoPick() 은 만들지 않는다.
+drop(game, id, reason)    // 기권('away' | 'leave'). ytDrop 알림. 차례 중이면 기록 없이 다음 사람. 1명(또는 0명) 남으면 끝(reason 'alone')
 viewOf(game, viewerId)    // SPEC 19-3 의 cols·round·turn·rollsLeft·rollNo·shaking·dice·preview·pick·last·result
+//   끊김(connected·awayUntil·waiting)은 엔진이 모른다. 방(Y2)이 상태에 붙인다.
 
 // protocol.js
 parseYt(msg) -> { ok, msg } | { ok: false }     // a 와 필드 모양만 검사(roll / shake{on} / keep{i,on} / pick{cat|null} / score{cat})
@@ -116,9 +120,13 @@ createDiceView({ host, stage }) ->
 ```
 
 - 조작은 항상 DOM 버튼이다(3D 를 직접 누르지 않는다). board 가 `hitOf(i)` 자리에 투명 버튼(`data-yt="die-i"`)을 올린다 → `?nogl=1` 과 3D 가 같은 방식으로 눌린다.
-- 판의 틀: `.yt-root` 가 화면 전체, 왼쪽 `--yt-sheet-w`(휴대폰 300px, PC 는 `min(360px, 30vw)`)가 점수표, 그 오른쪽에서 위 54px(상단 줄)을 뺀 곳이 판. 트레이는 판 영역 안에서 가장 큰 정사각형.
-- `data-yt` 표식: `cup`(컵 흔들기 버튼) `left`(n번 남음) `die-0`~`die-4` `slot-0`~`slot-4`(보관 칸. 주사위가 있으면 `data-v="눈"`) `turn`(차례인 사람 이름) `timer` `idle`(대기 글)
-  `row-<칸>`(내 줄의 누르는 가로줄. 선택되면 `aria-pressed="true"`) `cell-<칸>-<줄번호>`(점수 칸 글자) `total-<줄번호>` `round` `pickmark`(남의 화면의 선택 강조) `result` `result-toggle` `combo`(족보 큰 글자)
+- 판의 틀: `.yt-root` 가 화면 전체(가로 전용. 세로는 사이트 `#rotate` 가 덮으므로 세로 배치를 만들지 않는다), 왼쪽이 점수표, 그 오른쪽에서 위 54px(상단 줄)을 뺀 곳이 판. 트레이는 판 영역 안에서 가장 큰 정사각형.
+  점수표 폭은 점수표가 정한다: 높이 720 이상은 한 덩어리 `min(360px, 30vw)`, 720 미만은 두 덩어리(GDD 2-1, 844×390 에서 2명 약 400px · 4명 약 540px).
+  index(Y6)가 `sheet.el` 의 실제 폭을 재어(ResizeObserver) `--yt-sheet-w` 를 `document.documentElement` 에 넣는다 → 판과 `.ytbar` 가 그 오른쪽에 붙는다.
+- `data-yt` 표식: `cup`(컵 흔들기 버튼) `left`(남은 굴림 "N left", 숫자는 `data-n`) `die-0`~`die-4` `slot-0`~`slot-4`(보관 칸. 주사위가 있으면 `data-v="눈"`) `turn`(차례인 사람 이름) `idle`(대기 글)
+  `wait`(끊긴 사람 기다림 글 "OO 재접속 기다리는 중 (n초)") `keephint`(보관 안내)
+  `row-<칸>`(내 줄의 누르는 가로줄. 선택되면 `aria-pressed="true"`) `cell-<칸>-<줄번호>`(점수 칸 글자) `total-<줄번호>` `away-<줄번호>`("끊김") `drop-<줄번호>`("기권") `round` `pickmark`(남의 화면의 선택 강조) `result` `result-toggle` `combo`(족보 큰 글자)
+  (차례 시간이 없으므로 `timer` 는 없다.)
   상단 줄: `bar-start` `bar-leave` `bar-emote` `bar-sound`.
 - 각 주사위 버튼에는 `data-v`(눈), `data-x` `data-z`(멈춘 자리, 소수 3자리 글자)를 붙인다 → "모두 같은 자리" 시험이 이것을 비교한다.
 
@@ -130,12 +138,12 @@ const E = { ones: null, twos: null, threes: null, fours: null, fives: null, sixe
 const P = (id, name, x = {}) => ({ id, name, connected: true, awayUntil: null, spectating: false, ...x });
 const C = (id, name, scores = {}, x = {}) => ({ id, name, left: false, scores: { ...E, ...scores }, upper: 0, bonus: 0, total: 0, ...x });
 const base = { code: 'ABCD', mode: 'yacht', hostId: 'me', you: 'me', now: 1_000_000, gameNo: 1, rounds: 12,
-               rollNo: 0, shaking: false, dice: null, preview: null, pick: null, last: null, result: null };
+               rollNo: 0, shaking: false, waiting: null, dice: null, preview: null, pick: null, last: null, result: null };
 
-export const lobby = { ...base, phase: 'lobby', gameNo: 0, round: 0, turn: null, turnEndsAt: null, rollsLeft: 0,
+export const lobby = { ...base, phase: 'lobby', gameNo: 0, round: 0, turn: null, rollsLeft: 0,
   players: [P('me', '민수'), P('jiwoo', '지우')], cols: [C('me', '민수'), C('jiwoo', '지우')] };
 
-export const myTurnFresh = { ...base, phase: 'playing', round: 1, turn: 'me', turnEndsAt: 1_060_000, rollsLeft: 3,
+export const myTurnFresh = { ...base, phase: 'playing', round: 1, turn: 'me', rollsLeft: 3,
   players: [P('me', '민수'), P('jiwoo', '지우'), P('seoyeon', '서연', { spectating: true })],
   cols: [C('me', '민수'), C('jiwoo', '지우')] };
 
@@ -145,16 +153,16 @@ const DICE = [ { v: 4, slot: 0, x: -2.1, z: 1.3, yaw: 0.4 }, { v: 4, slot: 1, x:
 const MINE = { ones: 3, twos: 4, fours: 12, sixes: 12, fourKind: 29, smallStraight: 15, largeStraight: 30 };   // 7칸
 const THEIRS = { ones: 1, twos: 6, sixes: 18, choice: 27, fullHouse: 28, yacht: 50 };                          // 6칸
 
-export const myTurnRolled = { ...base, phase: 'playing', round: 7, turn: 'me', turnEndsAt: 1_041_000, rollsLeft: 1, rollNo: 26,
+export const myTurnRolled = { ...base, phase: 'playing', round: 7, turn: 'me', rollsLeft: 1, rollNo: 26,
   players: [P('me', '민수'), P('jiwoo', '지우')], dice: DICE,
   cols: [C('me', '민수', { ones: 3, twos: 4, fours: 12, sixes: 12, fourKind: 29, smallStraight: 15 }, { upper: 31, total: 75 }),
          C('jiwoo', '지우', THEIRS, { upper: 25, total: 130 })],
   preview: { threes: 0, fives: 0, choice: 20, fullHouse: 0, largeStraight: 0, yacht: 0 }, pick: 'choice',
-  last: { id: 'jiwoo', cat: 'yacht', score: 50, auto: false } };
+  last: { id: 'jiwoo', cat: 'yacht', score: 50 } };
 
 export const otherTurn = { ...myTurnRolled, turn: 'jiwoo', preview: null, pick: 'threes',            // 남의 차례: 버튼·노란 숫자 없음, 선택 강조만
   cols: [C('me', '민수', MINE, { upper: 31, total: 105 }), C('jiwoo', '지우', THEIRS, { upper: 25, total: 130 })],
-  last: { id: 'me', cat: 'largeStraight', score: 30, auto: true } };
+  last: { id: 'me', cat: 'largeStraight', score: 30 } };
 
 export const four = { ...otherTurn, turn: 'taeho', pick: null,                                        // 4명 + 끊김 + 기권
   players: [P('me', '민수'), P('jiwoo', '지우', { connected: false, awayUntil: 1_050_000 }), P('taeho', '태호')],
@@ -162,15 +170,18 @@ export const four = { ...otherTurn, turn: 'taeho', pick: null,                  
          C('taeho', '태호', { sixes: 24, fives: 20, fours: 16, threes: 9 }, { upper: 69, bonus: 35, total: 104 }),
          C('harin', '하린', { choice: 11 }, { total: 11, left: true })] };
 
+export const waitingTurn = { ...four, turn: 'jiwoo', waiting: 'jiwoo', pick: 'choice' };          // 끊긴 사람 차례: 판이 멈추고 "지우 재접속 기다리는 중 (50초)", 버튼 0개
+
 const FULL = (o) => Object.fromEntries(Object.keys(E).map((k) => [k, o[k] ?? 0]));
-export const result = { ...base, phase: 'result', round: 12, turn: null, turnEndsAt: null, rollsLeft: 0,
+export const result = { ...base, phase: 'result', round: 12, turn: null, rollsLeft: 0,
   players: [P('me', '민수'), P('jiwoo', '지우')],
   cols: [C('me', '민수', FULL(MINE), { upper: 31, total: 105 }), C('jiwoo', '지우', FULL(THEIRS), { upper: 25, total: 130 })],
   result: { reason: 'done', winners: ['jiwoo'], ranks: [{ id: 'jiwoo', name: '지우', total: 130, rank: 1 }, { id: 'me', name: '민수', total: 105, rank: 2 }] } };
 
-export const rollEvent = { k: 'ytRoll', id: 'me', seed: 123456789, thrown: [2, 3, 4], dice: DICE, rollsLeft: 1, rollNo: 26, combo: null, auto: false };
-export const yachtEvent = { k: 'ytRoll', id: 'me', seed: 42, thrown: [0, 1, 2, 3, 4], rollsLeft: 2, rollNo: 1, combo: 'yacht', auto: false,
+export const rollEvent = { k: 'ytRoll', id: 'me', seed: 123456789, thrown: [2, 3, 4], dice: DICE, rollsLeft: 1, rollNo: 26, combo: null };
+export const yachtEvent = { k: 'ytRoll', id: 'me', seed: 42, thrown: [0, 1, 2, 3, 4], rollsLeft: 2, rollNo: 1, combo: 'yacht',
   dice: [-3, -1.5, 0, 1.5, 3].map((x, i) => ({ v: 6, slot: null, x, z: (i % 2) * 2 - 1, yaw: i })) };
+export const dropEvent = { k: 'ytDrop', id: 'harin', reason: 'away' };
 export const faces = { k: 'faces', items: [{ id: 'me', avatar: null }, { id: 'jiwoo', avatar: null }] };   // 사진 없음 = 이름 첫 글자
 ```
 
@@ -190,15 +201,15 @@ export const faces = { k: 'faces', items: [{ id: 'me', avatar: null }, { id: 'ji
 > **고쳐도 되는 파일**: `shared/yacht/constants.js` `score.js` `game.js` `protocol.js`, `test/yacht/score.test.js` `game.test.js` `protocol.test.js`,
 > `package.json`(`test`·`test:unit` 에 `test/yacht/*.test.js` 추가만), `test/css.test.js`(규칙 하나 추가: `client/src/yacht/` 아래 CSS 의 클래스는 전부 `yt-` 로 시작. 파일이 아직 없어도 통과해야 한다. 기존 규칙은 그대로).
 > **고치면 안 되는 파일**: 그 밖의 전부. `shared/yacht/sim.js` 는 Y1S 것이라 만들지 않는다 — `game.js` 는 굴림 자리 계산을 **주입받는다**: `roll(game, id, rng, place)` 에서 `place(seed, thrown) -> [{i, x, z, yaw}]`, `keep(…, place)` 의 빼기는 `freeSpot` 을 주입받는다(시험은 가짜 함수로).
-> **약속**: GDD 3절(점수·예시 표)·5-2(자동 기록)·5-3(기권)·6절·9절(문구), SPEC 19-3(상태·알림 모양), 이 문서 3-1(함수 모양).
+> **약속**: GDD 3절(공식 룰 점수·예시 표)·5-3(기권)·6절·9절(문구), SPEC 19-3(상태·알림 모양), 이 문서 3-1(함수 모양). 시간 제한·자동 기록은 없다(`timeout`·`autoPick` 을 만들지 않는다).
 > seed = `Math.floor(rng() * 2 ** 32)`, 눈 = `1 + Math.floor(rng() * 6)`(seed 와 따로), 순서 섞기는 rng 로 피셔-예이츠. 보관 칸은 왼쪽부터 빈칸. `pick` 은 굴림·보관·빼기·기록·차례 끝에 지운다(지워질 때 `ytPick{cat:null}` 알림).
 > `viewOf` 의 `preview` 는 차례인 사람에게만, `pick` 은 모두에게.
-> **끝났다는 증거**: `node --test test/yacht/*.test.js` 통과 수, `npm run check` 통과. 시험에 반드시: GDD 3-2 예시 표 20줄 전부, 보너스 62/63, 최고 합계 323, `comboOf` 우선순위, `autoPick` 세 경우(선택 칸 / 동점은 아래쪽 / 전부 0은 맨 위) + GDD 5-2 예 2개,
+> **끝났다는 증거**: `node --test test/yacht/*.test.js` 통과 수, `npm run check` 통과. 시험에 반드시: GDD 3-2 예시 표 20줄 전부, 보너스 62/63, 최고 합계 323, `comboOf` 우선순위, 요트를 채운 뒤 또 요트 → 추가 점수 없음,
 > 씨앗 고정 rng 로 2·3·4명 한 판 끝까지(12바퀴, 차례 순서, 합계 = 칸 합 + 보너스), 차례 아닌 사람의 5가지 요청 거절과 상태 불변, 굴림 4번째 거절, 5개 보관 뒤 굴림 거절, 굴리기 전 keep·pick·score 거절, 채운 칸 거절,
-> 시간 초과(안 굴림 → 자동 굴림만 / 굴림 → 기록), 기권(차례 중·차례 아닐 때·1명 남음), 동점 공동 우승, 눈 분포(6만 번에 각 눈 9,000~11,000), `preview` 가 남에게 `null`.
+> 기권(차례 중 → 기록 없이 다음 사람·주사위와 선택 지움 / 차례 아닐 때 → 그 사람 차례 건너뜀 / 1명 남음 → `alone` 우승 / 0명 → 우승자 없음, `ytDrop` 의 `reason`), 동점 공동 우승, 눈 분포(6만 번에 각 눈 9,000~11,000), `preview` 가 남에게 `null`, 알림·상태에 `auto`·`turnEndsAt` 이 없음.
 > **하지 말 것**: 시계·타이머 넣기, DOM·네트워크 의존, `server/` 손대기.
 
-### Y1S — 굴림 계산기 (Sonnet 또는 Fable, 1차)
+### Y1S — 굴림 계산기 (Opus, 1차)
 > **무엇·왜**: 사용자 지시 "모두 같은 주사위 위치·움직임"을 위해, seed 하나로 주사위가 컵에서 쏟아져 구르고 멈추는 경로를 계산하는 순수 함수를 만든다(GDD 4절). 서버는 멈춘 자리만, 화면은 경로 전체를 쓴다. (사용자 말 전문)
 > **고쳐도 되는 파일**: `shared/yacht/sim.js`, `test/yacht/sim.test.js` 만.
 > **약속**: 이 문서 3-1 의 `sim.js` 모양 그대로. 좌표는 GDD 4절. 새 의존성(물리 라이브러리)을 넣지 않는다 — 작은 강체 계산을 직접 만든다:
@@ -215,38 +226,42 @@ export const faces = { k: 'faces', items: [{ id: 'me', avatar: null }, { id: 'ji
 > **무엇·왜**: 요트 방과 사이트 서버의 이음매. 본보기는 라이어(`server/liar/room.js` 와 `docs/LIAR-MOVE.md` 3-1). (사용자 말 전문)
 > **고쳐도 되는 파일**: `server/yacht/room.js`(새), `server/protocol.js`, `server/rooms.js`, `server/index.js`, `test/yacht/room.test.js`, `test/yacht-seam.test.js`, `test/yacht/e2e/*.test.js`(+ 필요하면 `test/yacht/e2e/helpers.js`), `package.json`(`test`·`test:e2e` 에 `test/yacht/e2e/*.test.js` 한 줄).
 > **고치면 안 되는 파일**: `server/store.js`(`newUser` 포함), `shared/yacht/`(버그는 보고), 라이어 폴더, 기존 시험.
-> **약속**: SPEC 19절 전부, GDD 5절·7절·8절 2번·9절.
+> **약속**: SPEC 19절 전부, GDD 5절(시간 제한 없음, 끊김 기다림·60초 기권)·7절·8절 2번·9절.
 > - `protocol.js`: `MODES` 에 `'yacht'`, `case 'yt'`(= `lg` 와 같은 봉투 검사).
 > - `rooms.js`: `createHub({..., yacht = 'off'})` → `hub.yacht`, `sendMe` 에 `yacht`. `MAX_PLAYERS.yacht = 4`. `create` 의 `mode==='yacht'`: off 면 거절, 아니면 `createYachtRoom(hub, newCode(hub))`.
 >   `case 'yt': return room.yt ? room.yt(session, msg) : '알 수 없는 요청입니다.'`. `mode|act|play|liar` 분기의 `room.mode === 'liar'` 검사를 요트 방에도 적용, `mode:'yacht'` 문구. **포커 분기의 순서·동작은 바꾸지 않는다.**
-> - `index.js`: `YACHT` 환경 변수(`LIAR` 줄과 같은 식: `test`/`on`/`off`, 없으면 `test`) → `hubOptions.yacht`. `YT_TURN_MS` `YT_AWAY_MS` `YT_AUTO_SHOW_MS` → `timing.ytTurn` `ytAway` `ytAutoShow`(방은 값이 없으면 60000 / 10000 / 2500 을 쓴다. `DEFAULT_TIMING` 은 안 바꿔도 된다).
+> - `index.js`: `YACHT` 환경 변수(`LIAR` 줄과 같은 식: `test`/`on`/`off`, 없으면 `test`) → `hubOptions.yacht`. 요트 전용 시간 변수는 없다(끊김 유예는 기존 `GRACE_MS` → `timing.grace`).
 > - `room.js` 가 hub 에 보여야 하는 것(rooms.js 가 이미 부르는 것): `code mode phase hostId members[{id, session, connected, grace}] timers member(id) clearTimer(name) join leave setConnected view sendExtras start emote chat addSound editSound playSound sendEvents push faceChanged yt`.
 >   채팅·사운드는 포커 `Room` 과 같은 동작(기록 30개). 사진은 `faces`(라이어 `sendFaces`·`sendExtras`·`faceChanged` 와 같은 식). `joined`·`left`·`away`·`back` 알림.
-> - 시간: 차례가 시작되면 마감 타이머. 끊긴 사람 차례는 GDD 5-3 의 당겨진 마감, 돌아오면 원래 마감. 마감에 `timeout()` → 자동 굴림이었으면 `ytAutoShow` 뒤 다시.
+> - 시간: **차례 타이머는 없다.** 끊김(`setConnected(id, false)`) → 사이트 공통 유예 타이머(`timing.grace`) 하나. 그 사람이 차례면 흔들기를 끝내고(`shake(game, id, false)` → `ytShake on:false`) 상태 `waiting = id`.
+>   돌아오면(`setConnected(id, true)`) 유예 타이머를 지우고 `waiting = null`, 주사위·보관·남은 굴림·`pick` 은 그대로. 유예 끝(`graceExpired`)이면 진행 중인 판에서 `drop(game, id, 'away')` 후 방에서 뺀다(`left`). 나가기는 `drop(game, id, 'leave')`.
+>   끊긴 사람이 차례가 아니면 판은 그대로 진행되고, 차례가 오면 그때 `waiting` 이 채워진다(남은 유예는 다시 세지 않는다).
 > - `shake` 1초 4번·`pick` 1초 8번 초과는 조용히 버린다(계정 기준).
 > - 판이 끝나면 `stats.yacht`(없으면 `{games:0, wins:0, best:0}`)를 고치고 `hub.persist` + `hub.sendMe`. 기권자는 기권하는 순간 `games + 1`.
 > **끝났다는 증거**: `npm run check`, **`npm test` 전체**(통과 수·걸린 시간). 새 시험에 반드시:
 > `YACHT=off` 에서 방 만들기 거절·`me.yacht`, `test`·`on` 에서 됨, 방 목록 `mode:'yacht'`·`max:4`, 5번째 입장 거절, 요트 방에서 `mode|act|play|liar|lg` 가 문구로 거절(서버 오류 아님), 포커·라이어 방에서 `yt` 거절, 포커 방 `mode:'yacht'` 거절,
-> 가짜 시계로 60초 자동 기록(선택 칸 / 규칙 칸 / 안 굴림 → 자동 굴림 → 2.5초 뒤 기록), 끊긴 사람 차례 10초·돌아오면 원래 마감, 60초 기권·1명 남으면 끝, 방장 승계, 관전자 다음 판 참가,
+> 가짜 시계로: 차례인 사람이 아무것도 안 하고 10분 → 상태 그대로(자동 굴림·기록 없음), 차례 중 끊김 → `waiting`·`ytShake off`·59초 뒤에도 그대로 → 돌아오면 같은 `dice`·`rollsLeft`·`pick` 으로 이어서,
+> 60초 → `ytDrop{reason:'away'}`·`left:true`·다음 사람 차례, 차례 아닐 때 끊김 → 다른 사람 차례는 멈추지 않음·60초 뒤 기권·그 사람 차례 건너뜀, 끊긴 채 차례가 오면 남은 유예만큼만 기다림, 1명 남으면 `alone` 으로 끝, 방장 승계, 관전자 다음 판 참가,
 > 방 상태에 `avatar`·`data:image` 글자가 없음, `preview` 는 차례인 사람만·`pick` 은 전원 같은 값, `ytPick` 이 전원에게 감, 재접속 직후 받은 상태의 `dice`(눈·보관·자리)가 끊기기 전과 같음,
 > 상태의 `x,z,yaw` = `simulateRoll(seed, thrown).rest`, 판 끝 `stats.yacht` 저장(기존 계정에 `stats.yacht` 가 없어도 됨), 요트 방 타이머 오류가 다른 방을 끊지 않음, `reset` 뒤 방 없음.
-> e2e(`test/yacht/e2e/`, 실제 서버·봇 2~3명): GDD 11절 시나리오 1·2·4.
+> e2e(`test/yacht/e2e/`, 실제 서버·봇 2~3명, `GRACE_MS` 를 짧게): GDD 11절 시나리오 1·2·3·4.
 > **하지 말 것**: 새 DB 표·열, hub 의 기존 함수 모양 바꾸기, 화면 파일 손대기.
 
 ### Y3 — 점수표와 결과 창 (Sonnet, 1차)
 > **무엇·왜**: 화면 왼쪽 점수표(참고 화면 `design/yacht/ref/` 의 왼쪽)와 판 끝 순위 창. (사용자 말 전문 — 특히 ③④⑤)
 > **고쳐도 되는 파일**: `client/src/yacht/ui/sheet.js` `sheet.css` `result.js` `result.css`, `test/yacht/ui/sheet/` `test/yacht/ui/result/`.
 > **고치면 안 되는 파일**: 그 밖의 전부(`index.js`·`main.js`·`style.css` 는 Y6).
-> **약속**: GDD 2절·6-2절·7절, 이 문서 3-2(함수 모양·`data-yt`)·4절(가짜 상태). `shared/` 를 import 하지 않는다(점수·합계·예상 점수는 상태에 있다).
-> 1. 점수표: "턴 n/12", 줄마다 사진(`getFace(id)`, 없으면 이름 첫 글자)·이름, 12칸, 소계 `n/63`, 보너스(`+35` 또는 `+0`), 합계. 2~4줄. 차례인 줄은 노란 바탕. 끊긴 사람 "끊김", 기권 줄은 흐리게. `last` 칸은 잠깐 반짝(`flash`).
->    844×390 에서 가로 스크롤 없이 전부 보인다(줄 높이 약 21px). 크기는 `calc(px * var(--k))` 또는 `transform: scale`.
+> **약속**: GDD 2절·**2-1절(두 덩어리)**·6-2절·7절, 이 문서 3-2(함수 모양·`data-yt`)·4절(가짜 상태). `shared/` 를 import 하지 않는다(점수·합계·예상 점수는 상태에 있다). 시안 `design/yacht/mock.html` 의 점수표 부분을 본보기로 한다.
+> 1. 점수표: "턴 n/12", 줄마다 사진(`getFace(id)`, 없으면 이름 첫 글자)·이름, 12칸, 소계 `n/63`, 보너스(`+35` 또는 `+0`), 합계. 2~4줄. 차례인 줄은 노란 바탕. 끊긴 사람 "끊김"(`away-<줄번호>`), 기권 줄은 흐리게 + "기권"(`drop-<줄번호>`). `last` 칸은 잠깐 반짝(`flash`).
+>    높이 720 이상: 한 덩어리 세로 점수표. **높이 720 미만: 두 덩어리**(왼쪽 1~6+소계·보너스 / 오른쪽 초이스~요트+합계, 나란히), 머리·12칸·합계 줄 높이 44px 이상, 이름 숨기고 사진만(mock 의 `@media (max-height: 719px)`).
+>    844×390 에서 가로·세로 스크롤 없이 전부 보인다. 세로 배치는 만들지 않는다(가로 전용). 크기는 `calc(px * var(--k))` 또는 `transform: scale`.
 > 2. 두 번 누르기: **`turn === you` 이고 `preview` 가 있고 `settled` 일 때만** 내 줄 빈칸에 노란 예상 점수가 보이고 그 가로줄(`data-yt="row-<칸>"`)이 눌린다.
 >    첫 누름 → `send({t:'yt', a:'pick', cat})`, 선택된 칸(= `state.pick`)을 다시 누름 → `send({t:'yt', a:'score', cat})`. 다른 칸 → `pick` 으로 옮김. 강조는 **`state.pick` 만 보고** 그린다(내 화면·남의 화면 같은 모양. 누르자마자의 임시 강조는 해도 되지만 상태가 오면 상태를 따른다).
 >    남의 차례·관전: 예상 점수 숫자 없음, 눌리는 요소 없음(`button` 을 만들지 않거나 `disabled`), `state.pick` 칸에 강조(`data-yt="pickmark"`)만.
 > 3. 결과 창: GDD 7절. `data-yt="result"`, 접기·다시 열기 `result-toggle`. 내 전적은 `getMe().stats.yacht`(없으면 0).
-> **끝났다는 증거**: `node test/yacht/ui/sheet/run.mjs`, `node test/yacht/ui/result/run.mjs` 출력, `npm run check`. 시험 페이지가 확인할 것: 가짜 상태 6개가 오류 없이 그려짐,
+> **끝났다는 증거**: `node test/yacht/ui/sheet/run.mjs`, `node test/yacht/ui/result/run.mjs` 출력, `npm run check`. 시험 페이지가 확인할 것: 가짜 상태 7개가 오류 없이 그려짐, 844×390 에서 두 덩어리이고 `row-*` 높이 44px 이상·1280×720 에서 한 덩어리, `four` 에서 `away-1`·`drop-3` 표시,
 > `myTurnRolled` 에서 빈칸 6개만 눌림·중심점이 실제로 눌림(가림 검사), 첫 누름 = `pick` 한 번만 전송(score 없음), `state.pick` 을 넣은 뒤 같은 칸 = `score` 전송, 다른 칸 = `pick`,
-> `settled:false` 면 예상 점수·버튼 없음, `otherTurn`·관전(`you` 가 cols 에 없음)에서 버튼 0개·노란 숫자 0개·`pickmark` 1개, 4줄이 844×390 에 넘치지 않음(`scrollWidth <= clientWidth`), 이름에 `<b>` 를 넣어도 글자로 보임.
+> `settled:false` 면 예상 점수·버튼 없음, `otherTurn`·`waitingTurn`·관전(`you` 가 cols 에 없음)에서 버튼 0개·노란 숫자 0개·`pickmark` 1개, 4줄이 844×390 에 넘치지 않음(`scrollWidth <= clientWidth`, `scrollHeight <= clientHeight`), 이름에 `<b>` 를 넣어도 글자로 보임.
 > **하지 말 것**: 선택을 화면 안에서만 처리하기(서버로 보낸다), 3D·주사위 그리기, 실제 서버 연결.
 > **등급**: 이 과제의 확인은 ③(가짜 데이터)까지다. 실제 앱 확인은 Y6.
 
@@ -254,19 +269,22 @@ export const faces = { k: 'faces', items: [{ id: 'me', avatar: null }, { id: 'ji
 > **무엇·왜**: 화면 오른쪽 판의 눌리는 것 전부와, 3D 가 없을 때(`?nogl=1`, WebGL 실패)의 2D 그림. 이것만으로 게임을 끝까지 할 수 있어야 한다. (사용자 말 전문 — 특히 ①③)
 > **고쳐도 되는 파일**: `client/src/yacht/ui/board.js` `board.css` `dice2d.js`, `test/yacht/ui/board/`.
 > **약속**: GDD 2절·4절(좌표)·6-1절, 이 문서 3-2·4절. `shared/` 를 import 하지 않는다(Y4D 가 나중에 계산기를 연결한다).
-> 1. 틀: 트레이(정사각형), 보관 칸 5개(트레이 위쪽 안), "n번 남음"(`left`), 차례인 사람 사진·이름·남은 시간(`turn` `timer`, `turnEndsAt − now` 로 센다. 10초 이하 빨강), 방 대기 글(`idle`), 족보 큰 글자 자리(`combo`).
+> 1. 틀: 트레이(정사각형), 보관 칸 5개(트레이 위쪽 안), **"N left"**(`left`, 영어 그대로 — 주사위 그림 + 숫자 + `left`, mock 의 `.yt-left`), 차례인 사람 사진·이름(`turn`. 남은 시간은 없다), 방 대기 글(`idle`), 족보 큰 글자 자리(`combo`).
+>    `waiting` 이 있으면 트레이 위에 "OO 재접속 기다리는 중 (n초)"(`wait`, `n` = 그 사람 `awayUntil − now` 를 초로, 0 아래로 내려가지 않음. 이름은 `textContent`).
+>    보관 안내(`keephint`, GDD 6-1 Q21): 높이 720 이상은 내 차례·굴린 뒤·보관 가능·선택 없음일 때 늘 보임. 720 미만은 그 판(`gameNo`) 내 첫 차례(`round === 1`)의 첫 굴림(`rollsLeft === 2`) 연출이 끝난 뒤 3초 한 번만.
 > 2. 조작(**`turn === you` 일 때만 요소가 있다**): 컵 흔들기 버튼(`cup`. 누르는 순간 `shake on`, 떼면 `shake off` + `roll`. 톡 눌러도 0.4초 뒤 굴림. 굴릴 수 없으면 없음),
 >    주사위 버튼 `die-i`(`hitOf(i)` 자리의 투명 버튼. 트레이 주사위 → `keep on`, 보관 칸 주사위 → `keep off`. `rollsLeft === 0` 이면 없음). 연출 중에는 전부 막고 `onBusy(true/false)` 를 부른다.
 >    남의 차례·관전: 버튼 0개. 주사위·컵 모습은 똑같이 보인다.
 > 3. 2D 그림(`dice2d.js`, 3-2 의 `createDiceView` 모양): 위에서 본 트레이에 주사위를 상태의 `x, z, yaw` 자리에(트레이 단위 → px 는 곱하기만) 눈 점으로 그린다. 보관 주사위는 `slot` 칸에.
 >    `playRoll` 은 컵 자리에서 멈춘 자리까지 0.5초 미끄러짐(`?nogl=1` 시험에서는 0.15초), `playKeep` 0.15초. `draw` 는 연출 없이 바로.
 > 4. 알림 처리: `ytRoll`(같은 `rollNo` 는 한 번만) → `playRoll`, `ytKeep` → `playKeep`, `ytShake` → `setShaking`. 알림 없이 상태만 와도(재접속·늦은 입장) `draw` 로 지금 모습을 바로 그린다. 연출 중에 다음 알림이 오면 `skip()` 으로 끝내고 이어서.
-> **끝났다는 증거**: `node test/yacht/ui/board/run.mjs` 출력, `npm run check`. 시험 페이지가 확인할 것: 가짜 상태 6개, `myTurnFresh` 에서 `cup` 을 누르고 떼면 `shake on` → `shake off` → `roll` 순서로 전송,
+> **끝났다는 증거**: `node test/yacht/ui/board/run.mjs` 출력, `npm run check`. 시험 페이지가 확인할 것: 가짜 상태 7개, `myTurnFresh` 에서 `cup` 을 누르고 떼면 `shake on` → `shake off` → `roll` 순서로 전송,
+> `left` 글자가 "N left" 모양, `waitingTurn` 에서 `wait` 에 "지우"·"50" 이 보이고 버튼 0개, 844×390 에서 `rollEvent`(round 1 로 바꾼 것) 뒤 `keephint` 가 3초 보였다 사라지고 두 번째 굴림에는 안 뜸·1280×720 에서는 늘 보임, `timer` 요소 없음,
 > `rollEvent` 뒤 `die-2..4` 의 `data-x`·`data-z`·`data-v` 가 상태와 같고 `die-0,1` 은 보관 칸에, 주사위 누름 = `keep` 전송(i·on 맞음), `otherTurn` 에서 버튼 0개인데 주사위 5개는 보임,
-> 알림 없이 `myTurnRolled` 만 넣어도 같은 모습, 버튼 중심점 가림 검사, 844×390·1280×720 에서 트레이가 판 영역 안.
+> 알림 없이 `myTurnRolled` 만 넣어도 같은 모습, 버튼 중심점 가림 검사, 844×390(점수표 두 덩어리 폭 약 540px 를 뺀 판)·1280×720 에서 트레이가 판 영역 안.
 > **하지 말 것**: three.js import, 끌기 조작, 선택(`pick`) 다루기(점수표 것. 단 `roll`·`keep` 을 보내면 서버가 선택을 지운다), `Math.random`.
 
-### Y4C — 3D 모델: 트레이·컵·주사위 (Fable 권장 — 디자인 감각이 필요한 과제, 1차)
+### Y4C — 3D 모델: 트레이·컵·주사위 (Fable — 디자인 감각이 필요한 과제, 1차)
 > **무엇·왜**: 사용자 지시 "움직이는 것은 주사위와 컵뿐, 3D로 품질 높게". 움직임을 받아 그리기만 하는 장면을 만든다(움직임 계산은 Y1S, 재생은 Y4D). (사용자 말 전문)
 > **고쳐도 되는 파일**: `client/src/yacht/scene/index.js` `tray.js` `cup.js` `die.js` `quality.js`, `test/yacht/ui/scene/`.
 > **고치면 안 되는 파일**: `client/src/scene/stage.js`(모자라면 무엇이 필요한지 보고), 그 밖의 전부.
@@ -293,7 +311,7 @@ export const faces = { k: 'faces', items: [{ id: 'me', avatar: null }, { id: 'ji
 > **미확인으로 보고(④)**: 3D 모양·색·그림자·성능 전부(이 환경에 GPU 없음). 사용자가 실기기에서 볼 것을 적는다.
 > **하지 말 것**: 움직임 계산(물리), DOM 버튼, 카메라 움직임, 스크린샷 찍기.
 
-### Y4D — 3D 재생과 연출 (Fable 권장, 2차. Y1S·Y4A·Y4C 병합 뒤)
+### Y4D — 3D 재생과 연출 (Fable, 2차. Y1S·Y4A·Y4C 병합 뒤)
 > **무엇·왜**: 굴림 계산기의 경로를 3D 장면에서 재생해 모든 기기가 같은 움직임을 보게 하고, 컵 동작·족보 알림·소리를 붙인다. (사용자 말 전문 — 특히 ①②)
 > **고쳐도 되는 파일**: `client/src/yacht/ui/dice3d.js`(새), `client/src/yacht/anim/player.js` `fx.js` `fx.css`, `client/src/yacht/audio.js`, `client/src/yacht/ui/board.js`(**그리는 쪽을 고르는 한 곳과 `combo`·소리 연결만**), `client/src/yacht/ui/dice2d.js`(계산기 연결만), `test/yacht/ui/roll/`.
 > **약속**: GDD 4절·3-3절·8절 11번, 이 문서 3-1(`sim.js`)·3-2(`createDiceView`).
@@ -326,26 +344,30 @@ export const faces = { k: 'faces', items: [{ id: 'me', avatar: null }, { id: 'ji
 > **약속**: SPEC 19절, 이 문서 3-2. 본보기는 main.js 의 라이어 연결(`applyLiarRoom`, `withLiar`, `.lgbar`).
 > 1. `index.js`(`mountYacht`): `.yt-root` 틀을 만들고 sheet·result·board 를 건다. `faces` 를 모아 `getFace`. `applyRoom(null)` 이면 숨기고 `stage.use(null)`. 3D 장면이 있으면 `stage.use(scene, camera)`.
 >    `anchorOf(id)` = 점수표의 그 사람 사진 **아래쪽** 한 점(말풍선·이모티콘이 화면 위로 잘리지 않게. 잘리면 캡처와 함께 보고). `frame(dt)` 는 초.
+>    `sheet.el` 의 실제 폭을 재어 `--yt-sheet-w` 를 `document.documentElement` 에 넣는다(3-2. 두 덩어리 ↔ 한 덩어리로 바뀔 때도). 사이트 `#rotate`(세로 안내)는 건드리지 않는다.
 > 2. `main.js`: `me` → `lobby.setYacht(보임)`(SPEC 19-1). `room.mode === 'yacht'` → 포커 것을 비우고 로비 숨김, `.ytbar` 보임, 처음이면 `import('./yacht/index.js')`.
 >    **라이어와 요트가 같은 줄(queue) 하나를 쓰게 한다**(지금의 `liarQ`). `stage.use` 는 하나뿐이라, 라이어 방 → 로비 → 요트 방으로 빨리 옮길 때 "라이어 끄기"가 "요트 켜기"보다 늦게 실행되면 요트 장면이 꺼진다.
 >    알림: 사진·사운드는 emotePanel, `chat`·`chatLog` 는 채팅에 넣고, `emote` 포함 나머지는 `yacht.handleEvent`(포커 animator 에 넣지 않는다). 채팅은 항상 `chat.setMode('game')`(방 대기에서도).
 >    `getAnchor` 는 요트 방이면 `yacht.anchorOf`. 오류 문구는 요트 방에서 항상 `toast`. `resetDone` 도 `applyRoom(null)`. 매 프레임 `yacht?.frame(dt / 1000)`.
-> 3. `style.css`: `.ytbar`(전역). 점수표를 가리지 않게 **오른쪽 영역 위에만**(왼쪽 = `--yt-sheet-w`), 높이 54px. 방 코드 / 소리 켜기·끄기(`setMuted`) / 이모티콘 / 시작(방장 + `lobby`·`result`) / 나가기. `.lgbar` 는 고치지 않는다.
+> 3. `style.css`: `.ytbar`(전역). 점수표를 가리지 않게 **오른쪽 영역 위에만**(왼쪽 = `--yt-sheet-w`, 휴대폰 가로 4명이면 약 540px 라 남는 폭이 약 300px — 넘치지 않게 방 코드를 줄인다), 높이 54px. 방 코드 / 소리 켜기·끄기(`setMuted`) / 이모티콘 / 시작(방장 + `lobby`·`result`) / 나가기. `.lgbar` 는 고치지 않는다.
 >    채팅 버튼(오른쪽 위 고정)과 겹치지 않게 한다.
 > 4. `smoke.mjs`: 서버를 `YACHT: 'on'` 도 주고 띄우고, 기존 줄 뒤에 추가 — 요트 고르기 → 방 만들기 → 봇 1명 입장 → 가림 검사 → 시작 → (내 차례가 될 때까지 봇이 `roll`·`score`) → `cup` 누르고 떼기 → 봇이 `ytRoll` 받음 →
 >    `die-n` 누름 → 봇이 `ytKeep` 받음·`slot-0` 에 주사위 → **`row-<칸>` 한 번 누름 → 봇이 `ytPick` 받고 `ytScore` 는 안 받음 → 같은 줄 한 번 더 → 봇이 `ytScore` 받음** → 봇 차례에 `cup`·`row-*` 버튼이 0개 → 가림 검사 → 나가기 → 로비 → 포커 방 만들기가 여전히 됨.
 >    스위치 3줄: `YACHT=off` 숨김, `YACHT=test` 는 `?yacht=1` 없이 숨김·있으면 보임.
+>    가로 전용 1줄: 요트 방에서 화면을 390×844 로 바꾸면 `#rotate` 가 보이고 `cup` 의 중심점을 누르면 `#rotate` 가 맞음(가림), 844×390 으로 돌리면 `#rotate` 숨김·`row-*` 높이 44px 이상.
 > 5. `yacht-round.mjs`(본보기 `test/ui/liar-round.mjs`): 창 2개 + 늦게 들어오는 창 1개(`?nogl=1`)로 12바퀴 끝까지. 매 차례 굴린 뒤 두 창의 `die-*` `data-x`·`data-z`·`data-v` 가 같은지, 중간에 들어온 관전 창도 같은지, 관전 창에 버튼이 없는지,
->    한 번은 새로 고침(재접속) 뒤 같은 모습인지, 끝나면 `result` 창과 합계 = 칸 합 + 보너스, 방장 `bar-start` 로 새 판이 시작되고 관전자가 줄에 들어오는지. `package.json` 의 `test` 끝에 `&& node test/ui/yacht-round.mjs`.
+>    한 번은 **자기 차례에 굴린 뒤** 창을 닫았다 다시 열어(재접속) — 그 사이 다른 창에 `wait`("OO 재접속 기다리는 중")가 보이고 버튼이 없으며, 돌아온 뒤 같은 눈·보관·남은 굴림으로 이어서 하는지,
+>    끝나면 `result` 창과 합계 = 칸 합 + 보너스, 방장 `bar-start` 로 새 판이 시작되고 관전자가 줄에 들어오는지. `package.json` 의 `test` 끝에 `&& node test/ui/yacht-round.mjs`.
 > 6. `render.yaml`: `YACHT` 키(값 `test`, `LIAR` 줄과 같은 설명). `CLAUDE.md`: 이 문서 7절 초안. `README.md`: 스위치 한 줄.
-> **끝났다는 증거**: `npm run check`, **`npm test` 전체**, `node test/ui/yacht-round.mjs` 출력, smoke 의 새 줄 목록, 844×390·1280×720 `?nogl=1` 캡처 4장(방 대기, 내 차례 굴린 뒤, 남의 차례, 결과 — 상단 줄·채팅 버튼·점수표가 안 겹침),
+> **끝났다는 증거**: `npm run check`, **`npm test` 전체**, `node test/ui/yacht-round.mjs` 출력, smoke 의 새 줄 목록, 844×390·1280×720 `?nogl=1` 캡처 5장(방 대기, 내 차례 굴린 뒤, 남의 차례, 끊긴 사람 기다림, 결과 — 상단 줄·채팅 버튼·점수표가 안 겹침. 844×390 은 두 덩어리),
 > `YACHT=off` 로 띄운 로비 캡처(지금과 같음), 빌드 결과에서 요트 코드가 따로 떨어진 묶음인지.
 > **미확인으로 보고(④)**: 3D 모양·연출·소리·iPad/Safari·저사양 폰.
 > **하지 말 것**: 요트 모듈 안의 버그를 직접 고치기(보고), 포커·라이어 동작 바꾸기, 푸시.
 
 ### Y7 — 실행 시험 (Y6 과 다른 Sonnet. 코드를 고치지 않는다)
-> 실제 서버(`YACHT=on`, 메모리 저장) + 빌드된 화면 `?nogl=1` + 창 2~4개로: ① 4명 한 판 끝까지 + 다음 판 ② 차례 아닌 창·관전 창에서 누를 것이 없는지 ③ 한 번 눌러 둔 칸이 다른 창에도 강조되는지, 그대로 60초 → 그 칸 기록
-> ④ 한 명 끊김 → 10초 자동 기록 → 60초 안 재접속 / 60초 넘김(기권) ⑤ 요트 방에서 나와 홀덤 한 판·라이어 방 만들기(그대로인지) ⑥ `YACHT=off`·`test`·`?yacht=1` ⑦ 채팅 말풍선·이모티콘이 점수표 사진 근처에 뜨는지.
+> 실제 서버(`YACHT=on`, 메모리 저장, `GRACE_MS` 기본 60초) + 빌드된 화면 `?nogl=1` + 창 2~4개로: ① 4명 한 판 끝까지 + 다음 판 ② 차례 아닌 창·관전 창에서 누를 것이 없는지 ③ 한 번 눌러 둔 칸이 다른 창에도 강조되는지, 그대로 2분 → 아무 일도 없는지(시간 제한 없음), 채운 칸이 다시 안 눌리는지
+> ④ 차례인 창을 닫음 → 다른 창에 "OO 재접속 기다리는 중", 판 멈춤 → 60초 안 재접속하면 그대로 이어짐 / 다시 닫고 60초 넘김 → 기권·"기권" 표시·차례 건너뜀 / 차례 아닌 창을 닫음 → 다른 사람 차례는 계속, 60초 뒤 기권
+> ⑤ 요트 방에서 나와 홀덤 한 판·라이어 방 만들기(그대로인지) ⑥ `YACHT=off`·`test`·`?yacht=1` ⑦ 채팅 말풍선·이모티콘이 점수표 사진 근처에 뜨는지 ⑧ 844×390 두 덩어리 점수표·"N left"·첫 굴림 보관 안내 3초, 390×844 세로 안내.
 > 증거: 단계별 캡처 경로, 서버 기록, 콘솔 오류 0. 이상한 점은 고치지 말고 적는다.
 
 ## 6. 위험 (큰 것부터)
@@ -354,7 +376,8 @@ export const faces = { k: 'faces', items: [{ id: 'me', avatar: null }, { id: 'ji
 2. **3D 를 이 환경에서 볼 수 없다**(GPU 없음) — Y4C·Y4D 는 전부 ④ 미확인으로 넘어간다. `?nogl=1` 2D 로는 끝까지 된다. `YACHT=test` 로 올린 뒤 사용자 실기기 확인이 필수.
 3. **rooms.js·main.js 는 포커·라이어의 심장** — 기존 시험·smoke 줄을 안 고치고 통과, `YACHT=off` smoke, Opus 가 두 파일 변경을 줄 단위로 본다.
 4. **`stage.use` 가 하나** — 라이어와 요트가 번갈아 쓸 때 순서(Y6 의 2번).
-5. **휴대폰 점수표 칸이 작다**(약 21px) — 두 번 누르기로 막지만 실기기에서 사용자가 확인.
+5. **휴대폰 가로에서 판이 좁다** — 점수표를 두 덩어리로 나눠 칸 높이 44px 를 얻은 대신 4명이면 판 폭이 약 300px. 트레이·컵 버튼이 작아 보이는지 실기기에서 사용자가 확인.
+5-1. **끊긴 사람 기다림** — 차례 시간이 없어 한 사람이 끊기면 최대 60초 멈춘다(사용자 결정). 끊기지 않고 손을 놓은 사람은 끝없이 기다린다 — 방장 권한(내보내기)은 1차에 없으므로 나머지는 나가기만 할 수 있다. 문제가 되면 사용자에게 다시 묻는다.
 6. **말풍선 자리** — 점수표 사진이 화면 맨 위라 말풍선이 위로 잘릴 수 있다. chat.js 는 고치지 않으므로 기준점을 아래로 내린다. 안 되면 채팅 구역 과제를 따로.
 7. **기기마다 소수 계산이 다를 가능성** — 경로 중간이 미세하게 다를 수 있으나 끝은 서버 자리로 맞춘다. 사칙연산과 제곱근만 쓰게 해 차이를 없앤다.
 8. **무료 서버** — 방 상태에 사진 없음(시험으로 지킴). 굴림마다 서버 계산 수 ms.
@@ -376,7 +399,8 @@ export const faces = { k: 'faces', items: [{ id: 'me', avatar: null }, { id: 'ji
   규칙은 docs/yacht/GDD.md, 통신은 SPEC 19절.
 - 반드시 지킬 약속: 눈·seed·차례 순서는 서버가 crypto 난수로만(요트 폴더에 Math.random 금지). 화면은 서버가 준 눈과 멈춘 자리로 끝낸다.
   모든 사람(관전자 포함)이 같은 트레이·같은 주사위 자리·같은 움직임을 본다. 움직이는 것은 주사위와 컵뿐. 차례인 사람만 조작(화면에 버튼이 없고 서버도 거절).
-  점수 칸은 두 번 눌러 기록하고 첫 누름(선택)은 방 전체에 보인다. 시간은 서버가 잰다. 사용자 글자는 textContent 로만.
+  점수 칸은 두 번 눌러 기록하고 첫 누름(선택)은 방 전체에 보인다. 차례 시간 제한 없음(자동 굴림·기록 없음). 끊긴 사람 차례는 멈추고 기다리며, 끊긴 지 60초(GRACE_MS)면 기권.
+  가로 전용(세로는 사이트 #rotate 안내, 세로 배치 없음). 휴대폰 가로는 점수표 두 덩어리. 시간은 서버가 잰다. 사용자 글자는 textContent 로만.
 - 요트 전용 요청은 전부 `{t:'yt', a: 종류, ...}`. 요트 방 상태에는 프로필 사진을 넣지 않는다(`faces` 알림).
 - main.js 의 요트 연결: `import('./yacht/index.js')` 로 따로 불러온다. 상단 줄은 `.ytbar`(style.css). 라이어와 같은 대기 줄을 쓴다(stage.use 는 하나).
 - `npm test` 는 요트 한 판(test/ui/yacht-round.mjs)을 포함한다. 새 요트 화면이 생기면 smoke.mjs 와 거기에 클릭 한 줄을 추가한다.

@@ -306,6 +306,7 @@ design/   시안
 - 주사위 5개로 하는 세 번째 게임(2~4명). 규칙·화면·시간·점수는 `docs/yacht/GDD.md`를 따른다(요트다이스에 한해 GDD 가 앞 절보다 우선). 과제 나눔은 `docs/YACHT-PLAN.md`.
 - 같은 아이디·프로필 사진·로비·채팅·이모티콘·사운드를 쓴다. 포커 칩과는 연결이 없다. 전적은 `users.stats.yacht = {games, wins, best}`(새 표 없음, `newUser` 는 그대로).
 - 요트 방에서는 포커·라이어 화면을 쓰지 않고 `client/src/yacht/`의 화면을 쓴다. 상단 줄(`.ytbar`: 방 코드·이모티콘·시작·나가기)만 main.js 가 그린다. 화면 코드는 `import('./yacht/index.js')`로 따로 불러온다.
+- 확정(2026-11-13): 점수는 요트다이스 공식 룰(GDD 3-2), **차례 시간 제한 없음**(자동 굴림·자동 기록 없음), 끊긴 사람 차례에서는 멈추고 기다리며 끊긴 지 `GRACE_MS`(60초) 뒤 기권, **가로 전용**(세로는 사이트 `#rotate` 안내).
 
 ### 19-1. 스위치
 
@@ -323,8 +324,8 @@ design/   시안
 | `yt` `shake` | `on: true\|false` | 차례인 사람, 남은 굴림 1 이상 | 컵 흔들기 시작/끝 알림. 1초에 4번 초과분은 조용히 버린다 |
 | `yt` `roll` | | 차례인 사람, 남은 굴림 1 이상, 보관 안 한 주사위 1개 이상 | 보관 안 한 주사위를 전부 굴린다. 선택(`pick`)이 지워진다 |
 | `yt` `keep` | `i: 0..4`, `on: true\|false` | 차례인 사람, 한 번 이상 굴렸고 남은 굴림 1 이상 | 주사위 `i`를 보관/빼기. 이미 그 상태면 아무 일 없음. 선택이 지워진다 |
-| `yt` `pick` | `cat: 칸 이름 \| null` | 차례인 사람, 한 번 이상 굴린 뒤 | 칸 선택(첫 번째 누름)·바꾸기·해제(`null`). 방 전체에 `ytPick` 과 방 상태로 알린다. 같은 값이면 아무 일 없음. 1초에 8번 초과분은 조용히 버린다 |
-| `yt` `score` | `cat: 칸 이름` | 차례인 사람, 한 번 이상 굴린 뒤 | 빈칸에 기록하고 차례를 끝낸다 |
+| `yt` `pick` | `cat: 칸 이름 \| null` | 차례인 사람, 한 번 이상 굴린 뒤 | 칸 선택(첫 번째 누름)·바꾸기·해제(`null`). 방 전체에 `ytPick` 과 방 상태로 알린다. **보여 주기 용도만**(선택만으로 기록되는 일은 없다). 같은 값이면 아무 일 없음. 1초에 8번 초과분은 조용히 버린다 |
+| `yt` `score` | `cat: 칸 이름` | 차례인 사람, 한 번 이상 굴린 뒤 | 빈칸에 기록하고 차례를 끝낸다. 이미 채운 칸은 거절 |
 
 - 요트 전용 요청은 전부 `{t:'yt', a: 글자 1~20자, ...}` 봉투. `server/protocol.js` 는 봉투만 보고(`lg` 와 같은 검사), 속은 `shared/yacht/protocol.js` 가 검사한다.
 - 칸 이름(표 위→아래): `ones twos threes fours fives sixes choice fourKind fullHouse smallStraight largeStraight yacht`.
@@ -343,12 +344,13 @@ design/   시안
   now,                                   // 서버 시각(ms)
   phase: 'lobby' | 'playing' | 'result',
   gameNo,                                // 이 방의 몇 번째 판(시작 전 0)
-  players: [{ id, name, connected, awayUntil: epochMs | null, spectating }],   // 방에 있는 사람 전부(들어온 순서)
-  cols: [{ id, name, left,               // 점수표의 줄. playing·result: 이 판 참가자(차례 순서, 기권자 포함 left:true)
+  players: [{ id, name, connected, awayUntil: epochMs | null, spectating }],   // 방에 있는 사람 전부(들어온 순서). awayUntil = 끊김 유예 끝(= 기권 시각)
+  cols: [{ id, name, left,               // 점수표의 줄. playing·result: 이 판 참가자(차례 순서, 기권자 포함 left:true = "기권")
            scores: { ones: n | null, ... 12칸 },   //   lobby: 접속 중인 사람들의 빈 줄(들어온 순서)
            upper, bonus: 0 | 35, total }],
   round, rounds: 12,                     // round: 1..12 (lobby 0, result 12)
-  turn: id | null, turnEndsAt: epochMs | null,
+  turn: id | null,                       // 차례 시간 제한 없음(turnEndsAt 없음)
+  waiting: id | null,                    // 차례인 사람이 끊겨 기다리는 중이면 그 사람 id(= turn). 기권 시각은 players[].awayUntil
   rollsLeft: 0..3,                       // 차례 시작 3
   rollNo,                                // 이 판에서 지금까지 굴린 횟수(연출 중복 방지용)
   shaking: bool,                         // 차례인 사람이 컵을 흔드는 중
@@ -357,9 +359,9 @@ design/   시안
                   x, z, yaw }],          // 트레이에서 멈춘 자리(GDD 4절 좌표, 소수 3자리). 보관 중이면 마지막 자리
   preview: null | { 칸: 점수 },           // 차례인 사람에게만: 그 사람의 빈칸마다 지금 주사위로 받을 점수. 그 밖에는 null
   pick: null | 칸,                        // 차례인 사람이 선택해 둔 칸. 모두에게 보낸다. 굴림·보관·차례 끝에 null
-  last: null | { id, cat, score, auto }, // 가장 최근 기록(강조 표시용). 판이 시작되면 null
-  result: null | { reason: 'done' | 'alone',
-                   ranks: [{ id, name, total, rank }],   // 기권자 제외, 합계 큰 순. 동점은 같은 rank
+  last: null | { id, cat, score },       // 가장 최근 기록(강조 표시용). 판이 시작되면 null
+  result: null | { reason: 'done' | 'alone',              // alone = 기권으로 1명(또는 0명) 남음
+                   ranks: [{ id, name, total, rank }],   // 기권자 제외, 합계 큰 순. 동점은 같은 rank. 0명이면 []
                    winners: [id] },
 }
 ```
@@ -372,15 +374,18 @@ design/   시안
 | `faces` | `items: [{id, avatar}]` | 입장·재접속 때 전원 것, 누가 들어오거나 사진을 바꾸면 그 사람 것(라이어와 같은 모양) |
 | `chat` `chatLog` `emote` `pemote` `snd` `sndAdd` `sndDel` `sndRename` `sndList` | 사이트 공통 | `chatLog` 는 최근 30개 |
 | `joined` / `left` | `id, name` | 들어옴 / 나감(기권 포함) |
-| `away` / `back` | `id` | 끊김 / 돌아옴 |
+| `away` / `back` | `id` | 끊김 / 돌아옴(사이트 공통 모양 그대로). 끊긴 사람이 차례면 서버는 흔들기를 끝내고(`ytShake on:false`) `waiting` 을 채운 상태를 보낸다. 돌아오면 `waiting: null` 로 그대로 이어서 |
 | `ytStart` | `gameNo, order: [id]` | 판 시작 |
 | `ytTurn` | `id, round` | 차례 시작 |
 | `ytShake` | `id, on` | 컵 흔들기 시작/끝 |
-| `ytRoll` | `id, seed, thrown: [i], dice: [{v, slot, x, z, yaw} ×5], rollsLeft, rollNo, combo, auto` | 굴림. `seed`: 0..2³²−1 정수, `thrown`: 이번에 굴린 주사위 번호(오름차순), `dice`: 굴린 뒤 상태, `combo`: `null`\|`'yacht'`\|`'largeStraight'`\|`'fourKind'`\|`'fullHouse'`\|`'smallStraight'`, `auto`: 시간 초과로 서버가 굴림 |
+| `ytRoll` | `id, seed, thrown: [i], dice: [{v, slot, x, z, yaw} ×5], rollsLeft, rollNo, combo` | 굴림. `seed`: 0..2³²−1 정수, `thrown`: 이번에 굴린 주사위 번호(오름차순), `dice`: 굴린 뒤 상태, `combo`: `null`\|`'yacht'`\|`'largeStraight'`\|`'fourKind'`\|`'fullHouse'`\|`'smallStraight'`. 서버가 대신 굴리는 일은 없다(`auto` 없음) |
 | `ytKeep` | `id, i, on, slot \| null, x, z, yaw` | 보관(`slot` = 들어간 칸) / 빼기(`x,z,yaw` = 돌아간 자리) |
 | `ytPick` | `id, cat \| null` | 칸 선택이 생기거나 옮겨 가거나 풀림(굴림·보관으로 풀릴 때도 보낸다) |
-| `ytScore` | `id, cat, score, auto, bonus, total` | 기록. `bonus`: 이 기록으로 보너스 35를 새로 받았는가 |
+| `ytScore` | `id, cat, score, bonus, total` | 기록. `bonus`: 이 기록으로 보너스 35를 새로 받았는가 |
+| `ytDrop` | `id, reason: 'away' \| 'leave'` | 판 진행 중 참가자 기권(`away` = 끊긴 지 60초, `leave` = 나가기). 그 사람 차례였으면 이어서 `ytPick{cat:null}`·`ytTurn`(또는 `ytEnd`) |
 | `ytEnd` | `reason, ranks, winners` | 판 끝(`result` 와 같은 값) |
 
 - 화면은 `ytRoll` 의 `seed`·`thrown` 으로 `shared/yacht/sim.js` 를 돌려 움직임을 재생하고, 끝은 `dice` 의 자리와 눈으로 맞춘다. 눈은 서버 값만 쓴다.
-- 시험: `npm run check`(로비 요트 칸·방·컵·보관·두 번 눌러 기록 포함), `npm test`(+ `test/yacht/`, `test/ui/yacht-round.mjs` 한 판). 3D 모양·연출·소리·iPad/Safari 는 실기기 확인이 필요하다.
+- 화면은 세로일 때 사이트 `#rotate` 안내를 그대로 둔다(요트 전용 세로 배치 없음). 높이 720 미만은 점수표 두 덩어리(GDD 2-1).
+- 시간 관련 환경 변수는 사이트 공통 `GRACE_MS` 하나뿐이다(`YT_TURN_MS`·`YT_AWAY_MS`·`YT_AUTO_SHOW_MS` 는 없다).
+- 시험: `npm run check`(로비 요트 칸·방·컵·보관·두 번 눌러 기록·세로 안내 포함), `npm test`(+ `test/yacht/`, `test/ui/yacht-round.mjs` 한 판). 3D 모양·연출·소리·iPad/Safari 는 실기기 확인이 필요하다.
