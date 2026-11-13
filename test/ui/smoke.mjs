@@ -238,6 +238,9 @@ async function runContext(browser, server, name, cfg) {
       await press('button[aria-label="이모티콘"]');
       await visible('.hpanel .ep-grid.g3 button');
       await occlusion('emote panel open');
+      await page.evaluate(() => { document.querySelector('.hpanel .ep-reload').dataset.test = '1'; }); // 새로고침 버튼: 보이고 눌리는지만 (실제 새로고침 막음)
+      await visible('.hpanel .ep-reload[aria-label="새로고침"]');
+      await press('.hpanel .ep-reload');
       const p = event((e) => e.k === 'emote' && e.e === 0, 'emote event');
       await press('.hpanel .ep-grid.g3 button', 0);
       await p;
