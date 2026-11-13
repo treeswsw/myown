@@ -3,6 +3,8 @@
 // ctx.on(type, fn) -> 끄기. type: 't' 값('coin' | 'pin' | 'error' | 'me') 또는 'coin:<a>'(예 'coin:draw'), 'pin:<a>'.
 //   'error' 는 code 가 coin_ / shop_ / pin_ 로 시작하는 것만 온다. 'me' 는 wallet 이 바뀔 때마다(fn(wallet)).
 import './coin.css';
+import './look.css';
+import './titlefx.css';
 
 const WINDOWS = {
   swap: () => import('./wallet.js').then((m) => m.openSwap),
@@ -32,7 +34,9 @@ export function createCoin({ send, root }) {
     }
   }
 
-  const ctx = { send, root, wallet: () => wallet, on };
+  let meUser = null; // 가장 최근 me.user (이름·사진·칩). 없으면 null.
+  // ctx.me() -> 최근 사용자|null, ctx.open(kind) -> 다른 코인 창 열기
+  const ctx = { send, root, wallet: () => wallet, on, me: () => meUser, open: (kind) => open(kind) };
 
   // ---------- 알림 (위쪽, 조작을 막지 않음) ----------
   let toastEl = null, toastTimer = 0;
@@ -58,6 +62,7 @@ export function createCoin({ send, root }) {
   }
 
   function onMe(me) {
+    if (me && me.user && typeof me.user === 'object') meUser = me.user;
     const w = me && me.wallet;
     if (!w || typeof w !== 'object') return;
     wallet = {
