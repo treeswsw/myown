@@ -9,7 +9,7 @@
 import { COLORS, WIDTH_MIN, WIDTH_MAX, WIDTH_QUICK } from '../../../../shared/draw/constants.js';
 import {
   normalizeTool, currentWidth, widthPatch, quickIndex, stepWidth, widthToRatio, ratioToWidth,
-  buttonStates, isTypingTarget, keyAction,
+  buttonStates, isTypingTarget, keyAction, layoutOf,
 } from './tools.pure.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -200,12 +200,16 @@ export function createTools(parent, ctx) {
   // ---- 그리기 ----
   function render() {
     if (disposed) return;
-    const lay = ctx.layout && ctx.layout() === 'phone' ? 'phone' : 'wide';
-    el.classList.toggle('dr-tb-phone', lay === 'phone');
-    el.classList.toggle('dr-tb-wide', lay === 'wide');
+    const lay = layoutOf(ctx.layout && ctx.layout());
+    // 조각이 .dr-tb 밖으로 옮겨져도 같은 모양이 나오도록 조각마다 배치 클래스를 직접 단다
+    for (const n of [el, pal, tools, under, give, pop]) {
+      n.classList.toggle('dr-tb-phone', lay === 'phone');
+      n.classList.toggle('dr-tb-wide', lay === 'wide');
+    }
     const t = tool();
     const bs = states(t);
     el.hidden = !bs.visible;
+    for (const n of [pal, tools, under, give]) n.hidden = !bs.visible;
     if (!bs.visible) {
       if (popOpen) { popOpen = false; document.removeEventListener('pointerdown', onOutside, true); }
       pop.hidden = true;

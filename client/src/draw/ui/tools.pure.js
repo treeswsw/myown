@@ -3,6 +3,11 @@ import { COLORS, WIDTH_MIN, WIDTH_MAX, WIDTH_QUICK, PEN_WIDTH_DEFAULT, ERASER_WI
 
 export const TOOLS = Object.freeze(['pen', 'erase', 'strokeErase']);
 
+// ctx.layout() 결과를 'phone' | 'wide' 로 (그 밖은 wide)
+export function layoutOf(v) {
+  return v === 'phone' ? 'phone' : 'wide';
+}
+
 // 굵기를 2~40 정수로 정리한다. 숫자가 아니면 fallback.
 export function clampWidth(v, fallback = PEN_WIDTH_DEFAULT) {
   const n = Math.round(Number(v));
