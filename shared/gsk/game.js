@@ -331,34 +331,21 @@ function enterReveal(s, fx, ok, skullOf, at) {
 
 function enterPenalty(s, fx, rnd, at) {
   const ch = seatOf(s, s.challenger);
-  const kinds = [];
-  for (const k of ['F', 'S']) for (let i = 0; i < ch.discs[k]; i++) kinds.push(k);
-  const skull = s.outcome.skullOf;
-  const owner = skull && skull !== ch.id ? seatOf(s, skull) : null;
-  s.pen = { by: owner ? owner.id : ch.id, target: ch.id, perm: shuffle(kinds, rnd) };
+  // GDD 17절: 도전자 본인이 항상 자기 원판 종류를 골라 버린다
+  s.pen = { by: ch.id, target: ch.id, n: discCount(ch) };
   s.step = 'penalty';
   s.endsAt = null;
   s.turnId = null;
-  // 해골 주인이 판정 중에 나갔으면 난수로 고른다
-  if (owner && owner.out) applyPenalty(s, fx, s.pen.perm[rand(rnd, s.pen.perm.length)], at);
 }
 
 function doDiscard(s, seat, m, now, rnd) {
   if (s.step !== 'penalty') return fail('gk_now');
   if (s.pen.by !== seat.id) return fail('gk_turn');
-  const faceUp = s.pen.by === s.pen.target;
+  if (m.k === undefined) return fail('gk_bad');
   const target = seatOf(s, s.pen.target);
-  let kind;
-  if (faceUp) {
-    if (m.k === undefined) return fail('gk_bad');
-    if (target.discs[m.k] < 1) return fail('gk_hand');
-    kind = m.k;
-  } else {
-    if (m.i === undefined || m.i >= s.pen.perm.length) return fail('gk_bad');
-    kind = s.pen.perm[m.i];
-  }
+  if (target.discs[m.k] < 1) return fail('gk_hand');
   const fx = newFx();
-  applyPenalty(s, fx, kind, now);
+  applyPenalty(s, fx, m.k, now);
   return fx;
 }
 
@@ -396,14 +383,6 @@ function dropMany(s, ids, reason, fx, at, rnd) {
   const gone = new Set(hit.map((x) => x.id));
   // 판정이 난 뒤 제3자 이탈: 도전자가 남아 있으면 결과를 그대로 이어 간다(tick 이 점수·벌칙 진행)
   if ((s.step === 'reveal' || s.step === 'penalty') && !gone.has(s.challenger)) {
-    if (s.step === 'penalty' && gone.has(s.pen.by)) {
-      applyPenalty(s, fx, s.pen.perm[rand(rnd, s.pen.perm.length)], at);
-    }
-    return;
-  }
-  if (s.step === 'penalty' && !gone.has(s.pen.target) && gone.has(s.pen.by)) {
-    // 고르는 사람이 사라지면 난수로 고른 뒤 그대로 진행
-    applyPenalty(s, fx, s.pen.perm[rand(rnd, s.pen.perm.length)], at);
     return;
   }
   // 라운드 무효: 원판은 모두 손으로, 같은 시작 사람으로 새 라운드
@@ -520,7 +499,7 @@ export function viewFor(s, id) {
     need: s.need, flipped: s.flipped,
     outcome: s.outcome ? { ...s.outcome } : null,
     penalty: playing && s.step === 'penalty'
-      ? { by: s.pen.by, target: s.pen.target, n: s.pen.perm.length, faceUp: s.pen.by === s.pen.target } : null,
+      ? { by: s.pen.by, target: s.pen.target, n: s.pen.n, faceUp: true } : null,
     endsAt: inFlip ? s.flipAt : s.endsAt,
     mine,
     result: s.result ? { reason: s.result.reason, winner: s.result.winner, ranks: s.result.ranks.map((r) => ({ ...r })) } : null,

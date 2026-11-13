@@ -211,7 +211,7 @@ test('두 번 성공하면 승리 → result, finished, 한 판 더', () => {
 
 // ---------- 시나리오 2: 실패와 탈락 ----------
 
-test('실패: 남의 해골 → 해골 주인이 뒷면 칸으로 고름, 다음 시작 = 도전자', () => {
+test('실패: 남의 해골 → 도전자 본인이 종류로 고름, 다음 시작 = 도전자', () => {
   const s = mk(3);
   const st = s.starter;
   const skullMan = order(s).find((x) => x !== st);
@@ -224,12 +224,11 @@ test('실패: 남의 해골 → 해골 주인이 뒷면 칸으로 고름, 다음
   tick(s, s.endsAt, rng0);
   assert.equal(s.step, 'penalty');
   const v = viewFor(s, 'p0');
-  assert.deepEqual(v.penalty, { by: skullMan, target: ch, n: 4, faceUp: false });
-  // 도전자는 못 고른다. 종류(k)로도 못 고른다
-  assert.equal(code(s, ch, { a: 'discard', i: 0 }), 'gk_turn');
-  assert.equal(code(s, skullMan, { a: 'discard', k: 'F' }), 'gk_bad');
-  assert.equal(code(s, skullMan, { a: 'discard', i: 9 }), 'gk_bad');
-  const d = good(s, skullMan, { a: 'discard', i: 2 }); // rng0 섞기: [꽃,꽃,해골,꽃] → 칸 2 = 해골
+  assert.deepEqual(v.penalty, { by: ch, target: ch, n: 4, faceUp: true });
+  // 해골 주인은 못 고른다. 칸 번호(i)는 안 된다
+  assert.equal(code(s, skullMan, { a: 'discard', k: 'S' }), 'gk_turn');
+  assert.equal(code(s, ch, { a: 'discard', i: 0 }), 'gk_bad');
+  const d = good(s, ch, { a: 'discard', k: 'S' });
   assert.deepEqual(d.events.map((x) => [x.to, x.e.k]), [['all', 'gkLose'], [ch, 'gkLoseMine']]);
   assert.deepEqual(d.events[0].e, { k: 'gkLose', id: ch, discs: 3 });
   assert.equal(d.events[1].e.disc, 'S');
@@ -277,7 +276,7 @@ test('원판 0 이면 탈락, 도전자가 탈락하면 다음 시작은 해골 
   autoFlip(s);
   good(s, st, { a: 'flip', p: skullMan });
   tick(s, s.endsAt, rng0);
-  const d = good(s, skullMan, { a: 'discard', i: 0 });
+  const d = good(s, st, { a: 'discard', k: 'F' });
   assert.deepEqual(kinds(d), ['gkLose', 'gkLoseMine', 'gkOut']);
   assert.deepEqual(d.events[2].e, { k: 'gkOut', id: st, reason: 'lost' });
   assert.equal(s.seats.find((x) => x.id === st).out, 'lost');
@@ -330,7 +329,7 @@ test('혼자 남으면 승리(alone)', () => {
   good(s, st, { a: 'flip', p: x });
   assert.equal(s.outcome.ok, false);
   tick(s, s.endsAt, rng0);
-  good(s, x, { a: 'discard', i: 0 });
+  good(s, st, { a: 'discard', k: 'F' });
   assert.equal(s.phase, 'result');
   const v = viewFor(s, 'p0');
   assert.equal(v.result.reason, 'alone'); assert.equal(v.result.winner, x);
@@ -429,7 +428,7 @@ test('flip 예외: 자기 더미·공개 끝난 더미·존재하지 않는 사�
   assert.equal(code(s, ch, { a: 'flip', p: 'nobody' }), 'gk_bad');
   good(s, ch, { a: 'flip', p: x });
   assert.equal(code(s, ch, { a: 'flip', p: x }), 'gk_bad'); // 더미 하나뿐인데 이미 공개
-  assert.equal(code(s, ch, { a: 'discard', i: 0 }), 'gk_now');
+  assert.equal(code(s, ch, { a: 'discard', k: 'F' }), 'gk_now');
   good(s, ch, { a: 'flip', p: y });
   assert.equal(s.step, 'reveal'); // 3장 성공 (자기 1 + x + y)
   assert.equal(code(s, ch, { a: 'flip', p: z }), 'gk_now');
@@ -520,7 +519,7 @@ test('setup 에서 안 놓은 끊긴 사람을 기다린다', () => {
   assert.equal(s.step, 'setup');
 });
 
-test('벌칙 고르는 사람이 나가면 난수로 고른 뒤 진행', () => {
+test('벌칙 중 해골 주인이 나가도 도전자가 고를 때까지 기다린다', () => {
   const s = mk(4);
   const st = s.starter;
   const skullMan = order(s).find((x) => x !== st);
@@ -531,7 +530,9 @@ test('벌칙 고르는 사람이 나가면 난수로 고른 뒤 진행', () => {
   tick(s, s.endsAt, rng0);
   assert.equal(s.step, 'penalty');
   const fx = leave(s, skullMan, T0, (n) => n - 1);
-  assert.deepEqual(kinds(fx), ['gkOut', 'gkLose', 'gkLoseMine']);
+  assert.deepEqual(kinds(fx), ['gkOut']);
+  assert.equal(s.step, 'penalty');
+  good(s, st, { a: 'discard', k: 'F' });
   assert.equal(s.step, 'between');
   assert.equal(s.starter, st);
   assert.equal(viewFor(s, st).seats.find((x) => x.id === st).discs, 3);
@@ -755,14 +756,17 @@ test('성공 판정 중 제3자가 나가고 2점째면 승리', () => {
   assert.equal(s.result.reason, 'points');
 });
 
-test('실패 판정 중 해골 주인이 나가면 벌칙은 난수로 고르고 이어 간다', () => {
+test('실패 판정 중 해골 주인이 나가도 벌칙은 도전자가 고른다', () => {
   const { s, st, skullMan } = judged(true);
   leave(s, skullMan, s.now, rng0);
   assert.equal(s.step, 'reveal');
   const fx = tick(s, s.endsAt, (n) => n - 1);
-  assert.deepEqual(kinds(fx), ['gkLose', 'gkLoseMine']);
+  assert.deepEqual(kinds(fx), []);
+  assert.equal(s.step, 'penalty');
+  assert.deepEqual(viewFor(s, st).penalty, { by: st, target: st, n: 4, faceUp: true });
+  good(s, st, { a: 'discard', k: 'S' });
   assert.equal(s.step, 'between');
-  assert.equal(s.starter, st); // 해골 주인은 나갔으니 도전자가 다음 시작
+  assert.equal(s.starter, st);
   assert.equal(viewFor(s, st).seats.find((x) => x.id === st).discs, 3);
   tick(s, s.endsAt, rng0);
   assert.equal(s.step, 'setup');
@@ -776,7 +780,7 @@ test('벌칙 중 제3자가 나가도 그대로 진행', () => {
   const fx = leave(s, third, s.now, rng0);
   assert.deepEqual(kinds(fx), ['gkOut']);
   assert.equal(s.step, 'penalty');
-  good(s, skullMan, { a: 'discard', i: 0 });
+  good(s, st, { a: 'discard', k: 'F' });
   assert.equal(s.step, 'between');
   assert.equal(s.starter, st);
 });

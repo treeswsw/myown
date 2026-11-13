@@ -134,12 +134,13 @@ test('한 판: 실패(벌칙)→성공 두 번으로 승리→전적 저장→�
   t.clock.advance(3500);
   s = t.st();
   assert.equal(s.step, 'penalty');
-  assert.equal(s.penalty.by, skullId);
+  assert.equal(s.penalty.by, chId);
   assert.equal(s.penalty.target, chId);
-  assert.equal(s.penalty.faceUp, false);
+  assert.equal(s.penalty.faceUp, true);
   assert.equal(s.penalty.n, 4);
-  assert.equal(gk(t.room, ch, { a: 'discard', i: 0 }).code, 'gk_turn'); // 고르는 사람은 해골 주인
-  ok(t.room, t.by(skullId), { a: 'discard', i: 0 });
+  assert.equal(gk(t.room, t.by(skullId), { a: 'discard', k: 'F' }).code, 'gk_turn'); // 고르는 사람은 도전자
+  assert.equal(gk(t.room, ch, { a: 'discard', i: 0 }).code, 'gk_bad');
+  ok(t.room, ch, { a: 'discard', k: 'F' });
   // 잃은 종류는 도전자 본인에게만 따로 간다
   assert.equal(events(ch, 'gkLoseMine').length, 1);
   assert.equal(t.ps.filter((p) => p !== ch).every((p) => events(p, 'gkLoseMine').length === 0), true);
