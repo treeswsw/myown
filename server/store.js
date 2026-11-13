@@ -45,8 +45,16 @@ function coinList(users) {
 function createMemoryStore() {
   const users = new Map();
   let ledger = [];
+  const meta = new Map();
   return {
     async init() {},
+    async getMeta(k) { return meta.has(k) ? structuredClone(meta.get(k)) : null; },
+    async setMeta(k, v) { meta.set(k, structuredClone(v)); },
+    // Newest first. `at` is epoch ms.
+    async ledgerFor(uid, kind, n) {
+      return ledger.filter((e) => e.uid === uid && e.kind === kind).slice(-n).reverse()
+        .map((e) => ({ at: e.at.getTime(), delta: e.delta, chips: e.chips, note: structuredClone(e.note) }));
+    },
     async getOrCreate(id, name) {
       if (!users.has(id)) users.set(id, newUser(id, name));
       return normalizeUser(structuredClone(users.get(id)));
@@ -83,6 +91,7 @@ function createMemoryStore() {
     async clear() {
       users.clear();
       ledger = [];
+      meta.clear();
     },
     async close() {},
   };
@@ -146,6 +155,24 @@ function createPgStore(url) {
         chips integer NOT NULL DEFAULT 0,
         note jsonb
       )`);
+      await pool.query('CREATE TABLE IF NOT EXISTS meta (k text PRIMARY KEY, v jsonb)');
+    },
+    async getMeta(k) {
+      await writes.catch(() => {});
+      const { rows } = await pool.query('SELECT v FROM meta WHERE k = $1', [k]);
+      return rows[0] ? rows[0].v : null;
+    },
+    setMeta(k, v) {
+      return queue(() => pool.query(
+        'INSERT INTO meta (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = $2', [k, JSON.stringify(v)],
+      ));
+    },
+    async ledgerFor(uid, kind, n) {
+      await writes.catch(() => {});
+      const { rows } = await pool.query(
+        'SELECT at, delta, chips, note FROM coin_log WHERE uid = $1 AND kind = $2 ORDER BY id DESC LIMIT $3', [uid, kind, n],
+      );
+      return rows.map((r) => ({ at: new Date(r.at).getTime(), delta: r.delta, chips: r.chips, note: r.note }));
     },
     async getOrCreate(id, name) {
       const fresh = newUser(id, name);
@@ -205,7 +232,7 @@ function createPgStore(url) {
     },
     // Queued behind pending saves so none of them can land after the wipe.
     clear() {
-      return queue(() => pool.query('TRUNCATE users, coin_log'));
+      return queue(() => pool.query('TRUNCATE users, coin_log, meta'));
     },
     async close() {
       await writes;

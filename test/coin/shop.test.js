@@ -7,10 +7,13 @@ test('슬롯', () => {
 });
 
 test('품목: 슬롯마다 2개, 총 8개, 값 범위, id 중복 없음', () => {
-  assert.equal(ITEMS.length, 8);
-  assert.equal(new Set(ITEMS.map((i) => i.id)).size, 8);
-  for (const s of SLOTS) assert.equal(ITEMS.filter((i) => i.slot === s).length, 2, s);
-  for (const i of ITEMS) {
+  const sold = ITEMS.filter((i) => i.shop !== false);
+  assert.equal(sold.length, 8);
+  assert.equal(new Set(ITEMS.map((i) => i.id)).size, ITEMS.length);
+  for (const s of SLOTS) assert.equal(sold.filter((i) => i.slot === s).length, 2, s);
+  const jp = item('title.jackpot');
+  assert.equal(jp.shop, false); assert.equal(jp.slot, 'title'); assert.equal(jp.name, '잭팟의 주인'); assert.equal(jp.v.text, '잭팟의 주인');
+  for (const i of sold) {
     assert.ok(i.id.startsWith(i.slot + '.'), i.id);
     assert.ok(i.id.length <= 40);
     assert.ok(typeof i.name === 'string' && i.name.length > 0);

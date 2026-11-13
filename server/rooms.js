@@ -8,6 +8,7 @@ import { createDrawRoom } from './draw/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 import { createAdmin, ADMIN_ID } from './admin/bots.js';
 import { installWallet, walletOf } from './coin/wallet.js';
+import { POOL_START } from '../shared/coin/gacha.js';
 import { installPin, pinErr } from './coin/pin.js';
 import { hookRoom } from './coin/hooks.js';
 
@@ -521,7 +522,7 @@ export function createHub({
     },
     sendMe(...sessions) {
       // admin: true only for the admin session; nobody else gets the field.
-      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, wallet: walletOf(s.user), ...(s.admin ? { admin: true } : {}) });
+      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, wallet: walletOf(s.user, hub), ...(s.admin ? { admin: true } : {}) });
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
@@ -569,6 +570,7 @@ export function createHub({
       } finally {
         hub.resetting = false;
       }
+      hub.pool = POOL_START;
       hub.lastResetAt = hub.now();
       hub.epoch++;
       for (const c of hub.conns) c.send({ t: 'resetDone' });

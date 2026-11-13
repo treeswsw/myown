@@ -105,76 +105,143 @@ test('swap: ok, coin_room, coin_low, coin_bad, coin_max', async () => {
   assert.equal(u.coins, 10);
 });
 
-test('draw 1 and 10: chips, pity, ledger, throttle; coin_low with 9', async () => {
-  const { hub, store, clock } = await setup({ coinSeed: 9 });
+test('draw 1 and 10: chips, pity, pool, ledger, throttle; coin_low with 4', async () => {
+  const { hub, store, clock } = await setup({ coinSeed: 4 });
   const a = await login(hub, 'aaa');
   const s = sess(hub, 'aaa');
   const bank = s.user.bank;
   await a.send({ t: 'coin', a: 'draw', n: 1 });
   assert.equal(lastErr(a).code, 'coin_low');
   clock.advance(400);
-  s.user.coins = 110;
+  s.user.coins = 55;
   hub.rng = () => 0; // lowest roll: bronze
   await a.send({ t: 'coin', a: 'draw', n: 1 });
   let d = msgs(a, 'coin', 'draw').at(-1);
-  assert.deepEqual(d.pulls, [{ chips: 500, tier: 0 }]);
-  assert.equal(d.chips, 500); assert.equal(d.pity, 1);
-  assert.equal(s.user.coins, 100); assert.equal(s.user.bank, bank + 500); assert.equal(s.user.gear.pity, 1);
+  assert.deepEqual(d.pulls, [{ chips: 200, tier: 0 }]);
+  assert.equal(d.chips, 200); assert.equal(d.pity, 1); assert.equal(d.pool, 10020);
+  assert.equal(s.user.coins, 50); assert.equal(s.user.bank, bank + 200); assert.equal(s.user.gear.pity, 1);
   const errs = msgs(a, 'error').length;
   await a.send({ t: 'coin', a: 'draw', n: 1 }); // within 0.3s: silently ignored
-  assert.equal(s.user.coins, 100);
+  assert.equal(s.user.coins, 50);
   assert.equal(msgs(a, 'error').length, errs);
   clock.advance(400);
   s.user.gear.pity = 0;
-  await a.send({ t: 'coin', a: 'draw', n: 10 }); // all bronze -> last one becomes 2000
+  await a.send({ t: 'coin', a: 'draw', n: 10 }); // all bronze -> last one becomes gold 1000
   d = msgs(a, 'coin', 'draw').at(-1);
   assert.equal(d.pulls.length, 10);
-  assert.equal(d.pulls[9].chips, 2000);
-  assert.equal(d.chips, 500 * 9 + 2000);
+  assert.equal(d.pulls[9].chips, 1000);
+  assert.equal(d.chips, 200 * 9 + 1000);
+  assert.equal(d.pool, 10220);
   assert.equal(s.user.coins, 0);
   assert.equal(s.user.gear.pity, 10);
   const log = store.ledger().filter((x) => x.kind === 'draw');
   assert.equal(log.length, 2);
-  assert.equal(log[1].delta, -100); assert.equal(log[1].chips, 6500);
+  assert.equal(log[1].delta, -50); assert.equal(log[1].chips, 2800);
+  clock.advance(400);
+  await a.send({ t: 'coin', a: 'draw', n: 10 });
+  assert.equal(lastErr(a).code, 'coin_low');
 });
 
-test('draw: pity gives gold on the 80th', async () => {
+test('draw: pity gives 대박 on the 60th', async () => {
   const { hub } = await setup({ coinSeed: 10 });
   const a = await login(hub, 'aaa');
   const s = sess(hub, 'aaa');
-  s.user.gear.pity = 79;
+  s.user.gear.pity = 59;
   hub.rng = () => 0;
   await a.send({ t: 'coin', a: 'draw', n: 1 });
-  assert.equal(msgs(a, 'coin', 'draw').at(-1).pulls[0].chips, 5000);
+  assert.equal(msgs(a, 'coin', 'draw').at(-1).pulls[0].chips, 2500);
   assert.equal(s.user.gear.pity, 0);
 });
 
-test('draw news: gold to lobby only, jackpot to everyone, none for self or admin', async () => {
-  const env = await setupAdmin({ mode: 'bluff', bots: 0, hubOptions: { coinSeed: 100 } });
-  const { hub, clock } = env;
-  const lobby = await env.human('lobbyguy');
-  const inroom = await env.human('roomguy');
-  await inroom.send({ t: 'join', code: env.room.code });
-  const drawer = await env.human('drawer');
-  hub.rng = () => 0.99; // roll 9900: gold
-  await drawer.send({ t: 'coin', a: 'draw', n: 1 });
-  const news = (c) => msgs(c, 'coin', 'news');
-  assert.equal(news(lobby).length, 1);
-  assert.deepEqual(news(lobby)[0], { t: 'coin', a: 'news', name: 'drawer', chips: 5000, tier: 2 });
-  assert.equal(news(inroom).length, 0);
-  assert.equal(news(drawer).length, 0);
-  clock.advance(500);
-  hub.rng = () => 0.9985; // roll 9985: jackpot
-  await drawer.send({ t: 'coin', a: 'draw', n: 1 });
-  assert.equal(news(lobby).length, 2);
-  assert.equal(news(inroom).length, 1);
-  assert.equal(news(inroom)[0].tier, 3);
-  clock.advance(500);
-  await env.admin.send({ t: 'leave' });
-  const before = news(lobby).length;
-  await env.admin.send({ t: 'coin', a: 'draw', n: 1 });
-  assert.equal(news(lobby).length, before);
-  env.close();
+test('free draw: costs 0, charges 1 per 2h up to 2, coin_free when empty', async () => {
+  const { hub, clock, store } = await setup({ coinSeed: 0 });
+  const a = await login(hub, 'aaa');
+  const s = sess(hub, 'aaa');
+  hub.rng = () => 0;
+  assert.deepEqual(msgs(a, 'me').at(-1).wallet.free, { n: 2, next: null });
+  await a.send({ t: 'coin', a: 'draw', n: 1, free: true });
+  let d = msgs(a, 'coin', 'draw').at(-1);
+  assert.equal(d.chips, 200); assert.equal(d.free.n, 1);
+  assert.equal(s.user.coins, 0);
+  assert.equal(msgs(a, 'me').at(-1).wallet.free.next, 2 * 3600_000);
+  clock.advance(1000);
+  await a.send({ t: 'coin', a: 'draw', n: 1, free: true });
+  assert.equal(msgs(a, 'coin', 'draw').at(-1).free.n, 0);
+  clock.advance(1000);
+  await a.send({ t: 'coin', a: 'draw', n: 1, free: true });
+  assert.equal(lastErr(a).code, 'coin_free');
+  assert.equal(lastErr(a).msg, '무료 뽑기가 없습니다.');
+  assert.equal(store.ledger().filter((x) => x.kind === 'draw').length, 2);
+  // 1h59m after the second free draw: still none; 2h: one back
+  clock.advance(2 * 3600_000 - 3000);
+  hub.sendMe(s);
+  assert.equal(msgs(a, 'me').at(-1).wallet.free.n, 0);
+  clock.advance(2000);
+  await a.send({ t: 'coin', a: 'draw', n: 1, free: true });
+  assert.equal(msgs(a, 'coin', 'draw').at(-1).free.n, 0);
+  // a long wait caps at 2
+  clock.advance(10 * 3600_000);
+  hub.sendMe(s);
+  assert.deepEqual(msgs(a, 'me').at(-1).wallet.free, { n: 2, next: null });
+  // free:true with n=10 is bad
+  await a.send({ t: 'coin', a: 'draw', n: 10, free: true });
+  assert.equal(lastErr(a).code, 'coin_bad');
+});
+
+test('pool: grows, persists across a new hub with the same store, resets on jackpot', async () => {
+  const clock = new FakeClock();
+  const store = createStore(undefined);
+  const mk = () => createHub({ store, rng: seeded(1), now: clock.now, timers: clock, coinSeed: 100 });
+  let hub = mk();
+  let a = await login(hub, 'aaa');
+  hub.rng = () => 0;
+  await a.send({ t: 'coin', a: 'draw', n: 10 });
+  assert.equal(hub.pool, 10200);
+  assert.equal(await store.getMeta('pool'), 10200);
+  assert.equal(msgs(a, 'me').at(-1).wallet.pool, 10200);
+  await hub.close();
+  hub = mk();
+  a = await login(hub, 'aaa');
+  assert.equal(msgs(a, 'me').at(-1).wallet.pool, 10200);
+  clock.advance(1000);
+  hub.rng = () => 0.9995; // roll 99950: 갱식 잭팟
+  const bank = sess(hub, 'aaa').user.bank;
+  await a.send({ t: 'coin', a: 'draw', n: 1 });
+  const d = msgs(a, 'coin', 'draw').at(-1);
+  assert.equal(d.pulls[0].tier, 5);
+  assert.equal(d.pulls[0].chips, 10220);
+  assert.equal(d.pool, 10000);
+  assert.equal(sess(hub, 'aaa').user.bank, bank + 10220);
+  assert.equal(await store.getMeta('pool'), 10000);
+  assert.ok(sess(hub, 'aaa').user.gear.owned.includes('title.jackpot'));
+  assert.deepEqual(msgs(a, 'me').at(-1).wallet.owned, ['title.jackpot']);
+  // a second jackpot does not duplicate the title
+  clock.advance(1000);
+  await a.send({ t: 'coin', a: 'draw', n: 1 });
+  assert.deepEqual(sess(hub, 'aaa').user.gear.owned, ['title.jackpot']);
+  // not sold in the shop
+  await a.send({ t: 'coin', a: 'buy', id: 'title.jackpot' });
+  assert.equal(lastErr(a).code, 'shop_no');
+  await hub.close();
+});
+
+test('hist: last draws newest first with n, chips, best', async () => {
+  const { hub, clock } = await setup({ coinSeed: 100 });
+  const a = await login(hub, 'aaa');
+  hub.rng = () => 0;
+  await a.send({ t: 'coin', a: 'draw', n: 1 });
+  clock.advance(400);
+  await a.send({ t: 'coin', a: 'draw', n: 10 });
+  clock.advance(400);
+  await a.send({ t: 'coin', a: 'draw', n: 1, free: true });
+  await a.send({ t: 'coin', a: 'hist' });
+  const h = msgs(a, 'coin', 'hist').at(-1);
+  assert.equal(h.list.length, 3);
+  assert.deepEqual(h.list.map((x) => [x.n, x.chips, x.best]), [[1, 200, 0], [10, 2800, 2], [1, 200, 0]]);
+  assert.equal(typeof h.list[0].at, 'number');
+  for (let i = 0; i < 55; i++) { clock.advance(400); sess(hub, 'aaa').user.coins += 5; await a.send({ t: 'coin', a: 'draw', n: 1 }); }
+  await a.send({ t: 'coin', a: 'hist' });
+  assert.equal(msgs(a, 'coin', 'hist').at(-1).list.length, 50);
 });
 
 test('draw/buy/swap are refused inside a room', async () => {
@@ -237,6 +304,8 @@ test('bad coin requests: coin_bad with code', async () => {
   const a = await login(hub, 'aaa');
   await a.send({ t: 'coin', a: 'draw', n: 5 });
   assert.equal(lastErr(a).code, 'coin_bad');
+  await a.send({ t: 'coin', a: 'draw', n: 1, free: 'yes' });
+  assert.equal(lastErr(a).code, 'coin_bad');
   await a.send({ t: 'coin', a: 'zzz' });
   assert.equal(lastErr(a).code, 'coin_bad');
 });
@@ -248,7 +317,7 @@ test('me.wallet shape; no pin or hash in any message', async () => {
   s.user.pin = { s: 'SALTSECRET', h: 'HASHSECRET', t: ['TOKSECRET'] };
   hub.sendMe(s);
   const me = msgs(a, 'me').at(-1);
-  assert.deepEqual(me.wallet, { coins: 3, total: 0, pity: 0, owned: [], equip: {}, hasPin: true });
+  assert.deepEqual(me.wallet, { coins: 3, total: 0, pity: 0, owned: [], equip: {}, hasPin: true, free: { n: 2, next: null }, pool: 10000 });
   assert.equal(me.user.pin, undefined);
   await a.send({ t: 'coin', a: 'buy', id: 'nope' });
   await a.send({ t: 'coin', a: 'rank' });

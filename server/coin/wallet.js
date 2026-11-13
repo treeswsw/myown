@@ -1,7 +1,7 @@
 // Coin wallet on the hub (SPEC 22): award (22-2), swap / draw / buy / equip / rank (22-3..22-6).
 // Nothing here knows a game; games call hub.award(room, mode, rows) once per finished round.
 import { COIN_RULES, coinsFor } from '../../shared/coin/rules.js';
-import { draw as gachaDraw, COST, TEN } from '../../shared/coin/gacha.js';
+import { draw as gachaDraw, COST, TEN, POOL_START, freeNow, freeNext } from '../../shared/coin/gacha.js';
 import { item } from '../../shared/coin/shop.js';
 import { parseCoin } from '../../shared/coin/protocol.js';
 
@@ -15,6 +15,7 @@ const ERR = {
   coin_low: '코인이 모자랍니다.',
   coin_bad: '잘못된 요청입니다.',
   coin_max: '칩이 너무 많습니다.',
+  coin_free: '무료 뽑기가 없습니다.',
   shop_no: '없는 물건입니다.',
   shop_own: '이미 가지고 있습니다.',
   shop_not: '가지고 있지 않습니다.',
@@ -22,9 +23,13 @@ const ERR = {
 export const coinErr = (code) => ({ msg: ERR[code], code });
 
 // The wallet part of `me`. Never carries the pin record.
-export function walletOf(user) {
+export function walletOf(user, hub) {
   const g = user.gear ?? {};
+  const now = hub?.now ? hub.now() : 0;
+  const f = freeNow(g.free, now);
   return {
+    free: { n: f.n, next: freeNext(f, now) },
+    pool: hub?.pool ?? POOL_START,
     coins: user.coins ?? 0,
     total: user.coinsTotal ?? 0,
     pity: g.pity ?? 0,
@@ -37,6 +42,21 @@ export function walletOf(user) {
 export function installWallet(hub) {
   const lastEarn = new Map(); // `${id}|${mode}` -> time of the last paid award
   const lastDraw = new Map(); // id -> time of the last draw request
+
+  // Vault (금고): loaded once, kept on the hub, saved on every change.
+  hub.pool = POOL_START;
+  const poolReady = Promise.resolve()
+    .then(() => hub.store.getMeta('pool'))
+    .then((v) => { if (Number.isInteger(v) && v >= POOL_START) hub.pool = v; })
+    .catch((err) => console.error('pool load failed:', err.message));
+  function savePool() {
+    try {
+      const p = hub.store.setMeta('pool', hub.pool);
+      if (p && typeof p.catch === 'function') p.catch((err) => console.error('pool save failed:', err.message));
+    } catch (err) {
+      console.error('pool save failed:', err.message);
+    }
+  }
 
   const hasBot = (room) => hub.admin?.botsIn?.(room) > 0 || (room.members ?? []).some((m) => m.session?.bot);
 
@@ -80,7 +100,7 @@ export function installWallet(hub) {
     const msg = { t: 'coin', a: 'news', name, chips: pull.chips, tier: pull.tier };
     for (const s of hub.sessions.values()) {
       if (!s.conn || s === session || s.bot) continue;
-      if (pull.tier >= 3 || !s.room) hub.send(s, msg);
+      if (pull.tier >= 4 || !s.room) hub.send(s, msg);
     }
   }
 
@@ -113,23 +133,52 @@ export function installWallet(hub) {
         lastDraw.set(session.id, t);
         const e = needOut();
         if (e) return e;
-        const cost = COST * (m.n === 10 ? TEN : 1);
-        if (u.coins < cost) return coinErr('coin_low');
-        if (u.bank + m.n * 100_000 > MAX_CHIPS) return coinErr('coin_max'); // top prize is 100000 chips per pull
-        const r = gachaDraw(hub.rng, m.n, g.pity);
+        await poolReady;
+        const fr = freeNow(g.free, t);
+        let cost = COST * (m.n === 10 ? TEN : 1);
+        if (m.free) {
+          if (fr.n < 1) return coinErr('coin_free');
+          cost = 0;
+        } else if (u.coins < cost) return coinErr('coin_low');
+        // Worst case: the whole vault plus the best fixed prize on every other card.
+        if (u.bank + hub.pool + m.n * 10_000 > MAX_CHIPS) return coinErr('coin_max');
+        const r = gachaDraw(hub.rng, m.n, g.pity, hub.pool);
         u.coins -= cost;
         u.bank += r.chips;
         g.pity = r.pity;
-        changed(session, { kind: 'draw', delta: -cost, bal: u.coins, chips: r.chips, note: { pulls: r.pulls.map((p) => p.chips) } });
-        hub.send(session, { t: 'coin', a: 'draw', pulls: r.pulls, chips: r.chips, pity: r.pity });
-        for (const p of r.pulls) if (p.tier >= 2) news(session, p, u.name);
+        if (m.free) g.free = fr.n >= 2 ? { n: 1, at: t } : { n: fr.n - 1, at: fr.at };
+        else g.free = fr;
+        const poolChanged = r.pool !== hub.pool;
+        hub.pool = r.pool;
+        if (poolChanged) savePool();
+        if (r.jackpot && !g.owned.includes('title.jackpot')) g.owned.push('title.jackpot');
+        const best = Math.max(...r.pulls.map((p) => p.tier));
+        changed(session, {
+          kind: 'draw', delta: -cost, bal: u.coins, chips: r.chips,
+          note: { n: m.n, best, free: !!m.free, pulls: r.pulls.map((p) => p.chips) },
+        });
+        hub.send(session, { t: 'coin', a: 'draw', pulls: r.pulls, chips: r.chips, pity: r.pity, pool: r.pool, free: { n: g.free.n, at: g.free.at } });
+        for (const p of r.pulls) if (p.tier >= 3) news(session, p, u.name);
+        return null;
+      }
+      case 'hist': {
+        try {
+          const rows = await hub.store.ledgerFor(session.id, 'draw', 50);
+          const list = rows.map((r) => ({
+            at: r.at, n: r.note?.n ?? r.note?.pulls?.length ?? 1, chips: r.chips, best: r.note?.best ?? 0,
+          }));
+          hub.send(session, { t: 'coin', a: 'hist', list });
+        } catch (err) {
+          console.error('coin hist failed:', err.message);
+          return '기록을 불러오지 못했습니다.';
+        }
         return null;
       }
       case 'buy': {
         const e = needOut();
         if (e) return e;
         const it = item(m.id);
-        if (!it) return coinErr('shop_no');
+        if (!it || it.shop === false) return coinErr('shop_no');
         if (g.owned.includes(it.id)) return coinErr('shop_own');
         if (u.coins < it.price) return coinErr('coin_low');
         u.coins -= it.price;
