@@ -16,7 +16,7 @@
   --accent:#f2c444;--on-accent:#1c1608;--red:#ff453a;--green:#34c759;
   --panel:rgba(28,28,30,.62);--paper:#fffdf8;
   --pad:12px;--gap:12px;--bar:54px;--strip:52px;--under:56px;
-  --pw:clamp(120px,12.5vw,160px);--palw:84px;--toolw:64px;
+  --pw:clamp(92px,8.5vw,112px);--palw:84px;--toolw:64px;
   --sl:0px;--sr:0px;
   --ch:min(calc(100dvh - var(--bar) - var(--pad)*2 - var(--strip) - var(--under) - 20px),
            calc((100vw - var(--pad)*2 - var(--pw)*2 - var(--palw) - var(--toolw) - var(--gap)*4)*.75));
@@ -61,25 +61,34 @@ svg{display:block}
   padding:0 calc(var(--pad) + var(--sr)) var(--pad) calc(var(--pad) + var(--sl))}
 .dr-seats{display:flex;flex-direction:column;gap:10px;min-height:0;height:calc(var(--strip) + var(--ch) + var(--under) + 20px)}
 .dr-seats.l{grid-column:1}.dr-seats.r{grid-column:5}
-.dr-seat{flex:1;min-height:0;border-radius:18px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair);padding:10px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:visible}
-.dr-seat.empty{background:none;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.1);align-items:center;justify-content:center;color:var(--ink3);font-size:13px}
-.dr-seat.turn{box-shadow:inset 0 0 0 2px var(--accent)}
-.dr-seat.hit{box-shadow:inset 0 0 0 2px var(--green);background:rgba(52,199,89,.16)}
+.dr-seat{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative}
 .dr-seat.off{opacity:.45}
-.dr-who{display:flex;gap:9px;align-items:center;min-width:0}
-.dr-who>div{min-width:0}
+.dr-who{display:flex;flex-direction:column;gap:9px;align-items:center;min-width:0;max-width:100%;text-align:center}
+.dr-who>div{min-width:0;max-width:100%}
+.dr-avw{position:relative;display:block}
+.dr-seat .dr-av{width:72px;height:72px;font-size:30px;box-shadow:inset 0 0 0 2.5px rgba(255,255,255,.9),0 6px 16px rgba(0,0,0,.5)}
+.dr-seat.turn .dr-av{box-shadow:inset 0 0 0 3px var(--accent),0 0 0 4px rgba(242,196,68,.3),0 0 22px rgba(242,196,68,.7)}
+.dr-seat.hit .dr-av{box-shadow:inset 0 0 0 3px var(--green),0 0 0 4px rgba(52,199,89,.3),0 0 18px rgba(52,199,89,.6)}
+.dr-av.dr-none{background:none;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.14);color:var(--ink3);font-size:12px;font-weight:500}
 .dr-nm{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dr-sc{font-size:12.5px;color:var(--ink2);white-space:nowrap}
 .dr-sc b{color:var(--accent);font-size:15px;margin-right:1px}
-.dr-tag{align-self:flex-start;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px;background:var(--accent);color:var(--on-accent)}
-.dr-tag.host{background:var(--fill2);color:var(--ink)}
+.dr-tag{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px;background:var(--accent);color:var(--on-accent);box-shadow:0 0 0 2px #0c0a09}
+.dr-tag.host,.dr-tag.gone{background:#48484c;color:var(--ink)}
 .dr-tag.ok{background:var(--green);color:#fff}
-.dr-say{position:absolute;top:14px;z-index:4;width:max-content;max-width:170px;font-size:13.5px;line-height:1.3;padding:6px 10px;border-radius:13px;background:#fff;color:#111;opacity:.95;pointer-events:none;
+/* 말할 때 프로필이 통통, 맞혔을 때는 더 크게 */
+.dr-av.talk{animation:dr-bounce .38s cubic-bezier(.3,.7,.4,1)}
+.dr-av.cheer{animation:dr-cheer .75s cubic-bezier(.3,.7,.4,1)}
+@keyframes dr-bounce{0%{transform:none}30%{transform:translateY(-12px) scale(.95,1.06)}62%{transform:translateY(0) scale(1.1,.9)}82%{transform:translateY(-3px) scale(.98,1.02)}100%{transform:none}}
+@keyframes dr-cheer{0%{transform:none}22%{transform:translateY(-24px) scale(1.18) rotate(-10deg)}44%{transform:translateY(0) scale(1.14,.88) rotate(0)}62%{transform:translateY(-12px) scale(1.08) rotate(8deg)}82%{transform:translateY(0) scale(1.05,.95)}100%{transform:none}}
+@media (prefers-reduced-motion:reduce){.dr-av.talk,.dr-av.cheer{animation:none}}
+.dr-say{position:absolute;top:18px;z-index:4;width:max-content;max-width:170px;font-size:13.5px;line-height:1.3;padding:6px 10px;border-radius:13px;background:#fff;color:#111;opacity:.95;pointer-events:none;
   box-shadow:0 4px 14px rgba(0,0,0,.45);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;animation:dr-pop .28s cubic-bezier(.3,1.6,.5,1) both}
 .dr-say::before{content:'';position:absolute;top:9px;border:7px solid transparent}
-.dr-seats.l .dr-say{left:calc(100% - 6px);transform-origin:0 50%}
+.dr-say.out{opacity:0;transition:opacity .4s}
+.dr-seats.l .dr-say{left:calc(100% + 10px);transform-origin:0 50%}
 .dr-seats.l .dr-say::before{left:-12px;border-right-color:#fff}
-.dr-seats.r .dr-say{right:calc(100% - 6px);transform-origin:100% 50%}
+.dr-seats.r .dr-say{right:calc(100% + 10px);transform-origin:100% 50%}
 .dr-seats.r .dr-say::before{right:-12px;border-left-color:#fff}
 .dr-say.ok{background:var(--green);color:#fff;font-weight:700}
 .dr-seats.l .dr-say.ok::before{border-right-color:var(--green)}.dr-seats.r .dr-say.ok::before{border-left-color:var(--green)}
@@ -87,7 +96,7 @@ svg{display:block}
 @keyframes dr-pop{from{transform:scale(.4);opacity:0}}
 @media (prefers-reduced-motion:reduce){.dr-say{animation:none}}
 .mk-still .dr-say{animation:none}
-.dr-plus{position:absolute;right:10px;bottom:8px;font-weight:800;color:var(--green);font-size:20px}
+.dr-plus{font-weight:800;color:var(--green);font-size:19px;line-height:1.1}
 
 .dr-pal{grid-column:2;align-self:start;margin-top:calc(var(--strip) + 10px);display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;border-radius:18px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair)}
 .dr-sw{aspect-ratio:1;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.28);position:relative}
@@ -205,25 +214,22 @@ svg{display:block}
   .dr-stage{grid-template-columns:var(--pw) var(--palw) var(--cw) var(--toolw);grid-template-rows:1fr 1fr;gap:4px var(--gap)}
   .dr-seats{height:auto;gap:4px}
   .dr-seats.l{grid-column:1;grid-row:1}.dr-seats.r{grid-column:1;grid-row:2}
-  .dr-seat{flex-direction:row;align-items:center;border-radius:11px;padding:0 8px;gap:7px}
-  .dr-seat.empty{font-size:11.5px}
-  .dr-who{flex:1;gap:7px}
-  .dr-av{width:26px;height:26px;font-size:12px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.85)}
+  .dr-seat{flex-direction:row;justify-content:flex-start;padding:0 6px;gap:7px}
+  .dr-avw{display:contents}
+  .dr-who{flex:1;flex-direction:row;gap:7px;text-align:left}
+  .dr-av,.dr-seat .dr-av{width:28px;height:28px;font-size:12.5px}
+  .dr-av.dr-none{width:auto;height:auto;box-shadow:none;font-size:11.5px;padding-left:4px}
   .dr-nm{font-size:12.5px}.dr-sc{font-size:11px}.dr-sc b{font-size:12.5px}
   .dr-who>div{display:flex;gap:6px;align-items:baseline;white-space:nowrap}
-  .dr-seat>.dr-sc{display:none}
   .dr-ph{display:flex}hr.dr-ph{display:block}
   .dr-stage{align-content:start}.dr-seats{align-self:stretch}
-  .dr-tag{align-self:center;font-size:0;padding:1px 5px;flex:none}
-  .dr-tag::before{content:'✎';font-size:11px}
-  .dr-tag.ok::before{content:'✓'}
   .dr-tag{display:none!important}
-  .dr-seat:has(.dr-plus) .dr-tag{display:none}
   .dr-seat:has(.dr-plus) .dr-sc{font-size:0}
   .dr-plus{font-size:12.5px}
   .dr-say{top:50%;margin-top:-13px;max-width:124px;font-size:12px;padding:4px 8px;-webkit-line-clamp:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
   .dr-say::before{top:6px;border-width:6px}
-  .dr-seats.r .dr-say{right:auto;left:calc(100% - 6px);transform-origin:0 50%}
+  .dr-seats.l .dr-say{left:calc(100% - 2px)}
+  .dr-seats.r .dr-say{right:auto;left:calc(100% - 2px);transform-origin:0 50%}
   .dr-seats.r .dr-say::before{right:auto;left:-11px;border-left-color:transparent;border-right-color:#fff}
   .dr-seats.r .dr-say.ok::before{border-left-color:transparent;border-right-color:var(--green)}
   .mine .dr-say{left:auto!important;right:5px!important;max-width:64px;opacity:.95}
@@ -295,7 +301,8 @@ const P = new URLSearchParams(location.search);
 const S = P.get('s') || 'draw';
 const SCREENS = [['lobby','a1 로비'],['room','a2 방 대기'],['pick','b1 단어 고르기'],['draw','b2 내가 그림'],['size','b3 굵기 조정'],['guess','c 맞히기'],['kb','c2 키보드(폰)'],['reveal','d 정답 공개'],['final','e 최종 순위']];
 if (P.get('shot') === '1') document.documentElement.classList.add('mk-still');   // 스크린샷용: 움직임 끔
-if (P.get('shot') !== '1') document.getElementById('nav').innerHTML = SCREENS.map(([k, n]) => `<a href="?s=${k}" class="${k === S ? 'on' : ''}">${n}</a>`).join('');
+if (P.get('shot') !== '1') document.getElementById('nav').innerHTML = SCREENS.map(([k, n]) => `<a href="?s=${k}" class="${k === S ? 'on' : ''}">${n}</a>`).join('')
+  + (['draw', 'guess', 'size'].includes(S) ? '<a href="#" id="demoSay">▶ 말하기 시연</a><a href="#" id="demoHit">▶ 정답 시연</a>' : '');
 
 // 색 12개 (기획서 6-2와 같은 값·순서)
 const COLORS = ['#1c1c1e','#8e8e93','#8a5a2b','#f5c9a3','#e5352b','#ff8a1f','#ffd426','#1fa34a','#3bb8f5','#1f55d6','#8b45d1','#ff7eb8'];
@@ -327,16 +334,16 @@ const ART = `<svg viewBox="0 0 800 600" fill="none" stroke-linecap="round" strok
 </svg>`;
 
 function seat(p, i, o) {
-  if (!p) return `<div class="dr-seat empty">빈 자리</div>`;
+  if (!p) return `<div class="dr-seat empty"><span class="dr-av dr-none">빈 자리</span></div>`;
   const gain = o.gain && o.gain[i];                 // 정답 공개 때 이번 문제로 얻은 점수
   const hit = (o.hits || []).includes(i) || (gain && o.turn !== i);
   const cls = [p.off ? 'off' : '', o.turn === i ? 'turn' : '', hit ? 'hit' : ''].join(' ');
   const say = o.says && o.says[i];
-  return `<div class="dr-seat ${cls}">
-    <div class="dr-who"><span class="dr-av" style="background:${p.c}">${p.n[0]}</span><div><div class="dr-nm">${p.n}</div><div class="dr-sc"><b>${p.s + (gain || 0)}</b>점</div></div></div>
-    ${o.turn === i ? '<span class="dr-tag">그리는 중</span>' : hit && !gain ? '<span class="dr-tag ok">맞힘</span>' : p.host ? '<span class="dr-tag host">방장</span>' : ''}
-    ${p.off ? '<span class="dr-sc">연결 끊김</span>' : ''}
-    ${say && !hit ? `<div class="dr-say">${say}</div>` : hit && !gain ? '<div class="dr-say ok">정답!</div>' : ''}
+  const tag = o.turn === i ? '<span class="dr-tag">그리는 중</span>' : hit ? '<span class="dr-tag ok">맞힘</span>' : p.off ? '<span class="dr-tag gone">끊김</span>' : p.host ? '<span class="dr-tag host">방장</span>' : '';
+  return `<div class="dr-seat ${cls}" data-i="${i}">
+    <div class="dr-who"><span class="dr-avw"><span class="dr-av" style="background:${p.c}">${p.n[0]}</span>${tag}
+      ${say && !hit ? `<span class="dr-say">${say}</span>` : hit && !gain ? '<span class="dr-say ok">정답!</span>' : ''}</span>
+      <div><div class="dr-nm">${p.n}</div><div class="dr-sc"><b>${p.s + (gain || 0)}</b>점</div></div></div>
     ${gain ? `<span class="dr-plus">+${gain}</span>` : ''}
   </div>`;
 }
@@ -443,6 +450,25 @@ const VIEWS = {
   },
 };
 document.getElementById('app').innerHTML = (VIEWS[S] || VIEWS.draw)();
+
+// ---------- 시안 전용: 말하기·정답 모션 시연 ----------
+function demo(kind) {
+  const seats = [...document.querySelectorAll('.dr-seat[data-i]:not(.turn):not(.off)')].filter((e) => kind === 'hit' ? !e.classList.contains('hit') : true);
+  const el = seats[Math.floor(Math.random() * seats.length)];
+  if (!el) return;
+  const av = el.querySelector('.dr-av');
+  const wrap = el.querySelector('.dr-avw');
+  el.querySelector('.dr-say')?.remove();                       // 새 말이 오면 바로 교체
+  const b = document.createElement('span');
+  b.className = 'dr-say' + (kind === 'hit' || el.classList.contains('hit') ? ' ok' : '');
+  b.textContent = kind === 'hit' || el.classList.contains('hit') ? '정답!' : ['짬뽕', '국수인가', '비빔면', '이거 뭐야 ㅋㅋㅋ', '파스타'][Math.floor(Math.random() * 5)];
+  wrap.appendChild(b);
+  if (kind === 'hit') { el.classList.add('hit'); wrap.querySelector('.dr-tag')?.remove(); wrap.insertAdjacentHTML('beforeend', '<span class="dr-tag ok">맞힘</span>'); }
+  av.classList.remove('talk', 'cheer'); void av.offsetWidth; av.classList.add(kind === 'hit' ? 'cheer' : 'talk');
+  setTimeout(() => { b.classList.add('out'); setTimeout(() => b.remove(), 400); }, 3500);   // 3.5초 뒤 사라짐
+}
+document.getElementById('demoSay')?.addEventListener('click', (e) => { e.preventDefault(); demo('say'); });
+document.getElementById('demoHit')?.addEventListener('click', (e) => { e.preventDefault(); demo('hit'); });
 </script>
 </body>
 </html>
