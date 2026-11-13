@@ -670,6 +670,12 @@ async function runContext(browser, server, name, cfg) {
     await step('gsk: 방장에게 시작 버튼이 보인다(3명 전에는 흐림). 원판 내기·도전 버튼(choose-place)은 3명 판이 필요해 gsk-round.mjs 가 본다', async () => {
       await visible('[data-gk="start"]');
     });
+    await step('gsk: 상단 이모티콘 버튼은 누르면 열리고 다시 누르면 닫힌다', async () => {
+      await press('[data-gk="bar-emote"]');
+      await visible('.hpanel.lgpanel');
+      await press('[data-gk="bar-emote"]');
+      await gone('.hpanel.lgpanel');
+    });
     await step('gsk: 나가기 returns to the lobby, bar disappears', async () => {
       await press('button.gkbar-btn:has-text("나가기")');
       await visible('button:has-text("방 만들기")');
@@ -878,7 +884,7 @@ async function adminCheck(browser) {
       await b.page.click('.adm-toggle');
       await b.page.waitForSelector('.adm-panel', { state: 'visible' });
       rep('admin panel opens with 닫기', await b.page.locator('.adm-close').isVisible());
-      const roomBtnsHidden = await b.page.evaluate(() => [...document.querySelectorAll('.adm-row .adm-btn')].every((x) => x.hidden));
+      const roomBtnsHidden = await b.page.evaluate(() => [...document.querySelectorAll('.adm-row .adm-btn')].filter((x) => /봇|단계/.test(x.textContent)).every((x) => x.hidden));
       rep('in lobby the bot/skip buttons are hidden', roomBtnsHidden);
       await b.page.click('.adm-close');
       await b.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });

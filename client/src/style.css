@@ -65,6 +65,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .hud-tr { position: fixed; right: calc(16px * var(--k)); top: calc(16px * var(--k)); transform: scale(var(--k)); transform-origin: 100% 0; text-align: right; font-size: 12px; font-weight: 700; color: #e2dccf; text-shadow: 0 1px 3px #000; }
 .hud-tr b { font-family: "Bangers"; font-size: 19px; color: var(--gold); letter-spacing: 3px; font-weight: 400; }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; padding: 9px 18px; border-radius: 999px; font-size: 14px; background: rgba(20, 18, 16, .88); border: 1px solid rgba(255, 255, 255, .25); }
+.toast-stale { pointer-events: auto; cursor: pointer; }
 
 /* cards (DOM) */
 .pc { --h: 112px; width: calc(var(--h) * .714); height: var(--h); border-radius: calc(var(--h) * .075); background: #fffdf7; color: #15181c; position: relative; box-shadow: 0 8px 18px rgba(0, 0, 0, .55); flex: none; font-family: "Libre Baskerville", Georgia, serif; box-sizing: border-box; }
