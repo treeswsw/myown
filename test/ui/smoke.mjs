@@ -61,8 +61,10 @@ async function runContext(browser, server, name, cfg) {
     const bad = await page.evaluate(() => {
       const out = [];
       const desc = (e) => `${e.tagName.toLowerCase()}${e.className && typeof e.className === 'string' ? `.${e.className.trim().split(/\s+/).slice(0, 2).join('.')}` : ''}`;
+      const modal = document.querySelector('.aic-ov'); // a modal dialog legitimately covers the rest
       for (const el of document.querySelectorAll('button, [role=button], .hit, .wseg')) {
         if (el.closest('[hidden]')) continue;
+        if (modal && !modal.contains(el)) continue;
         let op = 1;
         for (let p = el; p && p.nodeType === 1; p = p.parentElement) op *= Number(getComputedStyle(p).opacity);
         const cs = getComputedStyle(el);
@@ -152,6 +154,10 @@ async function runContext(browser, server, name, cfg) {
     const wheel = () => visible('.act .wseg');
     await step('my turn: wheel shows', wheel);
     await occlusion('my turn with wheel');
+    await step('amount tag beside the call/check segment shows the amount', async () => {
+      const t = (await loc('.act .wtag').textContent()).replace(/\s+/g, ' ').trim();
+      if (!/^(콜|체크|올인)\s*[\d,]+$/.test(t)) throw new Error(`unexpected tag "${t}"`);
+    });
     await step('wheel call/check segment sends action call|check', async () => {
       const p = event((e) => e.k === 'action' && e.id === myId() && ['call', 'check'].includes(e.a), 'action call/check');
       await press('.act .wseg', 0);
@@ -223,6 +229,28 @@ async function runContext(browser, server, name, cfg) {
       const p = event((e) => e.k === 'action' && e.id === myId() && e.a === 'fold', 'action fold');
       await press('.act .wseg', 2);
       await p;
+    });
+    await step('my next turn: wheel shows (all-in flow)', wheel);
+    await step('raise dial all-in key opens the confirm dialog, cancel returns to the dial', async () => {
+      await press('.act .wseg', 1);
+      await visible('.dialbox');
+      await press('.act .keys button.allin');
+      await visible('.aic-sheet');
+      if ((await page.locator('.aic-sheet').count()) !== 1) throw new Error('more than one dialog');
+    });
+    await occlusion('all-in confirm dialog');
+    await step('all-in dialog cancel closes it and keeps the dial', async () => {
+      await press('.aic-cancel');
+      await gone('.aic-sheet');
+      await visible('.dialbox');
+    });
+    await step('all-in dialog confirm sends action allin', async () => {
+      await press('.act .keys button.allin');
+      await visible('.aic-sheet');
+      const p = event((e) => e.k === 'allin' && e.id === myId(), 'allin event (server reports an all-in act as raise + allin)');
+      await press('.aic-go');
+      await p;
+      await gone('.aic-sheet');
     });
     if (await page.waitForSelector('.win', { state: 'visible', timeout: 1500 }).then(() => true, () => false)) await occlusion('result overlay');
     else check('result overlay (not reached within 1.5 s, skipped)', true);
