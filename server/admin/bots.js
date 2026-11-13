@@ -92,21 +92,26 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
       let entry = admin.rooms.get(room);
       if ((entry?.bots.length ?? 0) >= MAX_BOTS) return '방이 가득 찼습니다.';
       const bot = createBot(hub, admin, room);
+      // Reserve the room first so a person cannot slip in while the bot's join is still being handled.
+      const fresh = !entry;
+      if (fresh) {
+        entry = { adminId: adminSession.id, bots: [] };
+        admin.rooms.set(room, entry);
+      }
+      entry.bots.push(bot);
       // The join goes through the normal path so the room's own refusal text comes back as it is.
       await bot.conn.message(JSON.stringify({ t: 'join', code: room.code }));
       if (bot.session.room !== room) {
         const why = bot.lastError ?? { msg: '들어갈 수 없습니다.' };
         bot.stop();
+        entry.bots = entry.bots.filter((b) => b !== bot);
+        if (entry.bots.length === 0 && admin.rooms.get(room) === entry) admin.rooms.delete(room);
         hub.sessions.delete(bot.id);
         hub.conns.delete(bot.conn);
         return why.code ? { msg: why.msg, code: why.code } : why.msg;
       }
-      if (!entry) {
-        entry = { adminId: adminSession.id, bots: [] };
-        admin.rooms.set(room, entry);
-        watchAdmin(admin, adminSession);
-      }
-      entry.bots.push(bot);
+      bot.live = true;
+      if (fresh) watchAdmin(admin, adminSession);
       return null;
     },
 
@@ -152,7 +157,7 @@ function createBot(hub, admin, room) {
   const timerIds = new Set();
   const brains = new Map(); // mode -> brain; a poker room can switch between holdem and bluff
   let dead = false;
-  const bot = { id, name, lastError: null, session: null, conn: null };
+  const bot = { id, name, lastError: null, session: null, conn: null, live: false };
 
   const api = {
     id,
@@ -193,6 +198,24 @@ function createBot(hub, admin, room) {
   bot.conn.session = bot.session;
   bot.session.conn = bot.conn;
   hub.sessions.set(id, bot.session);
+
+  // A game may remove a bot on its own (kick, member sync, future engines); all of them end by clearing session.room.
+  // Watch that field like the admin's so the bot is fully retired whatever the path.
+  let current = null;
+  Object.defineProperty(bot.session, 'room', {
+    configurable: true,
+    enumerable: true,
+    get: () => current,
+    set(v) {
+      const was = current;
+      current = v;
+      if (v !== null && v !== undefined) return;
+      queueMicrotask(() => {
+        if (!bot.live || dead || !was || was.members.some((m) => m.id === id)) return;
+        bot.leave(true);
+      });
+    },
+  });
 
   bot.stop = () => {
     dead = true;
