@@ -11,6 +11,20 @@ const identity = (n) => Array.from({ length: n - 1 }, (_, i) => n - 1 - i);
 const seqRng = (values) => { let i = 0; return (n) => { const v = values[i++]; assert.ok(v >= 0 && v < n); return v; }; };
 const DRAW = { topic: '장소', citizenWord: '도서관', liarWord: '놀이공원' };
 
+// 토론·투표 중인 판에서 p0 을 처형해 unmask 까지 간다(알림을 모아 돌려준다). 투표가 무산되면 판이 끝나지 않으므로 처형으로만 정체가 공개된다.
+function executeP0(g) {
+  const ev = [];
+  const at = (t) => g.phaseStartedAt ?? t;
+  for (const id of g.players) if (id !== 'p0') ev.push(...act(g, { type: 'vote', by: id, target: 'p0' }, at()).events);
+  ev.push(...act(g, { type: 'vote', by: 'p0', target: 'p1' }, at()).events);
+  ev.push(...tick(g, g.phaseEndsAt).events);   // defense
+  ev.push(...tick(g, g.phaseEndsAt).events);   // judge
+  for (const id of g.players) if (id !== 'p0') ev.push(...act(g, { type: 'judge', by: id, v: 'yes' }, g.phaseStartedAt).events);
+  ev.push(...tick(g, g.phaseEndsAt).events);   // judged
+  ev.push(...tick(g, g.phaseEndsAt).events);   // unmask
+  return ev;
+}
+
 function make(n, liarIdx, extra = {}) {
   return createGame({
     players: ids(n), draw: DRAW, now: T0, settings: extra.settings,
@@ -146,10 +160,7 @@ for (const N of [3, 8]) {
     const push = (r) => events.push(...r.events);
     push(tick(g, g.phaseEndsAt));
     for (const id of g.order) push(sayT(g, id, `${id}: 설명`, g.phaseStartedAt));
-    push(act(g, { type: 'vote', by: 'p0', target: 'p1' }, g.phaseStartedAt));
-    push(act(g, { type: 'vote', by: 'p1', target: 'p0' }, g.phaseStartedAt));
-    push(tick(g, g.phaseEndsAt));
-    push(tick(g, g.phaseEndsAt));            // 재투표도 표 없음 → 지목 실패
+    events.push(...executeP0(g));
     assert.equal(g.phase, 'unmask');
     // unmask 알림 전까지의 알림은 역할·단어·라이어 글자를 담지 않는다
     const before = events.filter((e) => e.k !== 'unmask');
@@ -157,7 +168,7 @@ for (const N of [3, 8]) {
     for (const bad of ['도서관', '놀이공원', 'role', 'liarId', 'wasLiar', '"liar"', 'citizen']) assert.ok(!s.includes(bad), bad);
     // 정체 공개 알림은 있고, 거기서 비로소 라이어가 나온다
     const un = events.find((e) => e.k === 'unmask');
-    assert.deepEqual(un, { k: 'unmask', id: null, wasLiar: null, liarId: 'p1' });
+    assert.deepEqual(un, { k: 'unmask', id: 'p0', wasLiar: false, liarId: 'p1' });
   });
 
   test(`[${N}명] 알림(event)은 모두에게 같다: 받는 사람별로 다른 알림 모양이 없다`, () => {
@@ -219,7 +230,7 @@ test('unmask(정체 공개) 뒤에는 역할이 드러난다 — 이전 단계�
   const g = make(3, 2);
   tick(g, g.phaseEndsAt);
   for (let i = 0; i < 3; i++) tick(g, g.phaseEndsAt);
-  tick(g, g.phaseEndsAt);                     // 표 없음 → 지목 실패 → unmask
+  executeP0(g);                               // p0 처형 → unmask
   assert.equal(g.phase, 'unmask');
   assert.equal(viewFor(g, 'p2').my.role, 'liar');
   assert.equal(viewFor(g, 'p0').my.role, 'citizen');
@@ -276,7 +287,7 @@ for (const N of [3, 8]) {
     const push = (r) => events.push(...r.events);
     push(tick(g, g.phaseEndsAt));
     for (const id of g.order) push(sayT(g, id, `${id}: 설명`, g.phaseStartedAt));
-    push(tick(g, g.phaseEndsAt));        // 표 없음 → 지목 실패
+    events.push(...executeP0(g).slice(0, -1));   // p0 처형 → unmask 시작
     for (const phase of ['unmask', 'guess']) {
       assert.equal(g.phase, phase);
       for (const id of g.players) {

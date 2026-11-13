@@ -349,16 +349,22 @@ test('길 2: 살림 뒤 다시 토론', () => {
   assert.equal(x.timers.size, 1);
 });
 
-test('길 3: 지목 실패 → 라이어 공개 → 정답 시간 초과로 결과', () => {
+test('길 3: 투표 무산 → 판은 끝나지 않고 연장 투표 → 방장 끝내기로만 끝난다', () => {
   const x = game3();
   x.room.start('u0');
   x.until('speak');
   x.speakAll();
-  x.until('unmask'); // nobody voted
+  x.until('discuss');
+  for (let i = 1; i <= 3; i++) { // nobody voted: every time-out extends the vote instead of ending the game
+    x.fire();
+    assert.equal(x.room.phase, 'discuss');
+    assert.equal(x.room.view('u0').extendNo, i);
+  }
   assert.equal(x.room.view('u0').result, null);
-  x.until('result');
+  assert.equal(x.room.phase, 'discuss');
+  assert.equal(x.lg('u0', { a: 'end' }), null); // the host can still end it during an extended vote
+  assert.equal(x.room.phase, 'lobby');
   assert.equal(x.timers.size, 0);
-  assert.equal(x.room.view('u1').result.liarName, x.byId(x.liar()).user.name);
 });
 
 test('방장 end → 방 대기, 타이머 0개 / 방장 아니면 거절', () => {
@@ -931,4 +937,17 @@ test('채팅 80자: 80자는 보내지고 81자는 막힌다(화면 입력 한�
   const x = game3();
   assert.equal(x.room.chat(x.ss[0], '가'.repeat(80)), undefined);
   assert.equal(x.room.chat(x.ss[0], '가'.repeat(81)), '채팅은 1~80자여야 합니다.');
+});
+
+test('설정: 첫 설명 바퀴 수는 1~3 만 받고, 판에 전해지고, view 에 나간다', () => {
+  const x = game3();
+  assert.equal(x.room.settings.speakRounds, 1);
+  assert.equal(typeof x.lg('u0', { a: 'settings', speakRounds: 4 }), 'string');
+  assert.equal(x.room.settings.speakRounds, 1);
+  assert.equal(x.lg('u0', { a: 'settings', speakRounds: 2 }), null);
+  assert.equal(x.room.settings.speakRounds, 2);
+  x.room.start('u0');
+  assert.equal(x.room.game.speakRounds, 2);
+  assert.equal(x.room.view('u0').speakRounds, 2);
+  assert.equal(x.room.view('u0').speakRound, 1);
 });

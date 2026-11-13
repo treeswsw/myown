@@ -386,38 +386,65 @@ for (const N of [3, 8]) {
     assert.equal(viewFor(g, 'p0').accused, 'p1');
   });
 
-  test(`[${N}명] 재투표도 동점이면 지목 실패: 처형 없이 라이어 공개(unmask{id:null})`, () => {
+  test(`[${N}명] 재투표도 동점이면 판을 끝내지 않고 연장 투표로 이어 간다`, () => {
     const g = make(N, { liarIdx: 2 }); const t = toDiscuss(g);
     vote(g, 'p0', 'p1', t); vote(g, 'p1', 'p0', t);
     tick(g, g.phaseEndsAt);
     vote(g, 'p0', 'p1', g.phaseStartedAt); vote(g, 'p1', 'p0', g.phaseStartedAt);
     const { events } = tick(g, g.phaseEndsAt);
-    assert.equal(g.phase, 'unmask');
+    assert.equal(g.phase, 'discuss');
     assert.deepEqual(events, [
-      { k: 'phase', phase: 'unmask', round: 1, accuseNo: 1 },
-      { k: 'unmask', id: null, wasLiar: null, liarId: 'p2' },
+      { k: 'extend', reason: 'tie', no: 1 },
+      { k: 'phase', phase: 'discuss', round: 1, accuseNo: 1 },
     ]);
     const v = viewFor(g, 'p0');
-    assert.deepEqual(v.unmask, { id: null, wasLiar: null, liarId: 'p2' });
+    assert.equal(v.extendNo, 1);
     assert.equal(v.accused, null);
+    assert.equal(v.unmask, null);
+    assert.deepEqual(v.votes, {});
     assert.equal(g.failReason, 'tie');
-    assert.equal(g.phaseEndsAt - g.phaseStartedAt, FIXED_TIMES.unmaskFail * S);
+    assert.equal(g.phaseEndsAt - g.phaseStartedAt, g.times.rediscuss * S);
+    assert.equal(g.voteLog.length, 1);
+    assert.equal(g.voteLog[0].accused, null);
   });
 
-  test(`[${N}명] 표가 하나도 없으면(토론·재투표 모두) 지목 실패`, () => {
+  test(`[${N}명] 표가 하나도 없어도 판은 계속된다: 연장 투표가 몇 번이든 이어진다`, () => {
     const g = make(N); toDiscuss(g);
-    tick(g, g.phaseEndsAt);
-    assert.equal(g.phase, 'unmask');
-    assert.equal(g.failReason, 'noVotes');
-    assert.equal(viewFor(g, 'p0').unmask.liarId, g.liarId);
-    // 재투표에서 표가 없는 경우
+    for (let i = 1; i <= 4; i++) {
+      tick(g, g.phaseEndsAt);
+      assert.equal(g.phase, 'discuss');
+      assert.equal(g.extendNo, i);
+      assert.equal(g.failReason, 'noVotes');
+      assert.equal(viewFor(g, 'p0').extendNo, i);
+    }
+    // 재투표에서 표가 없는 경우도 연장
     const h = make(N); const t = toDiscuss(h);
     vote(h, 'p0', 'p1', t); vote(h, 'p1', 'p0', t);
     tick(h, h.phaseEndsAt);
     assert.equal(h.phase, 'revote');
     tick(h, h.phaseEndsAt);
-    assert.equal(h.phase, 'unmask');
+    assert.equal(h.phase, 'discuss');
+    assert.equal(h.extendNo, 1);
     assert.equal(h.failReason, 'noVotes');
+  });
+
+  test(`[${N}명] 연장 투표에서 한 명을 처형하면 그때 비로소 판이 끝난다(무산 줄이 기록에 남는다)`, () => {
+    const g = make(N, { liarIdx: 0 }); toDiscuss(g);
+    tick(g, g.phaseEndsAt);                       // 무산 → 연장 1
+    assert.equal(g.phase, 'discuss');
+    everyoneVotes(g, 'p0', g.phaseStartedAt);
+    vote(g, 'p0', 'p1', g.phaseStartedAt);
+    tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
+    judgeAll(g, 'p0', 'yes'); pastJudge(g); tick(g, g.phaseEndsAt);
+    assert.equal(g.phase, 'unmask');
+    tick(g, g.phaseEndsAt);
+    act(g, { type: 'guess', by: 'p0', text: 'x', correct: false }, g.phaseStartedAt);
+    tick(g, g.phaseEndsAt);
+    assert.equal(g.phase, 'result');
+    assert.equal(g.result.reason, 'executedLiar');
+    assert.equal(g.result.voteLog.length, 2);
+    assert.equal(g.result.voteLog[0].accused, null);
+    assert.equal(g.result.voteLog[1].executed, true);
   });
 
   test(`[${N}명] 늦게 tick 이 와도 act 가 마감을 먼저 처리한다`, () => {
@@ -456,9 +483,8 @@ for (const N of [3, 8]) {
     assert.deepEqual(viewFor(g, 'p0').my, { word: '도서관', role: 'citizen' });
   });
 
-  test(`[${N}명] viewFor: 지목 실패 후 unmask 에서는 역할이 드러난다`, () => {
-    const g = make(N, { liarIdx: 1 }); toDiscuss(g);
-    tick(g, g.phaseEndsAt);
+  test(`[${N}명] viewFor: 처형 뒤 unmask 에서는 역할이 드러난다`, () => {
+    const g = make(N, { liarIdx: 1 }); toJudge(g, 'p0'); judgeAll(g, 'p0', 'yes'); pastJudge(g); tick(g, g.phaseEndsAt);
     assert.equal(g.phase, 'unmask');
     assert.deepEqual(viewFor(g, 'p1').my, { word: '놀이공원', role: 'liar' });
     assert.deepEqual(viewFor(g, 'p0').my, { word: '도서관', role: 'citizen' });
@@ -765,33 +791,6 @@ for (const N of [3, 8]) {
     }
   });
 
-  test(`[${N}명] result: 지목 실패(tie / noVotes)는 라이어 승, 시민 0, 마지막 투표 기준 이유`, () => {
-    // noVotes: 표가 하나도 없음
-    let g = make(N, { liarIdx: 0 }); toDiscuss(g); tick(g, g.phaseEndsAt);
-    assert.equal(g.phase, 'unmask');
-    tick(g, g.phaseEndsAt);
-    act(g, { type: 'guess', by: liar, text: '도서관', correct: true }, g.phaseStartedAt);
-    tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
-    assert.deepEqual([g.result.reason, g.result.winner, g.result.delta[liar], g.result.delta.p1], ['noVotes', 'liar', 3, 0]);
-    // tie: 재투표도 동점
-    g = make(N, { liarIdx: 0 }); toDiscuss(g);
-    vote(g, 'p0', 'p1', g.phaseStartedAt); vote(g, 'p1', 'p0', g.phaseStartedAt);
-    tick(g, g.phaseEndsAt); assert.equal(g.phase, 'revote');
-    vote(g, 'p2', 'p0', g.phaseStartedAt); vote(g, 'p1', 'p0', g.phaseStartedAt); vote(g, 'p0', 'p1', g.phaseStartedAt);
-    // p0:2? p0 got p2,p1 → 2, p1 got p0 → 1. 동점이 되게 p2 를 취소
-    vote(g, 'p2', 'p0', g.phaseStartedAt);   // 같은 사람 다시 누르면 취소
-    tick(g, g.phaseEndsAt);
-    assert.equal(g.phase, 'unmask');
-    assert.equal(g.failReason, 'tie');
-    tick(g, g.phaseEndsAt);
-    act(g, { type: 'guess', by: liar, text: 'x', correct: false }, g.phaseStartedAt);
-    tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
-    assert.equal(g.result.caught, false);
-    assert.equal(g.result.delta[liar], 1);
-    assert.equal(g.result.delta.p1, 0);
-    assert.equal(g.result.reason, 'tie');
-  });
-
   test(`[${N}명] 재투표의 첫 투표는 voteLog.firstVotes 에, 재투표 없던 줄은 null. 재투표 0표면 noVotes`, () => {
     // 재투표로 결판
     let g = make(N, { liarIdx: 0 }); toDiscuss(g);
@@ -819,6 +818,7 @@ for (const N of [3, 8]) {
     vote(g, 'p0', 'p1', g.phaseStartedAt); vote(g, 'p1', 'p0', g.phaseStartedAt);
     tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
     assert.equal(g.failReason, 'noVotes');
+    assert.equal(g.phase, 'discuss');
     assert.deepEqual(g.voteLog[0].firstVotes, { p0: 'p1', p1: 'p0' });
   });
 
@@ -1193,15 +1193,6 @@ test('answer: notice 방식도 10초, words.liar 는 null', () => {
   tick(g, g.phaseEndsAt); assert.equal(g.phase, 'result');
 });
 
-test('answer: 지목 실패(unmask.id null)도 guess 뒤 answer 를 거친다', () => {
-  const g = make(4, { liarIdx: 0 }); toDiscuss(g); tick(g, g.phaseEndsAt);
-  assert.equal(g.phase, 'unmask'); tick(g, g.phaseEndsAt);
-  act(g, { type: 'guess', by: 'p0', text: '도서관', correct: true }, g.phaseStartedAt);
-  assert.equal(g.phase, 'answer');
-  tick(g, g.phaseEndsAt);
-  assert.deepEqual([g.result.reason, g.result.winner, g.result.delta.p0], ['noVotes', 'liar', 3]);
-});
-
 test('answer: 라이어가 unmask·guess 중 빠지면 answer 없이 바로 result(오답)', () => {
   let g = make(4, { liarIdx: 0 }); toJudge(g, 'p1'); judgeAll(g, 'p1', 'yes'); pastJudge(g); tick(g, g.phaseEndsAt);
   assert.equal(g.phase, 'unmask');
@@ -1308,3 +1299,47 @@ test('answer 전(unmask·guess)에는 라이어의 view·알림 어디에도 시
   // answer 시작 알림(guess·phase)은 시민 제시어를 담지 않는다. 제시어는 view.words 로만 간다
   assert.ok(!JSON.stringify(events).includes('도서관'));
 });
+
+// ================= 첫 설명 바퀴 수 (1~3, 기본 1) =================
+for (const N of [3, 8]) {
+  test(`[${N}명] 첫 설명 바퀴: 기본은 1바퀴, 잘못된 값은 기본으로`, () => {
+    assert.equal(make(N).speakRounds, 1);
+    assert.equal(make(N, { settings: { speakRounds: 9 } }).speakRounds, 1);
+    assert.equal(viewFor(make(N, { settings: { speakRounds: 3 } }), 'p0').speakRounds, 3);
+  });
+
+  test(`[${N}명] 첫 설명 2바퀴: 같은 순서로 두 번 돌고, 2바퀴째 발언은 extraSays 에 바퀴 번호와 함께 쌓인다`, () => {
+    const g = make(N, { settings: { speakRounds: 2 } });
+    tick(g, g.phaseEndsAt);
+    const order = g.order.slice();
+    for (let rd = 1; rd <= 2; rd++) {
+      for (let i = 0; i < N; i++) {
+        assert.equal(g.phase, 'speak');
+        assert.equal(g.speakRound, rd);
+        assert.equal(g.order[g.speakerIdx], order[i]);
+        const r = act(g, { type: 'say', by: order[i], text: `${rd}-${i}` }, g.phaseStartedAt);
+        assert.ok(r.ok, r.error);
+        tick(g, g.phaseEndsAt);   // 3초 머문 뒤 다음 차례
+      }
+    }
+    assert.equal(g.phase, 'discuss');
+    const v = viewFor(g, 'p0');
+    assert.deepEqual(v.firstSays.map((f) => f.text), order.map((_, i) => `1-${i}`));
+    assert.deepEqual(v.extraSays, order.map((id, i) => ({ id, rd: 2, text: `2-${i}` })));
+  });
+
+  test(`[${N}명] 1바퀴 설정이면 extraSays 는 비어 있고, 아무도 안 써도 바퀴는 시간 초과로 지나간다`, () => {
+    const g = make(N); toDiscuss(g);
+    assert.deepEqual(viewFor(g, 'p0').extraSays, []);
+    const h = make(N, { settings: { speakRounds: 3 } });
+    tick(h, h.phaseEndsAt);
+    for (let i = 0; i < N * 3; i++) tick(h, h.phaseEndsAt);
+    assert.equal(h.phase, 'discuss');
+    assert.deepEqual(viewFor(h, 'p0').extraSays, []);
+  });
+
+  test(`[${N}명] 바퀴 수가 많아도 view 의 키는 라이어와 시민이 같다`, () => {
+    const g = make(N, { liarIdx: 1, settings: { speakRounds: 2 } });
+    assert.deepEqual(Object.keys(viewFor(g, 'p0')), Object.keys(viewFor(g, 'p1')));
+  });
+}

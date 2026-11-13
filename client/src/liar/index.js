@@ -168,8 +168,8 @@ export function mount(ctx, opts = {}) {
       }
       root.hidden = false;
       state = s;
-      // 답 입력·정답 공개 동안: 가운데 큰 글을 가리지 않게 규칙·첫 발언 버튼을 숨긴다 (ending.css)
-      root.dataset.ed = s.phase === 'guess' || s.phase === 'answer' ? '1' : '';
+      // 답 입력·정답 공개 동안: 가운데 큰 글을 가리지 않게 규칙 버튼을 숨긴다. 첫 발언 버튼은 답 입력 중에는 남긴다(ending.css)
+      root.dataset.ed = s.phase === 'answer' ? '1' : s.phase === 'guess' ? '2' : '';
       each((m) => m.update(s));
       syncScene(s);
       syncFaces();

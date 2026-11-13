@@ -4,7 +4,7 @@
 // 시민 제시어(citizenEntry)·역할은 view 의 my 로만 그 사람에게 나가고, wait(설정 사본)에는 단어가 없다.
 
 import { readFileSync } from 'node:fs';
-import { COLORS, DEFAULT_TIMES, MAX_PLAYERS, TIME_CHOICES, GOAL_CHOICES, LIAR_MODES } from '../../shared/liar/constants.js';
+import { COLORS, DEFAULT_TIMES, MAX_PLAYERS, TIME_CHOICES, GOAL_CHOICES, LIAR_MODES, SPEAK_ROUND_CHOICES, DEFAULT_SPEAK_ROUNDS } from '../../shared/liar/constants.js';
 import { listTopics, drawWords, isCorrect } from '../../shared/liar/words.js';
 import { createGame, tick, wakeAt, act, viewFor } from '../../shared/liar/game.js';
 import { checkLg } from '../../shared/liar/protocol.js';
@@ -46,6 +46,7 @@ export const DEFAULT_SETTINGS = () => ({
   topicMode: 'random',
   topics: topicsAllOn('mine'),
   goal: 0,
+  speakRounds: DEFAULT_SPEAK_ROUNDS,
   nextTopic: null,
 });
 
@@ -228,6 +229,7 @@ export function makeLiarGame(ctx) {
     if (msg.topicMode !== undefined && !TOPIC_MODES.includes(msg.topicMode)) return err('set', '주제 방식이 올바르지 않습니다.');
     if (msg.wordSet !== undefined && !WORD_SETS.includes(msg.wordSet)) return err('set', '제시어 묶음이 올바르지 않습니다.');
     if (msg.goal !== undefined && !GOAL_CHOICES.includes(msg.goal)) return err('set', '목표 점수가 올바르지 않습니다.');
+    if (msg.speakRounds !== undefined && !SPEAK_ROUND_CHOICES.includes(msg.speakRounds)) return err('set', '첫 설명 바퀴 수가 올바르지 않습니다.');
     if (msg.times !== undefined) {
       if (msg.times === null || typeof msg.times !== 'object' || Array.isArray(msg.times)) return err('set', '시간 설정이 올바르지 않습니다.');
       for (const [k, v] of Object.entries(msg.times)) {
@@ -259,6 +261,7 @@ export function makeLiarGame(ctx) {
     if (msg.liarMode !== undefined) st.liarMode = msg.liarMode;
     if (msg.topicMode !== undefined) st.topicMode = msg.topicMode;
     if (msg.goal !== undefined) st.goal = msg.goal;
+    if (msg.speakRounds !== undefined) st.speakRounds = msg.speakRounds;
     if (msg.times !== undefined) Object.assign(st.times, msg.times);
     st.wordSet = set;
     st.topics = topics;
@@ -326,6 +329,10 @@ export function makeLiarGame(ctx) {
         speaker: v ? v.speaker : null,
         speakDone: v ? v.speakDone : false,
         firstSays: v ? v.firstSays : [],
+        speakRound: v ? v.speakRound : 1,
+        speakRounds: v ? v.speakRounds : 1,
+        extraSays: v ? v.extraSays : [],
+        extendNo: v ? v.extendNo : 0,
         votes: v ? v.votes : {},
         candidates: v ? v.candidates : null,
         accuseNo: v ? v.accuseNo : 0,
@@ -378,7 +385,7 @@ export function makeLiarGame(ctx) {
       const next = round + 1;
       game = createGame({
         players,
-        settings: { liarMode: st.liarMode, times: st.times },
+        settings: { liarMode: st.liarMode, times: st.times, speakRounds: st.speakRounds },
         draw: { topic: drawn.topic, citizenWord: drawn.citizenWord, liarWord: drawn.liarWord },
         rng: intRng(hub.rng), now: hub.now(), round: next,
       });

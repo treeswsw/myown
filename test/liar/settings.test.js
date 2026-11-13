@@ -17,7 +17,7 @@ test('timeLabel', () => {
 test('스키마: 옛 설정 화면이 보여 주던 칸이 모두 있다(방식·묶음·주제 방식·주제·시간 6개·목표 점수·전체 랭킹)', () => {
   assert.deepEqual(OWN, []);
   const ks = SETTINGS.map((r) => r.k);
-  assert.deepEqual(ks, ['liarMode', 'wordSet', 'topicMode', 'topics', 'nextTopic',
+  assert.deepEqual(ks, ['liarMode', 'wordSet', 'topicMode', 'topics', 'nextTopic', 'speakRounds',
     'times.speak', 'times.discuss', 'times.rediscuss', 'times.defense', 'times.judge', 'times.guess', 'goal', 'rank']);
   assert.deepEqual(SETTINGS.find((r) => r.k === 'rank'), { k: 'rank', label: '전체 랭킹', group: '점수', type: 'custom', part: 'lg-rank' }, '대기실 랭킹 버튼(waitPart)');
   for (const key of Object.keys(TIME_CHOICES)) {
@@ -41,13 +41,15 @@ test('waitModel: 방장은 바꿀 수 있고 값이 켜져 있다 / 주제는 �
   assert.equal(m.isHost, true);
   assert.deepEqual(m.sections.map((s) => s.title), ['규칙', '시간', '점수']);
   const rule = m.sections[0].fields;
-  assert.deepEqual(rule.map((f) => f.k), ['liarMode', 'wordSet', 'topicMode', 'topics']);
+  assert.deepEqual(rule.map((f) => f.k), ['liarMode', 'wordSet', 'topicMode', 'topics', 'speakRounds']);
+  assert.equal(rule[4].opts.find((o) => o.on).v, 1, '첫 설명 바퀴 기본 1');
+  assert.deepEqual(rule[4].opts.map((o) => o.v), [1, 2, 3]);
   assert.equal(rule[0].opts.find((o) => o.on).v, 'word');
   assert.equal(rule[3].type, 'multi');
   assert.equal(rule[3].opts.length, 11);
   assert.ok(rule[3].opts.every((o) => o.on));
   const host = waitModel(stateOf({ ...set, topicMode: 'host', nextTopic: set.topics[1].name }), GAMES.liar, 'a');
-  assert.deepEqual(host.sections[0].fields.map((f) => f.k), ['liarMode', 'wordSet', 'topicMode', 'nextTopic']);
+  assert.deepEqual(host.sections[0].fields.map((f) => f.k), ['liarMode', 'wordSet', 'topicMode', 'nextTopic', 'speakRounds']);
   assert.equal(host.sections[0].fields[3].opts.find((o) => o.on).v, set.topics[1].name);
   const times = m.sections[1].fields;
   assert.equal(times[0].opts.find((o) => o.on).v, 30);

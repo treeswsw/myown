@@ -23,7 +23,7 @@ export function createBrain(bot) {
     switch (s.phase) {
       case 'speak':
         if (s.speaker === bot.id && !s.speakDone) {
-          return { key: `${round}say`, msg: { t: 'lg', a: 'say', text: pickOf(bot.rng, SAYS) } };
+          return { key: `${round}say:${s.speakRound || 1}`, msg: { t: 'lg', a: 'say', text: pickOf(bot.rng, SAYS) } };
         }
         return null;
       case 'discuss':
@@ -31,7 +31,7 @@ export function createBrain(bot) {
         if (s.votes?.[bot.id]) return null;
         const pool = s.phase === 'revote' && s.candidates ? s.candidates.filter((id) => id !== bot.id) : others;
         if (!pool.length) return null;
-        return { key: `${round}vote:${s.phase}:${s.accuseNo}`, msg: { t: 'lg', a: 'vote', target: pickOf(bot.rng, pool) } };
+        return { key: `${round}vote:${s.phase}:${s.accuseNo}:${s.extendNo || 0}`, msg: { t: 'lg', a: 'vote', target: pickOf(bot.rng, pool) } };
       }
       case 'judge':
         if (s.accused === bot.id || s.judge?.picks?.[bot.id]) return null;

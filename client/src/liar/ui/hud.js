@@ -56,10 +56,16 @@ function textsFor(state) {
       }
       return { title: '남은 발언시간', alert: ['상대방의 발언을 기다리고 있습니다'], plain: true, timed: true };
     }
-    case 'discuss':
-      return { title: '투표 결과까지', alert: ['대화하면서 의심되는 사람을 눌러 지목하세요'], plain: false, timed: true };
-    case 'revote':
-      return { title: '재투표', alert: ['동점인 사람 중에서 다시 지목하세요'], plain: false, timed: true };
+    case 'discuss': {
+      const lines = ['대화하면서 의심되는 사람을 눌러 지목하세요'];
+      if (state.extendNo > 0) lines.unshift('투표가 무산됐어요. 연장 투표');
+      return { title: '투표 결과까지', alert: lines, plain: false, timed: true };
+    }
+    case 'revote': {
+      const lines = ['동점인 사람 중에서 다시 지목하세요'];
+      if (state.extendNo > 0) lines.unshift('투표가 무산됐어요. 연장 투표');
+      return { title: '재투표', alert: lines, plain: false, timed: true };
+    }
     case 'defense':
       return { title: '최후 변론', alert: [`${who} 님의 최후 변론입니다`], plain: false, timed: true };
     case 'judge':
@@ -190,6 +196,8 @@ export function createHud(ctx) {
     const parts = [`Round ${state.round}`];
     if (state.topic) parts.push(state.topic);
     if (state.accuseNo >= 2) parts.push(`${state.accuseNo}번째 지목`);
+    if (state.extendNo > 0 && (state.phase === 'discuss' || state.phase === 'revote')) parts.push(`${state.extendNo}번째 연장 투표`);
+    if (state.phase === 'speak' && state.speakRounds > 1) parts.push(`첫 설명 ${state.speakRound}/${state.speakRounds}바퀴`);
     kicker.textContent = parts.join(' · ');
     title.textContent = tx.title;
     title.hidden = !!tx.compact;   // guess·answer: 맨 위 작은 줄(Round·주제)만 남긴다

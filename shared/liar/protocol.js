@@ -1,6 +1,6 @@
 // {t:'lg'} 요청의 모양 검사 (GDD 9-1, CONTRACTS 4절). 모양만 본다 — 방장인가·단계가 맞는가·주제 이름이 있는가는 방·엔진이 본다.
 // node 전용 모듈을 쓰지 않는다(화면도 쓸 수 있게). 받은 객체는 고치지 않고 새 객체를 돌려준다.
-import { LIMITS, TIME_CHOICES, GOAL_CHOICES, LIAR_MODES } from './constants.js';
+import { LIMITS, TIME_CHOICES, GOAL_CHOICES, LIAR_MODES, SPEAK_ROUND_CHOICES } from './constants.js';
 
 export const WORD_SETS = Object.freeze(['mine', 'star']);
 export const TOPIC_MODES = Object.freeze(['random', 'host']);
@@ -48,6 +48,10 @@ function checkSettings(m) {
   if (has(m, 'goal')) {
     if (!GOAL_CHOICES.includes(m.goal)) return bad('목표 점수가 올바르지 않습니다.');
     out.goal = m.goal;
+  }
+  if (has(m, 'speakRounds')) {
+    if (!SPEAK_ROUND_CHOICES.includes(m.speakRounds)) return bad('첫 설명 바퀴 수가 올바르지 않습니다.');
+    out.speakRounds = m.speakRounds;
   }
   if (has(m, 'times')) {
     if (!isObj(m.times)) return bad('시간 설정이 올바르지 않습니다.');
