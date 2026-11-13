@@ -1,0 +1,98 @@
+/* 갱스껄 연출 층 — 디자인 캔버스 Flip.dc.html(.fx-*) · Main.dc.html(.pl-*) 의 값을 옮김. 접두사 .gk-fx- 만.
+   크기는 캔버스 기준 px 을 쓰고, 자리마다 transform: scale(원판 크기 / 80) 로 맞춘다(zoom 금지).
+   글씨만 --gk-fx-s(= 화면 높이 / 720)로 맞춘다. 층 전체는 눌리지 않는다. */
+.gk-fx-layer{position:absolute;left:0;top:0;right:0;bottom:0;z-index:50;pointer-events:none;--gk-fx-s:1}
+.gk-fx-layer *{box-sizing:border-box;pointer-events:none}
+.gk-fx-layer.gk-fx-shake{animation:gk-fx-shake .5s cubic-bezier(.3,.6,.3,1) both}
+
+/* 한 장만 더: 가장자리 금빛 숨 */
+.gk-fx-edge{position:absolute;left:0;top:0;right:0;bottom:0;box-shadow:inset 0 0 130px 12px rgba(236,196,110,.36);animation:gk-fx-edge 2.2s ease-in-out infinite}
+
+/* 애태우기 어둠 */
+.gk-fx-vig{position:absolute;left:-40px;top:-40px;right:-40px;bottom:-40px;z-index:18;opacity:0;background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 22%,rgba(4,1,1,.94) 100%);transition:opacity .45s ease-out}
+
+/* 한 점에 붙는 효과의 기준(크기 0, transform 으로 자리·크기) */
+.gk-fx-spot{position:absolute;left:0;top:0;width:0;height:0}
+.gk-fx-spot.gk-fx-z19{z-index:19}
+.gk-fx-spot.gk-fx-z20{z-index:20}
+.gk-fx-spot.gk-fx-z21{z-index:21}
+.gk-fx-spot.gk-fx-z22{z-index:22}
+.gk-fx-spot.gk-fx-z24{z-index:24}
+
+.gk-fx-warm{position:absolute;left:-500px;top:-500px;width:1000px;height:1000px;border-radius:50%;background:radial-gradient(circle,rgba(255,232,176,.62),rgba(250,200,112,.2) 34%,rgba(250,200,112,0) 62%);animation:gk-fx-warm .95s ease-out both}
+
+/* 뒤집는 한 장 */
+.gk-fx-card{position:absolute;left:0;top:0;z-index:23;-webkit-filter:drop-shadow(0 9px 9px rgba(0,0,0,.65));filter:drop-shadow(0 9px 9px rgba(0,0,0,.65));will-change:transform}
+.gk-fx-trem{position:relative;width:100%;height:100%}
+.gk-fx-trem.gk-fx-t1{animation:gk-fx-trem .12s linear infinite}
+.gk-fx-trem.gk-fx-t2{animation:gk-fx-trem .07s linear infinite}
+.gk-fx-per{width:100%;height:100%;-webkit-perspective:520px;perspective:520px}
+.gk-fx-in{position:relative;width:100%;height:100%;-webkit-transform-style:preserve-3d;transform-style:preserve-3d}
+.gk-fx-b,.gk-fx-f{position:absolute;left:0;top:0;width:100%;height:100%;display:block;-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.gk-fx-f{-webkit-transform:rotateY(180deg);transform:rotateY(180deg)}
+.gk-fx-f img{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.gk-fx-rim{position:absolute;left:-3px;top:-3px;right:-3px;bottom:-3px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(226,84,62,.95),0 0 22px 6px rgba(196,36,26,.85),0 0 60px 14px rgba(150,16,10,.6);animation:gk-fx-in .25s ease-out both}
+
+/* 꽃 효과 */
+.gk-fx-p{position:absolute;left:0;top:0;width:0;height:0}
+.gk-fx-pet{position:absolute;left:-5px;top:-8px;width:10px;height:16px;border-radius:50% 50% 50% 50% / 62% 62% 38% 38%;background:linear-gradient(#f6c453,#e8872a 62%,#c9621c);box-shadow:0 0 6px rgba(240,160,60,.5)}
+.gk-fx-spk-w{position:absolute;left:0;top:0;width:0;height:0}
+.gk-fx-spk{position:absolute;left:-3px;top:-3px;width:6px;height:6px;transform:rotate(45deg);background:#fff1c9;box-shadow:0 0 8px 2px rgba(240,206,130,.9)}
+.gk-fx-glow{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(255,236,186,.9),rgba(240,190,96,.4) 38%,rgba(240,190,96,0) 68%);animation:gk-fx-glow .85s ease-out both}
+.gk-fx-ring{position:absolute;border-radius:50%;border:1.5px solid rgba(240,214,150,.95);box-shadow:0 0 12px rgba(240,206,130,.6);animation:gk-fx-ring .7s ease-out both}
+
+/* 해골 패배 */
+.gk-fx-dark{position:absolute;left:-40px;top:-40px;right:-40px;bottom:-40px;z-index:20;background:rgba(7,2,2,.8);animation:gk-fx-in .22s ease-out both}
+.gk-fx-red{position:absolute;left:-450px;top:-450px;width:900px;height:900px;background:radial-gradient(circle,rgba(176,30,22,.62),rgba(150,24,18,.22) 34%,rgba(150,24,18,0) 62%);animation:gk-fx-in .5s ease-out both}
+.gk-fx-aura{position:absolute;left:-160px;top:-160px;width:320px;height:320px;animation:gk-fx-in .35s ease-out .08s both}
+.gk-fx-aura svg{position:absolute;left:0;top:0;width:100%;height:100%;display:block;-webkit-filter:blur(2.5px);filter:blur(2.5px);animation:gk-fx-flick .9s ease-in-out infinite alternate}
+.gk-fx-aura svg.gk-fx-fl2{-webkit-filter:blur(1px);filter:blur(1px);animation:gk-fx-flick2 .7s ease-in-out infinite alternate}
+.gk-fx-demon{position:absolute;left:-145px;top:-217px;width:290px;height:290px;animation:gk-fx-rise .9s cubic-bezier(.2,.7,.3,1) .12s both}
+.gk-fx-demon i{position:absolute;left:19%;top:15%;width:62%;height:62%;border-radius:50%;background:radial-gradient(circle,#ffb070 0%,#ff4a22 26%,#b0160e 58%,rgba(120,10,6,0) 76%);animation:gk-fx-eye 1.1s ease-in-out infinite alternate}
+.gk-fx-demon img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;display:block;-webkit-filter:grayscale(1) brightness(.42) contrast(1.35) drop-shadow(0 0 16px rgba(190,30,20,.9));filter:grayscale(1) brightness(.42) contrast(1.35) drop-shadow(0 0 16px rgba(190,30,20,.9))}
+.gk-fx-demon svg{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.gk-fx-doomtxt{position:absolute;left:0;right:0;top:37.2%;z-index:25;text-align:center;animation:gk-fx-slam .45s cubic-bezier(.2,.8,.3,1) .32s both}
+.gk-fx-doomtxt b{display:block;font:700 calc(76px * var(--gk-fx-s))/1.16 'Gowun Batang',serif;letter-spacing:.34em;text-indent:.34em;color:#f3c4b8;text-shadow:0 0 26px rgba(206,40,28,.95),0 0 70px rgba(170,20,12,.8),0 4px 10px rgba(0,0,0,.9)}
+.gk-fx-doomtxt span{display:block;margin-top:2px;padding:0 16px;font:400 calc(17px * var(--gk-fx-s))/1.4 'Gowun Batang',serif;letter-spacing:.06em;color:#f0e2cf;text-shadow:0 1px 6px rgba(0,0,0,.95)}
+
+/* 성공 피날레 */
+.gk-fx-wtxt{position:absolute;left:0;right:0;top:47.8%;z-index:25;text-align:center;animation:gk-fx-slam .5s cubic-bezier(.2,.8,.3,1) .25s both}
+.gk-fx-wtxt b{display:block;font:700 calc(44px * var(--gk-fx-s))/1.18 'Gowun Batang',serif;letter-spacing:.4em;text-indent:.4em;color:#f8e7b8;text-shadow:0 0 22px rgba(240,200,110,.85),0 3px 8px rgba(0,0,0,.8)}
+.gk-fx-wtxt span{display:block;padding:0 16px;font-size:calc(14px * var(--gk-fx-s));line-height:1.43;color:#efe6d2;text-shadow:0 1px 4px rgba(0,0,0,.9)}
+
+/* 성공: 개인판이 1점 면으로 넘어감 */
+.gk-fx-bd{position:absolute;left:0;top:0;z-index:17;-webkit-perspective:700px;perspective:700px;-webkit-filter:drop-shadow(0 6px 8px rgba(0,0,0,.55));filter:drop-shadow(0 6px 8px rgba(0,0,0,.55))}
+.gk-fx-bd-in{position:relative;width:100%;height:100%;-webkit-transform-style:preserve-3d;transform-style:preserve-3d;transition:transform .9s cubic-bezier(.35,.1,.2,1) .45s}
+.gk-fx-bd-in.gk-fx-on{-webkit-transform:rotateY(180deg);transform:rotateY(180deg)}
+.gk-fx-bf{position:absolute;left:0;top:0;width:100%;height:100%;display:block;-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.gk-fx-bf.gk-fx-back{-webkit-transform:rotateY(180deg);transform:rotateY(180deg)}
+.gk-fx-matglow{position:absolute;left:-7px;top:-7px;right:-7px;bottom:-7px;border:1.5px solid rgba(240,214,150,.95);border-radius:20px;animation:gk-fx-last 1.1s ease-in-out 3 both}
+
+/* 남이 원판을 놓음: 내려앉는 먼지 */
+.gk-fx-shade{position:absolute;left:-46px;top:-34px;width:92px;height:92px;border-radius:50%;background:radial-gradient(circle,rgba(0,0,0,.75),rgba(0,0,0,0) 68%);animation:gk-fx-shade .5s ease-out both}
+.gk-fx-dust{position:absolute;left:-52px;top:-48px;width:104px;height:104px;border-radius:50%;border:1.5px solid rgba(236,210,150,.75);box-shadow:0 0 14px rgba(236,210,150,.45),inset 0 0 12px rgba(236,210,150,.3);animation:gk-fx-dust .55s ease-out both}
+.gk-fx-puff{position:absolute;left:-60px;top:-56px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,244,214,.5),rgba(255,244,214,0) 62%);animation:gk-fx-puff .45s ease-out both}
+
+/* 걷힐 때 */
+.gk-fx-out{transition:opacity .4s ease-out;opacity:0 !important;animation:none !important}
+
+@keyframes gk-fx-edge{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
+@keyframes gk-fx-last{0%{transform:scale(.94);box-shadow:0 0 8px rgba(240,200,110,.35)}50%{transform:scale(1.08);box-shadow:0 0 24px rgba(240,200,110,.9)}100%{transform:scale(.94);box-shadow:0 0 8px rgba(240,200,110,.35)}}
+@keyframes gk-fx-trem{0%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(-1.6px,.6px) rotate(-1.4deg)}50%{transform:translate(1.2px,-.8px) rotate(.9deg)}75%{transform:translate(-.8px,-.5px) rotate(-.7deg)}100%{transform:translate(0,0) rotate(0deg)}}
+@keyframes gk-fx-flick{0%{transform:scale(.94) rotate(-4deg);opacity:.75}100%{transform:scale(1.08) rotate(5deg);opacity:1}}
+@keyframes gk-fx-flick2{0%{transform:scale(1.04) rotate(6deg);opacity:.9}100%{transform:scale(.92) rotate(-5deg);opacity:.6}}
+@keyframes gk-fx-eye{0%{opacity:.72}100%{opacity:1}}
+@keyframes gk-fx-pet0{0%{opacity:0;transform:translateY(-16px) scale(.4) rotate(0deg)}18%{opacity:1}100%{opacity:0;transform:translateY(-58px) scale(1) rotate(50deg)}}
+@keyframes gk-fx-pet1{0%{opacity:0;transform:translateY(-16px) scale(.4) rotate(0deg)}18%{opacity:1}100%{opacity:0;transform:translateY(-78px) scale(1.05) rotate(-60deg)}}
+@keyframes gk-fx-pet2{0%{opacity:0;transform:translateY(-16px) scale(.4) rotate(0deg)}18%{opacity:1}100%{opacity:0;transform:translateY(-100px) scale(.9) rotate(80deg)}}
+@keyframes gk-fx-spk{0%{opacity:0;transform:translateY(-20px) scale(.2)}30%{opacity:1;transform:translateY(-52px) scale(1)}100%{opacity:0;transform:translateY(-88px) scale(.3)}}
+@keyframes gk-fx-glow{0%{opacity:0;transform:scale(.35)}25%{opacity:.95}100%{opacity:0;transform:scale(1.15)}}
+@keyframes gk-fx-ring{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(1.2)}}
+@keyframes gk-fx-shake{0%{transform:translate(0,0)}10%{transform:translate(-9px,5px)}22%{transform:translate(8px,-6px)}36%{transform:translate(-6px,-3px)}52%{transform:translate(5px,4px)}70%{transform:translate(-3px,1px)}100%{transform:translate(0,0)}}
+@keyframes gk-fx-in{0%{opacity:0}100%{opacity:1}}
+@keyframes gk-fx-slam{0%{opacity:0;transform:scale(1.5)}60%{opacity:1;transform:scale(.97)}100%{opacity:1;transform:scale(1)}}
+@keyframes gk-fx-warm{0%{opacity:0;transform:scale(.5)}22%{opacity:1}100%{opacity:0;transform:scale(1.15)}}
+@keyframes gk-fx-rise{0%{opacity:0;transform:translateY(34px) scale(.82)}100%{opacity:.62;transform:translateY(0) scale(1)}}
+@keyframes gk-fx-shade{0%{opacity:0;transform:scale(.7)}40%{opacity:.9;transform:scale(1.08)}100%{opacity:0;transform:scale(1)}}
+@keyframes gk-fx-dust{0%{opacity:.9;transform:scale(.72)}100%{opacity:0;transform:scale(1.34)}}
+@keyframes gk-fx-puff{0%{opacity:.8;transform:scale(.6)}100%{opacity:0;transform:scale(1.25)}}
