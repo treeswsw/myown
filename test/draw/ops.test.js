@@ -270,7 +270,8 @@ test('범위 밖 누적 좌표는 상태를 바꾸지 않고 거절', () => {
   // 시작 점이 범위 밖, 시작 뒤 차이값이 범위 밖
   assert.equal(D.st(s, { c: 0, w: 4, e: 0, p: [1601, 0] }).ok, false);
   assert.equal(D.st(s, { c: 0, w: 4, e: 0, p: [0, 0, -1, 0] }).ok, false);
-  assert.equal(s.cur.p[0], 1590); // 거절된 st 는 긋던 선을 건드리지 않는다
+  assert.equal(s.cur, null); // 거절된 st 는 긋던 선을 확정하고 끝낸다
+  assert.equal(s.ops[0].p[0], 1590);
 });
 
 test('모양이 틀린 입력은 거절(상태 그대로)', () => {
@@ -348,4 +349,63 @@ test('잘못된 drSync 는 받지 않는다', () => {
   const empty = D.importSync({ ops: [], at: 0, cur: null });
   assert.equal(empty.ok, true);
   assert.deepEqual(empty.state, D.createDrawing());
+});
+
+test('redo: 긋는 중에는 무시하고 상태를 바꾸지 않는다', () => {
+  const s = D.createDrawing();
+  line(s, 10, 10); line(s, 20, 20);
+  D.undo(s);
+  D.st(s, { c: 0, w: 4, e: 0, p: [50, 50] });
+  const before = JSON.stringify(s);
+  assert.deepEqual(D.redo(s), { ok: true, noop: true });
+  assert.equal(JSON.stringify(s), before);
+  assert.equal(D.canRedo(s), true);
+});
+
+test('st 가 거절되면 앞에 긋던 선은 확정되고 선 끝 알림이 함께 온다', () => {
+  for (const bad of [{ c: 0, w: 4, e: 0, p: [2000, 0] }, { c: 99, w: 4, e: 0, p: [1, 1] }]) {
+    const s = D.createDrawing();
+    D.st(s, { c: 0, w: 4, e: 0, p: [10, 10] });
+    const r = D.st(s, bad);
+    assert.equal(r.ok, false);
+    assert.deepEqual(r.event, { k: 'drPt', p: [], f: 1 });
+    assert.equal(s.cur, null);
+    assert.equal(s.ops.length, 1);
+  }
+  const s = D.createDrawing(); // 긋는 중이 아니면 event 없음
+  assert.equal(D.st(s, { c: 99, w: 4, e: 0, p: [1, 1] }).event, undefined);
+});
+
+test('rm: 같은 번호가 겹치면 거절', () => {
+  const s = D.createDrawing();
+  line(s, 10, 10); line(s, 20, 20);
+  assert.equal(D.rm(s, { ids: [0, 0] }).ok, false);
+  assert.equal(s.ops.length, 2);
+});
+
+test('importSync 점 합계: 다시 하기 목록이 있어도 서버가 받아들인 정상 상태는 왕복된다', () => {
+  const chunk = [];
+  for (let i = 0; i < 64; i++) chunk.push(i % 2 ? -1 : 1, 0);
+  const fill = (s, n) => {
+    for (let i = 0; i < n; i++) {
+      assert.equal(D.st(s, { c: 0, w: 4, e: 0, p: [100, 100] }).ok, true);
+      for (let k = 0; k < 39; k++) assert.equal(D.pt(s, { p: chunk }).ok, true);
+      assert.equal(D.pt(s, { p: chunk, f: 1 }).ok, true);
+    }
+  };
+  const s = D.createDrawing();
+  fill(s, 23); // 23 x 2497 = 57431 점
+  D.undo(s);
+  assert.equal(D.st(s, { c: 0, w: 4, e: 0, p: [5, 5] }).ok, true);
+  const dump = D.exportSync(s);
+  assert.equal(D.importSync(JSON.parse(JSON.stringify(dump))).ok, true);
+  // 보이는 것 + 긋는 중이 한도를 넘는 가짜 drSync 는 거절
+  const fake = D.exportSync(s);
+  fake.at = fake.ops.length;
+  fake.cur = { c: 0, w: 4, e: 0, p: [5, 5, ...Array.from({ length: 1200 }, (_, i) => (i % 2 ? -1 : 1))] };
+  assert.equal(D.importSync(fake).ok, false);
+  // ops 전체가 한도를 넘는 가짜도 거절
+  const big = D.exportSync(s);
+  big.ops.push(...big.ops.slice(0, 2).map((o) => ({ ...o, p: o.p.slice() })));
+  assert.equal(D.importSync(big).ok, false);
 });

@@ -108,18 +108,31 @@ const opsAfterCur = (s) => (s.cur ? s.at + 1 : s.at);
 
 // ---- 연산 --------------------------------------------------------------
 
-// 선 시작. msg = { c, w, e, p }. 앞 선이 안 끝났으면 끝난 것으로 친다.
-export function st(s, msg) {
+// 거절 사유 검사(상태는 안 고친다). 통과하면 null.
+function stCheck(s, msg) {
   if (!msg || !styleOk(msg.c, msg.w, msg.e)) return BAD;
   if (!numsOk(msg.p, true) || msg.p.length < 2) return BAD;
   const p = msg.p;
   if (p[0] < 0 || p[0] > CANVAS_W || p[1] < 0 || p[1] > CANVAS_H) return RANGE;
-  const end = walk(p, p[0], p[1], 2);
-  if (!end) return RANGE;
-  // 한도는 앞 선이 확정되고 이 선이 붙는 경우로 미리 계산(거절하면 아무것도 안 고친다)
+  if (!walk(p, p[0], p[1], 2)) return RANGE;
+  // 한도는 앞 선이 확정되고 이 선이 붙는 경우로 미리 계산
   if (opsAfterCur(s) + 1 > MAX_OPS) return FULL;
   if (totalPoints(s, s.at, true) + pointCount(p) > MAX_POINTS_TOTAL) return FULL;
   if (pointCount(p) > MAX_POINTS_PER_STROKE) return FULL;
+  return null;
+}
+
+// 선 시작. msg = { c, w, e, p }. 앞 선이 안 끝났으면 끝난 것으로 친다.
+// 거절 시 앞 선이 긋는 중이었으면 그 선은 확정되고, 결과에 event {k:'drPt',p:[],f:1} 이 붙는다(받는 사람들에게 보낸다).
+export function st(s, msg) {
+  const r = stCheck(s, msg);
+  if (r) {
+    // 거절하더라도 앞 선(긋던 것)이 열린 채 남지 않게 끝낸다. 받는 사람들에게는 선 끝 알림을 함께 돌려준다.
+    if (s.cur) { finishCur(s); return { ok: false, error: r.error, event: { k: 'drPt', p: [], f: 1 } }; }
+    return r;
+  }
+  const p = msg.p;
+  const end = walk(p, p[0], p[1], 2);
   finishCur(s);
   s.cur = { c: msg.c, w: msg.w, e: msg.e, p: p.slice(), x: end.x, y: end.y };
   return { ok: true, event: { k: 'drSt', c: msg.c, w: msg.w, e: msg.e, p: p.slice() } };
@@ -164,7 +177,8 @@ export function rm(s, msg) {
   const probe = s.cur ? [...s.ops.slice(0, s.at), { c: s.cur.c, w: s.cur.w, e: s.cur.e, p: s.cur.p }] : s.ops;
   const vis = visibility(probe, upto);
   const ids = [];
-  for (const id of msg.ids) if (!ids.includes(id) && rmOk(probe, upto, vis, id)) ids.push(id);
+  if (new Set(msg.ids).size !== msg.ids.length) return BAD; // 같은 번호가 겹치면 거절(GDD 10-1)
+  for (const id of msg.ids) if (rmOk(probe, upto, vis, id)) ids.push(id);
   if (!ids.length) return BAD;
   if (!merge && upto + 1 > MAX_OPS) return FULL;
   finishCur(s);
@@ -186,8 +200,8 @@ export function undo(s) {
 }
 
 export function redo(s) {
-  finishCur(s);
-  if (s.at >= s.ops.length) return NOOP;
+  // 긋는 중에는 다시 하기가 없다(긋던 선을 확정하면 목록이 비므로 확정하지 않고 무시)
+  if (s.cur || s.at >= s.ops.length) return NOOP;
   s.at += 1;
   return { ok: true, event: { k: 'drRedo' } };
 }
@@ -273,13 +287,15 @@ function lineShapeOk(l) {
 export function importSync(data) {
   if (!data || !Array.isArray(data.ops) || !isInt(data.at) || data.at < 0 || data.at > data.ops.length || data.ops.length > MAX_OPS) return BAD;
   const ops = [];
-  let points = 0;
+  let points = 0; // ops 전체의 점 수
+  let pointsAt = 0; // ops[0..at) 의 점 수
   for (let i = 0; i < data.ops.length; i++) {
     const op = data.ops[i];
     if (!op || typeof op !== 'object') return BAD;
     if (Array.isArray(op.p)) {
       if (!lineShapeOk(op)) return BAD;
       points += pointCount(op.p);
+      if (i < data.at) pointsAt += pointCount(op.p);
       ops.push({ c: op.c, w: op.w, e: op.e, p: op.p.slice() });
     } else if (Array.isArray(op.rm)) {
       if (op.rm.length < 1) return BAD; // g:1 로 합쳐진 묶음은 50개를 넘을 수 있다
@@ -295,12 +311,14 @@ export function importSync(data) {
     } else return BAD;
   }
   let cur = null;
+  let curPoints = 0;
   if (data.cur != null) {
     const end = lineShapeOk(data.cur);
     if (!end) return BAD;
-    points += pointCount(data.cur.p);
+    curPoints = pointCount(data.cur.p);
     cur = { c: data.cur.c, w: data.cur.w, e: data.cur.e, p: data.cur.p.slice(), x: end.x, y: end.y };
   }
-  if (points > MAX_POINTS_TOTAL) return BAD;
+  // 서버가 받아들이는 기준과 같게: ops 전체 ≤ 한도, 그리고 보이는 것(ops[0..at)) + 긋는 중인 선 ≤ 한도
+  if (points > MAX_POINTS_TOTAL || pointsAt + curPoints > MAX_POINTS_TOTAL) return BAD;
   return { ok: true, state: { ops, at: data.at, cur } };
 }
