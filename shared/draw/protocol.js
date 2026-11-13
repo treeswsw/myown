@@ -105,6 +105,7 @@ export function checkDr(msg) {
     case 'give':
     case 'skip':
     case 'end':
+    case 'lobby':
       return good({ a: msg.a });
     default:
       return bad();
