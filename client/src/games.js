@@ -8,7 +8,7 @@ import { GAMES } from '../../shared/games.js';
 export const CLIENT_GAMES = {
   holdem: { builtin: 'poker', stage: true, mount: false },
   bluff: { builtin: 'poker', stage: true, mount: false },
-  liar: { load: () => import('./liar/index.js'), stage: true, mount: false },
+  liar: { load: () => import('./liar/index.js'), stage: true, mount: true },
   yacht: { load: () => import('./yacht/index.js'), stage: true, mount: true, bar: { leftVar: '--yt-sheet-w' } },
   draw: { load: () => import('./draw/index.js'), stage: false, mount: false },
   gsk: { load: () => import('./gsk/index.js'), stage: false, mount: false },

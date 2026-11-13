@@ -36,3 +36,12 @@ export function resultSound(state) {
   return state.result?.champions?.length ? 'champion' : 'win';
 }
 
+// 나가기 확인 창 글. 판이 진행 중이고 내가 구경이 아닌 참가자일 때만(대기·결과·구경은 null).
+export function leaveNoteFor(state) {
+  const phase = state?.phase;
+  if (!phase || phase === 'lobby' || phase === 'result') return null;
+  const me = (state.players || []).find((p) => p.id === state.you);
+  if (!me || me.spectating) return null;
+  return '나가면 이번 판에서 빠져요. (라이어가 나가면 시민이 이기고, 사람이 모자라면 판이 무효가 돼요)';
+}
+

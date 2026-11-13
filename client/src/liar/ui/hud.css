@@ -52,6 +52,8 @@
   display: flex; align-items: center; gap: 6px; pointer-events: none;
 }
 .lg-hud-endbox[hidden] { display: none; }
+/* 공용 방 틀에서는 오른쪽 위를 사이트 채팅 버튼과 열린 채팅 칸이 쓴다(내 입력 차례에 열린다): 방장의 "이 판 끝내기"는 왼쪽 아래로 */
+.lg-root .lg-hud-root .lg-hud-endbox { position: fixed; left: calc(12px * var(--lg-k, 1)); bottom: calc(12px * var(--lg-k, 1)); right: auto; top: auto; }
 .lg-hud-end, .lg-hud-yes, .lg-hud-no {
   pointer-events: auto; cursor: pointer; font: inherit; color: var(--lg-ink, #efe6d8);
   font-size: max(11px, calc(13px * var(--lg-k, 1))); min-height: 32px; padding: 4px 12px; border-radius: 8px;

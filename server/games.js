@@ -1,7 +1,7 @@
 // 서버 게임 등록표 (docs/COMMON-CONTRACT.md 2-2). 키는 shared/games.js 와 같다.
 // 항목마다 make(ctx, opt) 또는 legacy(hub, code, opt) 중 정확히 하나. 이행 중에는 모두 legacy(옛 방 그대로).
 // 옮기기 과제가 자기 줄을 legacy -> make 로 바꾼다. bot: false = 관리자 봇 없음(adm_nobot).
-import { createLiarRoom } from './liar/room.js';
+import { makeLiarGame } from './liar/room.js';
 import { makeYachtGame } from './yacht/room.js';
 import { createDrawRoom } from './draw/room.js';
 import { createGskRoom } from './gsk/room.js';
@@ -33,7 +33,7 @@ function liarRank(hub, session, msg) {
 export const SERVER_GAMES = {
   holdem: { legacy: (hub, code) => hub.pokerRoom(code, 'holdem'), bot: holdemBot },
   bluff: { legacy: (hub, code) => hub.pokerRoom(code, 'bluff'), bot: bluffBot },
-  liar: { legacy: (hub, code) => hookRoom(hub, createLiarRoom(hub, code)), bot: liarBot, hubMsg: liarRank },
+  liar: { make: makeLiarGame, bot: liarBot, hubMsg: liarRank },
   yacht: { make: makeYachtGame, bot: yachtBot },
   draw: { legacy: (hub, code) => hookRoom(hub, createDrawRoom(hub, code)), bot: drawBot },
   gsk: { legacy: (hub, code) => createGskRoom(hub, code), bot: false, errors: { gk_off: '갱스껄은 지금 열려 있지 않습니다.' } },

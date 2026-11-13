@@ -127,7 +127,7 @@ test('validation: lg envelope and create modes', () => {
 test('mediaBlocked: a room that returns a sentence blocks emote/pemote/snd/sndAdd; poker room is unaffected', async () => {
   const { hub } = setup();
   const { cs, code } = await lobby(hub, 'liar', ['ann1', 'bob1']);
-  hub.rooms.get(code).mediaBlocked = (session, kind) => (kind === 'pemote' || kind === 'snd' ? '지금은 쓸 수 없습니다.' : null);
+  hub.rooms.get(code).impl.mediaBlocked = (session, kind) => (kind === 'pemote' || kind === 'snd' ? '지금은 쓸 수 없습니다.' : null);
   await cs[0].send({ t: 'pemote', data: JPG });
   assert.equal(cs[0].sock.last('error').msg, '지금은 쓸 수 없습니다.');
   assert.equal(events(cs[1], 'pemote').length, 0);
@@ -151,7 +151,7 @@ test('avatar: liar room sends faces (never in room.state); poker room just pushe
   const before = events(b, 'faces').length;
   await a.send({ t: 'avatar', data: JPG });
   const faces = events(b, 'faces').slice(before);
-  assert.deepEqual(faces, [{ k: 'faces', items: [{ id: 'ann1', avatar: JPG }] }]);
+  assert.deepEqual(faces, [{ k: 'faces', items: [{ id: 'ann1', avatar: JPG, look: {} }] }]); // 공용 faces 알림은 look(꾸미기)도 싣는다
   for (const c of [a, b]) assert.equal(JSON.stringify(c.sock.msgs.filter((m) => m.t === 'room')).includes('data:image'), false);
 
   // faceChanged is the only thing called when the room has it
@@ -309,7 +309,7 @@ test('mediaBlocked: sndRename is blocked like other media, sndDel is not', async
   const { hub } = setup();
   const { cs, code } = await lobby(hub, 'liar', ['ann1', 'bob1']);
   await cs[0].send({ t: 'sndAdd', sid: 'abc123', name: '박수', data: 'data:audio/webm;base64,AAAA' });
-  hub.rooms.get(code).mediaBlocked = (session, kind) => (kind === 'sndRename' ? '지금은 쓸 수 없습니다.' : null);
+  hub.rooms.get(code).impl.mediaBlocked = (session, kind) => (kind === 'sndRename' ? '지금은 쓸 수 없습니다.' : null);
   await cs[0].send({ t: 'sndRename', sid: 'abc123', name: '새이름' });
   assert.equal(cs[0].sock.last('error').msg, '지금은 쓸 수 없습니다.');
   assert.equal(events(cs[1], 'sndRename').length, 0);

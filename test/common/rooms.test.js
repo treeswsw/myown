@@ -33,10 +33,11 @@ const liarStage = (phase, expectAll = {}) => ({
   roles: (r) => ({ a: r.cs[0], b: r.cs[1], c: r.cs[2] }),
   expect: { a: expectAll, b: expectAll, c: expectAll },
 });
-const SPEAK_CHAT = '첫 설명 중에는 차례가 되었을 때 설명으로만 글을 쓸 수 있습니다.'; // 설명은 lg say 로만
-const UNMASK = { chat: '정체 공개 중에는 글을 쓸 수 없습니다.', emote: '정체 공개 중에는 쓸 수 없습니다.', pemote: '정체 공개 중에는 쓸 수 없습니다.', sndAdd: '정체 공개 중에는 쓸 수 없습니다.', snd: '정체 공개 중에는 쓸 수 없습니다.' };
-const GUESS_MEDIA = '정답 맞히기 중에는 기본 이모티콘만 쓸 수 있습니다.';
-const ANSWER = { chat: '정답 공개 중에는 글을 쓸 수 없습니다.', emote: '정답 공개 중에는 쓸 수 없습니다.', pemote: '정답 공개 중에는 쓸 수 없습니다.', sndAdd: '정답 공개 중에는 쓸 수 없습니다.', snd: '정답 공개 중에는 쓸 수 없습니다.' };
+// 오류는 코드로 비교한다(문장은 test/liar/perms.test.js 가 본다): 글 잠금 lg_chat, 매체 잠금 lg_media
+const SPEAK_CHAT = 'lg_chat'; // 설명은 lg say 로만
+const UNMASK = { chat: 'lg_chat', emote: 'lg_media', pemote: 'lg_media', sndAdd: 'lg_media', snd: 'lg_media' };
+const GUESS_MEDIA = 'lg_media';
+const ANSWER = { chat: 'lg_chat', emote: 'lg_media', pemote: 'lg_media', sndAdd: 'lg_media', snd: 'lg_media' };
 
 // 갱식마인드: 그리는 사람은 글·이모티콘·소리 전부 금지, 이미 맞힌 사람은 사진 이모티콘·소리 금지, 맞힌 사람의 글은 맞힌 사람과 그리는 사람에게만.
 const DRAWER_MUTE = { chat: 'dr_drawer_mute', emote: 'dr_drawer_mute', pemote: 'dr_drawer_mute', sndAdd: 'dr_drawer_mute', snd: 'dr_drawer_mute' };
@@ -64,17 +65,17 @@ const MODES = [
     stages: [plain()],
   },
   {
-    mode: 'liar', create: { mode: 'liar' }, max: 8, chatMax: 80, // 통일 예정?: 라이어만 80자(GDD 규칙일 수 있음)
+    mode: 'liar', create: { mode: 'liar' }, max: 8, chatMax: 80, // 예외 확정: 라이어만 80자(NEW-GAME 4절)
     chatLong: '채팅은 1~80자여야 합니다.', flood: HUB_FLOOD,
-    startFew: '3명 이상 필요합니다.', startNonHost: HOST_ERR, startedPhase: 'reveal',
-    hostWhenNextAway: 'bob1', // 통일 예정: 방장은 연결된 사람에게
+    startFew: 'lg_need3', startNonHost: 'lg_host', startedPhase: 'reveal',
+    hostWhenNextAway: 'cat1', // 연결된 사람 우선 (Shell)
     leftEvent: true, awayEvents: true, faces: true,
     stages: [
       liarStage('reveal'),
       liarStage('speak', { chat: SPEAK_CHAT }), // 예외: 첫 설명 중 글 잠금(이모티콘·소리는 가능)
       liarStage('discuss'),
       liarStage('unmask', UNMASK), // 예외: 정체 공개 중 글·이모티콘·소리 전부 금지
-      liarStage('guess', { chat: '정답 맞히기 중에는 글을 쓸 수 없습니다.', pemote: GUESS_MEDIA, sndAdd: GUESS_MEDIA, snd: GUESS_MEDIA }), // 기본 이모티콘만 가능
+      liarStage('guess', { chat: 'lg_chat', pemote: GUESS_MEDIA, sndAdd: GUESS_MEDIA, snd: GUESS_MEDIA }), // 기본 이모티콘만 가능
       liarStage('answer', ANSWER),
       liarStage('result'),
     ],
