@@ -98,6 +98,7 @@ export function createRoom({ code, host, allTopics, topics, now }) {
     phase: P.LOBBY,
     settings: { order: ORDER_DEFAULT, rounds: ROUNDS_DEFAULT, time: TIME_DEFAULT, len: LEN_DEFAULT, topics: on, allTopics: allTopics.slice() },
     players: [],
+    waiting: false,      // reveal 이 끝났는데 접속 중인 사람이 모자라 기다리는 중
     gone: [],            // 이번 판 도중 나간 사람 {id,name,score,correct} — 순위에 남긴다
     joinSeq: 0,
     roundNo: 0, q: 0, qTotal: 0, qBase: 0, roundSize: 0,
@@ -127,7 +128,7 @@ function addPlayer(s, { id, name }) {
   const p = {
     id, name: String(name ?? id), seat: freeSeat(s), joinNo: s.joinSeq++,
     connected: true, awaySince: null,
-    score: 0, correct: 0, hit: false, drew: inGame(s), chatTs: [],
+    score: 0, correct: 0, hit: false, drew: false, chatTs: [],
   };
   s.players.push(p);
   if (!s.players.some((x) => x.id === s.hostId)) s.hostId = id; // 방이 비었다가 다시 채워질 때
@@ -143,7 +144,13 @@ export function join(s, user, env = {}) {
   if (!user || typeof user.id !== 'string' || !user.id) return fail('dr_bad');
   if (s.players.length >= MAX_PLAYERS) return fail(null, '방이 가득 찼습니다.');
   const fx = newFx();
-  addPlayer(s, user);
+  const np = addPlayer(s, user);
+  const gi = s.gone.findIndex((g) => g.id === user.id); // 같은 판에서 나갔다 다시 들어옴: 점수 되살림
+  if (gi >= 0) {
+    const g = s.gone.splice(gi, 1)[0];
+    np.score = g.score; np.correct = g.correct; np.drew = !!g.drew;
+    if (s.cur && s.cur.hits.some((h) => h.id === np.id)) np.hit = true;
+  }
   emit(s, fx, { k: 'joined', id: user.id, name: findP(s, user.id).name }, connectedIds(s).filter((x) => x !== user.id));
   roomAll(s, fx);
   return fx;
@@ -157,6 +164,7 @@ export function back(s, id, env = {}) {
   p.connected = true;
   p.awaySince = null;
   emit(s, fx, { k: 'back', id, name: p.name }, connectedIds(s).filter((x) => x !== id));
+  if (s.waiting && s.phase === P.REVEAL && env.now != null && connectedIds(s).length >= MIN_PLAYERS) executeNext(s, env, fx);
   roomAll(s, fx);
   return fx;
 }
@@ -190,7 +198,7 @@ export function leave(s, id, env, { silent = false } = {}) {
   const fx = newFx();
   const drawerLeft = s.cur && s.cur.drawerId === id && (s.phase === P.PICK || s.phase === P.DRAW);
   s.players = s.players.filter((x) => x !== p);
-  if (inGame(s)) s.gone.push({ id: p.id, name: p.name, score: p.score, correct: p.correct });
+  if (inGame(s)) s.gone.push({ id: p.id, name: p.name, score: p.score, correct: p.correct, drew: p.drew });
   transferHost(s);
   if (!silent) emit(s, fx, { k: 'left', id: p.id, name: p.name });
   if (inGame(s)) {
@@ -290,7 +298,7 @@ function resetGame(s) {
   s.cur = null; s.plan = null; s.reveal = null;
   s.roundNo = 0; s.q = 0; s.qTotal = 0; s.qBase = 0; s.roundSize = 0;
   s.lastSeat = -1; s.lastDrawerId = null;
-  s.endsAt = null; s.rushed = false;
+  s.endsAt = null; s.rushed = false; s.waiting = false;
   s.canUndo = false; s.canRedo = false;
   for (const p of s.players) { p.score = 0; p.correct = 0; p.hit = false; p.drew = false; }
 }
@@ -322,8 +330,9 @@ function nextBySeq(cand, lastSeat) {
 
 /** 다음 문제 계획 (상태를 바꾸지 않는다. 난수는 rand 방식에서만 쓴다). */
 function planNext(s, env) {
+  if (s.players.length < MIN_PLAYERS) return { abort: true };
   const live = s.players.filter((p) => p.connected);
-  if (live.length < MIN_PLAYERS) return { abort: true };
+  if (live.length < MIN_PLAYERS) return { wait: true }; // 끊긴 사람이 돌아오길 기다림
   let cand = live.filter((p) => !p.drew);
   let roundNo = s.roundNo;
   let newRound = false;
@@ -352,7 +361,7 @@ function planNext(s, env) {
 }
 
 function planValid(s, plan) {
-  if (!plan || plan.abort || plan.final) return false; // 끝·중단 계획은 그 사이 사람이 돌아왔을 수 있어 다시 본다
+  if (!plan || plan.abort || plan.final || plan.wait) return false; // 끝·중단 계획은 그 사이 사람이 돌아왔을 수 있어 다시 본다
   const p = findP(s, plan.drawerId);
   if (!p || !p.connected) return false;
   if (plan.newRound) return plan.roundNo === s.roundNo + 1;
@@ -371,14 +380,14 @@ function beginQuestion(s, drawerId, env, fx) {
   s.lastDrawerId = drawerId;
   s.lastSeat = drawer.seat;
   s.q += 1;
-  s.qTotal = s.qBase + s.roundSize + (s.settings.rounds - s.roundNo) * s.players.length;
+  s.qTotal = Math.max(s.q, s.qBase + s.roundSize + (s.settings.rounds - s.roundNo) * s.players.length);
   for (const p of s.players) p.hit = false;
   s.cur = {
     drawerId,
     cands: cands.map((c) => ({ w: c.w, topic: c.topic, alt: Array.isArray(c.alt) ? c.alt.slice() : [] })),
     entry: null,
     hits: [],            // [{id, pts, order}] 맞힌 순서
-    guessers: s.players.filter((p) => p.connected && p.id !== drawerId).map((p) => p.id), // 맞힐 수 있던 사람
+    guessers: s.players.filter((p) => p.id !== drawerId).map((p) => p.id), // 맞힐 수 있던 사람(끊긴 사람 포함)
     inked: false,
     startAt: null,
   };
@@ -473,7 +482,7 @@ function finishQuestion(s, why, env, fx) {
   }
   applyHits(s, cur);
   const hits = cur.hits.length;
-  const guessers = cur.guessers.length;
+  const guessers = cur.guessers.filter((id) => findP(s, id)).length; // 아직 방에 남은 사람
   const drawerPts = (why === 'all' || why === 'time') ? drawerPoints({ hits, guessers }) : 0;
   const drawer = findP(s, cur.drawerId) ?? s.gone.find((g) => g.id === cur.drawerId);
   if (drawer) drawer.score += drawerPts;
@@ -506,6 +515,14 @@ function executeNext(s, env, fx) {
   let plan = s.plan;
   if (!planValid(s, plan)) plan = planNext(s, env);
   s.plan = null;
+  s.waiting = false;
+  if (plan.wait) { // 접속 중인 사람이 모자람: 가장 빨리 자리가 비는 때까지 reveal 에서 기다린다
+    const exp = Math.min(...s.players.filter((p) => !p.connected).map((p) => p.awaySince + ms(TIMES.seatKeep)));
+    s.waiting = true;
+    s.endsAt = Math.max(exp, env.now + 1000);
+    roomAll(s, fx);
+    return;
+  }
   if (plan.abort) { abortToLobby(s, 'alone', env, fx); return; }
   if (plan.final) { enterFinal(s, env, fx); return; }
   if (plan.newRound) {
@@ -568,7 +585,7 @@ export function chat(s, id, text, env) {
   const hitIds = cur ? cur.hits.map((h) => h.id) : [];
   const correct = s.phase === P.DRAW && cur && cur.entry && !hitIds.includes(id) && isCorrect(stripMark(t), cur.entry);
   if (correct) {
-    if (!cur.guessers.includes(id)) return fail('dr_now'); // 이번 문제 도중에 들어온 사람은 다음 문제부터
+    if (!cur.guessers.includes(id)) return newFx(); // 이번 문제 도중에 들어온 사람은 다음 문제부터: 조용히 버림
     p.chatTs.push(now);
     const order = cur.hits.length + 1;
     const pts = guesserPointsAt({ endsAtMs: s.endsAt, nowMs: now, totalSec: s.settings.time, order }); // 단축 전 끝 시각 기준
@@ -705,6 +722,7 @@ export function viewFor(s, id) {
     else if (s.phase === P.DRAW && (isDrawer || iHit)) word = cur.entry.w;
   }
   const choices = (s.phase === P.PICK && isDrawer && cur) ? cur.cands.map((c) => ({ w: c.w, topic: c.topic })) : null;
+
   const mask = (s.phase === P.DRAW && cur && cur.entry && s.settings.len) ? makeMask(cur.entry.w) : null;
 
   return {

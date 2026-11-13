@@ -154,6 +154,8 @@ function runFuzz(seed, stats) {
     if (s.phase === 'final') stats.final++;
     // 방 안의 일관성
     assert.ok(s.players.length <= 8);
+    const rk = viewFor(s, s.hostId).ranking;
+    if (rk) assert.equal(new Set(rk.map((x) => x.id)).size, rk.length, `${label}: 순위에 같은 id 두 번`);
     assert.ok(s.players.some((x) => x.id === s.hostId) || s.players.length === 0, `${label}: 방장이 방에 없다`);
   }
 }

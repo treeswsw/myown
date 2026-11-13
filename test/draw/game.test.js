@@ -161,16 +161,15 @@ test('끊긴 사람 차례는 건너뛴다 (그 라운드에 그린 것으로 �
   assert.deepEqual(seen, ['p0', 'p1', 'p3']);
 });
 
-test('진행 중에 들어온 사람은 다음 라운드부터 그린다', () => {
-  const { s, E } = room(3, { order: 'seq', rounds: 2 });
+test('진행 중에 들어온 사람은 drew=false 로 들어와 자리 순서에 낀다', () => {
+  const { s, E } = room(3, { order: 'seq', rounds: 1 });
   let t = T0;
   ok(start(s, 'p0', E(t)));
   ok(join(s, { id: 'p3', name: 'n3' }, E(t)));
-  assert.equal(findDrew(s, 'p3'), true);
+  assert.equal(findDrew(s, 'p3'), false);
   const seen = [];
   while (s.phase !== 'final') { seen.push(drawer(s)); t = giveAndNext(s, E, t); }
-  // 라운드 1 은 처음 있던 3명(들어온 p3 는 건너뜀), 라운드 2 는 방금 그린 p2 다음 자리인 p3 부터
-  assert.deepEqual(seen, ['p0', 'p1', 'p2', 'p3', 'p0', 'p1', 'p2']);
+  assert.deepEqual(seen, ['p0', 'p1', 'p2', 'p3']);
 });
 const findDrew = (s, id) => s.players.find((p) => p.id === id).drew;
 
@@ -650,14 +649,16 @@ test('들어오기·끊김·돌아옴 알림은 본인을 뺀 접속 중인 사�
   assert.deepEqual(b.events[0].to.sort(), ['p0', 'p9']);
 });
 
-test('진행 중에 들어온 사람: 이번 문제는 못 맞히고(정답을 치면 dr_now) 다음 문제부터 맞힌다', () => {
+test('진행 중에 들어온 사람: 이번 문제는 못 맞히고(정답을 치면 조용히 버림) 다음 문제부터 맞힌다', () => {
   const { s, E } = room(3);
   let t = T0;
   ok(start(s, 'p0', E(t)));
   toDraw(s, E, t);
   noteInk(s, 'p0');
   ok(join(s, { id: 'p3', name: 'n3' }, E(t + S)));
-  assert.equal(chat(s, 'p3', answer(s), E(t + 2 * S)).code, 'dr_now');
+  const quiet = chat(s, 'p3', answer(s), E(t + 2 * S));
+  assert.deepEqual([quiet.ok, quiet.events.length, quiet.room.length], [true, 0, 0]);
+  assert.equal(s.chatLog.length, 0);
   assert.equal(s.cur.hits.length, 0);
   ok(chat(s, 'p1', answer(s), E(t + 3 * S)));
   ok(chat(s, 'p2', answer(s), E(t + 4 * S)));
@@ -853,4 +854,114 @@ test('drNew 는 새 문제마다 방 전원에게, 한 번 고른 단어는 use 
   assert.deepEqual(fx.events.filter((e) => e.e.k === 'drNew').map((e) => e.to.sort()), [['p0', 'p1', 'p2']]);
   assert.deepEqual(fx.use, []);
   assert.deepEqual(pickWord(s, 'p0', 1, E(T0)).use, [s.cur.cands[1].w]);
+});
+
+// ---------- 보완: 끊김 대기·맞힐 사람·다시 들어오기 ----------
+
+test('2명 방: 20초 끊겼다 돌아오면 계속, 60초 지나면 alone', () => {
+  const a = room(2, { rounds: 2 });
+  let t = T0;
+  ok(start(a.s, 'p0', a.E(t)));
+  toDraw(a.s, a.E, t);
+  noteInk(a.s, 'p0');
+  ok(away(a.s, 'p1', a.E(t + 130 * S)));
+  tick(a.s, t + 140 * S, a.E(t + 140 * S));
+  assert.equal(a.s.phase, 'reveal');
+  tick(a.s, t + 145 * S, a.E(t + 145 * S)); // 끊긴 지 15초, 이어서 기다림
+  assert.equal(a.s.phase, 'reveal');
+  assert.equal(a.s.waiting, true);
+  assert.equal(a.s.endsAt, t + 190 * S);
+  assert.equal(nextDeadline(a.s), t + 190 * S);
+  tick(a.s, t + 150 * S, a.E(t + 150 * S));
+  assert.equal(a.s.phase, 'reveal');
+  const fx = ok(back(a.s, 'p1', a.E(t + 150 * S)));
+  assert.equal(a.s.phase, 'pick');
+  assert.equal(a.s.waiting, false);
+  assert.equal(drawer(a.s), 'p1');
+  assert.ok(fx.events.some((e) => e.e.k === 'drNew'));
+
+  const b = room(2);
+  ok(start(b.s, 'p0', b.E(t)));
+  toDraw(b.s, b.E, t);
+  noteInk(b.s, 'p0');
+  ok(away(b.s, 'p1', b.E(t + 130 * S)));
+  tick(b.s, t + 145 * S, b.E(t + 145 * S));
+  tick(b.s, t + 189 * S, b.E(t + 189 * S));
+  assert.equal(b.s.phase, 'reveal');
+  const f2 = tick(b.s, t + 190 * S, b.E(t + 190 * S));
+  assert.equal(b.s.phase, 'lobby');
+  assert.equal(f2.finished.reason, 'alone');
+});
+
+test('맞힐 사람: 문제 시작 때 끊겨 있던 사람도 돌아오면 맞힐 수 있고, 분모는 아직 방에 있는 사람', () => {
+  const { s, E } = room(4);
+  let t = T0;
+  ok(start(s, 'p0', E(t)));
+  ok(away(s, 'p3', E(t)));
+  toDraw(s, E, t);
+  noteInk(s, 'p0');
+  assert.equal(s.cur.guessers.length, 3);
+  ok(back(s, 'p3', E(t + S)));
+  ok(chat(s, 'p3', answer(s), E(t + 2 * S)));
+  assert.equal(s.cur.hits.length, 1);
+  ok(chat(s, 'p1', answer(s), E(t + 3 * S)));
+  assert.equal(s.phase, 'draw');
+  ok(leave(s, 'p2', E(t + 4 * S))); // 안 맞힌 사람이 나감 → 접속 중 모두 맞힘
+  assert.equal(s.phase, 'reveal');
+  assert.equal(s.reveal.guessers, 2); // 나간 p2 는 분모에서 빠짐
+  assert.equal(s.reveal.drawerPts, 100);
+});
+
+test('접속 중 모두 맞히면 끝: 끊긴 사람은 기다리지 않는다 (분모에는 포함)', () => {
+  const { s, E } = room(4);
+  let t = T0;
+  ok(start(s, 'p0', E(t)));
+  ok(away(s, 'p3', E(t)));
+  toDraw(s, E, t);
+  noteInk(s, 'p0');
+  ok(chat(s, 'p1', answer(s), E(t + S)));
+  ok(chat(s, 'p2', answer(s), E(t + 2 * S)));
+  assert.equal(s.phase, 'reveal');
+  assert.equal(s.reveal.guessers, 3);
+  assert.equal(s.reveal.drawerPts, 67);
+});
+
+test('같은 판에서 나갔다 다시 들어오면 점수·횟수·맞힘 표시가 살아나고 순위에 한 번만', () => {
+  const { s, E } = room(4, { rounds: 1 });
+  let t = T0;
+  ok(start(s, 'p0', E(t)));
+  toDraw(s, E, t);
+  noteInk(s, 'p0');
+  ok(chat(s, 'p1', answer(s), E(t + S)));
+  ok(leave(s, 'p1', E(t + 2 * S))); // 맞힌 뒤 나감
+  assert.equal(s.gone.length, 1);
+  ok(join(s, { id: 'p1', name: 'n1' }, E(t + 3 * S)));
+  assert.equal(s.gone.length, 0);
+  assert.equal(s.players.find((p) => p.id === 'p1').hit, true);
+  assert.equal(viewFor(s, 'p1').word, answer(s));
+  give(s, 'p0', E(t + 4 * S));
+  const p1 = s.players.find((p) => p.id === 'p1');
+  assert.equal(p1.correct, 1);
+  assert.ok(p1.score > 0);
+  t += 4 * S + TIMES.reveal * S;
+  tick(s, t, E(t));
+  const before = p1.score;
+  ok(leave(s, 'p1', E(t)));
+  ok(join(s, { id: 'p1', name: 'n1' }, E(t)));
+  assert.equal(s.players.find((p) => p.id === 'p1').score, before);
+  assert.equal(s.phase, 'reveal'); // p1 이 그릴 차례에 나가서 끝남
+  t += TIMES.reveal * S;
+  tick(s, t, E(t));
+  while (s.phase !== 'final') t = giveAndNext(s, E, t);
+  const r = viewFor(s, 'p0').ranking;
+  assert.equal(r.filter((x) => x.id === 'p1').length, 1);
+  assert.equal(r.length, 4);
+});
+
+test('글자 수 칸: 설정으로 켜고 끄고(기본값은 LEN_DEFAULT), 켜져 있을 때만 mask', () => {
+  const { s, E } = room(2);
+  ok(setSettings(s, 'p0', { len: true }, E(T0)));
+  ok(start(s, 'p0', E(T0)));
+  pickWord(s, 'p0', 0, E(T0));
+  assert.ok(viewFor(s, 'p1').mask);
 });
