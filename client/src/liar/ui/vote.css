@@ -1,5 +1,5 @@
 /* 이름표·지목·찬반 투표 (.lg-vt-). 모양은 design/mockup-table.html 의 .tag·.jv·.verdict·#jt */
-.lg-vt-root[hidden], .lg-vt-list[hidden], .lg-vt-board [hidden], .lg-vt-count[hidden], .lg-vt-verdicts[hidden] { display: none !important; }
+.lg-vt-root[hidden], .lg-vt-list[hidden], .lg-vt-board [hidden], .lg-vt-count[hidden], .lg-vt-verdicts[hidden], .lg-vt-judgebox[hidden], .lg-vt-tally[hidden] { display: none !important; }
 
 .lg-vt-root { position: absolute; inset: 0; z-index: 10; pointer-events: none; overflow: hidden; }
 .lg-vt-layer { position: absolute; inset: 0; pointer-events: none; }
@@ -58,6 +58,10 @@
   background: rgba(8, 6, 7, 0.78); color: var(--lg-ink-dim, #a39a8f); border: 1px dashed var(--lg-line, rgba(239, 230, 216, 0.16));
   font-weight: 500; box-shadow: none;
 }
+.lg-vt-jv[data-v="abs"] {
+  background: rgba(8, 6, 7, 0.6); color: var(--lg-ink-dim, #a39a8f); border: 1px dashed var(--lg-line, rgba(239, 230, 216, 0.16));
+  font-weight: 500; box-shadow: none;
+}
 .lg-vt-pop { animation: lg-vt-pop 0.3s ease both; }
 @keyframes lg-vt-pop { from { transform: scale(1.5); } to { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .lg-vt-pop { animation: none; } }
@@ -75,7 +79,7 @@
 
 /* 오른쪽 현황판 */
 .lg-vt-board {
-  position: absolute; right: var(--lg-gutter, 16px); top: calc(76px * var(--lg-k, 1));
+  position: absolute; right: var(--lg-gutter, 16px); top: calc(env(safe-area-inset-top, 0px) + 112px + min(34vh, 220px));
   display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 40%;
   pointer-events: none;
   font-family: var(--lg-sans, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif);
@@ -99,16 +103,17 @@
   flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 14px;
   min-height: max(54px, calc(58px * var(--lg-k, 1))); border: 1px solid var(--lg-line, rgba(239, 230, 216, 0.16));
   border-radius: 8px; background: var(--lg-panel, rgba(13, 10, 11, 0.8)); color: var(--lg-ink-dim, #a39a8f);
-  pointer-events: none; font-variant-numeric: tabular-nums;
+  pointer-events: none; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 132px;
   font-family: var(--lg-sans, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif);
 }
-.lg-vt-verdicts { flex: 1; display: flex; gap: 8px; pointer-events: none; }
+.lg-vt-judgebox { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.lg-vt-verdicts { display: flex; justify-content: center; gap: 12px; pointer-events: none; }
 .lg-vt-verdict {
-  flex: 1; min-height: max(54px, calc(58px * var(--lg-k, 1))); min-width: 48px; border-radius: 8px; cursor: pointer;
+  min-height: max(60px, calc(66px * var(--lg-k, 1))); min-width: max(132px, calc(150px * var(--lg-k, 1))); white-space: nowrap; border-radius: 8px; cursor: pointer;
   border: 1px solid var(--lg-line, rgba(239, 230, 216, 0.16)); background: var(--lg-panel, rgba(13, 10, 11, 0.8));
   color: var(--lg-ink, #efe6d8); pointer-events: auto; touch-action: manipulation;
   font-family: var(--lg-serif, "Noto Serif KR", "Apple SD Gothic Neo", serif); font-weight: 700; letter-spacing: 0.06em;
-  font-size: max(14px, calc(19px * var(--lg-k, 1)));
+  font-size: max(18px, calc(24px * var(--lg-k, 1)));
 }
 .lg-vt-verdict:focus-visible { outline: 2px solid var(--lg-ink, #efe6d8); outline-offset: 2px; }
 .lg-vt-verdict[aria-pressed="true"] { background: var(--lg-ink, #efe6d8); color: #120d0c; border-color: var(--lg-ink, #efe6d8); }

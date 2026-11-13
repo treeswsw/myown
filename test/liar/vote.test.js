@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canPick, tallyOf, voterCount } from '../../client/src/liar/ui/vote.js';
+import { canPick, tallyOf, voterCount, absentOf, tallyText } from '../../client/src/liar/ui/vote.js';
 import { fixture } from './ui/vote/fixtures.js';
 
 test('canPick: discuss 에서 남은 가능, 나·없는 사람은 불가', () => {
@@ -44,4 +44,14 @@ test('voterCount: 앉아 있고 끊기지 않은 사람만', () => {
   const ps = s.players.map((p, i) => (i === 1 ? { ...p, connected: false } : i === 2 ? { ...p, seat: null, spectating: true } : p));
   assert.equal(voterCount(ps), s.players.length - 2);
   assert.equal(voterCount(null), 0);
+});
+
+test('absentOf·tallyText: 지목된 사람을 뺀 수 − 낸 표, judged 에서만 기권 글', () => {
+  const s = fixture('judged');
+  const n = s.players.length;
+  assert.equal(absentOf(s.players, s.accused, {}), n - 1);
+  assert.equal(absentOf(s.players, s.accused, { a: 'yes', b: 'no' }), n - 3);
+  assert.equal(tallyText({ a: 'yes', b: 'no' }, 2, true), '맞다 1 · 아니다 1 · 기권 2');
+  assert.equal(tallyText({ a: 'yes' }, 2, false), '맞다 1 · 아니다 0');
+  assert.equal(tallyText({ a: 'yes' }, 0, true), '맞다 1 · 아니다 0');
 });
