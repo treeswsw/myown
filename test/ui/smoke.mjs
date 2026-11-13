@@ -34,6 +34,8 @@ async function runContext(browser, server, name, cfg) {
   const page = await ctx.newPage();
   page.setDefaultTimeout(T);
   const errors = [];
+  const sent = []; // outgoing WebSocket frames from the page
+  page.on('websocket', (ws) => ws.on('framesent', (f) => sent.push(String(f.payload))));
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource|fonts\.g/.test(m.text())) errors.push(`console.error: ${m.text()}`); });
 
@@ -231,7 +233,7 @@ async function runContext(browser, server, name, cfg) {
       await p;
     });
     await step('my next turn: wheel shows (all-in flow)', wheel);
-    await step('raise dial all-in key opens the confirm dialog, cancel returns to the dial', async () => {
+    await step('raise dial all-in key opens the confirm dialog', async () => {
       await press('.act .wseg', 1);
       await visible('.dialbox');
       await press('.act .keys button.allin');
@@ -239,7 +241,7 @@ async function runContext(browser, server, name, cfg) {
       if ((await page.locator('.aic-sheet').count()) !== 1) throw new Error('more than one dialog');
     });
     await occlusion('all-in confirm dialog');
-    await step('all-in dialog cancel closes it and keeps the dial', async () => {
+    await step('all-in dialog 취소 closes it and keeps the dial', async () => {
       await press('.aic-cancel');
       await gone('.aic-sheet');
       await visible('.dialbox');
@@ -251,6 +253,7 @@ async function runContext(browser, server, name, cfg) {
       await press('.aic-go');
       await p;
       await gone('.aic-sheet');
+      if (!sent.some((m) => { try { const j = JSON.parse(m); return j.t === 'act' && j.a === 'allin'; } catch { return false; } })) throw new Error("page never sent {t:'act',a:'allin'}");
     });
     if (await page.waitForSelector('.win', { state: 'visible', timeout: 1500 }).then(() => true, () => false)) await occlusion('result overlay');
     else check('result overlay (not reached within 1.5 s, skipped)', true);

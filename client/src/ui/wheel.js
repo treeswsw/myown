@@ -32,7 +32,7 @@ export function createWheel(ui, send) {
 
   // All-in confirmation sheet. Only one at a time; Esc / backdrop / cancel return to the old state.
   let aic = null;
-  const onEsc = (e) => { if (e.key === 'Escape') closeConfirm(); };
+  const onEsc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeConfirm(); } };
   function closeConfirm() {
     if (!aic) return;
     document.removeEventListener('keydown', onEsc, true);
@@ -134,7 +134,11 @@ export function createWheel(ui, send) {
     const [kx, ky] = pt(a);
     dialSvg.innerHTML = `<circle cx="95" cy="95" r="93" fill="rgba(18,16,14,.95)" stroke="#0a0806" stroke-width="3"/>${arc(A0, A1, 'rgba(255,255,255,.2)')}${frac() > 0 ? arc(A0, a, '#ffc62a') : ''}<circle cx="${kx}" cy="${ky}" r="9" fill="#fff" stroke="#0a0806" stroke-width="2.5"/>`;
     numEl.textContent = fmt(amount);
-    if (confirmLabel) confirmLabel.textContent = amount >= ctx.max ? `올인 ${fmt(amount)}` : '레이즈 확정';
+    const atMax = amount >= ctx.max;
+    if (confirmLabel) {
+      confirmLabel.textContent = atMax ? `올인 ${fmt(ctx.stack)}` : '레이즈 확정';
+      confirmLabel.parentElement?.classList.toggle('allin', atMax);
+    }
     subEl.textContent = potText();
   };
   const setAmount = (v) => { amount = clamp(v); paintDial(); };
@@ -211,7 +215,7 @@ export function createWheel(ui, send) {
       ctx = next;
       root.style.display = '';
       if (k === key) return;
-      if (k !== key) closeConfirm();
+      closeConfirm();
       key = k;
       mode = 'wheel';
       hl = canRaise ? 1 : 0;
