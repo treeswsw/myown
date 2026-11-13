@@ -36,6 +36,8 @@ export function createAudio({ isMuted } = {}) {
     } catch { ctx = null; master = null; }
   }
 
+  const ready = () => !!ctx && ctx.state === 'running';
+
   function play(name) {
     if (disposed || !ctx || !master) return;
     let muted = false;
@@ -71,5 +73,5 @@ export function createAudio({ isMuted } = {}) {
     try { c?.close?.(); } catch { /* 무시 */ }
   }
 
-  return { play, unlock, dispose };
+  return { play, unlock, ready, dispose };
 }

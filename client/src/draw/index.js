@@ -78,8 +78,12 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave }) {
   let firedTen = null;
   let lastFull = 0;
   const audio = createAudio({ isMuted: isMuted || siteMuted });
-  const unlock = () => audio.unlock();
-  addEventListener('pointerdown', unlock, { once: true, capture: true });
+  // 소리 장치가 실제로 풀릴 때까지 다음 터치마다 다시 시도한다(브라우저가 첫 터치에서 거절할 수 있다)
+  const unlock = () => {
+    if (audio.ready()) { removeEventListener('pointerdown', unlock, { capture: true }); return; }
+    audio.unlock();
+  };
+  addEventListener('pointerdown', unlock, { capture: true });
 
   const meId = () => state?.you ?? getMe?.()?.id ?? null;
   const mods = {};

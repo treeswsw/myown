@@ -70,8 +70,6 @@
   column-gap: var(--gap);
   padding: 0 calc(var(--pad) + var(--sr)) var(--pad) calc(var(--pad) + var(--sl));
 }
-/* 플레이어 좌우 줄은 모듈이 열(1·5)만 정한다. 줄은 전체를 차지하게 늘린다. (모듈 클래스 이름을 쓰지 않으려고 속성 선택자) */
-.dr-wide .dr-stage > [class~="dr-pl-col"] { grid-row: 1 / -1; }
 .dr-wide .dr-c-bar { grid-column: 3; grid-row: 1; align-self: start; height: var(--strip); }
 .dr-wide .dr-bd { grid-column: 3; grid-row: 2; }
 .dr-wide .dr-c-pal { grid-column: 2; grid-row: 2; align-self: start; margin-top: 10px; }
@@ -112,7 +110,7 @@
 .dr-phone.dr-tools .dr-bd { grid-column: 3; }
 .dr-phone .dr-c-pal { grid-column: 2; grid-row: 1 / 3; align-self: center; }
 .dr-phone .dr-c-tools { grid-column: 4; grid-row: 1 / 3; align-self: center; }
-.dr-phone .dr-c-under { display: contents; } /* 굵기 조정 창(position:fixed)만 들어 있다 */
+/* 굵기 조정 창(position:fixed)만 들어 있다. 크기 없는 실제 격자 칸으로 두어 자동 배치로 엉뚱한 칸을 차지하지 않게 한다 */
+.dr-phone .dr-c-under { grid-column: 1; grid-row: 1; width: 0; height: 0; align-self: start; overflow: visible; }
 .dr-phone.dr-kb .dr-stage { grid-template-columns: 0 var(--cw) minmax(0, 1fr); justify-content: start; column-gap: 0; }
 .dr-phone.dr-kb .dr-bd { margin-left: var(--gap); }
-.dr-phone.dr-kb .dr-stage > [class~="dr-pl-col"] { display: none; } /* 플레이어 목록은 접는다. 기록 칸은 3열 그대로 */
