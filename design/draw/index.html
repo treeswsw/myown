@@ -92,7 +92,14 @@ svg{display:block}
 .dr-seats.r .dr-say::before{right:-12px;border-left-color:#fff}
 .dr-say.ok{background:var(--green);color:#fff;font-weight:700}
 .dr-seats.l .dr-say.ok::before{border-right-color:var(--green)}.dr-seats.r .dr-say.ok::before{border-left-color:var(--green)}
-.mine .dr-say{max-width:104px;opacity:.88}
+/* 그리는 사람 화면(PC·iPad): 말풍선을 프로필 위로 띄워 색·도구 칸을 가리지 않는다 */
+@media (min-height:481px){
+  .mine .dr-seats{padding-top:26px}
+  .mine .dr-seats .dr-say{left:50%;right:auto;top:auto;bottom:calc(100% + 9px);max-width:118px;transform:translateX(-50%);transform-origin:50% 100%;animation-name:dr-pop-up}
+  .mine .dr-seats .dr-say::before{top:auto;bottom:-12px;left:50%;right:auto;margin-left:-7px;border-color:transparent;border-top-color:#fff}
+  .mine .dr-seats .dr-say.ok::before{border-color:transparent;border-top-color:var(--green)}
+}
+@keyframes dr-pop-up{from{transform:translateX(-50%) scale(.4);opacity:0}}
 @keyframes dr-pop{from{transform:scale(.4);opacity:0}}
 @media (prefers-reduced-motion:reduce){.dr-say{animation:none}}
 .mk-still .dr-say{animation:none}
