@@ -34,7 +34,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .yt-blk { display: contents; }
 .yt-row { display: grid; grid-template-columns: var(--lw) repeat(var(--n), var(--cw)); border: 1.5px solid var(--line); border-top-width: 0; flex: none; }
 .yt-row.yt-first { border-top-width: 1.5px; }
-.yt-row.yt-gap { margin-top: 4px; border-top-width: 1.5px; }
+.yt-row.yt-gap { margin-top: 3px; border-top-width: 1.5px; }
 .yt-row > * { border-left: 1.5px solid var(--line); display: flex; align-items: center; justify-content: center; min-width: 0; }
 .yt-row > :first-child { border-left: 0; }
 .yt-cat { flex: 1 1 44px; min-height: 44px; }
@@ -47,12 +47,12 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
 .yt-root button.yt-pv:active { background: #ffb400; }
 .yt-root button.yt-pv.yt-zero { color: rgba(26, 22, 19, .3); }
 .yt-root button.yt-pv.yt-hot { color: var(--ink); box-shadow: inset 0 0 0 3px #e2571c; animation: yt-pulse 1s ease-in-out infinite alternate; }
-.yt-root button.yt-pv.yt-sel { position: relative; z-index: 5; color: var(--ink); background: #ffe27a; box-shadow: inset 0 0 0 4px var(--ink); }
+.yt-root .yt-c.yt-sel { position: relative; z-index: 5; color: var(--ink); background: #ffe27a; box-shadow: inset 0 0 0 4px var(--ink); }
 .yt-bub { position: absolute; left: calc(100% + 9px); top: 50%; transform: translateY(-50%); font-style: normal; font-size: 13px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; color: #fff; background: var(--ink); padding: 8px 11px; border-radius: 9px; pointer-events: none; box-shadow: 0 4px 12px rgba(0, 0, 0, .4); }
 .yt-bub::before { content: ''; position: absolute; left: -6px; top: 50%; margin-top: -6px; border: 6px solid transparent; border-left: 0; border-right-color: var(--ink); }
 @keyframes yt-pulse { to { background: #ffe98f; } }
 
-.yt-hd { height: 56px; border-bottom-width: 1.5px; }
+.yt-hd { height: 53px; border-bottom-width: 1.5px; }
 .yt-hd.yt-hd2 { display: none; }
 .yt-turn { flex-direction: column; gap: 0; line-height: 1.05; color: #4a433c; font-weight: 500; font-size: 14px; background: var(--paper); }
 .yt-turn b { font-size: 25px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; }
@@ -60,7 +60,7 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
 .yt-pc span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
 .yt-pc.yt-on { background: var(--pv); color: var(--ink); }
 .yt-pc.yt-off { background: var(--off); }
-.yt-av { width: 34px; height: 34px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 17px; line-height: 1; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .45); }
+.yt-av { width: 32px; height: 32px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 17px; line-height: 1; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .45); }
 .yt-on > .yt-av { border-color: var(--ink); }
 .yt-off > .yt-av { filter: grayscale(.8); opacity: .75; }
 .yt-crown { position: absolute; top: -1px; right: 1px; width: 17px; height: 17px; }
@@ -76,8 +76,8 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
 .yt-s.yt-ok b { color: var(--gold); }
 .yt-b { font-size: 16px; font-weight: 700; color: #fff; background: #6d665e; }
 .yt-b.yt-ok { color: var(--gold); }
-.yt-note { height: 16px; font-size: 11px; font-weight: 500; color: #5b534a; display: flex; align-items: center; padding-left: 2px; white-space: nowrap; flex: none; letter-spacing: -.03em; }
-.yt-tot { height: 42px; background: var(--dark); }
+.yt-note { height: 15px; font-size: 10.5px; font-weight: 500; color: #5b534a; display: flex; align-items: center; padding-left: 2px; white-space: nowrap; flex: none; letter-spacing: -.03em; }
+.yt-tot { height: 40px; background: var(--dark); }
 .yt-tot .yt-lab { font-size: 16px; font-weight: 700; }
 .yt-tot .yt-c { font-size: calc(var(--fnum) * 1.04); }
 .yt-tot .yt-c.yt-win { background: var(--gold); }
@@ -139,7 +139,7 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
 .yt-cup { position: absolute; left: var(--cx, 74%); top: 51%; width: calc(var(--t) * .5); height: calc(var(--t) * .5); transform: translate(-50%, -50%); border-radius: 50%; z-index: 3;
   background: radial-gradient(circle, #7a0d12 0 38%, #a81419 58%, #8d1015 66.5%, #1c1c1c 67.5%, #2c2c2c 69%, #0d0d0d 71%);
   box-shadow: 0 calc(var(--t) * .03) calc(var(--t) * .05) rgba(0, 0, 0, .7), inset 0 0 0 calc(var(--t) * .004) #3a3a3a; }
-.yt-cup .yt-die { --d: calc(var(--t) * .13); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1), 2px 4px 5px rgba(0, 0, 0, .55); }
+.yt-cup .yt-die { --d: calc(var(--t) * .11); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1), 2px 4px 5px rgba(0, 0, 0, .55); }
 .yt-cupside { position: absolute; left: 83%; top: 30%; width: calc(var(--t) * .62); height: calc(var(--t) * .4); z-index: 3; transform: rotate(-5deg); border-radius: 9% 6% 6% 9% / 14% 10% 10% 14%;
   background: linear-gradient(180deg, #3b3b3b, #1c1c1c 22%, #0a0a0a 60%, #000); box-shadow: calc(var(--t) * -.02) calc(var(--t) * .04) calc(var(--t) * .05) rgba(0, 0, 0, .65); }
 .yt-cupside::before { content: ''; position: absolute; left: -7%; top: 0; width: 20%; height: 100%; border-radius: 50%; background: radial-gradient(ellipse at 60% 50%, #6d0b10, #a81419 72%, #1a1a1a 74%, #303030 86%, #0c0c0c 88%); }
@@ -262,6 +262,7 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
   var totals = data.map(total), best = Math.max.apply(null, totals), winner = state === 'result' ? totals.indexOf(best) : -1;
   function colCls(i) { return i === sc.active || i === winner ? ' yt-on' : (state === 'wait' && i === 0 ? ' yt-off' : ''); }
 
+  var otherSel = state === 'wait' ? { k: 'a3', v: score(cur).a3 } : null;
   function row(cls, label, cellFn) {
     var r = el('div', 'yt-row ' + cls); r.appendChild(label);
     P.forEach(function (p, i) { r.appendChild(cellFn(i)); }); return r;
@@ -269,7 +270,7 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
   function lab(k, text) { var l = el('div', 'yt-lab'); if (k) l.appendChild(icon(k)); l.appendChild(el('span', '', text)); return l; }
   function header(second) {
     var t = el('div', second ? 'yt-turn yt-hint2' : 'yt-turn');
-    if (second) t.textContent = sel ? '한 번 더 누르면 기록' : '노란 칸을 두 번 눌러 기록'; else { t.appendChild(el('span', '', '턴')); t.appendChild(el('b', '', sc.turn + '/12')); }
+    if (second) t.textContent = sc.active !== 0 || done ? '' : (sel ? '한 번 더 누르면 기록' : '노란 칸을 두 번 눌러 기록'); else { t.appendChild(el('span', '', '턴')); t.appendChild(el('b', '', sc.turn + '/12')); }
     return row('yt-hd yt-first' + (second ? ' yt-hd2' : ''), t, function (i) {
       var c = el('div', 'yt-pc' + colCls(i)); c.appendChild(avatar(P[i])); c.appendChild(el('span', '', P[i].name));
       if (i === winner) c.appendChild(svg('<path d="M2 15h16l1-9-5 4-4-7-4 7-5-4z" fill="#ffc62a" stroke="#1a1613" stroke-width="1.6" stroke-linejoin="round"/>'));
@@ -287,6 +288,9 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
         b.dataset.k = k;
         if (preview && sel === k) { b.classList.add('yt-sel'); b.appendChild(el('em', 'yt-bub', '한 번 더 누르면 기록')); }
         b.setAttribute('aria-label', NAME[k] + (preview ? ' ' + preview[k] + '점 기록' : '')); return b;
+      }
+      if (v == null && otherSel && i === sc.active && k === otherSel.k) { // 남이 고른 칸: 모두에게 같은 강조
+        var o = el('div', 'yt-c yt-sel', String(otherSel.v)); o.appendChild(el('em', 'yt-bub', '고민 중…')); return o;
       }
       return el('div', 'yt-c' + colCls(i), v == null ? '' : String(v));
     });
@@ -327,7 +331,7 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
   sc.felt.forEach(function (f) { var d = die(f[0], mine ? 'button' : 'div'); if (mine) d.type = 'button'; d.style.left = f[1] + '%'; d.style.top = f[2] + '%'; d.style.transform = 'rotate(' + f[3] + 'deg)'; tray.appendChild(d); });
   if (sc.cup) {
     var cup = el('div', 'yt-cup'), pos = [[22, 22, -18], [52, 14, 24], [16, 54, 12], [48, 47, -32], [36, 70, 8]].slice(0, 5);
-    pos = [[24, 20, -18], [53, 22, 24], [17, 50, 12], [58, 52, -32], [37, 62, 40]];
+    pos = [[43, 16, -18], [62, 36, 24], [49, 60, 12], [22, 55, -32], [18, 28, 40]];
     sc.cup.forEach(function (v, j) { var d = die(v); d.style.left = pos[j][0] + '%'; d.style.top = pos[j][1] + '%'; d.style.transform = 'rotate(' + pos[j][2] + 'deg)'; cup.appendChild(d); });
     tray.appendChild(cup);
   } else if (state !== 'result' && !done) tray.appendChild(el('div', 'yt-cupside'));
@@ -338,7 +342,7 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
   else if (done) act.appendChild(el('div', 'yt-tip', '기록했어요 · 다음 사람 차례'));
   else if (state === 'keep' || state === 'select') { if (!sel) act.appendChild(el('div', 'yt-tip yt-opt', '주사위를 누르면 위 칸에 보관')); act.appendChild(btn('다시 굴리기')); }
   else if (state === 'yacht') act.appendChild(el('div', 'yt-tip', sel ? '한 번 더 누르면 기록' : '요트 칸을 눌러 50점 기록'));
-  else if (state === 'wait') act.appendChild(el('div', 'yt-tip', P[sc.active].name + ' 님이 고르는 중…'));
+  else if (state === 'wait') act.appendChild(el('div', 'yt-tip', P[sc.active].name + ' 님이 ' + NAME[otherSel.k] + ' 칸을 고민 중…'));
   tray.appendChild(act);
 
   if (state === 'yacht') {
@@ -352,7 +356,7 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
       var p = el('i'); p.style.left = (rnd() * 100) + '%'; p.style.top = '0'; p.style.background = cols[c % cols.length];
       p.style.setProperty('--r', Math.round(rnd() * 360) + 'deg'); p.style.setProperty('--y', (rnd() * 96) + '%');
       p.style.animationDelay = (-rnd() * 3.2) + 's'; p.style.animationDuration = (2.6 + rnd() * 1.6) + 's';
-      var w = 6 + rnd() * 6; p.style.width = w + 'px'; p.style.height = (w * (1 + rnd())) + 'px'; conf.appendChild(p);
+      var w = (6 + rnd() * 6) * (window.innerHeight < 720 ? .65 : 1); p.style.width = w + 'px'; p.style.height = (w * (1 + rnd())) + 'px'; conf.appendChild(p);
     }
     board.appendChild(conf);
   }
@@ -376,7 +380,7 @@ button.yt-c.yt-pv, .yt-root button.yt-pv { background: var(--pv); color: rgba(26
   root.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('button.yt-pv'); if (!b || !b.dataset.k) return;
     var k = b.dataset.k, cur = sc.kept.concat(sc.felt.map(function (f) { return f[0]; })); if (cur.length !== 5) return;
-    if (sel === k) { data[0][k] = score(cur)[k]; sel = null; done = true; totals = data.map(total); } else sel = k;
+    if (sel === k) { data[0][k] = score(cur)[k]; sel = null; done = true; } else sel = k;
     render();
   });
 
