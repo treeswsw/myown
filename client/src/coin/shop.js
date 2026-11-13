@@ -16,13 +16,16 @@ function el(tag, cls, text) {
   return e;
 }
 
-// 미리보기용 색: v 안의 색 글자(#, rgb, hsl)를 찾는다
+// 색 값(숫자 0xrrggbb 또는 #, rgb, hsl 글자)을 CSS 글자로
+function css(x) {
+  if (typeof x === 'number' && Number.isFinite(x)) return '#' + (x & 0xffffff).toString(16).padStart(6, '0');
+  if (typeof x === 'string' && /^(#|rgb|hsl)/i.test(x)) return x;
+  return null;
+}
 function colorOf(v) {
   if (!v || typeof v !== 'object') return null;
-  for (const k of Object.keys(v)) {
-    const x = v[k];
-    if (typeof x === 'string' && /^(#|rgb|hsl)/i.test(x)) return x;
-  }
+  for (const k of ['hex', 'suit', 'color']) { const c = css(v[k]); if (c) return c; }
+  for (const k of Object.keys(v)) { const c = css(v[k]); if (c) return c; }
   return null;
 }
 
@@ -32,6 +35,16 @@ function preview(it) {
   const p = el('span', 'sh-pv sh-pv-' + it.slot);
   if (it.slot === 'frame') { if (c) p.style.borderColor = c; }
   else if (it.slot === 'color') { p.textContent = '가'; if (c) p.style.color = c; }
+  else if (it.slot === 'suit') {
+    const tie = css(it.v && it.v.tie);
+    p.style.display = 'flex'; p.style.gap = '4px'; p.style.background = 'transparent';
+    for (const col of [c, tie]) {
+      if (!col) continue;
+      const sw = el('span', 'sh-sw');
+      sw.style.cssText = `width:16px;height:22px;border-radius:5px;border:1px solid rgba(128,128,128,.5);background:${col}`;
+      p.append(sw);
+    }
+  }
   else if (c) p.style.background = c;
   return p;
 }

@@ -31,6 +31,7 @@ export function openGacha(ctx) {
   let closed = false;
   let busy = false;
   let pity = null;       // 서버가 준 값(없으면 wallet 에서)
+  let lastDone = -1e9;   // 마지막 응답 시각
   let tracked = null;    // 연출 중 보이는 잔액
   let runId = 0;
   let skipFlag = false;
@@ -100,6 +101,7 @@ export function openGacha(ctx) {
       b.setAttribute('aria-disabled', low ? 'true' : 'false');
     }
   }
+  function lock(on) { for (const b of [bOne, bTen, bAgain, bAgain10]) b.disabled = on; }
   function setMode(m) { // idle | busy | done
     panel.dataset.mode = m;
     bOne.hidden = bTen.hidden = m !== 'idle';
@@ -218,8 +220,10 @@ export function openGacha(ctx) {
 
   function start(n) {
     if (busy || closed) return;
+    if (performance.now() - lastDone < 350) return; // 서버가 0.3초 안 연타를 무시한다
     if (coins() < COST * n) { status.textContent = '코인이 모자랍니다.'; refresh(); return; }
     busy = true;
+    lock(true);
     skipFlag = false;
     clearFx();
     const id = ++runId;
@@ -291,6 +295,8 @@ export function openGacha(ctx) {
     total.textContent = `합계 ${fmt(sum)}칩`;
     total.className = 'gc-total gc-t' + pulls.reduce((m, p) => Math.max(m, p.tier), 0);
     busy = false;
+    lastDone = performance.now();
+    lock(false);
     tracked = null;
     setMode('done');
     refresh();
@@ -301,6 +307,8 @@ export function openGacha(ctx) {
     pending = null;
     runId++;
     busy = false;
+    lastDone = performance.now();
+    lock(false);
     tracked = null;
     skipFlag = false;
     clearFx();
@@ -319,10 +327,10 @@ export function openGacha(ctx) {
     else if (typeof m.pity === 'number') { pity = m.pity; refresh(); }
   }));
   offs.push(ctx.on('error', (m) => {
-    if (!m || (m.code !== 'coin_low' && m.code !== 'coin_room')) return;
-    const text = m.msg || (m.code === 'coin_low' ? '코인이 모자랍니다.' : '방에서 나온 뒤에 할 수 있습니다.');
+    if (!m || typeof m.code !== 'string' || !m.code.startsWith('coin_')) return;
+    const text = m.msg || (m.code === 'coin_low' ? '코인이 모자랍니다.' : m.code === 'coin_room' ? '방에서 나온 뒤에 할 수 있습니다.' : '요청을 처리하지 못했습니다.');
     if (pending) { const p = pending; pending = null; p.resolve({ err: text }); }
-    else status.textContent = text;
+    else { status.textContent = text; if (!busy) { tracked = null; refresh(); } }
   }));
 
   // ---------- 버튼 ----------

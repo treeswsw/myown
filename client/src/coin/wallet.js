@@ -118,8 +118,7 @@ export function openRank(ctx) {
     const rows = [];
     (Array.isArray(m.top) ? m.top : []).slice(0, 20).forEach((r, i) => {
       const total = Number(r?.total) || 0;
-      const rank = rows[i - 1] && rows[i - 1].total === total ? rows[i - 1].rank : i + 1;
-      rows.push({ rank, total, name: String(r?.name ?? '') });
+      rows.push({ rank: i + 1, total, name: String(r?.name ?? '') });
     });
     if (!rows.length) empty('아직 순위가 없습니다.');
     for (const r of rows) {
