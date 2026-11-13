@@ -9,6 +9,17 @@ const JPG = 'data:image/jpeg;base64,/9j/AAAA';
 const AUDIO = 'data:audio/webm;codecs=opus;base64,AAAA';
 const parse = (obj) => parseMessage(JSON.stringify(obj));
 const events = (c, k) => c.sock.msgs.filter((m) => m.t === 'event' && m.e.k === k).map((m) => m.e);
+// The room's sound list as a member who was there from the start sees it (a Shell room keeps its list private).
+function heard(c) {
+  const list = [];
+  for (const e of c.sock.msgs.filter((m) => m.t === 'event').map((m) => m.e)) {
+    if (e.k === 'sndList') list.splice(0, list.length, ...e.items.map((x) => ({ ...x })));
+    else if (e.k === 'sndAdd') list.push({ sid: e.sid, by: e.by, name: e.name, data: e.data });
+    else if (e.k === 'sndDel') { const i = list.findIndex((x) => x.sid === e.sid); if (i >= 0) list.splice(i, 1); }
+    else if (e.k === 'sndRename') { const x = list.find((y) => y.sid === e.sid); if (x) x.name = e.name; }
+  }
+  return list;
+}
 
 async function setup(names = ['ann1', 'bob1']) {
   const clock = new FakeClock();
@@ -103,20 +114,19 @@ test('sounds: add, play, limits per account, unknown sid, builtin', async () => 
 test('caps: 8 per account (oldest of theirs evicted) and 24 per room', async () => {
   const names = ['ann1', 'bob1', 'cat1', 'dan1'];
   const { clock, hub, cs } = await setup(names);
-  const room = hub.rooms.values().next().value;
   const add = async (c, i) => {
     clock.advance(10_000);
     await c.send({ t: 'sndAdd', sid: 's' + String(i).padStart(5, '0'), name: 'n' + i, data: AUDIO });
   };
   for (let i = 0; i < 10; i++) await add(cs[0], i);
-  assert.deepEqual(room.sounds.map((x) => x.sid), Array.from({ length: 8 }, (_, i) => 's' + String(i + 2).padStart(5, '0')));
+  assert.deepEqual(heard(cs[3]).map((x) => x.sid), Array.from({ length: 8 }, (_, i) => 's' + String(i + 2).padStart(5, '0')));
   for (let i = 0; i < 8; i++) await add(cs[1], 100 + i);
   for (let i = 0; i < 8; i++) await add(cs[2], 200 + i);
-  assert.equal(room.sounds.length, 24);
+  assert.equal(heard(cs[3]).length, 24);
   await add(cs[3], 300);
-  assert.equal(room.sounds.length, 24);
-  assert.equal(room.sounds[0].sid, 's00003', 'oldest overall evicted');
-  assert.equal(room.sounds.at(-1).by, 'dan1');
+  assert.equal(heard(cs[3]).length, 24);
+  assert.equal(heard(cs[3])[0].sid, 's00003', 'oldest overall evicted');
+  assert.equal(heard(cs[3]).at(-1).by, 'dan1');
 });
 
 test('sndList on join and reconnect only when sounds exist, after room; no cross-room delivery; freed with the room', async () => {
@@ -146,7 +156,7 @@ test('sndList on join and reconnect only when sounds exist, after room; no cross
   // everybody leaves: sounds go with the room after the GC delay
   for (const c of [cs[0], back, late]) await c.send({ t: 'leave' });
   const code = [...hub.rooms.keys()].find((k) => k !== other.state.code);
-  assert.equal(hub.rooms.get(code).sounds.length, 1);
+  assert.ok(hub.rooms.has(code), 'the empty room (and its sounds) waits for the GC delay');
   clock.advance(60_000);
   assert.ok(!hub.rooms.has(code));
 });
@@ -210,12 +220,11 @@ test('sound edit: validation, 2 per second per account (survives takeover), evic
   assert.equal(parse({ t: 'sndDel', sid: 'abc123' }).ok, true);
 
   const { hub, clock, cs } = await setup(['ann1', 'bob1']);
-  const room = hub.rooms.values().next().value;
   for (let i = 0; i < 9; i++) {
     clock.advance(10_000);
     await cs[0].send({ t: 'sndAdd', sid: 's0000' + i, name: 'n' + i, data: AUDIO });
   }
-  assert.deepEqual(room.sounds.map((x) => x.sid), Array.from({ length: 8 }, (_, i) => 's0000' + (i + 1)), 'oldest evicted');
+  assert.deepEqual(heard(cs[1]).map((x) => x.sid), Array.from({ length: 8 }, (_, i) => 's0000' + (i + 1)), 'oldest evicted');
   clock.advance(5000);
   await cs[0].send({ t: 'sndRename', sid: 's00001', name: 'a' });
   await cs[0].send({ t: 'sndRename', sid: 's00002', name: 'b' });
@@ -225,10 +234,10 @@ test('sound edit: validation, 2 per second per account (survives takeover), evic
   assert.equal(again.sock.last('error').msg, '소리를 너무 빨리 수정하고 있습니다');
   clock.advance(1000);
   await again.send({ t: 'sndDel', sid: 's00003' });
-  assert.equal(room.sounds.length, 7);
+  assert.equal(heard(cs[1]).length, 7);
   // deleting frees a slot of the per-account cap: the next upload evicts nothing
   clock.advance(10_000);
   await again.send({ t: 'sndAdd', sid: 'new0001', name: 'new', data: AUDIO });
-  assert.equal(room.sounds.length, 8);
-  assert.ok(room.sounds.some((x) => x.sid === 's00001' && x.name === 'a'));
+  assert.equal(heard(cs[1]).length, 8);
+  assert.ok(heard(cs[1]).some((x) => x.sid === 's00001' && x.name === 'a'));
 });

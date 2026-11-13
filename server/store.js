@@ -128,6 +128,10 @@ function createPgStore(url) {
   pool.on('error', (err) => console.error('db pool error:', err.message));
   // Saves are applied in call order so an older snapshot never overwrites a newer one.
   let writes = Promise.resolve();
+  // id -> the avatar this process last wrote to the row (saves run one at a time, so this is what the row holds).
+  // A save with the same avatar leaves that column out, so the photo (up to 60KB) is not sent to the database on
+  // every chip / stat / coin save (review S3). The first save after a start writes it whole.
+  const storedAvatar = new Map();
   const rowToUser = (r) => normalizeUser({
     id: r.id, name: r.name, bank: r.bank, avatar: r.avatar, stats: r.stats,
     coins: r.coins, coinsTotal: r.coins_total, gear: r.gear, pin: r.pin,
@@ -197,12 +201,20 @@ function createPgStore(url) {
     },
     save(user) {
       const u = normalizeUser(structuredClone(user));
-      const params = [u.id, u.name, u.bank, u.avatar, u.stats, u.coins, u.coinsTotal, u.gear, u.pin];
-      return queue(() => pool.query(
+      const avatar = u.avatar ?? null;
+      const upsert = () => pool.query(
         `INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
          ON CONFLICT (id) DO UPDATE SET name = $2, bank = $3, avatar = $4, stats = $5, coins = $6, coins_total = $7, gear = $8, pin = $9`,
-        params,
-      ));
+        [u.id, u.name, u.bank, u.avatar, u.stats, u.coins, u.coinsTotal, u.gear, u.pin],
+      ).then((res) => { storedAvatar.set(u.id, avatar); return res; });
+      return queue(async () => {
+        if (!storedAvatar.has(u.id) || storedAvatar.get(u.id) !== avatar) return upsert();
+        const res = await pool.query(
+          'UPDATE users SET name = $2, bank = $3, stats = $4, coins = $5, coins_total = $6, gear = $7, pin = $8 WHERE id = $1',
+          [u.id, u.name, u.bank, u.stats, u.coins, u.coinsTotal, u.gear, u.pin],
+        );
+        return res.rowCount > 0 ? res : upsert(); // the row is gone (wiped): write it whole
+      });
     },
     // Ledger line, queued with the saves (order kept). A failure only reaches the console; the game goes on.
     log(entry) {
@@ -244,7 +256,7 @@ function createPgStore(url) {
     },
     // Queued behind pending saves so none of them can land after the wipe.
     clear() {
-      return queue(() => pool.query('TRUNCATE users, coin_log, meta'));
+      return queue(() => pool.query('TRUNCATE users, coin_log, meta').then((res) => { storedAvatar.clear(); return res; }));
     },
     async close() {
       await writes;

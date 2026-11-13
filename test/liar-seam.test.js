@@ -103,7 +103,8 @@ test('poker room: lg is refused, mode liar is refused, poker keeps working', asy
   assert.equal(cs[0].sock.last('error').msg, '라이어게임은 방을 새로 만들어 주세요.');
   assert.equal(cs[0].state.mode, 'holdem');
   await cs[0].send({ t: 'mode', mode: 'bluff' });
-  assert.equal(cs[0].state.mode, 'bluff');
+  assert.equal(cs[0].sock.last('error').code, 'pk_mode', '방 안 전환은 없어졌다(G-poker)');
+  assert.equal(cs[0].state.mode, 'holdem');
 });
 
 test('lg envelope needs login and a room', async () => {
@@ -165,11 +166,11 @@ test('avatar: liar room sends faces (never in room.state); poker room just pushe
   assert.deepEqual(seen, ['ann1']);
   assert.equal(pushes, 0);
 
-  // poker: same as before (state push, avatar inside the state)
+  // poker (G-poker): faces too, never the photo in the state
   const p = await lobby(hub, 'holdem', ['cat1', 'dan1']);
   await p.cs[0].send({ t: 'avatar', data: JPG });
-  assert.equal(p.cs[1].state.players.find((x) => x.id === 'cat1').avatar, JPG);
-  assert.equal(events(p.cs[1], 'faces').length, 0);
+  assert.equal(p.cs[1].state.players.find((x) => x.id === 'cat1').avatar, undefined);
+  assert.equal(events(p.cs[1], 'faces').at(-1).items.find((x) => x.id === 'cat1').avatar, JPG);
 });
 
 async function setScore(hub, id, score, games) {

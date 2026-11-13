@@ -8,9 +8,9 @@ import { item as shopItem, GRADES } from '../../../shared/coin/shop.js';
 // 뽑기 버튼은 나중에 공개. true 로 바꾸면 다시 보인다.
 const SHOW_DRAW = true;
 
-// createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code),
-//              onMode(mode), onStart(), onLeave(), onLogout()})
-// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setFlags(me), showRank({top, mine}) }
+// createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code), onLogout()})
+// -> { el, setUser(user|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setFlags(me), showRank({top, mine}) }
+// 방 안(대기실 포함)은 공통 방 틀(room/frame.js, room/wait.js)이 그린다. 로비는 방에 들어가면 숨는다(main.js).
 // setFlags(me): 서버 'me' 메시지의 스위치 값으로 보일 게임을 정한다(games.js visibleModes).
 // onRank() -> ask the server for the liar ranking, then call showRank.
 // onResetConfirm(adminPw) is called when the user confirms 전체 초기화 (adminPw: string|undefined).
@@ -78,9 +78,9 @@ function segmented(onPick, initKeys = BASE_KEYS) {
   };
 }
 
-export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm, onRank, onCoin }) {
+export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onResetConfirm, onRank, onCoin }) {
   const el = h('div', 'lb-root lobby');
-  let user = null, room = null, pendingAvatar = null, shownModes = BASE_KEYS;
+  let user = null, pendingAvatar = null, shownModes = BASE_KEYS;
 
   const fileInput = h('input');
   fileInput.type = 'file';
@@ -308,45 +308,6 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
   home.append(profile, play);
 
-  // ---------- 3. room (waiting) ----------
-  const roomView = h('div', 'lb-pair');
-  const info = h('section', 'lb-panel panel');
-  const roomTitle = h('h2');
-  const roomSeg = segmented((m) => onMode(m), BASE_KEYS);
-  info.append(roomTitle, h('div', 'lb-stack', roomSeg.el, roomSeg.caption));
-
-  const people = h('section', 'lb-panel panel');
-  const count = h('h2');
-  const list = h('ul', 'lb-group lb-players');
-  const startBtn = button('게임 시작', 'lb-primary', () => onStart());
-  const roomMsg = h('p', 'lb-cap lb-center');
-  const roomErr = err();
-  const leaveBtn = button('나가기', 'lb-text lb-danger', () => onLeave());
-  const actions = h('div', 'lb-actions');
-  people.append(count, list, roomMsg, roomErr, actions);
-  roomView.append(info, people);
-
-  function renderRoom() {
-    const max = MODES[room.mode].max;
-    const isHost = room.hostId === room.you;
-    roomTitle.textContent = `${room.players.find((p) => p.id === room.hostId)?.name ?? ''}의 방`;
-    roomSeg.set(room.mode, isHost);
-    count.textContent = `참가자 ${room.players.length}/${max}`;
-    list.replaceChildren(...room.players.map((p) => {
-      const tags = [p.id === room.hostId && '방장', p.id === room.you && '나', p.connected === false && '연결 끊김'].filter(Boolean);
-      return h('li', 'lb-row' + (p.connected === false ? ' lb-off' : ''), avatar(p, 'lb-av'), h('span', 'lb-p-name', p.name), h('span', 'lb-tags', tags.join(' · ')));
-    }));
-    const n = room.players.length;
-    if (isHost) {
-      startBtn.disabled = n < 2 || n > max;
-      roomMsg.textContent = n < 2 ? '2명 이상 모이면 시작할 수 있습니다' : n > max ? `이 게임은 최대 ${max}명입니다` : '';
-      actions.replaceChildren(startBtn, leaveBtn);
-    } else {
-      roomMsg.textContent = '방장이 시작하기를 기다리는 중';
-      actions.replaceChildren(leaveBtn);
-    }
-  }
-
   // ---------- reset confirmation sheet ----------
   let resetErrEl = null, closeReset = null;
   function showResetConfirm() {
@@ -454,11 +415,10 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
 
   // ---------- state ----------
-  el.append(out, home, roomView, fileInput);
+  el.append(out, home, fileInput);
   function render() {
     out.hidden = !!user;
-    home.hidden = !user || !!room;
-    roomView.hidden = !user || !room;
+    home.hidden = !user;
     if (user) {
       meAv.replaceChildren(avatar(user, 'lb-av lb-big'));
       meName.textContent = user.name;
@@ -483,7 +443,6 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
       brokeNote.hidden = chips !== 0;
       for (const [k] of STATS) statVals[k].textContent = fmt(user.stats?.[k] ?? 0);
     }
-    if (user && room) renderRoom();
     updateCreate();
     renderRooms(lastRooms);
   }
@@ -491,10 +450,9 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
 
   return {
     el,
-    setUser(u) { if (u !== user) closeReset?.(); user = u; if (!u) room = null; resetPinFields(); render(); },
-    setRoom(r) { room = r; render(); },
+    setUser(u) { if (u !== user) closeReset?.(); user = u; resetPinFields(); render(); },
     setRooms(list) { renderRooms(list); },
-    setError(msg) { (!user ? outErr : room ? roomErr : homeErr).textContent = msg || ''; },
+    setError(msg) { (!user ? outErr : homeErr).textContent = msg || ''; },
     showNotice(text) { outInfo.textContent = text || ''; },
     showResetConfirm,
     // server said pin_need: reveal the PIN field

@@ -184,7 +184,7 @@ test('mn request to a non-mini room is refused', async () => {
   await a.send({ t: 'login', id: 'ann1' });
   await a.send({ t: 'create', mode: 'holdem' });
   await a.send({ t: 'mn', a: 'start' });
-  assert.equal(lastErr(a).code, 'mn_bad');
+  assert.equal(lastErr(a).code, 'pk_bad'); // 공용 방(Shell): 남의 봉투는 그 방 접두사 bad (G-poker)
 });
 
 test('settings schema matches the rules index; kick works only while waiting', async () => {

@@ -134,10 +134,10 @@ test('room codes, capacity and host rules', async () => {
   assert.equal(cs[0].state.hostId, 'aa1');
   await cs[1].send({ t: 'start' });
   assert.equal(cs[1].sock.last('error').msg, '방장만 시작할 수 있습니다.');
-  await cs[1].send({ t: 'mode', mode: 'holdem' });
-  assert.equal(cs[1].sock.last('error').msg, '방장만 변경할 수 있습니다.');
+  // 방 안 홀덤↔블러핑 전환은 없어졌다(COMMON-CONTRACT 7-3): 안내만 하고 방은 그대로
   await cs[0].send({ t: 'mode', mode: 'holdem' });
-  assert.equal(cs[0].state.mode, 'holdem');
+  assert.deepEqual(cs[0].sock.last('error'), { t: 'error', msg: '방을 새로 만들어 주세요.', code: 'pk_mode' });
+  assert.equal(cs[0].state.mode, 'bluff');
   await cs[0].send({ t: 'leave' });
   assert.equal(cs[0].state, null);
   assert.equal(cs[1].state.hostId, 'bb1');
@@ -361,14 +361,14 @@ test('chips are conserved across seats, leaves and busts (fuzz over rooms)', asy
   const names = ['ann1', 'bob1', 'cat1', 'dan1'];
   const { cs } = await lobby(hub, 'holdem', names);
   const total = () => [...hub.sessions.values()].reduce((n, s) => n + s.user.bank, 0);
-  const inEngine = (room) => (room.hand && room.phase === 'playing'
-    ? room.hand.st.seats.reduce((n, s) => n + s.stack + s.total - room.hand.start.get(s.id), 0) : 0);
+  const inEngine = (room) => (room.impl.hand && room.phase === 'playing'
+    ? room.impl.hand.st.seats.reduce((n, s) => n + s.stack + s.total - room.impl.hand.start.get(s.id), 0) : 0);
   const room = hub.rooms.values().next().value;
   await cs[0].send({ t: 'start' });
   for (let step = 0; step < 400 && room.members.length > 1; step++) {
     assert.equal(total() + inEngine(room), 40000, 'step ' + step);
     if (room.phase === 'playing') {
-      const actor = cs.find((c) => c.state?.you === room.turnId());
+      const actor = cs.find((c) => c.state?.you === room.impl.turnId());
       if (rng() < 0.03 && room.members.length > 2) await actor.send({ t: 'leave' });
       else {
         const s = actor.state;
@@ -385,7 +385,7 @@ test('bluff: game through the handlers incl. revolver and result', async () => {
   const { cs } = await lobby(hub, 'bluff', ['ann1', 'bob1']);
   await cs[0].send({ t: 'start' });
   const room = hub.rooms.values().next().value;
-  const g = room.game.g;
+  const g = room.impl.game.g;
   assert.equal(cs[0].state.myHand.length, 5);
   assert.equal(cs[0].state.tableRank, g.tableRank);
   // rig: ann lies, bob catches her on the first pull of a loaded chamber
@@ -413,11 +413,47 @@ test('bluff: game through the handlers incl. revolver and result', async () => {
   assert.equal(cs[0].state.round, 0);
 });
 
+test('poker in the common room (G-poker): wait only in the lobby, result -> lobby -> start again, coin once per game, no photo in the state', async () => {
+  const { hub, clock } = await setup(8);
+  const { cs } = await lobby(hub, 'bluff', ['ann1', 'bob1', 'cat1']);
+  const [a, b, c] = cs;
+  await a.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' });
+  assert.deepEqual(a.state.wait, { can: true, why: null, set: {}, own: {} });
+  await a.send({ t: 'kick', id: 'cat1' });
+  assert.equal(c.sock.last('room').state, null);
+  assert.equal(c.sock.msgs.filter((m) => m.t === 'error').at(-1).code, 'pk_kicked');
+  await a.send({ t: 'start' });
+  assert.equal(a.state.wait, null, 'no waiting room while the table plays');
+  await a.send({ t: 'kick', id: 'bob1' });
+  assert.equal(a.sock.last('error').code, 'pk_now');
+  const room = hub.rooms.values().next().value;
+  const g = room.impl.game.g;
+  g.players[0].hand = ['Q', 'Q', 'Q', 'Q', 'Q'];
+  g.players[0].bullet = 0;
+  g.tableRank = 'K';
+  g.turn = 0;
+  await a.send({ t: 'play', cards: [0, 1] });
+  await b.send({ t: 'liar' });
+  assert.equal(a.state.phase, 'result');
+  assert.equal(a.state.wait, null, 'the result stays on the table');
+  const got = () => b.sock.msgs.filter((m) => m.t === 'coin' && m.a === 'got').length;
+  const paid = got();
+  assert.equal(paid, 1, 'the winner is paid once (ctx.finish)');
+  clock.advance(6000);
+  assert.equal(a.state.phase, 'lobby');
+  assert.equal(a.state.wait.can, true);
+  await a.send({ t: 'start' });
+  assert.equal(a.state.phase, 'playing', 'started again from the waiting room');
+  assert.equal(got(), paid, 'no second payment');
+  const allStates = JSON.stringify(cs.flatMap((x) => x.sock.msgs.filter((m) => m.t === 'room')));
+  assert.equal(allStates.includes('data:image'), false, 'photos only go in faces');
+});
+
 test('bluff: a disconnected player on turn plays the first card after the grace, then is removed', async () => {
   const { hub, clock } = await setup(9);
   const { cs } = await lobby(hub, 'bluff', ['ann1', 'bob1', 'cat1']);
   await cs[0].send({ t: 'start' });
-  const g = hub.rooms.values().next().value.game.g;
+  const g = hub.rooms.values().next().value.impl.game.g;
   clock.advance(5 * 60_000);
   assert.equal(cs[0].state.turnEndsAt, null);
   const first = g.players[g.turn];
@@ -449,7 +485,7 @@ test('bluff: penalty is shown with nobody on turn, then the next round is dealt'
   const { hub, clock } = await setup(12);
   const { cs } = await lobby(hub, 'bluff', ['ann1', 'bob1', 'cat1']);
   await cs[0].send({ t: 'start' });
-  const g = hub.rooms.values().next().value.game.g;
+  const g = hub.rooms.values().next().value.impl.game.g;
   g.players.forEach((p) => { p.bullet = 5; });
   g.tableRank = 'K';
   g.turn = 0;

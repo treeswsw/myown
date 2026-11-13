@@ -100,7 +100,8 @@ test('poker and liar rooms: yt is refused, poker room refuses mode yacht', async
   assert.equal(cs[0].sock.last('error').msg, '요트다이스는 방을 새로 만들어 주세요.');
   assert.equal(cs[0].state.mode, 'holdem');
   await cs[0].send({ t: 'mode', mode: 'bluff' });
-  assert.equal(cs[0].state.mode, 'bluff');
+  assert.equal(cs[0].sock.last('error').code, 'pk_mode', '방 안 전환은 없어졌다(G-poker)');
+  assert.equal(cs[0].state.mode, 'holdem');
 
   const l = await lobby(hub, 'liar', ['liar1', 'liar2']);
   await l.cs[0].send({ t: 'yt', a: 'roll' });

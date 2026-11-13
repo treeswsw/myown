@@ -33,7 +33,7 @@ test('rooms: sent right after login and after leaving; fields are limited', { ti
   obs.close(); a.close();
 });
 
-test('rooms: updates on create/join/mode/start/leave; none sent inside a room', { timeout: 30000 }, async () => {
+test('rooms: updates on create/join/start/leave; none sent inside a room', { timeout: 30000 }, async () => {
   const [obs, a, b, c] = await makeBots(server, 4, { autoplay: false });
   const code = await a.create('bluff');
   const na = a.messages.length;
@@ -41,8 +41,6 @@ test('rooms: updates on create/join/mode/start/leave; none sent inside a room', 
   await b.join(code);
   const nb = b.messages.length;
   await until(obs, (l) => l.find((r) => r.code === code)?.count === 2, 'count 2');
-  a.send({ t: 'mode', mode: 'holdem' });
-  await until(obs, (l) => l.find((r) => r.code === code)?.mode === 'holdem' && l.find((r) => r.code === code)?.max === 6, 'mode change');
   a.start();
   await until(obs, (l) => l.find((r) => r.code === code)?.phase === 'playing', 'playing');
   b.leave();

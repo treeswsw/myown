@@ -12,7 +12,6 @@ import { createChat } from './ui/chat.js';
 import { createAdmin } from './ui/admin.js';
 import { createEmotePanel } from './ui/emotePanel.js';
 import { h, updateScale, view } from './ui/dom.js';
-import { createAnimator } from './anim/events.js';
 import { createSpecialFX } from './anim/special/index.js';
 import { connect, send, useTransport } from './net.js';
 import { state, saved, tokens } from './state.js';
@@ -22,6 +21,7 @@ import { sound } from './sound/core.js';
 import { isFramed } from './games.js';
 import { createRoomFrame } from './room/frame.js';
 import { createEmoteToggle } from './room/bar.js';
+import { createPoker } from './poker/index.js';
 import { toast as kitToast } from './ui/kit/toast.js';
 
 document.body.append(h('div', 'buildtag', `v${__BUILD__}`));
@@ -86,7 +86,8 @@ const emotePanel = createEmotePanel({
   onClose: () => { hud.closePanel(); closeLiarPanel(); },
 });
 const emoteToggle = createEmoteToggle(ui, emotePanel); // the one emote window outside the poker HUD (room/bar.js)
-const hud = createHud(ui, { send, getMe: () => state.me, emotePanel });
+let poker = null; // poker/index.js createPoker (below): the HUD's leave buttons go through the frame's leave (confirm while playing)
+const hud = createHud(ui, { send: (m) => (m.t === 'leave' && poker ? poker.leave() : send(m)), getMe: () => state.me, emotePanel });
 const cluster = createCluster(ui);
 const wheel = createWheel(ui, send);
 const bluff = createBluff(ui, send);
@@ -120,9 +121,6 @@ const lobby = createLobby({
   onAvatar: (data) => send({ t: 'avatar', data }),
   onCreate: (mode, game) => send(mode === 'mini' ? { t: 'create', mode, game } : { t: 'create', mode }),
   onJoin: (code) => send({ t: 'join', code }),
-  onMode: (mode) => send({ t: 'mode', mode }),
-  onStart: () => send({ t: 'start' }),
-  onLeave: () => send({ t: 'leave' }),
   onLogout: () => {
     send({ t: 'pin', a: 'forget' }); // server forgets this device's token first
     tokens.del(saved.get('gs.lastId') ?? loginId); // only this id's token
@@ -225,11 +223,12 @@ const seatInfo = (id) => {
 const SFX_NAMES = { whoosh: 'card', spin: 'chip', click: 'click', shot: 'shot', thud: 'thud' };
 const playSfx = (name) => sfx[SFX_NAMES[name]]?.();
 const special = createSpecialFX({ scene: stage.scene, camera: stage.camera, getSeat: seatInfo, shake: (strength, ms) => stage.shake(0.05 * strength, ms), sfx: playSfx });
+/* poker (hold'em / bluff) rooms are drawn by poker/index.js through the common frame; it gets the one table, pins and HUD made here */
+poker = createPoker({ ui, stage, table, pins, hud, cluster, wheel, bluff, special, scenedim, send });
 
 /* applying server state to the screen */
-let shown = null; // what the screen currently reflects
+let shown = null; // (old-path games set it; poker keeps its own in poker/index.js)
 let wasMyTurn = false;
-let emphasized = false; // showdown emphasis is on screen
 let liarShown = false; // the screen currently shows a liar room (poker parts are cleared)
 let yachtShown = false; // the screen currently shows a yacht room (poker parts are cleared)
 let miniShown = false; // the screen currently shows a mini-game room (poker parts are cleared)
@@ -404,43 +403,13 @@ function applyRoom(room) {
   if (!room) {
     table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.clearDead(); pins.setVisible(false); hud.update(null); emotePanel.clearRoom(); chat.close(); chat.setEnabled(false); chat.button.hidden = true;
     cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
-    lobby.setRoom(null); lobby.show();
-    return;
+    lobby.show();
   }
-  const me = room.players.find((p) => p.id === room.you);
-  const playing = room.phase !== 'lobby';
-  const live = room.phase === 'playing';
-  const holdem = room.mode === 'holdem';
-  const myTurn = live && room.turn === room.you && Boolean(me) && !me.spectating;
-  if (!room.result && emphasized) { emphasized = false; pins.emphasize(null); pins.clearHands(); table.highlight(null); cluster.highlight(null); }
-  if (room.result) emphasized = true;
-  const inLobby = room.phase === 'lobby';
-  chat.setEnabled(true);
-  chat.button.hidden = false;
-  chat.setMode(inLobby ? 'lobby' : 'game');
-  table.sync(room);
-  pins.render(room);
-  pins.setVisible(!inLobby);
-  hud.update(inLobby ? null : room);
-  cluster.update(room, holdem && playing && Boolean(me) && !me.spectating);
-  wheel.update(room, me, holdem && myTurn && !me.folded && !animator.busy());
-  bluff.update(room, !holdem && playing && Boolean(me) && me.alive !== false && !me.spectating, myTurn && !animator.busy());
-  if (myTurn && !wasMyTurn) sfx.turn();
-  wasMyTurn = myTurn;
-  if (playing) lobby.hide(); else { lobby.setRoom(room); lobby.show(); }
+  // every room is drawn above: poker rooms by the frame (poker/index.js), the others by their old paths
 }
 
-const animator = createAnimator({
-  ui, stage, table, pins, cluster, special,
-  getRoom: () => state.room ?? shown,
-  setHandAway: (on) => bluff.setAway(on),
-  setDim: (on) => scenedim.classList.toggle('on', on),
-  applyPartial: (fn) => { if (shown) applyRoom(fn(shown)); },
-  onIdle: () => applyRoom(state.room),
-});
-
 function backToLogin() {
-  animator.flush();
+  poker.flush();
   special.skipAll();
   state.me = null;
   authed = false;
@@ -472,14 +441,14 @@ function handle(msg) {
       if (msg.state?.code !== state.room?.code) { chat.setLog([]); emotePanel.clearRoom(); }
       state.room = msg.state;
       admin.refresh();
-      if ((isFramed(msg.state?.mode) && !framePoker) || (msg.state?.mode === 'liar' && !liarShown) || (msg.state?.mode === 'yacht' && !yachtShown) || (msg.state?.mode === 'draw' && !drawShown) || (msg.state?.mode === 'gsk' && !gskShown) || (msg.state?.mode === 'mini' && !miniShown)) { animator.flush(); special.skipAll(); }
-      if (isFramed(msg.state?.mode) || msg.state?.mode === 'liar' || msg.state?.mode === 'yacht' || msg.state?.mode === 'draw' || msg.state?.mode === 'gsk' || msg.state?.mode === 'mini' || !animator.busy()) applyRoom(msg.state);
+      if ((isFramed(msg.state?.mode) && !framePoker) || (msg.state?.mode === 'liar' && !liarShown) || (msg.state?.mode === 'yacht' && !yachtShown) || (msg.state?.mode === 'draw' && !drawShown) || (msg.state?.mode === 'gsk' && !gskShown) || (msg.state?.mode === 'mini' && !miniShown)) { poker.flush(); special.skipAll(); }
+      applyRoom(msg.state); // poker holds states back during its animations itself (poker/index.js)
       break;
     case 'resetAsk': loginId = null; lobby.showResetConfirm(); break;
     case 'resetDone':
       // Everything was wiped: drop the remembered ID and any local room state, then show the login screen.
       saved.del('gs.lastId');
-      animator.flush();
+      poker.flush();
       special.skipAll();
       saved.del('gs.adminPw');
       state.me = null;
@@ -565,18 +534,7 @@ function handle(msg) {
         else withLiar((l) => l.handleEvent(e)); // includes emote
         break;
       }
-      // Emotes and chat are not choreography: they bypass the queue so animations never delay them.
-      if (msg.e.k === 'emote') pins.emote(msg.e.id, msg.e.e);
-      else if (msg.e.k === 'pemote') emotePanel.showPhoto(msg.e.id, msg.e.data);
-      else if (msg.e.k === 'snd') emotePanel.playSound(msg.e.id, msg.e.sid);
-      else if (msg.e.k === 'sndAdd') emotePanel.addRoomSound(msg.e);
-      else if (msg.e.k === 'sndList') { emotePanel.setRoomSounds(msg.e.items); emotePanel.syncMine(); }
-      else if (msg.e.k === 'sndDel') emotePanel.removeRoomSound(msg.e.sid);
-      else if (msg.e.k === 'sndRename') emotePanel.renameRoomSound(msg.e.sid, msg.e.name);
-      else if (msg.e.k === 'chat') chat.push(msg.e, { mine: msg.e.id === state.room?.you });
-      else if (msg.e.k === 'chatLog') chat.setLog(msg.e.items, state.room?.you);
-      else { wheel.update(null, null, false); animator.push(msg.e); }
-      break;
+      break; // outside any room (a late event after leaving): nothing to show
     case 'admOk': admin.ok(msg); break;
     case 'coin': toCoin(msg); break;
     case 'pin':
@@ -621,7 +579,7 @@ function handle(msg) {
   }
 }
 
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { animator.flush(); applyRoom(state.room); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { poker.flush(); applyRoom(state.room); } });
 stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); emotePanel.update(); frame.frame(dt / 1000); liar?.frame(dt / 1000); yacht?.frame(dt / 1000); mini?.frame(dt / 1000); }); // onFrame is ms, the games take seconds
 
 const mock = new URLSearchParams(location.search).get('mock');

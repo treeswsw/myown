@@ -4,6 +4,9 @@
 //   apply: 이 틀이 그리는 방이면 true(main.js 는 옛 길을 건너뛴다). 다른 방·null 이면 그리던 게임을 unmount 하고 false.
 //   enqueue: 게임 모듈 불러오기·호출 줄 하나(stage.use 가 하나라 옛 길 라이어·요트·미니도 이 줄을 쓴다, 옛 liarQ).
 //   anchorOf: 대기실이면 참가자 줄 사진 위, 게임 판이면 게임의 anchorOf. chatMsg: 채팅 글 → 보낼 메시지(게임 chatRule.route).
+//   (G-poker 덧붙임) CLIENT_GAMES[mode].bar === false 면 게임 중 상단 줄을 그리지 않는다(게임이 자기 줄을 가짐, 포커 HUD).
+//   게임 훅 holdWait?(state) -> bool: true 인 동안은 대기 상태여도 게임 판을 보여 준다(포커: 챔피언·우승 연출이 끝날 때까지).
+//   끝나면 게임이 ctx.toWait() 를 불러 다시 고르게 한다.
 // deps = { ui, stage, send, chat, emotePanel, emote(createEmoteToggle), sound, getMe, toast, staleReload, onEnter?(), onExit?() }
 import './room.css';
 import { h } from '../ui/dom.js';
@@ -68,10 +71,11 @@ export function createRoomFrame(deps) {
     if (!cur || !state) return;
     const s = state;
     if (!s.wait) toWait = false; // 새 판이 시작됐다
-    showingWait = Boolean(s.wait) && (s.phase === 'lobby' || toWait);
+    const hold = Boolean(s.wait) && safe(() => Boolean(cur.game?.holdWait?.(s)), false);
+    showingWait = Boolean(s.wait) && (s.phase === 'lobby' || toWait) && !hold;
     cur.wait.el.hidden = !showingWait;
     root.hidden = showingWait;
-    bar.el.hidden = showingWait;
+    bar.el.hidden = showingWait || cur.entry.bar === false;
     const r = rule();
     chat.setEnabled(true);
     chat.setRule(r);
