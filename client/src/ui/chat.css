@@ -129,6 +129,19 @@ html.chat-liar{--chat-dock:48px}
 .chat-fr b{font-weight:700;color:var(--ink2);margin-right:6px}
 .chat-fr.mine b{color:var(--accent)}
 .chat-fr:nth-last-child(n+4){opacity:.7}.chat-fr:nth-last-child(n+5){opacity:.5}.chat-fr:nth-last-child(n+6){opacity:.35}
+/* 공통 대기실 오른쪽 칸(COMMON-CONTRACT 4-3): 기록 + 입력 줄(왼쪽 이모티콘). 대기실이 waitEl 을 자기 칸에 붙인다 */
+.chat-wait{--ink:#fff;--ink2:rgba(255,255,255,.6);--ink3:rgba(255,255,255,.34);--hair:rgba(255,255,255,.12);--accent:#f2c444;--ease:cubic-bezier(.2,.8,.2,1);
+  flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;color:var(--ink)}
+.chat-wait[hidden],.chat-wait [hidden]{display:none!important}
+.chat-wait button,.chat-wait input{font:inherit;color:inherit}
+.chat-wlog{flex:1;min-height:0;background:rgba(255,255,255,.09);border-radius:14px;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;padding:4px 0;-webkit-user-select:text;user-select:text}
+.chat-wlog::-webkit-scrollbar{display:none}
+.chat-wlog>:first-child{margin-top:auto}
+.chat-wlog .chat-row{padding:6px 14px}
+.chat-wait .chat-bar{background:rgba(255,255,255,.09);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;padding-left:5px;animation:none;flex:none}
+.chat-row.chat-sys{color:var(--ink3);font-size:13px;text-align:center}
+.chat-emo{flex:none;width:34px;height:34px;border-radius:50%;border:0;background:none;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;color:var(--ink)}
+.chat-emo svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* 아래에 붙은 채팅이 차지하는 높이(다른 화면이 그 위로 비켜 앉도록 읽는다. 붙어 있지 않으면 정의되지 않음) */
 html.chat-docked{--chat-docked-h:calc(var(--chat-dock) + 12px)}
 @media (max-height:480px){

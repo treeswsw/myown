@@ -1,0 +1,38 @@
+/* 공용 부품(창·확인·알림·프로필) — 접두사 .ui-. 값은 로비(.lb-) 디자인 그대로 */
+.ui-overlay, .ui-toasts, .ui-avbox, .ui-tag {
+  --ui-ink: #fff; --ui-ink2: rgba(255, 255, 255, .6); --ui-hair: rgba(255, 255, 255, .12); --ui-fill: rgba(255, 255, 255, .09);
+  --ui-accent: #f2c444; --ui-red: #ff453a;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+}
+
+/* 창 */
+.ui-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; pointer-events: auto; color: var(--ui-ink); animation: ui-fade .2s ease-out both; }
+.ui-modal { width: min(320px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; border-radius: 24px; overflow: hidden; background: rgba(40, 40, 42, .9); -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%); box-shadow: inset 0 0 0 1px var(--ui-hair), 0 24px 64px rgba(0, 0, 0, .5); animation: ui-rise .3s cubic-bezier(.2, .8, .2, 1) both; }
+.ui-mbody { padding: 20px 20px 16px; overflow-y: auto; min-height: 0; }
+.ui-mbtns { display: grid; grid-template-columns: 1fr 1fr; box-shadow: inset 0 1px 0 var(--ui-hair); flex: none; }
+.ui-mbtns.ui-one { grid-template-columns: 1fr; }
+.ui-mbtn { min-height: 48px; border: 0; background: none; font: inherit; font-size: 17px; color: var(--ui-ink); cursor: pointer; }
+.ui-mbtn + .ui-mbtn { box-shadow: inset 1px 0 0 var(--ui-hair); }
+.ui-mbtn.ui-primary { font-weight: 600; color: var(--ui-accent); }
+.ui-mbtn.ui-danger { font-weight: 600; color: var(--ui-red); }
+.ui-mbtn:active { background: rgba(255, 255, 255, .1); }
+.ui-confirm { text-align: center; display: flex; flex-direction: column; gap: 6px; }
+.ui-confirm b { font-size: 17px; font-weight: 700; }
+.ui-confirm p { margin: 0; font-size: 14px; color: var(--ui-ink2); line-height: 1.4; word-break: keep-all; }
+@keyframes ui-fade { from { opacity: 0; } }
+@keyframes ui-rise { from { opacity: 0; transform: translateY(10px) scale(.985); } }
+
+/* 알림 */
+.ui-toasts { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 55; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; color: var(--ui-ink); }
+.ui-toast { padding: 9px 18px; border-radius: 999px; font-size: 14px; background: rgba(20, 18, 16, .88); border: 1px solid rgba(255, 255, 255, .25); max-width: min(520px, calc(100vw - 32px)); text-align: center; overflow-wrap: anywhere; animation: ui-fade .2s ease-out both; }
+.ui-toast.ui-error { border-color: rgba(255, 69, 58, .6); }
+.ui-toast.ui-coin { border-color: var(--ui-accent); color: var(--ui-accent); font-weight: 600; }
+.ui-toast.ui-hit { pointer-events: auto; cursor: pointer; }
+
+/* 프로필 */
+.ui-avbox { display: inline-flex; flex: none; position: relative; }
+.ui-av { border-radius: 50%; overflow: hidden; flex: none; background: rgba(255, 255, 255, .16); display: flex; align-items: center; justify-content: center; }
+.ui-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ui-av.letter span { font-weight: 600; color: var(--ui-ink2); }
+.ui-tag { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.ui-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -215,9 +215,9 @@ export const SERVER_GAMES = {
 ### 4-1. 파일과 CSS 접두사
 | 파일 | 하는 일 | CSS |
 |---|---|---|
-| `client/src/games.js` | `CLIENT_GAMES[mode] = { load: () => import('./<m>/index.js'), stage: bool, bar?: {leftVar} }`, 포커 `{ builtin:'poker', stage:true }` | |
-| `room/frame.js` | `createRoomFrame(deps) → { apply(state\|null), event(e) → bool, error(err) → bool, frame(dt), current() }`. 불러오기 줄 하나(liarQ 대체), mount/unmount, 대기실↔게임 전환, 공용 이벤트 처리 | `.rm-` |
-| `room/wait.js` | 공통 대기실(시안 3칸). `createWait(deps) → { el, update(state, schema, parts), dispose() }` + 순수 함수 `waitModel(state, entry, meId)` (시험용) | `.wr-` (`.lb-panel/.lb-group/.lb-seg-item/.lb-btn` 은 쓰기만) |
+| `client/src/games.js` | `CLIENT_GAMES[mode] = { load: () => import('./<m>/index.js'), stage: bool, mount: bool, bar?: {leftVar} }`, 포커 `{ builtin:'poker', stage:true, mount:false }`. **`mount: true` 인 게임만 새 길**(옮기는 과제가 자기 줄을 true 로). `isFramed(mode)`, `visibleModes(me, search)` | |
+| `room/frame.js` | `createRoomFrame(deps) → { apply(state\|null) → bool, event(e) → bool, error(err) → bool, frame(dt), current(), anchorOf(id), chatMsg(text) → msg, enqueue(fn) }` (C1 추가: anchorOf = 대기실이면 참가자 사진 위·게임이면 게임 anchorOf, chatMsg = chatRule.route, enqueue = 옛 liarQ). 불러오기 줄 하나(liarQ 대체), mount/unmount, 대기실↔게임 전환, 공용 이벤트 처리 | `.rm-` |
+| `room/wait.js` | 공통 대기실(시안 3칸). `createWait(deps) → { el, update(state, schema, parts), anchorOf(id), dispose() }` + 순수 함수 `waitModel(state, entry, meId)` (시험용) | `.wr-` (`.lb-panel/.lb-group/.lb-seg-item/.lb-btn` 은 쓰기만) |
 | `room/bar.js` | 게임 중 상단 줄: 방 코드·소리·이모티콘·나가기. 이모티콘 창 열고 닫기·바깥 누름 닫기 한 번(main.js:159-206 대체) | `.rm-bar` |
 | `room/faces.js` | `createFaces() → { apply(e), get(id) → {avatar, look}, drop(id), clear(), onChange(fn) → off }` | |
 | `room/float.js` | 머리 위 기본 이모티콘(요트 yt-em 방식 2초) — 사진·사운드 이름표는 emotePanel 그대로, 자리는 모두 `anchorOf` | `.rm-em` |
@@ -268,7 +268,7 @@ return {
 - 가운데 칸: 참가자(`profile.playerAvatar` + 칭호 + `p.color` 점 + 태그 방장·나·연결 끊김), 방장에게만 줄 끝 × → `{t:'kick', id}`, 관전 줄(`specs`), `wait.why.msg`, "게임 시작"(`lb-btn lb-primary`, `!wait.can` 이면 꺼짐) → `{t:'start'}`, 비방장은 "방장이 시작하기를 기다리는 중", 나가기(대기실은 확인 없이 바로).
 - 오른쪽 칸: 공용 채팅을 `chat.setMode('wait')` 로 이 칸에 넣는다. 이모티콘 버튼은 입력 줄 왼쪽.
 
-### 4-4. 채팅 규칙 훅 (화면 `ui/chat.js` 에 `setRule(rule|null)` 추가)
+### 4-4. 채팅 규칙 훅 (화면 `ui/chat.js` 에 `setRule(rule|null)` 추가. C1: chat.setRule 은 maxLen 만 받고 lock·route·bubble·own 은 frame 이 부른다. own 이면 `setMode('own')`(입력 숨김·기록 계속), 대기실은 `setMode('wait')` + `chat.waitEl`, 시스템 줄 `chat.system(text)`)
 | 게임 | rule | 근거 |
 |---|---|---|
 | 라이어 | `maxLen 80`, `lock` = chatLockFor, `route` = chatMsgFor(say/chat), `bubble` = kind 가 say·plea 면 false | liar/index.js:179·213, main.js:85·556 |
