@@ -34,6 +34,8 @@ async function runContext(browser, server, name, cfg) {
   const page = await ctx.newPage();
   page.setDefaultTimeout(T);
   const errors = [];
+  const sent = []; // outgoing WebSocket frames from the page
+  page.on('websocket', (ws) => ws.on('framesent', (f) => sent.push(String(f.payload))));
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource|fonts\.g/.test(m.text())) errors.push(`console.error: ${m.text()}`); });
 
@@ -62,7 +64,7 @@ async function runContext(browser, server, name, cfg) {
     const bad = await page.evaluate((skipSel) => {
       const out = [];
       const desc = (e) => `${e.tagName.toLowerCase()}${e.className && typeof e.className === 'string' ? `.${e.className.trim().split(/\s+/).slice(0, 2).join('.')}` : ''}`;
-      const modal = [...document.querySelectorAll('[aria-modal="true"]')].find((d) => !d.closest('[hidden]') && d.getClientRects().length);
+      const modal = [...document.querySelectorAll('[aria-modal="true"], .aic-ov')].find((d) => !d.closest('[hidden]') && d.getClientRects().length); // a modal dialog (incl. the all-in confirm) legitimately covers the rest
       const clipped = (el, x, y) => {
         for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
           if (!/(auto|scroll|hidden)/.test(getComputedStyle(p).overflowY)) continue;
@@ -181,6 +183,10 @@ async function runContext(browser, server, name, cfg) {
     const wheel = () => visible('.act .wseg');
     await step('my turn: wheel shows', wheel);
     await occlusion('my turn with wheel');
+    await step('amount tag beside the call/check segment shows the amount', async () => {
+      const t = (await loc('.act .wtag').textContent()).replace(/\s+/g, ' ').trim();
+      if (!/^(콜|체크|올인)\s*[\d,]+$/.test(t)) throw new Error(`unexpected tag "${t}"`);
+    });
     await step('wheel call/check segment sends action call|check', async () => {
       const p = event((e) => e.k === 'action' && e.id === myId() && ['call', 'check'].includes(e.a), 'action call/check');
       await press('.act .wseg', 0);
@@ -270,13 +276,37 @@ async function runContext(browser, server, name, cfg) {
       await press('.act .wseg', 2);
       await p;
     });
+    await step('my next turn: wheel shows (all-in flow)', wheel);
+    await step('raise dial all-in key opens the confirm dialog', async () => {
+      await press('.act .wseg', 1);
+      await visible('.dialbox');
+      await press('.act .keys button.allin');
+      await visible('.aic-sheet');
+      if ((await page.locator('.aic-sheet').count()) !== 1) throw new Error('more than one dialog');
+    });
+    await occlusion('all-in confirm dialog');
+    await step('all-in dialog 취소 closes it and keeps the dial', async () => {
+      await press('.aic-cancel');
+      await gone('.aic-sheet');
+      await visible('.dialbox');
+    });
+    await step('all-in dialog confirm sends action allin', async () => {
+      await press('.act .keys button.allin');
+      await visible('.aic-sheet');
+      const p = event((e) => e.k === 'allin' && e.id === myId(), 'allin event (server reports an all-in act as raise + allin)');
+      await press('.aic-go');
+      await p;
+      await gone('.aic-sheet');
+      if (!sent.some((m) => { try { const j = JSON.parse(m); return j.t === 'act' && j.a === 'allin'; } catch { return false; } })) throw new Error("page never sent {t:'act',a:'allin'}");
+    });
     if (await page.waitForSelector('.win', { state: 'visible', timeout: 1500 }).then(() => true, () => false)) await occlusion('result overlay');
     else check('result overlay (not reached within 1.5 s, skipped)', true);
 
     await step('menu 나가기 returns to the lobby', async () => {
       await press('button[aria-label="메뉴"]');
       await press('.hpanel button.item');
-      await visible('button:has-text("방 만들기")');
+      // After an all-in the run-out animation plays before the lobby can show, so allow more time.
+      await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible', timeout: 25000 });
     });
 
     /* ---------- bluff ---------- */
@@ -435,15 +465,25 @@ async function runContext(browser, server, name, cfg) {
       await gone('[aria-label="라이어 랭킹"]');
     });
     for (const b of lgBots) b.close();
-    await step('poker still works after liar: create a hold\'em room', async () => {
-      await press('.lb-seg-item:has-text("홀덤")');
-      await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.lb-actions .lb-danger');
-    });
-    await step('poker after liar: leave the room (no leftover room for the next context)', async () => {
-      await press('.lb-actions .lb-danger');
-      await visible('button:has-text("방 만들기")');
-    });
+    // The all-in step above may have busted this account (the bot calls; the showdown is random). A bust is a legitimate
+    // state: hold'em must then be refused with the "새 아이디로 시작" notice instead of creating a room.
+    const busted = await page.locator('button:has-text("새 아이디로 시작")').first().isVisible().catch(() => false);
+    if (busted) {
+      await step('poker after liar: busted account cannot create a hold\'em room (create button disabled)', async () => {
+        await press('.lb-seg-item:has-text("홀덤")');
+        if (!(await page.locator('button.lb-primary:has-text("방 만들기")').first().isDisabled())) throw new Error('create button enabled with 0 chips');
+      });
+    } else {
+      await step('poker still works after liar: create a hold\'em room', async () => {
+        await press('.lb-seg-item:has-text("홀덤")');
+        await press('button.lb-primary:has-text("방 만들기")');
+        await visible('.lb-actions .lb-danger');
+      });
+      await step('poker after liar: leave the room (no leftover room for the next context)', async () => {
+        await press('.lb-actions .lb-danger');
+        await visible('button:has-text("방 만들기")');
+      });
+    }
   } catch (e) {
     if (!(e instanceof StepFailed)) check('unexpected error', false, String(e.stack || e).split('\n').slice(0, 3).join(' | '));
     const shot = path.join(os.tmpdir(), `smoke-fail-${name}.png`);

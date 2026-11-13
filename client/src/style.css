@@ -229,8 +229,23 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .act .wseg.off { opacity: .35; }
 .act .wreason { position: absolute; left: 50%; top: -70px; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: rgba(20, 18, 16, .92); border: 1px solid rgba(255, 255, 255, .3); font-size: 13px; font-weight: 700; white-space: nowrap; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .act .wreason.show { opacity: 1; }
-.keys button.allin { color: var(--gold); font-weight: 900; }
+.keys button.allin { color: #ff4b3e; font-weight: 900; }
 .keys button.confirm { color: #fff; font-weight: 900; }
+.keys button.confirm.allin { color: #ff4b3e; }
+.act .wtag { position: absolute; left: 10px; top: 76px; transform: translate(-100%, -50%); transform-origin: 100% 50%; display: flex; align-items: baseline; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(14, 12, 10, .86); border: 1px solid rgba(255, 255, 255, .22); white-space: nowrap; pointer-events: none; }
+.act .wtag span { font: 700 14px -apple-system, "Noto Sans KR", sans-serif; color: rgba(255, 255, 255, .75); }
+.act .wtag b { font-family: "Bangers", sans-serif; font-weight: 400; font-size: 24px; line-height: 1; color: var(--gold); -webkit-text-stroke: 3px #17110a; paint-order: stroke fill; letter-spacing: .5px; }
+.act .wtag b.red { color: #ff4b3e; }
+.aic-ov { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; pointer-events: auto; }
+.aic-sheet { width: 300px; transform: scale(var(--k)); border-radius: 22px; background: rgba(30, 26, 22, .94); border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 20px 60px rgba(0, 0, 0, .6); text-align: center; overflow: hidden; font-family: -apple-system, "Helvetica Neue", "Noto Sans KR", sans-serif; color: #fff; }
+.aic-title { padding: 22px 20px 6px; font-size: 19px; font-weight: 800; }
+.aic-num { font-family: "Bangers", sans-serif; font-size: 40px; color: #ff4b3e; -webkit-text-stroke: 3px #17110a; paint-order: stroke fill; letter-spacing: 1px; padding: 4px 0; }
+.aic-desc { padding: 0 22px; font-size: 13.5px; color: rgba(255, 255, 255, .7); line-height: 1.45; }
+.aic-desc2 { padding-bottom: 18px; }
+.aic-row { display: flex; border-top: 1px solid rgba(255, 255, 255, .14); }
+.aic-row button { flex: 1; min-height: 48px; padding: 15px 0; border: 0; background: none; color: #fff; font-size: 16px; font-weight: 700; touch-action: manipulation; }
+.aic-row button + button { border-left: 1px solid rgba(255, 255, 255, .14); }
+.aic-row .aic-go { color: #ff4b3e; font-weight: 900; }
 
 .pl .top > *, .pl .nm, .pl .rv { white-space: nowrap; width: max-content; }
 .pl .top .out { text-align: center; }
