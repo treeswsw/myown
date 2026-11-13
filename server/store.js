@@ -6,8 +6,24 @@ export function newUser(id, name) {
   return {
     id, name, bank: START_BANK, avatar: null,
     stats: { hands: 0, wins: 0, biggestWin: 0, refills: 0, bluffGames: 0, bluffWins: 0 },
+    coins: 0, coinsTotal: 0, gear: { pity: 0, owned: [], equip: {} }, pin: null,
   };
 }
+
+// Old-shape users (before SPEC 22) read with defaults. Always returns a fresh gear object.
+export function normalizeUser(u) {
+  const g = u.gear && typeof u.gear === 'object' ? u.gear : {};
+  u.coins = Number.isInteger(u.coins) ? u.coins : 0;
+  u.coinsTotal = Number.isInteger(u.coinsTotal) ? u.coinsTotal : 0;
+  u.gear = { ...g, pity: Number.isInteger(g.pity) ? g.pity : 0, owned: Array.isArray(g.owned) ? g.owned : [], equip: g.equip && typeof g.equip === 'object' ? g.equip : {} };
+  u.pin = u.pin ?? null;
+  return u;
+}
+
+const LEDGER_MAX = 10_000;
+const ledgerRow = (e) => ({
+  uid: e.uid, kind: e.kind, delta: e.delta | 0, bal: e.bal | 0, chips: e.chips | 0, note: e.note ?? null,
+});
 
 // Overall liar ranking order: score desc, then fewer games, then name (plain code-unit order). Zero scores are left out.
 const liarScore = (u) => u.stats?.liar?.score ?? 0;
@@ -20,16 +36,42 @@ function liarList(users) {
     liarScore(b) - liarScore(a) || liarGames(a) - liarGames(b) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
+// Coin ranking order: coins_total desc, then name (plain code-unit order). Zero totals and the admin account are left out.
+function coinList(users) {
+  return [...users.values()].filter((u) => u.id !== RANK_EXCLUDED_ID && (u.coinsTotal ?? 0) > 0).sort((a, b) =>
+    b.coinsTotal - a.coinsTotal || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
 function createMemoryStore() {
   const users = new Map();
+  let ledger = [];
   return {
     async init() {},
     async getOrCreate(id, name) {
       if (!users.has(id)) users.set(id, newUser(id, name));
-      return structuredClone(users.get(id));
+      return normalizeUser(structuredClone(users.get(id)));
     },
     async save(user) {
-      users.set(user.id, structuredClone(user));
+      users.set(user.id, normalizeUser(structuredClone(user)));
+    },
+    async log(entry) {
+      ledger.push({ at: new Date(), ...ledgerRow(entry) });
+      if (ledger.length > LEDGER_MAX) ledger = ledger.slice(-LEDGER_MAX);
+    },
+    ledger() { return structuredClone(ledger); }, // memory store only (tests)
+    async exists(id) { return users.has(id); },
+    async topCoin(n) {
+      return coinList(users).slice(0, n).map((u) => ({ name: u.name, total: u.coinsTotal }));
+    },
+    async coinRank(id) {
+      const i = coinList(users).findIndex((u) => u.id === id);
+      return { rank: i < 0 ? null : i + 1, total: users.has(id) ? (users.get(id).coinsTotal ?? 0) : 0 };
+    },
+    async clearPin(id) {
+      const u = users.get(id);
+      if (!u) return false;
+      u.pin = null;
+      return true;
     },
     topLiar(n) {
       return liarList(users).slice(0, n).map((u) => ({ name: u.name, score: liarScore(u), games: liarGames(u) }));
@@ -40,10 +82,19 @@ function createMemoryStore() {
     },
     async clear() {
       users.clear();
+      ledger = [];
     },
     async close() {},
   };
 }
+
+const USER_COLS = 'id, name, bank, avatar, stats, coins, coins_total, gear, pin';
+const COIN_TOP_SQL = `SELECT name, coins_total AS total FROM users
+  WHERE coins_total > 0 AND id <> $2 ORDER BY coins_total DESC, name COLLATE "C" ASC LIMIT $1`;
+const COIN_RANK_SQL = `SELECT total, CASE WHEN total > 0 THEN rank END AS rank FROM (
+  SELECT id, coins_total AS total,
+    row_number() OVER (ORDER BY coins_total DESC, name COLLATE "C" ASC) AS rank
+  FROM users WHERE id <> $2) t WHERE id = $1`;
 
 const LIAR_SCORE = "COALESCE((stats->'liar'->>'score')::integer, 0)";
 const LIAR_GAMES = "COALESCE((stats->'liar'->>'games')::integer, 0)";
@@ -60,7 +111,17 @@ function createPgStore(url) {
   pool.on('error', (err) => console.error('db pool error:', err.message));
   // Saves are applied in call order so an older snapshot never overwrites a newer one.
   let writes = Promise.resolve();
-  const rowToUser = (r) => ({ id: r.id, name: r.name, bank: r.bank, avatar: r.avatar, stats: r.stats });
+  const rowToUser = (r) => normalizeUser({
+    id: r.id, name: r.name, bank: r.bank, avatar: r.avatar, stats: r.stats,
+    coins: r.coins, coinsTotal: r.coins_total, gear: r.gear, pin: r.pin,
+  });
+  // Queue a statement behind pending writes; the returned promise carries its result/failure, the chain survives failure.
+  const queue = (fn) => {
+    writes = writes.then(fn);
+    const done = writes;
+    writes = writes.catch(() => {});
+    return done;
+  };
   return {
     async init() {
       await pool.query(`CREATE TABLE IF NOT EXISTS users (
@@ -70,26 +131,65 @@ function createPgStore(url) {
         avatar text,
         stats jsonb NOT NULL
       )`);
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS coins integer NOT NULL DEFAULT 0');
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS coins_total integer NOT NULL DEFAULT 0');
+      await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS gear jsonb NOT NULL DEFAULT '{}'");
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS pin jsonb');
+      await pool.query(`CREATE TABLE IF NOT EXISTS coin_log (
+        id bigserial PRIMARY KEY,
+        at timestamptz NOT NULL DEFAULT now(),
+        uid text NOT NULL,
+        kind text NOT NULL,
+        delta integer NOT NULL,
+        bal integer NOT NULL,
+        chips integer NOT NULL DEFAULT 0,
+        note jsonb
+      )`);
     },
     async getOrCreate(id, name) {
       const fresh = newUser(id, name);
       await pool.query(
-        'INSERT INTO users (id, name, bank, avatar, stats) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO NOTHING',
-        [id, name, fresh.bank, null, fresh.stats],
+        'INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (id) DO NOTHING',
+        [id, name, fresh.bank, null, fresh.stats, 0, 0, fresh.gear, null],
       );
-      const { rows } = await pool.query('SELECT id, name, bank, avatar, stats FROM users WHERE id = $1', [id]);
+      const { rows } = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = $1`, [id]);
       return rowToUser(rows[0]);
     },
     save(user) {
-      const params = [user.id, user.name, user.bank, user.avatar, user.stats];
-      writes = writes.then(() => pool.query(
-        `INSERT INTO users (id, name, bank, avatar, stats) VALUES ($1,$2,$3,$4,$5)
-         ON CONFLICT (id) DO UPDATE SET name = $2, bank = $3, avatar = $4, stats = $5`,
+      const u = normalizeUser(structuredClone(user));
+      const params = [u.id, u.name, u.bank, u.avatar, u.stats, u.coins, u.coinsTotal, u.gear, u.pin];
+      return queue(() => pool.query(
+        `INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         ON CONFLICT (id) DO UPDATE SET name = $2, bank = $3, avatar = $4, stats = $5, coins = $6, coins_total = $7, gear = $8, pin = $9`,
         params,
       ));
-      const done = writes;
-      writes = writes.catch(() => {});
-      return done;
+    },
+    // Ledger line, queued with the saves (order kept). A failure only reaches the console; the game goes on.
+    log(entry) {
+      const r = ledgerRow(entry);
+      return queue(() => pool.query(
+        'INSERT INTO coin_log (uid, kind, delta, bal, chips, note) VALUES ($1,$2,$3,$4,$5,$6)',
+        [r.uid, r.kind, r.delta, r.bal, r.chips, r.note],
+      )).catch((err) => console.error('coin_log error:', err.message));
+    },
+    async exists(id) {
+      await writes.catch(() => {});
+      const { rowCount } = await pool.query('SELECT 1 FROM users WHERE id = $1', [id]);
+      return rowCount > 0;
+    },
+    async topCoin(n) {
+      await writes.catch(() => {});
+      const { rows } = await pool.query(COIN_TOP_SQL, [n, RANK_EXCLUDED_ID]);
+      return rows.map((r) => ({ name: r.name, total: Number(r.total) }));
+    },
+    async coinRank(id) {
+      await writes.catch(() => {});
+      const { rows } = await pool.query(COIN_RANK_SQL, [id, RANK_EXCLUDED_ID]);
+      return rows[0] ? { rank: rows[0].rank === null ? null : Number(rows[0].rank), total: Number(rows[0].total) } : { rank: null, total: 0 };
+    },
+    async clearPin(id) {
+      const { rowCount } = await queue(() => pool.query('UPDATE users SET pin = NULL WHERE id = $1', [id]));
+      return rowCount > 0;
     },
     // Read-only liar ranking, queued behind pending saves so it sees them. No table or column is created or changed.
     async topLiar(n) {
@@ -104,10 +204,7 @@ function createPgStore(url) {
     },
     // Queued behind pending saves so none of them can land after the wipe.
     clear() {
-      writes = writes.then(() => pool.query('TRUNCATE users'));
-      const done = writes;
-      writes = writes.catch(() => {});
-      return done;
+      return queue(() => pool.query('TRUNCATE users, coin_log'));
     },
     async close() {
       await writes;
