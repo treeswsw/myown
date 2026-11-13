@@ -2,6 +2,10 @@ import './lobby.css';
 import { openAvatarCrop } from './avatarCrop.js';
 import { h, svg, avatar, fmt } from './dom.js';
 import { GAME_NAME as DRAW_NAME } from '../../../shared/draw/name.js';
+import { item as shopItem, GRADES } from '../../../shared/coin/shop.js';
+
+// 뽑기 버튼은 나중에 공개. true 로 바꾸면 다시 보인다.
+const SHOW_DRAW = false;
 
 // createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
@@ -211,10 +215,14 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
   const brokeNote = h('div', 'lb-notice', h('p', null, '칩을 모두 잃었습니다. 홀덤은 새 아이디로 다시 시작해야 합니다.'),
     button('새 아이디로 시작', 'lb-text lb-accent', () => onLogout()));
+  const titleBadge = h('div', 'lb-title-badge');
+  titleBadge.hidden = true;
   const walletRow = h('div', 'lb-sub lb-coins');
   const coinBtns = h('div', 'lb-coin-btns');
   for (const [a, label] of [['swap', '교환'], ['draw', '뽑기'], ['shop', '상점'], ['rank', '코인 랭킹']]) {
-    coinBtns.append(button(label, 'lb-tint lb-coin-btn', () => onCoin?.(a)));
+    const b = button(label, 'lb-tint lb-coin-btn', () => onCoin?.(a));
+    if (a === 'draw' && !SHOW_DRAW) b.hidden = true;
+    coinBtns.append(b);
   }
   const pinBtn = button('비밀번호', 'lb-tint lb-coin-btn lb-pin-btn', () => onCoin?.('pin'));
   const coinBox = h('div', 'lb-coin-box', coinBtns, pinBtn);
@@ -222,7 +230,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   walletRow.hidden = true;
   const rankBtn = button('라이어 랭킹', 'lb-tint lb-rank-btn', () => onRank?.());
   rankBtn.hidden = true;
-  profile.append(brand('lb-small'), h('div', 'lb-who', meAv, h('div', null, meName, meBank, walletRow)), brokeNote, coinBox, stats,
+  profile.append(brand('lb-small'), h('div', 'lb-who', meAv, h('div', null, titleBadge, meName, meBank, walletRow)), brokeNote, coinBox, stats,
     rankBtn, h('div', 'lb-grow'), button('로그아웃', 'lb-text', () => onLogout()));
 
   const play = h('section', 'lb-panel panel');
@@ -452,6 +460,17 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
       meName.textContent = user.name;
       const chips = user.chips ?? user.bank ?? 0;
       meBank.textContent = `${fmt(chips)} 칩`;
+      const eq = user.wallet?.equip;
+      const tItem = eq ? shopItem(eq.title) : null;
+      const cItem = eq ? shopItem(eq.color) : null;
+      const tText = tItem?.v?.text;
+      titleBadge.hidden = !tText;
+      titleBadge.textContent = tText || '';
+      const gc = tItem ? GRADES[tItem.g]?.color : null;
+      titleBadge.classList.toggle('lb-rainbow', gc === 'rainbow');
+      titleBadge.style.borderColor = gc && gc !== 'rainbow' ? gc : '';
+      const hex = cItem?.v?.hex;
+      meName.style.color = Number.isFinite(hex) ? '#' + hex.toString(16).padStart(6, '0') : '';
       const coins = user.wallet?.coins;
       walletRow.hidden = !Number.isFinite(coins);
       if (!walletRow.hidden) walletRow.textContent = `${fmt(coins)} 코인`;
