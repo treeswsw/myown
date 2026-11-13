@@ -32,22 +32,22 @@ test('login "초기화" only asks; it never creates or logs in an account', asyn
 test('reset needs a recent ask on the same connection, confirm:true, and no login', async () => {
   const { hub, clock } = setup();
   const c = client(hub);
-  await c.send({ t: 'reset', confirm: true });
+  await c.send({ t: 'reset', confirm: true, pw: '9975' });
   assert.equal(c.sock.last('error').msg, '초기화 확인이 필요합니다.');
   await c.send({ t: 'reset' });
   assert.equal(c.sock.last('error').msg, '초기화 확인이 필요합니다.');
   await c.send({ t: 'login', id: '초기화' });
   clock.advance(60_001);
-  await c.send({ t: 'reset', confirm: true });
+  await c.send({ t: 'reset', confirm: true, pw: '9975' });
   assert.equal(c.sock.last('error').msg, '초기화 확인이 필요합니다.', 'ask expired');
   const other = client(hub);
-  await other.send({ t: 'reset', confirm: true });
+  await other.send({ t: 'reset', confirm: true, pw: '9975' });
   assert.equal(kinds(other, 'resetDone').length, 0, 'ask belongs to a connection');
   const user = client(hub);
   await user.send({ t: 'login', id: 'ann1' });
   await user.send({ t: 'login', id: '초기화' });
   assert.equal(user.sock.last('error').msg, '로그인 상태에서는 초기화할 수 없습니다.');
-  await user.send({ t: 'reset', confirm: true });
+  await user.send({ t: 'reset', confirm: true, pw: '9975' });
   assert.equal(kinds(user, 'resetDone').length, 0);
   assert.equal(hub.sessions.size, 1);
 });
@@ -71,7 +71,7 @@ test('full wipe: mid-hand room, spectator, everyone gets resetDone, relogin is f
   assert.equal(hub.rooms.size, 1);
   assert.ok(clock.pending > 0);
 
-  await idle.send({ t: 'reset', confirm: true });
+  await idle.send({ t: 'reset', confirm: true, pw: '9975' });
   for (const c of [a, b, s, idle]) assert.deepEqual(kinds(c, 'resetDone'), [{ t: 'resetDone' }]);
   assert.equal(hub.rooms.size, 0);
   assert.equal(hub.sessions.size, 0);
@@ -100,17 +100,17 @@ test('cooldown: one reset per minute, the ask itself is refused meanwhile', asyn
   const { hub, clock } = setup();
   const c = client(hub);
   await c.send({ t: 'login', id: '초기화' });
-  await c.send({ t: 'reset', confirm: true });
+  await c.send({ t: 'reset', confirm: true, pw: '9975' });
   assert.equal(kinds(c, 'resetDone').length, 1);
   await c.send({ t: 'login', id: '초기화' });
   assert.equal(c.sock.last('error').msg, '방금 초기화했습니다. 잠시 후 다시 시도하세요');
   assert.equal(kinds(c, 'resetAsk').length, 1);
-  await c.send({ t: 'reset', confirm: true });
+  await c.send({ t: 'reset', confirm: true, pw: '9975' });
   assert.equal(c.sock.last('error').msg, '초기화 확인이 필요합니다.');
   clock.advance(60_000);
   await c.send({ t: 'login', id: '초기화' });
   assert.equal(kinds(c, 'resetAsk').length, 2);
-  await c.send({ t: 'reset', confirm: true });
+  await c.send({ t: 'reset', confirm: true, pw: '9975' });
   assert.equal(kinds(c, 'resetDone').length, 2);
 });
 
@@ -124,9 +124,36 @@ test('a login that was loading during the wipe does not resurrect an old account
   const pending = slow.send({ t: 'login', id: 'late1' });
   await admin.send({ t: 'login', id: '초기화' });
   store.getOrCreate = orig;
-  await admin.send({ t: 'reset', confirm: true });
+  await admin.send({ t: 'reset', confirm: true, pw: '9975' });
   release();
   await pending;
   assert.equal(hub.sessions.size, 0);
   assert.equal(slow.sock.last('error').msg, '초기화 중입니다. 잠시 후 다시 시도하세요');
+});
+
+test('reset needs the admin password; wrong ones never wipe, 5 wrong lock it (shared with admin login)', async () => {
+  const { hub, clock } = setup();
+  const u = client(hub);
+  await u.send({ t: 'login', id: 'ann1' });
+  const c = client(hub);
+  await c.send({ t: 'login', id: '초기화' });
+  await c.send({ t: 'reset', confirm: true });
+  assert.equal(c.sock.last('error').code, 'adm_pw');
+  await c.send({ t: 'reset', confirm: true, pw: '0000' });
+  assert.equal(c.sock.last('error').code, 'adm_pw');
+  assert.equal(kinds(c, 'resetDone').length, 0);
+  assert.equal(hub.sessions.size, 1);
+  for (let i = 0; i < 3; i++) await c.send({ t: 'reset', confirm: true, pw: 'nope' });
+  assert.equal(c.sock.last('error').code, 'adm_pw');
+  await c.send({ t: 'reset', confirm: true, pw: '9975' }); // locked: even the right one
+  assert.equal(c.sock.last('error').code, 'adm_lock');
+  assert.equal(kinds(c, 'resetDone').length, 0);
+  const adm = client(hub);
+  await adm.send({ t: 'login', id: '관리자', pw: '9975' });
+  assert.equal(adm.sock.last('error').code, 'adm_lock', 'same counter as the admin login');
+  clock.advance(10 * 60_000 + 1);
+  await c.send({ t: 'login', id: '초기화' });
+  await c.send({ t: 'reset', confirm: true, pw: '9975' });
+  assert.equal(kinds(c, 'resetDone').length, 1);
+  assert.equal(hub.sessions.size, 0);
 });

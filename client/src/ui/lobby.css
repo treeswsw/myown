@@ -170,3 +170,20 @@
   .lb-crop-side{display:flex;flex-direction:column;gap:12px;flex:1}
   .lb-crop-zoom{width:100%}
 }
+
+/* PIN / coins (SPEC 22) */
+.lb-pin-row{display:flex;align-items:center;gap:10px;min-height:44px;font-size:15px;color:var(--ink2);cursor:pointer}
+.lb-pin-chk{width:22px;height:22px;margin:0;accent-color:var(--accent);flex:none}
+.lb-coins{font-variant-numeric:tabular-nums}
+.lb-coin-box{display:flex;flex-direction:column;gap:8px}
+.lb-coin-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.lb-coin-box[hidden],.lb-coin-btns[hidden]{display:none}
+.lb-btn.lb-coin-btn{min-height:44px}
+.lb-reset-pw{margin-top:10px;text-align:center}
+.lb-reset-err{min-height:0}
+.lb-reset-err:empty{display:none}
+.lb-sheet-body .lb-reset-err{color:var(--red)}
+
+.lb-title-badge{display:inline-block;max-width:100%;margin-bottom:3px;padding:1px 8px;font-size:11px;line-height:16px;border:1.5px solid #9a9a9a;border-radius:999px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-title-badge[hidden]{display:none}
+.lb-title-badge.lb-rainbow{border:1.5px solid transparent;background:linear-gradient(#1c1c1e,#1c1c1e) padding-box,linear-gradient(90deg,#ff5a5a,#ffc93c,#5adf7a,#3d8bff,#b45cff) border-box}

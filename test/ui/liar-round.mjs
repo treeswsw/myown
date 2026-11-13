@@ -35,6 +35,20 @@ const VP = (() => { const m = /^(\d+)x(\d+)$/.exec(process.env.LG_VP || ''); ret
 async function openPage(browser, url, who) {
   const ctx = await browser.newContext({ viewport: VP, hasTouch: false, deviceScaleFactor: 1 });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  // SPEC 22-12: remember the {t:'coin',a:'got'} message (the "+N 코인" toast only lasts 2.5 s)
+  await ctx.addInitScript(() => {
+    const WS = window.WebSocket;
+    window.__coinGot = 0;
+    window.WebSocket = class extends WS {
+      constructor(...a) {
+        super(...a);
+        this.addEventListener('message', (ev) => {
+          if (typeof ev.data !== 'string' || !ev.data.startsWith('{"t":"coin"')) return;
+          try { const m = JSON.parse(ev.data); if (m.a === 'got') window.__coinGot += Number(m.n) || 0; } catch { /* ignore */ }
+        });
+      }
+    };
+  });
   const page = await ctx.newPage();
   page.setDefaultTimeout(T);
   const errors = [];
@@ -391,6 +405,9 @@ try {
     const body = await A.page.locator('[data-lg="result"]').innerText();
     if (!/[+\-]?\d+/.test(body)) throw new Error('점수 숫자가 없음');
     if (!body.includes(names.A) || !body.includes(names.B)) throw new Error('투표 내역에 이름이 없음');
+    if (!t.includes('무효')) { // SPEC 22: a void round pays nothing; otherwise everyone who finished got coins (message + toast)
+      for (const w of wins) await w.page.waitForFunction(() => window.__coinGot > 0, null, { timeout: 5000 }).catch(() => { throw new Error(`${w.who}: 라운드 끝에 코인 알림이 오지 않음`); });
+    }
     await occAll('result', '.lg-rule-btn, .lg-fs-btn'); // 결과 창이 위쪽 규칙·첫 발언 버튼을 덮는다(창을 닫을 수 없는 단계)
     noErrors('result');
   });

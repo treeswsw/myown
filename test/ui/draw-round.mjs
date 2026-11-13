@@ -36,12 +36,14 @@ async function openPage(browser, url, who, viewport) {
   await ctx.addInitScript(() => {
     const WS = window.WebSocket;
     window.__drSt = 0;
+    window.__coinGot = 0;
     window.WebSocket = class extends WS {
       constructor(...a) {
         super(...a);
         this.addEventListener('message', (ev) => {
           if (typeof ev.data !== 'string') return;
           if (ev.data.includes('"k":"drSt"')) window.__drSt++;
+          if (ev.data.startsWith('{"t":"coin"')) { try { const m = JSON.parse(ev.data); if (m.a === 'got') window.__coinGot += Number(m.n) || 0; } catch { /* 무시 */ } }
           // 받은 room.state 를 남긴다(못 맞힌 사람에게 word 가 오는지 서버 메시지로 확인)
           if (ev.data.startsWith('{"t":"room"')) { try { window.__drRoom = JSON.parse(ev.data).state; } catch { /* 무시 */ } }
         });
@@ -358,6 +360,8 @@ try {
       for (const n of Object.values(names)) if (!t.includes(n)) throw new Error(`최종 순위에 ${n} 없음`);
       if (!/\d+점/.test(t)) throw new Error('점수 글자가 없음');
     }
+    // SPEC 22: everyone who stayed to the end got coins (message {t:'coin',a:'got'})
+    for (const w of wins) await w.page.waitForFunction(() => window.__coinGot > 0, null, { timeout: 5000 }).catch(() => { throw new Error(`${w.who}: 최종 순위에 코인 알림이 오지 않음`); });
     await occAll('final');
     noErrors('final');
   });

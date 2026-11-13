@@ -170,6 +170,6 @@ test('a yacht room timer error does not break poker rooms; reset leaves no rooms
 
   const anon = client(hub);
   await anon.send({ t: 'login', id: '초기화' });
-  await anon.send({ t: 'reset', confirm: true });
+  await anon.send({ t: 'reset', confirm: true, pw: '9975' });
   assert.equal(hub.rooms.size, 0);
 });

@@ -1,0 +1,49 @@
+/* 공용 꾸미기 (SPEC 22-17). 접두사 .lk- */
+.lk-wrap { position: relative; display: inline-block; line-height: 0; overflow: visible; flex: none; --lk-bw: 3px; }
+.lk-layer { position: absolute; pointer-events: none; }
+.lk-layer.lk-cover, .lk-layer.lk-ring { inset: 0; }
+.lk-layer.lk-cover { border-radius: 50%; overflow: hidden; }
+.lk-art, .lk-art > svg { width: 100%; height: 100%; display: block; }
+.lk-cover .lk-art, .lk-cover .lk-q { position: absolute; inset: 0; }
+.lk-q {
+  width: 100%; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--lk-gc, #9a9a9a); border-radius: 50%; background: rgba(0, 0, 0, .55);
+  color: var(--lk-gc, #9a9a9a); font: 700 12px/1 sans-serif;
+}
+.lk-ring { border-radius: 50%; box-sizing: border-box; border: var(--lk-bw) solid var(--lk-fc, #c0c8d4); }
+.lk-ring-blink { animation: lk-blink 1s steps(2, jump-none) infinite; }
+.lk-ring-spin, .lk-ring-rainbow {
+  border: 0;
+  background: conic-gradient(var(--lk-fc, #c0c8d4), #fff 25%, var(--lk-fc, #c0c8d4) 50%, #fff 75%, var(--lk-fc, #c0c8d4));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--lk-bw)), #000 calc(100% - var(--lk-bw) + .5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--lk-bw)), #000 calc(100% - var(--lk-bw) + .5px));
+  animation: lk-spin 3s linear infinite;
+}
+.lk-ring-rainbow, .lk-rainbow-bg {
+  background: conic-gradient(#ff4d4d, #ffd24d, #5dff7a, #4dd2ff, #b44dff, #ff4d9e, #ff4d4d);
+}
+/* 칭호 배지 */
+.lk-title {
+  display: inline-block; box-sizing: border-box; padding: 1px 6px; border: 1.5px solid var(--lk-gc, #9a9a9a);
+  border-radius: 999px; background: rgba(0, 0, 0, .45); color: #fff; font-size: 11px; line-height: 1.4;
+  white-space: nowrap; vertical-align: middle; position: relative;
+}
+.lk-title.lk-rainbow {
+  border: 1.5px solid transparent;
+  background: linear-gradient(rgba(20, 20, 28, .9), rgba(20, 20, 28, .9)) padding-box,
+    linear-gradient(90deg, #ff4d4d, #ffd24d, #5dff7a, #4dd2ff, #b44dff, #ff4d4d) border-box;
+  background-size: auto, 200% 100%;
+  animation: lk-slide 3s linear infinite;
+}
+/* 작은 그림 */
+.lk-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; vertical-align: middle; line-height: 0; }
+.lk-icon-title { height: auto !important; }
+.lk-dot { display: block; width: 78%; height: 78%; border-radius: 50%; border: 2px solid var(--lk-gc, #9a9a9a); box-sizing: border-box; }
+.lk-dot-ring { background: transparent; border: 4px solid var(--lk-fc, #c0c8d4); }
+.lk-dot-suit { background: linear-gradient(90deg, var(--lk-su) 0 40%, var(--lk-ti) 40% 60%, var(--lk-su) 60%); }
+@keyframes lk-spin { to { transform: rotate(360deg); } }
+@keyframes lk-blink { 50% { opacity: .35; } }
+@keyframes lk-slide { to { background-position: 0 0, 200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .lk-ring-blink, .lk-ring-spin, .lk-ring-rainbow, .lk-title.lk-rainbow, [class*="lk-fx-"] { animation: none !important; }
+}

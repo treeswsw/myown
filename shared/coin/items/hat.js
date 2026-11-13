@@ -1,0 +1,23 @@
+// 모자 (docs/COIN-ITEMS.md 와 같게 유지, SPEC 22-16)
+export default [
+  { id: "hat.gallgalli", slot: "hat", g: 0, name: "깔깔이 군모", shop: true, price: 20, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.gallgalli" } },
+  { id: "hat.reserve", slot: "hat", g: 0, name: "예비군 모자", shop: true, price: 30, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.reserve" } },
+  { id: "hat.plastic", slot: "hat", g: 0, name: "비닐봉지", shop: true, price: 40, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.plastic" } },
+  { id: "hat.newspaper", slot: "hat", g: 0, name: "신문지 모자", shop: true, price: 50, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.newspaper" } },
+  { id: "hat.panty", slot: "hat", g: 0, name: "팬티 뒤집어쓰기", shop: true, price: 60, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.panty" } },
+  { id: "hat.dealer", slot: "hat", g: 1, name: "딜러 챙모자", shop: true, price: 80, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.dealer" } },
+  { id: "hat.satgat", slot: "hat", g: 1, name: "삿갓", shop: true, price: 90, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.satgat" } },
+  { id: "hat.towel", slot: "hat", g: 1, name: "수건 양머리", shop: true, price: 100, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.towel" } },
+  { id: "hat.delivery", slot: "hat", g: 1, name: "배달 헬멧", shop: true, price: 110, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.delivery" } },
+  { id: "hat.toilet", slot: "hat", g: 1, name: "변기 뚜껑", shop: true, price: 120, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.toilet" } },
+  { id: "hat.taegeukband", slot: "hat", g: 2, name: "태극기 머리띠", shop: false, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.taegeukband" } },
+  { id: "hat.struggle", slot: "hat", g: 2, name: "\"단결 투쟁\" 머리띠", shop: false, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.struggle" } },
+  { id: "hat.wig", slot: "hat", g: 2, name: "탈모 가발", shop: false, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.wig" } },
+  { id: "hat.skinhead", slot: "hat", g: 2, name: "스킨헤드 광택", shop: false, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.skinhead" } },
+  { id: "hat.prisoner", slot: "hat", g: 2, name: "죄수 모자", shop: false, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.prisoner" } },
+  { id: "hat.crown", slot: "hat", g: 3, name: "왕관", shop: false, cap: true, v: { fx: "shine" }, art: { type: "edge", at: "top", key: "hat.crown" } },
+  { id: "hat.nvg", slot: "hat", g: 3, name: "방탄모 + 야간투시경", shop: false, cap: true, v: { fx: "green" }, art: { type: "edge", at: "top", key: "hat.nvg" } },
+  { id: "hat.burning", slot: "hat", g: 3, name: "불타는 대가리", shop: false, cap: true, v: { fx: "fire" }, art: { type: "edge", at: "top", key: "hat.burning" } },
+  { id: "hat.halo", slot: "hat", g: 4, name: "천사 고리", shop: false, cap: true, v: { fx: "spin" }, art: { type: "edge", at: "top", key: "hat.halo" } },
+  { id: "hat.boss", slot: "hat", g: 4, name: "갱식 사장 모자", shop: false, cap: true, v: {}, art: { type: "edge", at: "top", key: "hat.boss" } },
+];
