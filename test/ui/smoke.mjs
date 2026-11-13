@@ -903,13 +903,14 @@ async function coinCheck(browser) {
     await step('shop: buy then equip', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');
       await visible2(page, '.sh-panel');
-      await page.click('.sh-card >> nth=0');
-      await page.click('.sh-go.sh-buy');
+      await visible2(page, '.sh-row[data-row="a"] .sh-timer'); // SPEC 22-18: two stock rows with a countdown
+      await page.click('.sh-card >> nth=0 >> .sh-act.sh-buy'); // first card of the stock: price button, pressed twice to buy
+      await page.click('.sh-card >> nth=0 >> .sh-act.sh-sure');
       await page.waitForFunction(() => /샀습니다/.test(document.querySelector('.sh-msg')?.textContent || ''), null, { timeout: T });
-      await page.click('.sh-go:has-text("끼기")');
+      await page.click('.sh-card >> nth=0 >> .sh-act:has-text("끼기")');
       await page.waitForFunction(() => /꼈습니다/.test(document.querySelector('.sh-msg')?.textContent || ''), null, { timeout: T });
       if (!(await page.locator('.sh-card.sh-worn .sh-stamp').count())) throw new Error('no 착용 중 stamp');
-      if (await page.evaluate(() => document.documentElement.scrollHeight > innerHeight + 1 || document.querySelector('.sh-go').getBoundingClientRect().bottom > innerHeight)) throw new Error('shop overflows the phone screen');
+      if (await page.evaluate(() => document.documentElement.scrollHeight > innerHeight + 1 || document.querySelector('.sh-rows').getBoundingClientRect().bottom > innerHeight)) throw new Error('shop overflows the phone screen');
       await page.click('.sh-swap'); // [칩 교환] opens the swap window over the shop
       await visible2(page, '.cn-field');
       await page.click('.cn-sheet .cn-btns button');

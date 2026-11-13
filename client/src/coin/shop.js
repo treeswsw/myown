@@ -1,27 +1,31 @@
-// 상점 "딜러의 테이블" (SPEC 22-5, 22-10, 22-16, 22-17). 사용자 시안(회원증 + 빨간 테이블 + 카드 모양 품목).
-// 사용자 글자는 textContent 로만. CSS 는 .sh- 만. 요청: buy / equip (22-10 그대로).
-import { ITEMS, GRADES, item } from '../../../shared/coin/shop.js';
+// 상점 "딜러의 테이블" (SPEC 22-10, 22-16, 22-17, 22-18). 사람마다 다른 진열 두 줄(5분 · 1시간)만 보인다.
+// 카드마다 그림 + 가격 버튼(두 번 눌러 사기, 코인이 모자라면 빨강). 가진 것은 같은 버튼이 끼기·빼기.
+// 사용자 글자는 textContent 로만. CSS 는 .sh- 만. 요청: buy / equip / stock.
+import { GRADES, item } from '../../../shared/coin/shop.js';
+import { priceOf } from '../../../shared/coin/stock.js';
 import { titleBadge, nameColor, itemIcon, decorate, hexCss } from './look.js';
 import './shop.css';
 
-// 지금 파는 종류 (모자·악세·페이셜은 그림이 준비된 뒤)
-const TABS = [['title', '칭호'], ['frame', '테두리'], ['color', '글자 색'], ['suit', '정장']];
-const KIND = { title: '칭호', frame: '프로필 테두리', color: '글자 색', suit: '정장 색' };
+const ROWS = [['a', '오늘의 상품'], ['b', '상시 상품']];
+const KIND = { title: '칭호', hat: '모자', acc: '악세', face: '페이셜', frame: '테두리', color: '글자 색', suit: '정장' };
 const WHERE = {
   title: '이름 옆에 보임 · 로비 · 모든 게임',
+  hat: '모든 게임의 프로필 사진',
+  acc: '모든 게임의 프로필 사진',
+  face: '모든 게임의 프로필 사진',
   frame: '모든 게임의 프로필 사진',
   color: '채팅 · 이름표',
   suit: '포커 · 블러핑의 3D 인물',
 };
 const ERR = {
   coin_room: '방에서 나온 뒤에 할 수 있습니다.', coin_low: '코인이 모자랍니다.', coin_bad: '잘못된 요청입니다.',
-  shop_no: '없는 물건입니다.', shop_own: '이미 가지고 있습니다.', shop_not: '가지고 있지 않습니다.',
+  shop_no: '없는 물건입니다.', shop_gone: '진열이 바뀌었습니다.', shop_own: '이미 가지고 있습니다.', shop_not: '가지고 있지 않습니다.',
 };
 const ERR_RE = /^(coin|shop)_/;
 
 // 딜러 한마디 (꾸밈용. 고르는 것은 crypto 난수)
 const LINES = {
-  idle: ['천천히 봐라. 어차피 살 돈도 없잖아.', '구경은 공짜다. 침은 흘리지 마라.', '뭘 봐. 카드 골라.', '여기 물건은 환불 없다. 인생처럼.'],
+  idle: ['천천히 봐라. 어차피 살 돈도 없잖아.', '구경은 공짜다. 침은 흘리지 마라.', '뭘 봐. 카드 골라.', '물건은 때 되면 싹 바뀐다. 놓치면 니 손해.', '여기 물건은 환불 없다. 인생처럼.'],
   pick: ['보는 눈은 있네. 지갑도 있냐?', '회원증에 미리 입혀 놨다. 사든가 말든가.', '그거 사면 친구 없어짐. 원래 없었나.', '싸다 싸. 니 자존심보다는 비싸지만.'],
   poor: ['주머니가 가볍군. 한 판 더 털리고 와.', '돈도 없는 게 눈만 높아요.', '외상 안 된다. 얼굴 보니 더 안 된다.', '거지는 구경만. 만지면 사야 된다.'],
   owned: ['이미 니 거다. 걸치기나 해라.', '사 놓고 안 쓰냐. 돈이 썩어나지?', '장롱에 박아 둘 거면 왜 샀냐.'],
@@ -46,6 +50,13 @@ function el(tag, cls, text) {
 }
 const won = (n) => (Number(n) || 0).toLocaleString('ko-KR');
 const IMG_RE = /^data:image\/(jpeg|png|webp);base64,/;
+
+// 남은 시간: 1시간 미만 m:ss, 그 이상 h:mm:ss
+function clock(ms) {
+  const t = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = String(t % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+}
 
 function gradeOf(g) { return GRADES.find((x) => x.g === g) || GRADES[0]; }
 
@@ -126,20 +137,30 @@ export function openShop(ctx) {
   selBox.append(selName, selWhere);
   const msg = el('p', 'sh-msg');
   msg.setAttribute('role', 'status');
-  const go = el('button', 'sh-go');
-  go.type = 'button';
-  side.append(member, dealer, el('div', 'sh-grow'), selBox, msg, go);
+  side.append(member, dealer, el('div', 'sh-grow'), selBox, msg);
 
   // 오른쪽: 테이블
   const table = el('section', 'sh-table');
   table.setAttribute('aria-label', '테이블');
   const rim = el('div', 'sh-rim');
   rim.setAttribute('aria-hidden', 'true');
-  const tabs = el('nav', 'sh-tabs');
-  tabs.setAttribute('role', 'tablist');
-  tabs.setAttribute('aria-label', '종류');
-  const cards = el('div', 'sh-cards');
-  table.append(rim, tabs, cards);
+  const rowsEl = el('div', 'sh-rows');
+  const wait = el('p', 'sh-empty', '진열 준비 중');
+  const rowEls = {};
+  for (const [k, label] of ROWS) {
+    const row = el('section', 'sh-row');
+    row.dataset.row = k;
+    const rh = el('div', 'sh-row-head');
+    const timer = el('span', 'sh-timer');
+    const tNum = el('b', 'sh-num');
+    timer.append('새로고침까지 ', tNum);
+    rh.append(el('h3', 'sh-row-name', label), timer);
+    const cards = el('div', 'sh-cards');
+    row.append(rh, cards);
+    rowsEl.append(row);
+    rowEls[k] = { row, cards, tNum, timer };
+  }
+  table.append(rim, wait, rowsEl);
 
   const body = el('div', 'sh-body');
   body.append(side, table);
@@ -148,35 +169,25 @@ export function openShop(ctx) {
   ctx.root.append(root);
 
   // ---------- 상태 ----------
-  let slot = TABS[0][0];
-  let sel = null; // 고른 품목 id
+  let sel = null; // 고른 품목 id (회원증에 미리 입혀 본다)
+  let sure = null; // 가격 버튼을 한 번 누른 품목 id (한 번 더 누르면 산다)
   let busy = false;
   let lineKey = '';
   let event = null; // 방금 일어난 일('bought' | 'on' | 'off' | 'err'), 다른 카드를 고르면 지워진다
-  let cardsKey = '';
-  const tabBtns = new Map();
+  let lastStock; // 마지막으로 본 wallet.stock (새로 오면 남은 시간을 다시 잰다)
+  const ends = { a: 0, b: 0 }; // 줄마다 바뀌는 시각(이 기기 시계)
+  let asked = false; // 이번 진열에서 새 진열을 이미 달라고 했는가 (한 번만)
 
   const wal = () => ctx.wallet() || { coins: 0, owned: [], equip: {} };
   const me = () => (typeof ctx.me === 'function' && ctx.me()) || null;
   const say = (t, bad) => { msg.textContent = t || ''; msg.classList.toggle('sh-bad', !!bad); };
-
-  for (const [k, label] of TABS) {
-    const b = el('button', 'sh-tab', label);
-    b.type = 'button';
-    b.setAttribute('role', 'tab');
-    b.addEventListener('click', () => {
-      if (slot === k) return;
-      slot = k; sel = null; event = null; say('');
-      cards.scrollLeft = 0; cards.scrollTop = 0;
-      render();
-    });
-    tabBtns.set(k, b);
-    tabs.append(b);
-  }
+  const small = () => window.innerHeight <= 500;
+  const idsOf = (st, k) => (st && st[k] && Array.isArray(st[k].ids) ? st[k].ids.slice(0, 5) : null);
 
   function act(obj) {
     if (busy) return;
     busy = true;
+    sure = null;
     say('');
     ctx.send(obj);
     render();
@@ -201,47 +212,138 @@ export function openShop(ctx) {
       t.style.color = hexCss((it.v || {}).hex);
       box.append(t);
     } else {
-      box.append(itemIcon(it.id, 48));
+      box.append(itemIcon(it.id, small() ? 34 : 48));
     }
     return box;
   }
 
-  function buildCards(w) {
+  function pick(id) {
+    if (sel !== id) { event = null; sure = null; say(''); }
+    sel = id;
+  }
+
+  function cardOf(it, w) {
     const owned = w.owned || [];
     const equip = w.equip || {};
     const coins = w.coins | 0;
-    cards.textContent = '';
-    const list = ITEMS.filter((it) => it.slot === slot && (it.shop === true || owned.includes(it.id)));
-    if (!list.length) cards.append(el('p', 'sh-empty', '아직 물건이 없습니다.'));
-    for (const it of list) {
-      const has = owned.includes(it.id);
-      const worn = equip[it.slot] === it.id;
-      const price = Number(it.price) || 0;
-      const poor = !has && coins < price;
-      const gr = gradeOf(it.g);
-      const c = el('button', 'sh-card' + (has ? ' sh-own' : '') + (worn ? ' sh-worn' : '') + (poor ? ' sh-poor' : ''));
-      c.type = 'button';
-      c.dataset.id = it.id;
-      const band = el('i', 'sh-band' + (gr.color === 'rainbow' ? ' sh-rainbow' : ''));
-      if (gr.color !== 'rainbow') band.style.background = gr.color;
-      const tag = el('span', 'sh-tag', has ? '보유' : won(price) + ' 코인');
-      c.append(band, artOf(it), el('b', 'sh-name', it.name), el('span', 'sh-kind', gr.name + ' · ' + (KIND[it.slot] || '')), tag);
-      if (worn) c.append(el('span', 'sh-stamp', '착용 중'));
-      c.addEventListener('click', () => {
-        if (sel !== it.id) event = null;
-        sel = it.id;
-        say('');
-        render();
+    const has = owned.includes(it.id);
+    const worn = equip[it.slot] === it.id;
+    const price = priceOf(it);
+    const poor = !has && price != null && coins < price;
+    const gr = gradeOf(it.g);
+    const c = el('div', 'sh-card' + (has ? ' sh-own' : '') + (worn ? ' sh-worn' : '') + (poor ? ' sh-poor' : '') + (sel === it.id ? ' sh-on' : ''));
+    c.dataset.id = it.id;
+    c.style.setProperty('--sh-gc', gr.color === 'rainbow' ? '#ff6ad5' : gr.color);
+
+    const pk = el('button', 'sh-pick');
+    pk.type = 'button';
+    pk.setAttribute('aria-pressed', sel === it.id ? 'true' : 'false');
+    pk.append(el('span', 'sh-grade', gr.name), artOf(it), el('b', 'sh-name', it.name), el('span', 'sh-kind', KIND[it.slot] || ''));
+    if (worn) pk.append(el('span', 'sh-stamp', '착용 중'));
+    pk.addEventListener('click', () => { pick(it.id); render(); });
+
+    const b = el('button', 'sh-act');
+    b.type = 'button';
+    if (has) {
+      b.classList.add('sh-equip');
+      b.textContent = worn ? '빼기' : '끼기';
+      b.disabled = busy;
+      b.addEventListener('click', () => {
+        pick(it.id);
+        act({ t: 'coin', a: 'equip', slot: it.slot, id: worn ? null : it.id });
       });
-      cards.append(c);
+    } else if (price == null) {
+      b.classList.add('sh-none');
+      b.textContent = '안 팔아요';
+      b.disabled = true;
+    } else if (poor) {
+      b.classList.add('sh-low');
+      b.setAttribute('aria-disabled', 'true');
+      b.append(el('b', 'sh-num', won(price)), el('span', null, '코인'));
+      b.addEventListener('click', () => {
+        pick(it.id);
+        render();
+        say(`코인이 모자랍니다 (${won(price - coins)}코인 부족)`, true);
+      });
+    } else if (sure === it.id) {
+      b.classList.add('sh-buy', 'sh-sure');
+      b.textContent = '한 번 더!';
+      b.disabled = busy;
+      b.addEventListener('click', () => act({ t: 'coin', a: 'buy', id: it.id }));
+    } else {
+      b.classList.add('sh-buy');
+      b.append(el('b', 'sh-num', won(price)), el('span', null, '코인'));
+      b.disabled = busy;
+      b.addEventListener('click', () => {
+        pick(it.id);
+        sure = it.id;
+        render();
+        say('한 번 더 누르면 삽니다.');
+      });
     }
+    c.append(pk, b);
+    return c;
+  }
+
+  function buildCards(w) {
+    const st = w.stock;
+    const ok = !!(idsOf(st, 'a') || idsOf(st, 'b'));
+    wait.hidden = ok;
+    rowsEl.hidden = !ok;
+    for (const [k] of ROWS) {
+      const r = rowEls[k];
+      const ids = idsOf(st, k);
+      r.row.hidden = !ids;
+      r.cards.textContent = '';
+      if (!ids) continue;
+      for (let i = 0; i < 5; i++) {
+        const it = item(ids[i]);
+        if (it) r.cards.append(cardOf(it, w));
+        else {
+          const v = el('div', 'sh-void', '빈 자리');
+          v.setAttribute('aria-label', '빈 자리');
+          r.cards.append(v);
+        }
+      }
+    }
+  }
+
+  // 남은 시간 글자. 0 이 되면 새 진열을 한 번만 달라고 한다.
+  function tick() {
+    const now = Date.now();
+    let due = false;
+    for (const [k] of ROWS) {
+      const r = rowEls[k];
+      if (r.row.hidden || !ends[k]) { r.timer.hidden = true; continue; }
+      r.timer.hidden = false;
+      const left = ends[k] - now;
+      r.tNum.textContent = clock(left);
+      if (left <= 0) due = true;
+    }
+    if (due && !asked) { asked = true; ctx.send({ t: 'coin', a: 'stock' }); }
+  }
+
+  function syncStock(w) {
+    const st = w.stock;
+    if (st === lastStock) return;
+    lastStock = st;
+    asked = false;
+    const now = Date.now();
+    const all = [];
+    for (const [k] of ROWS) {
+      const left = st && st[k] ? Number(st[k].left) : NaN;
+      ends[k] = Number.isFinite(left) ? now + Math.max(0, left) : 0;
+      all.push(...(idsOf(st, k) || []));
+    }
+    // 진열에서 빠진 물건을 고르고 있었으면 놓는다
+    if (sel && !all.includes(sel)) { sel = null; sure = null; event = null; }
   }
 
   function renderMember(w) {
     const equip = w.equip || {};
     const it = item(sel);
     const look = { ...equip };
-    if (it && TABS.some(([k]) => k === it.slot)) look[it.slot] = it.id;
+    if (it) look[it.slot] = it.id;
     const u = me();
     const name = (u && typeof u.name === 'string' && u.name) || '나';
 
@@ -279,6 +381,7 @@ export function openShop(ctx) {
     const owned = w.owned || [];
     const equip = w.equip || {};
     const coins = w.coins | 0;
+    syncStock(w);
 
     coinsB.textContent = won(coins);
     const u = me();
@@ -287,63 +390,18 @@ export function openShop(ctx) {
     if (typeof chips === 'number') chipsB.textContent = won(chips);
     swap.disabled = busy;
 
-    for (const [k, b] of tabBtns) {
-      b.classList.toggle('sh-on', k === slot);
-      b.setAttribute('aria-selected', k === slot ? 'true' : 'false');
-    }
-
-    const key = slot + '|' + coins + '|' + owned.join(',') + '|' + JSON.stringify(equip);
-    if (key !== cardsKey) { cardsKey = key; buildCards(w); }
-    for (const c of cards.querySelectorAll('.sh-card')) {
-      const on = c.dataset.id === sel;
-      c.classList.toggle('sh-on', on);
-      c.setAttribute('aria-pressed', on ? 'true' : 'false');
-    }
-
+    buildCards(w);
+    tick();
     renderMember(w);
 
-    // 아래 큰 버튼
     const it = item(sel);
     const has = !!it && owned.includes(it.id);
     const worn = !!it && equip[it.slot] === it.id;
-    const price = it ? Number(it.price) || 0 : 0;
+    const price = it ? priceOf(it) : null;
     let st = 'idle';
-    go.className = 'sh-go';
-    go.onclick = null;
-    if (!it) {
-      go.textContent = '카드를 골라 보세요';
-      go.disabled = true;
-      go.classList.add('sh-none');
-    } else if (!has && it.shop !== true) {
-      go.textContent = '지금은 팔지 않아요';
-      go.disabled = true;
-      go.classList.add('sh-none');
-    } else if (!has && coins < price) {
-      st = 'poor';
-      go.textContent = `코인이 모자랍니다 (${won(price - coins)}코인 부족)`;
-      go.disabled = true;
-      go.classList.add('sh-low');
-    } else if (!has) {
-      st = 'pick';
-      go.textContent = `${won(price)} 코인으로 사기`;
-      go.disabled = busy;
-      go.classList.add('sh-buy');
-      go.onclick = () => act({ t: 'coin', a: 'buy', id: it.id });
-    } else if (worn) {
-      st = 'worn';
-      go.textContent = '빼기';
-      go.disabled = busy;
-      go.classList.add('sh-equip');
-      go.onclick = () => act({ t: 'coin', a: 'equip', slot: it.slot, id: null });
-    } else {
-      st = 'owned';
-      go.textContent = '끼기';
-      go.disabled = busy;
-      go.classList.add('sh-equip');
-      go.onclick = () => act({ t: 'coin', a: 'equip', slot: it.slot, id: it.id });
-    }
+    if (it) st = worn ? 'worn' : has ? 'owned' : price != null && coins < price ? 'poor' : 'pick';
     selName.textContent = it ? it.name : '카드를 골라 보세요';
-    selWhere.textContent = it ? WHERE[it.slot] || '' : '고르면 회원증에 미리 입혀 드립니다';
+    selWhere.textContent = it ? `${gradeOf(it.g).name} · ${KIND[it.slot] || ''} · ${WHERE[it.slot] || ''}` : '고르면 회원증에 미리 입혀 드립니다';
 
     // 딜러 한마디: 상황이 바뀔 때만 새로 고른다
     const lk = (event || st) + ':' + (sel || '');
@@ -360,12 +418,15 @@ export function openShop(ctx) {
   offs.push(ctx.on('error', (m) => {
     if (!m || !ERR_RE.test(m.code || '')) return;
     busy = false;
+    sure = null;
     event = 'err';
     render();
     say(ERR[m.code] || m.msg || '안 됩니다.', true);
   }));
 
+  const timer = setInterval(tick, 1000);
   function end() {
+    clearInterval(timer);
     for (const o of offs) { try { if (o) o(); } catch (e) { /* 무시 */ } }
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('resize', onSize);
