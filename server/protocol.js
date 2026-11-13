@@ -1,3 +1,4 @@
+import { parseCoin } from '../shared/coin/protocol.js';
 // Validation of everything a client may send. Returns sanitized messages only.
 export const MAX_RAW = 70_000; // every message except sndAdd
 export const MAX_FRAME = 300_000; // WebSocket frame limit: room for sndAdd
@@ -52,7 +53,7 @@ function cleanText(raw) {
   return /[^\s\u200d\ufe0f]/u.test(text) ? text : '';
 }
 
-const bad = (error) => ({ ok: false, error });
+const bad = (error, code) => ({ ok: false, error, ...(code ? { code } : {}) });
 const good = (msg) => ({ ok: true, msg });
 
 export function parseMessage(raw) {
@@ -88,6 +89,10 @@ export function parseMessage(raw) {
     }
     case 'adm':
       return ['bot+', 'bot-', 'skip'].includes(m.a) ? good({ t: 'adm', a: m.a }) : bad('알 수 없는 요청입니다.');
+    case 'coin': {
+      const r = parseCoin(m);
+      return r.ok ? good(r.msg) : bad('잘못된 요청입니다.', 'coin_bad');
+    }
     case 'leave':
     case 'start':
     case 'liar':

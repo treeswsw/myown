@@ -7,6 +7,7 @@ import { createYachtRoom } from './yacht/room.js';
 import { createDrawRoom } from './draw/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 import { createAdmin, ADMIN_ID } from './admin/bots.js';
+import { installWallet, walletOf } from './coin/wallet.js';
 
 export const DEFAULT_TIMING = {
   grace: 60_000, // a disconnected player is auto-played (if on turn) and removed after this
@@ -456,7 +457,7 @@ class Room {
 }
 
 export function createHub({
-  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', adminKey,
+  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', adminKey, coinSeed = 0,
 }) {
   const hub = {
     store, rng, now, timers, timing: { ...DEFAULT_TIMING, ...timing },
@@ -470,6 +471,7 @@ export function createHub({
       }
     },
     roomsTimer: null,
+    coinSeed,
     liar, // 'off' | 'test' | 'on'
     yacht, // 'off' | 'test' | 'on'
     draw, // 'off' | 'test' | 'on'
@@ -487,7 +489,7 @@ export function createHub({
     },
     sendMe(...sessions) {
       // admin: true only for the admin session; nobody else gets the field.
-      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, ...(s.admin ? { admin: true } : {}) });
+      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, wallet: walletOf(s.user), ...(s.admin ? { admin: true } : {}) });
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
@@ -560,6 +562,7 @@ export function createHub({
     },
   };
   hub.admin = createAdmin(hub, adminKey ?? '9975');
+  installWallet(hub);
   return hub;
 }
 
@@ -600,7 +603,7 @@ function createConn(hub, sock) {
       // Only drawing ops (DR_DRAW_OPS) ride the high limit; other dr requests (settings, kick, pick, ...) also count against the normal one.
       if (isDr && parsed.ok && (parsed.msg.t !== 'dr' || !DR_DRAW_OPS.has(parsed.msg.a)) && ++conn.count > RATE_LIMIT) return Promise.resolve();
       if (!parsed.ok) {
-        conn.send({ t: 'error', msg: parsed.error });
+        conn.send({ t: 'error', msg: parsed.error, ...(parsed.code ? { code: parsed.code } : {}) });
         return Promise.resolve();
       }
       conn.queue = conn.queue
@@ -652,7 +655,9 @@ async function login(hub, conn, msg) {
   if (!session) {
     if (hub.resetting) return RESET_BUSY_MSG;
     const epoch = hub.epoch;
+    const existed = hub.coinSeed > 0 ? await hub.store.exists(msg.key) : true;
     const user = await hub.store.getOrCreate(msg.key, msg.name);
+    if (!existed && !user.coins) user.coins = hub.coinSeed; // tests only (hubOptions.coinSeed)
     if (epoch !== hub.epoch) return RESET_BUSY_MSG; // a wipe happened while loading: the user is stale
     hub.userEpoch.set(user, epoch);
     session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [], editTimes: [], lastSent: {} };
@@ -753,6 +758,7 @@ async function dispatch(hub, conn, msg) {
       return hub.admin.refuseHuman(r, session) ?? r.join(session);
     }
     case 'adm': return hub.admin.handle(session, room, msg);
+    case 'coin': return hub.coin(session, msg);
     default:
   }
   if (!room) return '방에 들어가 있지 않습니다.';
