@@ -18,7 +18,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 요트다이스: shared/yacht/, server/yacht/, client/src/yacht/, test/yacht/, docs/yacht/ (한 과제는 그 안의 한 모듈만. 모듈·접두사는 docs/YACHT-PLAN.md 1절:
   규칙 shared/yacht/{constants,score,game,protocol}.js, 굴림 계산기 shared/yacht/sim.js, 점수표 .yt-sc-, 결과 .yt-rs-, 판 .yt-bd-, 연출 .yt-fx-, 3D 모델 client/src/yacht/scene/. 요트 CSS 클래스는 전부 `.yt-`)
 - 갱식마인드: shared/draw/, server/draw/, client/src/draw/, test/draw/, docs/draw/, design/draw/ (한 과제는 그 안의 한 모듈만. CSS 는 전부 .dr-, 모듈 접두사 GDD 11-1)
-- 코인(SPEC 22절, 모든 게임 공용): shared/coin/, server/coin/, client/src/coin/, test/coin/ (CSS 지갑·랭킹 .cn-, 뽑기 .gc-, 상점 .sh-, 비밀번호 .pn-, 꾸미기 .lk-, 칭호 효과 .tfx-, 캡슐 .cp-). 게임 폴더는 고치지 않고 server/coin/hooks.js 에서 감싼다. 무작위는 hub.rng(crypto)만.
+- 코인(SPEC 22절, 모든 게임 공용): shared/coin/, server/coin/, client/src/coin/, test/coin/ (CSS 지갑·랭킹 .cn-, 뽑기 .gc-, 상점 .sh-, 비밀번호 .pn-, 꾸미기 .lk-, 칭호 효과 .tfx-, 캡슐 .cp-). 판 끝 정산은 게임이 공용 방 틀의 ctx.finish(rows) 를 한 번 부른다(docs/COMMON-CONTRACT.md, 옮기는 동안은 server/coin/hooks.js 감싸기가 함께 남아 있다). 무작위는 hub.rng(crypto)만.
 - 미니게임: shared/mini/, server/mini/, client/src/mini/, test/mini/, docs/mini/ (CSS 는 전부 .mn-)
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
 - UI 시험: test/ui/, client/src/mock.js
@@ -45,7 +45,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 라이어 전용 요청은 전부 `{t:'lg', a: 종류, ...}`. 라이어 방 상태에는 프로필 사진을 넣지 않는다(`faces` 알림).
 - main.js 의 라이어 연결: `import('./liar/index.js')` 로 따로 불러온다(포커만 하는 사람은 받지 않는다). 상단 줄은 `.lgbar`(style.css).
 - `npm test` 는 라이어 한 판(test/ui/liar-round.mjs)을 포함한다. 새 라이어 화면이 생기면 거기에도 클릭 한 줄을 추가한다.
-- 복사해 온 라이어 폴더는 gamemine 과 같게 유지한다. 라이어 모듈 안의 버그는 고치지 말고 보고(총괄이 정한다).
+- 라이어 폴더는 이 저장소가 원본이다(2026-11-13 gamemine 과 같게 유지하던 약속을 풀었다).
 
 ## 요트다이스 (같은 사이트 안의 세 번째 게임)
 - 스위치 환경 변수 `YACHT`: `off` / `test`(주소에 `?yacht=1` 일 때만 버튼 보임) / `on`(설정이 없을 때의 값). render.yaml 은 `on`(2026-11-13 사용자 지시로 모두에게 공개, 플레이하며 수정).
@@ -91,7 +91,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
   `#ui > *` 같은 넓은 선택자로 pointer-events를 바꾸지 않는다.
 
 ## 브랜치와 배포
-- 개발: claude/awesome-tesla-yeb0y1 (배포되지 않음, 자유롭게 푸시, 항상 check 통과 상태 유지).
+- 개발: claude/wizardly-maxwell-ksh6e1 (배포되지 않음, 자유롭게 푸시, 항상 check 통과 상태 유지).
 - 배포: main (Render 자동 배포). 검토·check·npm test·최종 확인을 통과한 묶음만
   git push origin HEAD:main 으로 올린다. 강제 푸시, main 직접 커밋 금지.
 - 배포하면 서버가 재시작되어 진행 중인 방이 끊긴다. 사용자가 시험 중이면 먼저 묻는다.
