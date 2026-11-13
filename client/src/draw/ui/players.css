@@ -99,13 +99,21 @@
 .dr-pl-root.dr-pl-phone .dr-pl-seat[data-mode='inrow'] .dr-pl-say::before { display: none; }
 .dr-pl-root.dr-pl-phone .dr-pl-seat.dr-pl-inrow.dr-pl-say-on .dr-pl-sc { display: none; }
 
-/* 채팅 기록 칸: 휴대폰에서 맞히는 사람에게만 (그리는 사람·PC 에서는 숨김). 칸의 자리·높이는 부모 격자가 정한다 */
+/* 채팅 기록 칸. 자리·크기는 부모 격자(draw.css)가 정한다.
+   휴대폰: 맞히는 사람에게만(칸 3, 줄 1~2). PC·iPad: 그림판 아래 줄의 격자 칸 `dr-log`.
+   맞히는 사람은 3~4줄 높이, 그리는 사람은 작게(2줄). 안에서 위로 넘겨 더 본다. 눌러 스크롤하므로 pointer-events:auto
+   (말풍선은 그대로 none). 글은 아래쪽에 붙는다(첫 글자에 margin-top:auto). */
 .dr-pl-log { display: none; }
-.dr-pl-root.dr-pl-phone:not(.dr-pl-mine) .dr-pl-log {
-  display: flex; grid-column: 3; grid-row: 1 / 3; flex-direction: column; justify-content: flex-end; gap: 4px;
-  min-width: 0; padding: 8px; border-radius: 14px; overflow: hidden;
+.dr-pl-root:not(.dr-pl-log-hidden) .dr-pl-log {
+  pointer-events: auto; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  min-width: 0; min-height: 0; padding: 8px; border-radius: 14px; box-sizing: border-box;
   background: var(--panel, rgba(28, 28, 30, .85)); box-shadow: inset 0 0 0 1px var(--hair, rgba(255, 255, 255, .1));
 }
+.dr-pl-log > p:first-child { margin-top: auto; }
+.dr-pl-root.dr-pl-phone:not(.dr-pl-log-hidden) .dr-pl-log { display: flex; flex-direction: column; gap: 4px; grid-column: 3; grid-row: 1 / 3; }
+.dr-pl-root.dr-pl-wide:not(.dr-pl-log-hidden) .dr-pl-log { display: flex; flex-direction: column; gap: 3px; grid-area: dr-log; align-self: end; height: 88px; }
+.dr-pl-root.dr-pl-wide.dr-pl-log-small .dr-pl-log { height: 58px; padding: 6px 8px; opacity: .85; }
+.dr-pl-root.dr-pl-wide .dr-pl-log p { font-size: 13px; }
 .dr-pl-log p { margin: 0; font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; }
 .dr-pl-log p b { color: var(--ink2, #aeaeb2); font-weight: 600; margin-right: 4px; }
 .dr-pl-log p.dr-pl-sys { color: var(--accent, #f2c444); }

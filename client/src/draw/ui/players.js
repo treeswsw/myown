@@ -4,7 +4,7 @@
 import { BUBBLE_MS } from '../../../../shared/draw/constants.js';
 import {
   SEAT_COUNT, SEATS_PER_SIDE, seatSlots, bubbleMode, iAmDrawer, playerView,
-  bubbleFromChat, bubbleFromHit, logEntryFromChat, logEntryFromHit, logFromChatLog, pushLog, avatarSrc,
+  bubbleFromChat, bubbleFromHit, logEntryFromChat, logEntryFromHit, logFromChatLog, pushLog, avatarSrc, logMode, shouldFollow,
 } from './players.pure.js';
 
 const TALK_MS = 380;   // 통통 (CSS .dr-pl-talk 와 같은 값)
@@ -91,6 +91,10 @@ export function createPlayers(parent, ctx) {
     root.classList.toggle('dr-pl-phone', layout === 'phone');
     const mine = iAmDrawer(state, me());
     root.classList.toggle('dr-pl-mine', mine);
+    const lm = logMode(layout, mine);
+    root.classList.toggle('dr-pl-log-full', lm === 'full');
+    root.classList.toggle('dr-pl-log-small', lm === 'small');
+    root.classList.toggle('dr-pl-log-hidden', lm === 'hidden');
     slotOf.clear();
     const slots = seatSlots(state?.players);
     for (let i = 0; i < SEAT_COUNT; i++) {
@@ -131,6 +135,8 @@ export function createPlayers(parent, ctx) {
   }
 
   function renderLog() {
+    // 보이는 동안만 위치를 잰다(숨김이면 0 이라 항상 따라가기로 본다). 새로 그리기 전에 판단해야 한다.
+    const follow = shouldFollow(log.scrollTop, log.clientHeight, log.scrollHeight);
     log.replaceChildren();
     for (const it of logItems) {
       const p = h('p', it.kind === 'sys' ? 'dr-pl-sys' : it.kind === 'sec' ? 'dr-pl-sec' : '');
@@ -138,6 +144,7 @@ export function createPlayers(parent, ctx) {
       p.appendChild(document.createTextNode(it.text));
       log.appendChild(p);
     }
+    if (follow) log.scrollTop = log.scrollHeight;
   }
 
   function restart(el, cls, ms, key) {
