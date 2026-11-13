@@ -1,23 +1,39 @@
-// mountGsk: 갱스껄 임시 화면 (서버와 끝까지 한 판을 돌리기 위한 단순한 화면. 나중에 진짜 화면으로 교체).
-//   const gsk = mountGsk({ ui, send, getMe?, toast?, leave? });
-//   gsk.room(state)   방 상태(GDD 9-2)가 올 때마다. 방을 나가면 room(null).
-//   gsk.event(e)      event.e 하나. 지금은 faces(프로필 사진)만 쓴다.
+// mountGsk: 갱스껄 화면 입구. 모듈(탁자·손·벌칙/결과·대기·연출)을 GDD 16절 약속대로 조립한다.
+//   const gsk = mountGsk({ ui, send, getMe?, toast?, leave?, openEmote? });
+//   gsk.room(state) / gsk.update(state)   방 상태(GDD 9-2)가 올 때마다. 방을 나가면 null.
+//   gsk.event(e)      event.e 하나(faces, gkFlip, gkPlace, gkReveal ... 사이트 공통 이벤트는 main.js 가 먼저 가려 준다).
 //   gsk.error(err)    {code, msg}. toast 가 있으면 보여 준다.
 //   gsk.dispose()     화면을 걷어낸다.
-// 교체할 때: 화면 그리기(draw 함수)만 새로 만들고, toView(model.js)와 requestFor(actions.js)는 그대로 쓴다.
-// 버튼은 toView().actions 에서만 만든다. data-gk 속성이 시험 자동화용 손잡이.
+//
+// 화면 구성: .gk-root(나무 바닥 + 비네팅) > .gk-stage(시안 크기 상자를 창 크기에 맞게 scale) > 모듈들.
+// 모듈 약속: createXxx(parent, ctx) → { el, update(view), event(e), dispose() }.
+//   ctx = { send, meId(), now(), face(id), layout()('pc'|'phone'), anchor(kind, id), fx, busy(), stage, scale() }
+//   anchor(kind, id) → DOM 요소 | null
+//     'mat'(id=자리 주인) 개인판 · 'stack'(id) 더미 맨 위 칸 · 'tag'(id) 이름표 · 'center' 가운데 덩어리
+//     'row' 펼친 줄 틀 · 'rowSlot'(id=0부터 센 칸 번호, 줄 왼쪽·윗줄부터) · 'handDock' 손이 접혀 있을 때 놓이는 자리
+//   view = toView(state, meId) + { hold, outcome, penalty, progress(flip·reveal·penalty 동안 {flipped, need}) }
+//   view.hold = { shown: { [id]: 감출 공개 원판 수 }, row: 감출 펼친 줄 칸 수 }  (연출이 끝나면 줄어든다)
+// 비밀: 이 화면은 서버가 준 값만 그린다. 남의 원판 종류를 추측하지 않는다.
 import './gsk.css';
 import { toView } from './model.js';
-import { requestFor } from './actions.js';
-import { COLORS, discBackUrl, discFlowerUrl, discSkullUrl, matUrl, floorUrl, skullPhotoUrl, preload } from './art.js';
+import { floorUrl, preload } from './art.js';
+import { createTable } from './ui/table.js';
+import { LAYOUTS, layoutFor } from './ui/table.pure.js';
+import { createHand } from './ui/hand.js';
+import { createResult } from './ui/result.js';
+import { createWait } from './ui/wait.js';
+import { createFx } from './anim/fx.js';
 
-const el = (tag, cls, text) => {
+const el = (tag, cls) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
   return e;
 };
 const IMG = /^data:image\/(jpeg|png|webp);base64,/;
+const FONT_HREF = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap';
+const FLOW_TIMEOUT = 9000; // 연출이 끝났다고 알려 주지 않아도 이 시간 뒤에는 보여 주기 지연을 푼다
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const withTimeout = (p, ms) => Promise.race([Promise.resolve(p), sleep(ms)]);
 
 let current = null;
 
@@ -30,172 +46,160 @@ export function mountGsk(opts) {
   return inst;
 }
 
+function ensureFonts() {
+  if (typeof document === 'undefined' || document.getElementById('gk-fonts')) return;
+  const l = el('link');
+  l.id = 'gk-fonts';
+  l.rel = 'stylesheet';
+  l.href = FONT_HREF;
+  document.head.append(l);
+}
+
 function mountInner({ ui, send, getMe, toast, leave }) {
-  const root = el('div', 'gk-tmp-root');
+  ensureFonts();
+  const root = el('div', 'gk-root');
   root.style.backgroundImage = `url(${floorUrl()})`;
   root.hidden = true;
+  const vig = el('div', 'gk-vig');
+  const stage = el('div', 'gk-stage');
+  root.append(vig, stage);
   ui.append(root);
+
   let state = null;
+  let offset = 0;
   let disposed = false;
+  let lay = layoutFor(window.innerHeight);
+  let scale = 1;
   const faces = new Map();
-  preload();
+
+  // ---- 보여 주기 지연(hold)과 연출 줄 세우기 ----
+  const holdShown = {};
+  let holdRow = 0;
+  let pending = 0;
+  let chain = Promise.resolve();
+  let deferred = false; // 연출 때문에 벌칙·결과 화면 갱신을 미뤘는가
 
   const meId = () => state?.you ?? getMe?.()?.id ?? null;
+  const ctx = {
+    send: (m) => { if (!disposed && m) send(m); },
+    meId,
+    now: () => Date.now() + offset,
+    face: (id) => faces.get(id) || null,
+    layout: () => lay,
+    anchor: (kind, id) => mods.table?.anchor(kind, id) || null,
+    fx: null,
+    busy: () => pending > 0 || !!(ctx.fx && ctx.fx.busy && ctx.fx.busy()),
+    stage,
+    scale: () => scale,
+  };
+  if (leave) ctx.leave = leave;
 
-  const act = (a) => {
-    const req = requestFor(a);
-    if (req && !disposed) send(req);
+  const mods = {};
+  mods.table = createTable(stage, ctx);
+  mods.fx = createFx(stage, ctx);
+  ctx.fx = mods.fx;
+  mods.hand = createHand(stage, ctx);
+  mods.result = createResult(stage, ctx);
+  mods.wait = createWait(stage, ctx);
+
+  const safe = (name, fn) => {
+    try { fn(); } catch (e) { console.error(`gsk ${name}`, e); }
   };
-  const btn = (a, label, cls) => {
-    const b = el('button', 'gk-tmp-btn' + (cls ? ' ' + cls : ''), label);
-    b.type = 'button';
-    b.dataset.gk = a.key;
-    b.addEventListener('click', () => act(a));
-    return b;
-  };
-  const disc = (src, cls) => {
-    const i = el('img', 'gk-tmp-disc' + (cls ? ' ' + cls : ''));
-    i.src = src;
-    i.alt = '';
-    i.draggable = false;
-    return i;
-  };
+
+  function fit() {
+    lay = layoutFor(window.innerHeight);
+    const L = LAYOUTS[lay];
+    scale = Math.max(0.2, Math.min(2, Math.min(window.innerWidth / L.W, window.innerHeight / L.H)));
+    stage.dataset.lay = lay;
+    stage.style.setProperty('--gk-s', String(scale));
+  }
+  fit();
+
+  function viewNow() {
+    const v = toView(state, meId());
+    if (!v) return null;
+    const step = state.step || null;
+    v.hold = { shown: { ...holdShown }, row: holdRow };
+    v.outcome = state.outcome || null;
+    v.penalty = state.penalty || null;
+    v.progress = ['flip', 'reveal', 'penalty'].includes(step) ? { flipped: state.flipped || 0, need: state.need || 0 } : null;
+    return v;
+  }
 
   function draw() {
-    root.replaceChildren();
-    const v = toView(state, meId());
+    if (disposed) return;
+    const v = viewNow();
     if (!v) { root.hidden = true; return; }
     root.hidden = false;
-
-    const top = el('div', 'gk-tmp-top');
-    top.append(el('span', 'gk-tmp-code', `방 ${state.code}`));
-    const lv = el('button', 'gk-tmp-btn gk-tmp-leave', '나가기');
-    lv.type = 'button';
-    lv.dataset.gk = 'leave';
-    lv.addEventListener('click', () => (leave ? leave() : send({ t: 'leave' })));
-    top.append(lv);
-    root.append(top);
-
-    const seatsBox = el('div', 'gk-tmp-seats');
-    const isFlip = v.actions.filter((a) => a.a === 'flip');
-    for (const s of v.seats) {
-      const card = el('div', 'gk-tmp-seat' + (s.isMe ? ' gk-tmp-me' : '') + (s.isTurn ? ' gk-tmp-turn' : '') + (s.out ? ' gk-tmp-out' : ''));
-      card.dataset.gkSeat = s.id;
-      const mat = el('div', 'gk-tmp-mat');
-      if (s.color != null) mat.style.backgroundImage = `url(${matUrl(s.color, s.points >= 1)})`;
-      const name = el('div', 'gk-tmp-name', s.name);
-      mat.append(name);
-      const stk = el('div', 'gk-tmp-stack');
-      for (let i = 0; i < s.stack; i++) {
-        const shownIdx = i - (s.stack - s.shown.length); // 위에서부터 공개: 위쪽 shown.length 장
-        const c = s.color == null ? 0 : s.color;
-        if (shownIdx >= 0) {
-          const kind = s.shown[s.stack - 1 - i];
-          stk.append(disc(kind === 'S' ? discSkullUrl(c) : discFlowerUrl(c)));
-        } else stk.append(disc(discBackUrl(c)));
-      }
-      mat.append(stk);
-      card.append(mat);
-      const info = [];
-      if (state.phase !== 'lobby') info.push(`손 ${s.hand} · 판 ${s.stack}`, `${s.points}점`);
-      if (s.status) info.push(s.status);
-      if (info.length) card.append(el('div', 'gk-tmp-info', info.join(' · ')));
-      const fl = isFlip.find((a) => a.p === s.id);
-      if (fl) {
-        card.append(btn(fl, '뒤집기', 'gk-tmp-flip'));
-      }
-      if (state.phase === 'lobby') {
-        card.append(el('div', 'gk-tmp-info', s.color == null ? '색 안 고름' : COLORS[s.color].name));
-      }
-      seatsBox.append(card);
-    }
-    root.append(seatsBox);
-
-    const mid = el('div', 'gk-tmp-center', v.center);
-    mid.dataset.gk = 'center';
-    root.append(mid);
-
-    const bar = el('div', 'gk-tmp-actions');
-    const by = (t) => v.actions.filter((a) => a.a === t);
-
-    if (by('color').length) {
-      const row = el('div', 'gk-tmp-row');
-      row.append(el('span', 'gk-tmp-label', '색 고르기'));
-      for (const a of by('color')) row.append(btn(a, COLORS[a.c].name, 'gk-tmp-color'));
-      bar.append(row);
-    }
-    if (by('place').length) {
-      const row = el('div', 'gk-tmp-row');
-      for (const a of by('place')) {
-        const b = btn(a, a.k === 'F' ? `꽃 내기 (${v.me.hand.F})` : `해골 내기 (${v.me.hand.S})`);
-        row.append(b);
-      }
-      bar.append(row);
-    }
-    const bids = by('bid');
-    if (bids.length) {
-      const row = el('div', 'gk-tmp-row');
-      row.append(el('span', 'gk-tmp-label', v.step === 'bid' ? '올리기' : '도전'));
-      for (const a of bids) row.append(btn(a, String(a.n), 'gk-tmp-num'));
-      bar.append(row);
-    }
-    for (const a of by('pass')) bar.append(btn(a, '패스'));
-    const dis = by('discard');
-    if (dis.length) {
-      const row = el('div', 'gk-tmp-row');
-      row.append(el('span', 'gk-tmp-label', '버릴 원판'));
-      for (const a of dis) {
-        if (a.k !== undefined) row.append(btn(a, a.k === 'F' ? '꽃' : '해골'));
-        else {
-          const b = btn(a, '');
-          b.classList.add('gk-tmp-pick');
-          b.append(disc(discBackUrl(0)));
-          row.append(b);
-        }
-      }
-      bar.append(row);
-    }
-    for (const a of by('start')) bar.append(btn(a, state.phase === 'result' ? '한 판 더' : '시작'));
-    root.append(bar);
-
-    if (v.me && (state.phase === 'playing')) {
-      const hand = el('div', 'gk-tmp-hand');
-      const me = v.seats.find((s) => s.isMe);
-      const c = me && me.color != null ? me.color : 0;
-      const kinds = [];
-      for (let i = 0; i < v.me.hand.F; i++) kinds.push('F');
-      for (let i = 0; i < v.me.hand.S; i++) kinds.push('S');
-      for (const k of kinds) {
-        const i = disc(k === 'S' ? discSkullUrl(c) : discFlowerUrl(c), 'gk-tmp-hand-disc');
-        if (k === 'S') {
-          const photo = faces.get(meId());
-          if (photo) skullPhotoUrl(c, photo).then((u) => { if (!disposed) i.src = u; });
-        }
-        hand.append(i);
-      }
-      hand.append(el('span', 'gk-tmp-label', '내 손'));
-      root.append(hand);
-    }
-
-    if (state.phase === 'result' && v.result) {
-      const box = el('div', 'gk-tmp-result');
-      box.dataset.gk = 'result';
-      box.append(el('div', 'gk-tmp-result-title', v.result.winner ? '갱스껄 승리!' : '판 끝'));
-      const ol = el('ol');
-      for (const r of v.result.ranks || []) {
-        ol.append(el('li', null, `${r.rank}위 ${r.name} — ${r.points}점, 원판 ${r.discs}`));
-      }
-      box.append(ol);
-      root.append(box);
-    }
+    safe('table', () => mods.table.update(v));
+    safe('wait', () => mods.wait.update(v));
+    safe('hand', () => mods.hand.update(v));
+    // 판정·벌칙·결과 화면은 앞 연출이 끝난 뒤에 띄운다
+    if (ctx.busy()) deferred = true;
+    else { deferred = false; safe('result', () => mods.result.update(v)); }
   }
+
+  function enqueue(run) {
+    pending++;
+    chain = chain
+      .then(run)
+      .catch((e) => console.error('gsk fx', e))
+      .then(() => {
+        pending--;
+        if (disposed) return;
+        if (pending === 0 || deferred) draw();
+      });
+  }
+
+  function onFlip(e) {
+    const p = e.p;
+    const flower = e.disc === 'F';
+    holdShown[p] = (holdShown[p] | 0) + 1;
+    if (flower) holdRow++;
+    enqueue(async () => {
+      await sleep(50); // 이벤트가 상태보다 먼저 오므로, 상태가 그려진 뒤에 연출이 자리를 잰다
+      try {
+        await withTimeout(mods.fx.flip(e, ctx), FLOW_TIMEOUT);
+      } finally {
+        holdShown[p] = Math.max(0, (holdShown[p] | 0) - 1);
+        if (!holdShown[p]) delete holdShown[p];
+        if (flower) holdRow = Math.max(0, holdRow - 1);
+        if (!disposed) draw();
+      }
+    });
+  }
+
+  function clearHold() {
+    for (const k of Object.keys(holdShown)) delete holdShown[k];
+    holdRow = 0;
+  }
+
+  addEventListener('resize', onResize);
+  addEventListener('orientationchange', onResize);
+  function onResize() {
+    if (disposed) return;
+    const before = lay;
+    fit();
+    if (before !== lay) draw();
+  }
+
+  preload();
 
   return {
     room(s) {
       if (disposed) return;
       state = s || null;
+      if (state && typeof state.now === 'number') offset = state.now - Date.now();
+      if (!state) {
+        clearHold();
+        root.hidden = true;
+        for (const name of ['table', 'wait', 'hand', 'result']) safe(name, () => mods[name].update(null));
+        return;
+      }
+      if (state.step === 'setup' || state.phase !== 'playing') clearHold();
       draw();
     },
+    update(s) { this.room(s); },
     event(e) {
       if (disposed || !e) return;
       if (e.k === 'faces' && Array.isArray(e.items)) {
@@ -206,7 +210,15 @@ function mountInner({ ui, send, getMe, toast, leave }) {
           }
         }
         if (state) draw();
+        return;
       }
+      if (e.k === 'gkFlip') onFlip(e);
+      else if (e.k === 'gkReveal') enqueue(() => withTimeout(mods.fx.reveal(e, ctx), FLOW_TIMEOUT));
+      else if (e.k === 'gkPlace' && e.id !== meId()) {
+        Promise.resolve().then(() => mods.fx.place(e, ctx)).catch((err) => console.error('gsk fx', err));
+      } else if (e.k === 'gkStart' || e.k === 'gkRound' || e.k === 'gkVoid') clearHold();
+      for (const name of ['table', 'hand', 'result', 'wait']) safe(name, () => mods[name].event(e));
+      safe('fx', () => mods.fx.event && mods.fx.event(e));
     },
     error(err) {
       if (disposed || !err) return;
@@ -215,6 +227,9 @@ function mountInner({ ui, send, getMe, toast, leave }) {
     dispose() {
       if (disposed) return;
       disposed = true;
+      removeEventListener('resize', onResize);
+      removeEventListener('orientationchange', onResize);
+      for (const name of ['fx', 'table', 'hand', 'result', 'wait']) safe(name, () => mods[name].dispose());
       root.remove();
     },
   };
