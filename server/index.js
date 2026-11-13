@@ -136,6 +136,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
       timing,
       liar: ['test', 'on'].includes(process.env.LIAR) ? process.env.LIAR : (process.env.LIAR === 'off' ? 'off' : 'test'),
       yacht: ['test', 'off'].includes(process.env.YACHT) ? process.env.YACHT : 'on',
+      draw: ['test', 'on'].includes(process.env.DRAW) ? process.env.DRAW : 'off',
     },
   });
   console.log(`listening on ${app.port}`);

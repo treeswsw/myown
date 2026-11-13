@@ -125,3 +125,13 @@ test('joining a running room makes a spectator for the next hand/game (both mode
     else assert.deepEqual(late.state.myHand, []);
   }
 });
+
+test('roomList does not throw for a room whose host is not a member', async () => {
+  const { hub } = setup();
+  const a = await login(hub, 'ann1');
+  await a.send({ t: 'create', mode: 'holdem' });
+  hub.rooms.get(a.state.code).hostId = 'ghost';
+  const list = hub.roomList();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].hostName, 'ann1');
+});

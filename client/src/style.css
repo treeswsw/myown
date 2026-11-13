@@ -1,7 +1,7 @@
 :root { --k: 1; --gold: #ffc62a; }
 html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: "Noto Sans KR", sans-serif; color: #fff; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 input, textarea { -webkit-user-select: text; user-select: text; }
-canvas { display: block; position: fixed; inset: 0; }
+#cv { display: block; position: fixed; inset: 0; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
 button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
 .hit { pointer-events: auto; }

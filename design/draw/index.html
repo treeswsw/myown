@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>갱식마인드 — 정적 시안</title>
+<!--
+  정적 시안(가짜 데이터). 실제 코드가 아니다. 외부 파일 없음.
+  화면 고르기: 왼쪽 아래 버튼, 또는 주소 ?s=lobby|room|pick|draw|guess|kb|reveal|final  (&shot=1 이면 버튼 숨김)
+  크기: PC 1280x800, 휴대폰 가로 844x390 (높이 480px 이하이면 휴대폰 배치)
+-->
+<style>
+:root{
+  --ink:#fff;--ink2:rgba(255,255,255,.62);--ink3:rgba(255,255,255,.32);
+  --fill:rgba(255,255,255,.09);--fill2:rgba(255,255,255,.16);--hair:rgba(255,255,255,.12);
+  --accent:#f2c444;--on-accent:#1c1608;--red:#ff453a;--green:#34c759;
+  --panel:rgba(28,28,30,.62);--paper:#fffdf8;
+  --pad:12px;--gap:12px;--bar:54px;--strip:52px;--under:56px;
+  --pw:clamp(92px,8.5vw,112px);--palw:84px;--toolw:64px;
+  --sl:0px;--sr:0px;
+  --ch:min(calc(100dvh - var(--bar) - var(--pad)*2 - var(--strip) - var(--under) - 20px),
+           calc((100vw - var(--pad)*2 - var(--pw)*2 - var(--palw) - var(--toolw) - var(--gap)*4)*.75));
+  --cw:calc(var(--ch)*4/3);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0c0a09;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Apple SD Gothic Neo","Pretendard","Noto Sans KR","WenQuanYi Zen Hei",sans-serif;
+  font-size:15px;line-height:1.3;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+svg{display:block}
+.bg{position:fixed;inset:0;background:
+  radial-gradient(ellipse 70% 60% at 50% 42%,rgba(242,196,68,.10),transparent 70%),
+  radial-gradient(ellipse at 50% 50%,#1d1813 0%,#0c0a09 75%)}
+
+/* ---------- 시안 전용: 화면 고르기 ---------- */
+.mk-nav{position:fixed;left:6px;bottom:6px;z-index:99;display:flex;gap:4px;flex-wrap:wrap;max-width:60vw;opacity:.85}
+.mk-nav a{font-size:11px;padding:3px 7px;border-radius:8px;background:#000;color:#fff;text-decoration:none;border:1px solid #555}
+.mk-nav a.on{background:var(--accent);color:#000}
+
+/* ---------- 공통 조각 ---------- */
+.dr-av{width:44px;height:44px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.85)}
+.dr-btn{height:44px;border-radius:22px;padding:0 20px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.dr-btn.primary{background:#fff;color:#000}
+.dr-btn.tint{background:var(--fill)}
+.dr-btn.gold{background:var(--accent);color:var(--on-accent)}
+.dr-btn.danger{color:var(--red);background:rgba(255,69,58,.14)}
+.dr-ic{width:36px;height:36px;border-radius:50%;box-shadow:inset 0 0 0 2px #fff;display:flex;align-items:center;justify-content:center;flex:none}
+.dr-ic svg{width:18px;height:18px}
+
+/* ---------- 게임 화면 ---------- */
+.dr-root{position:fixed;inset:0;display:flex;flex-direction:column}
+.dr-bar{height:var(--bar);flex:none;display:flex;align-items:center;gap:10px;padding:0 calc(var(--pad) + var(--sr)) 0 calc(var(--pad) + var(--sl))}
+.dr-brand{font-weight:800;letter-spacing:-.02em;font-size:17px}
+.dr-code{font-weight:700;color:var(--accent);letter-spacing:.12em}
+.dr-sp{flex:1}
+.dr-round{font-size:14px;color:var(--ink2);font-weight:600;white-space:nowrap}
+.dr-round b{color:var(--ink);font-size:17px}
+.dr-stage{flex:1;min-height:0;display:grid;justify-content:center;align-content:start;gap:0 var(--gap);
+  grid-template-columns:var(--pw) var(--palw) var(--cw) var(--toolw) var(--pw);grid-template-rows:1fr;
+  padding:0 calc(var(--pad) + var(--sr)) var(--pad) calc(var(--pad) + var(--sl))}
+.dr-seats{display:flex;flex-direction:column;gap:10px;min-height:0;height:calc(var(--strip) + var(--ch) + var(--under) + 20px)}
+.dr-seats.l{grid-column:1}.dr-seats.r{grid-column:5}
+.dr-seat{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative}
+.dr-seat.off{opacity:.45}
+.dr-who{display:flex;flex-direction:column;gap:9px;align-items:center;min-width:0;max-width:100%;text-align:center}
+.dr-who>div{min-width:0;max-width:100%}
+.dr-avw{position:relative;display:block}
+.dr-seat .dr-av{width:72px;height:72px;font-size:30px;box-shadow:inset 0 0 0 2.5px rgba(255,255,255,.9),0 6px 16px rgba(0,0,0,.5)}
+.dr-seat.turn .dr-av{box-shadow:inset 0 0 0 3px var(--accent),0 0 0 4px rgba(242,196,68,.3),0 0 22px rgba(242,196,68,.7)}
+.dr-seat.hit .dr-av{box-shadow:inset 0 0 0 3px var(--green),0 0 0 4px rgba(52,199,89,.3),0 0 18px rgba(52,199,89,.6)}
+.dr-av.dr-none{background:none;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.14);color:var(--ink3);font-size:12px;font-weight:500}
+.dr-nm{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-sc{font-size:12.5px;color:var(--ink2);white-space:nowrap}
+.dr-sc b{color:var(--accent);font-size:15px;margin-right:1px}
+.dr-tag{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px;background:var(--accent);color:var(--on-accent);box-shadow:0 0 0 2px #0c0a09}
+.dr-tag.host,.dr-tag.gone{background:#48484c;color:var(--ink)}
+.dr-tag.ok{background:var(--green);color:#fff}
+/* 말할 때 프로필이 통통, 맞혔을 때는 더 크게 */
+.dr-av.talk{animation:dr-bounce .38s cubic-bezier(.3,.7,.4,1)}
+.dr-av.cheer{animation:dr-cheer .75s cubic-bezier(.3,.7,.4,1)}
+@keyframes dr-bounce{0%{transform:none}30%{transform:translateY(-12px) scale(.95,1.06)}62%{transform:translateY(0) scale(1.1,.9)}82%{transform:translateY(-3px) scale(.98,1.02)}100%{transform:none}}
+@keyframes dr-cheer{0%{transform:none}22%{transform:translateY(-24px) scale(1.18) rotate(-10deg)}44%{transform:translateY(0) scale(1.14,.88) rotate(0)}62%{transform:translateY(-12px) scale(1.08) rotate(8deg)}82%{transform:translateY(0) scale(1.05,.95)}100%{transform:none}}
+@media (prefers-reduced-motion:reduce){.dr-av.talk,.dr-av.cheer{animation:none}}
+.dr-say{position:absolute;top:18px;z-index:4;width:max-content;max-width:170px;font-size:13.5px;line-height:1.3;padding:6px 10px;border-radius:13px;background:#fff;color:#111;opacity:.95;pointer-events:none;
+  box-shadow:0 4px 14px rgba(0,0,0,.45);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;animation:dr-pop .28s cubic-bezier(.3,1.6,.5,1) both}
+.dr-say::before{content:'';position:absolute;top:9px;border:7px solid transparent}
+.dr-say.out{opacity:0;transition:opacity .4s}
+.dr-seats.l .dr-say{left:calc(100% + 10px);transform-origin:0 50%}
+.dr-seats.l .dr-say::before{left:-12px;border-right-color:#fff}
+.dr-seats.r .dr-say{right:calc(100% + 10px);transform-origin:100% 50%}
+.dr-seats.r .dr-say::before{right:-12px;border-left-color:#fff}
+.dr-say.ok{background:var(--green);color:#fff;font-weight:700}
+.dr-seats.l .dr-say.ok::before{border-right-color:var(--green)}.dr-seats.r .dr-say.ok::before{border-left-color:var(--green)}
+/* 그리는 사람 화면(PC·iPad): 말풍선을 프로필 위로 띄워 색·도구 칸을 가리지 않는다 */
+@media (min-height:481px){
+  .mine .dr-seats{padding-top:26px}
+  .mine .dr-seats .dr-say{left:50%;right:auto;top:auto;bottom:calc(100% + 9px);max-width:118px;transform:translateX(-50%);transform-origin:50% 100%;animation-name:dr-pop-up}
+  .mine .dr-seats .dr-say::before{top:auto;bottom:-12px;left:50%;right:auto;margin-left:-7px;border-color:transparent;border-top-color:#fff}
+  .mine .dr-seats .dr-say.ok::before{border-color:transparent;border-top-color:var(--green)}
+}
+@keyframes dr-pop-up{from{transform:translateX(-50%) scale(.4);opacity:0}}
+@keyframes dr-pop{from{transform:scale(.4);opacity:0}}
+@media (prefers-reduced-motion:reduce){.dr-say{animation:none}}
+.mk-still .dr-say{animation:none}
+.dr-plus{font-weight:800;color:var(--green);font-size:19px;line-height:1.1}
+
+.dr-pal{grid-column:2;align-self:start;margin-top:calc(var(--strip) + 10px);display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;border-radius:18px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair)}
+.dr-sw{aspect-ratio:1;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.28);position:relative}
+.dr-sw.on{box-shadow:0 0 0 2px #0c0a09,0 0 0 4.5px #fff}
+.dr-tools{grid-column:4;align-self:start;margin-top:calc(var(--strip) + 10px);display:flex;flex-direction:column;gap:6px;padding:6px;border-radius:18px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair)}
+.dr-tool{height:54px;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10.5px;color:var(--ink2);font-weight:600;white-space:nowrap}
+.dr-tool svg{width:22px;height:22px;color:#fff}
+.dr-tool.dim{opacity:.35}
+.dr-tool.on{background:#fff;color:#000}.dr-tool.on svg{color:#000}
+.dr-tools hr{border:0;height:1px;background:var(--hair);margin:2px 4px}
+.dr-sizes{display:flex;gap:6px;align-items:center}
+.dr-size{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--fill)}
+.dr-size i{display:block;border-radius:50%;background:#fff}
+.dr-size.on{background:#fff}.dr-size.on i{background:#000}
+.dr-size svg{width:20px;height:20px}.dr-size.on svg{color:#000}
+.dr-szpop{flex:1;min-width:0;height:48px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:24px;background:rgba(40,40,42,.95);box-shadow:inset 0 0 0 1px var(--hair)}
+.dr-szprev{width:40px;height:40px;border-radius:50%;background:var(--paper);display:flex;align-items:center;justify-content:center;flex:none}
+.dr-szprev i{display:block;border-radius:50%}
+.dr-sznum{font-size:17px;min-width:26px;text-align:center}
+.dr-szstep{width:36px;height:36px;border-radius:50%;background:var(--fill2);font-size:20px;font-weight:700;flex:none}
+.dr-sztrack{flex:1;height:6px;border-radius:3px;background:var(--fill2);position:relative;min-width:60px}
+.dr-sztrack i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--accent)}
+.dr-sztrack u{position:absolute;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.dr-szpop.dr-ph{display:none}
+
+.dr-board{grid-column:3;display:flex;flex-direction:column;gap:10px;width:var(--cw);min-width:0}
+.dr-strip{height:var(--strip);flex:none;display:flex;align-items:center;gap:12px;padding:0 8px 0 6px;border-radius:26px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair)}
+.dr-q{height:40px;padding:0 14px;border-radius:20px;background:var(--accent);color:var(--on-accent);font-weight:800;display:flex;align-items:center;flex:none}
+.dr-word{font-size:26px;font-weight:800;letter-spacing:.04em;white-space:nowrap}
+.dr-word.blank{letter-spacing:.3em;color:var(--ink2)}
+.dr-len{font-size:13px;color:var(--ink2);white-space:nowrap}
+.dr-timer{font-size:26px;font-weight:800;min-width:66px;text-align:right;white-space:nowrap}
+.dr-timer.low{color:var(--red)}
+.dr-canvas{width:var(--cw);height:var(--ch);flex:none;background:var(--paper);border-radius:14px;position:relative;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.3)}
+.dr-canvas>svg{width:100%;height:100%}
+.dr-tbar{position:absolute;left:0;top:0;height:5px;background:var(--accent);border-radius:0 3px 3px 0}
+.dr-under{height:var(--under);flex:none;display:flex;align-items:center;gap:10px}
+.dr-hint{font-size:13px;color:var(--ink2);flex:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-input{flex:1;min-width:0;height:46px;border-radius:23px;border:0;background:var(--fill2);padding:0 18px;font-size:16px;outline:0}
+.dr-input::placeholder{color:var(--ink3)}
+.dr-log,.dr-ph{display:none}
+.dr-topin,.dr-topq,.dr-topgive{display:none}
+
+/* 단어 고르기 / 정답 공개: 그림판 위에 뜨는 판 */
+.dr-over{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:rgba(12,10,9,.72);color:#fff;text-align:center;padding:12px}
+.dr-over h3{margin:0;font-size:22px;font-weight:800}
+.dr-over p{margin:0;color:var(--ink2);font-size:14px}
+.dr-picks{display:flex;gap:12px}
+.dr-pick{width:150px;padding:16px 8px;border-radius:18px;background:#fff;color:#111;display:flex;flex-direction:column;gap:4px;align-items:center}
+.dr-pick small{font-size:12px;color:#777;font-weight:600}
+.dr-pick b{font-size:22px;font-weight:800}
+.dr-count{font-size:15px;font-weight:700;color:var(--accent)}
+.dr-rev{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);min-width:60%;padding:14px 24px;border-radius:22px;background:rgba(20,18,16,.92);color:#fff;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.5),inset 0 0 0 1px var(--hair);display:flex;flex-direction:column;gap:4px;white-space:nowrap}
+.dr-rev small{font-size:13px;color:var(--ink2)}
+.dr-rev b{font-size:34px;font-weight:800;color:var(--accent);letter-spacing:.04em}
+.dr-rev span{font-size:15px;font-weight:600}
+.dr-rev em{font-style:normal;color:var(--green);font-weight:800}
+
+/* ---------- 로비·방 대기·최종 순위 (기존 로비 판 모양) ---------- */
+.dr-center{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;gap:16px;padding:12px}
+.dr-panel{background:var(--panel);border-radius:28px;box-shadow:inset 0 0 0 1px var(--hair),0 24px 64px rgba(0,0,0,.45);padding:24px;width:min(380px,calc(50vw - 20px));
+  min-height:min(440px,calc(100dvh - 24px));max-height:calc(100dvh - 24px);display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.dr-panel h2{margin:0;font-size:22px;font-weight:700}
+.dr-panel h1{margin:0;font-size:32px;font-weight:800;letter-spacing:-.02em}
+.dr-cap{margin:0;font-size:13px;color:var(--ink2)}
+.dr-seg{display:grid;grid-template-columns:repeat(var(--n,4),1fr);padding:2px;border-radius:12px;background:var(--fill)}
+.dr-seg span{height:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-weight:600;font-size:14px;color:var(--ink2);white-space:nowrap}
+.dr-seg span.on{background:var(--accent);color:var(--on-accent)}
+.dr-list{margin:0;padding:0;list-style:none;background:var(--fill);border-radius:14px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.dr-list li{display:flex;align-items:center;gap:10px;min-height:44px;padding:5px 14px;font-size:15px}
+.dr-list li+li{box-shadow:inset 0 1px 0 var(--hair)}
+.dr-list .dr-av{width:30px;height:30px;font-size:13px;box-shadow:none}
+.dr-list .g{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-list small{color:var(--ink2);font-size:13px;white-space:nowrap}
+.dr-list b.s{color:var(--accent)}
+.dr-new{font-size:10.5px;font-weight:800;background:var(--accent);color:var(--on-accent);border-radius:7px;padding:1px 5px;margin-left:6px;vertical-align:2px}
+.dr-set{display:flex;flex-direction:column;gap:5px}
+.dr-set label{font-size:13px;color:var(--ink2)}
+.dr-set label small{color:var(--ink3)}
+.dr-chips{display:flex;flex-wrap:wrap;gap:6px}
+.dr-chips span{height:30px;padding:0 11px;border-radius:15px;display:flex;align-items:center;font-size:13px;font-weight:600;background:var(--fill);color:var(--ink3);white-space:nowrap}
+.dr-chips span.on{background:rgba(242,196,68,.2);color:var(--accent);box-shadow:inset 0 0 0 1px rgba(242,196,68,.55)}
+.dr-grow{flex:1}
+.dr-codebig{font-size:34px;font-weight:800;letter-spacing:.16em;color:var(--accent)}
+.dr-row{display:flex;gap:10px;align-items:center}
+.dr-row>.dr-btn{flex:1}
+
+.dr-final{width:min(760px,calc(100vw - 24px));min-height:0;flex-direction:row;gap:24px;align-items:stretch}
+.dr-final>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px}
+.dr-podium{display:flex;align-items:flex-end;justify-content:center;gap:10px;flex:1}
+.dr-pod{display:flex;flex-direction:column;align-items:center;gap:6px;width:96px}
+.dr-pod .dr-av{width:56px;height:56px;font-size:22px}
+.dr-pod.first .dr-av{width:76px;height:76px;font-size:30px;box-shadow:inset 0 0 0 3px var(--accent),0 0 24px rgba(242,196,68,.55)}
+.dr-pod .nm{font-weight:700;white-space:nowrap}
+.dr-pod .st{width:100%;border-radius:12px 12px 0 0;background:var(--fill2);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:22px}
+.dr-pod .st small{font-size:11.5px;color:var(--ink2);font-weight:600}
+.dr-pod.first .st{background:var(--accent);color:var(--on-accent);height:96px}.dr-pod.first .st small{color:rgba(28,22,8,.7)}
+.dr-pod.second .st{height:68px}.dr-pod.third .st{height:50px}
+
+/* ---------- 휴대폰 가로 (높이 480px 이하) ---------- */
+@media (max-height:480px){
+  :root{--pad:8px;--gap:8px;--bar:40px;--strip:0px;--under:0px;--pw:150px;--palw:66px;--toolw:46px;--sl:44px;--sr:44px;
+    --ch:min(calc(100dvh - var(--bar) - var(--pad)),calc((100vw - var(--sl) - var(--sr) - var(--pad)*2 - var(--pw) - var(--palw) - var(--toolw) - var(--gap)*3)*.75))}
+  html,body{font-size:13px}
+  .dr-bar{gap:8px}
+  .dr-brand,.dr-code,.dr-bar .dr-sound,.dr-bar .dr-leave{display:none}
+  .dr-ic{width:30px;height:30px}.dr-ic svg{width:15px;height:15px}
+  .dr-topq{display:flex;align-items:center;gap:8px;min-width:0}
+  .dr-q{height:28px;padding:0 10px;font-size:12.5px}
+  .dr-word{font-size:19px}.dr-len{font-size:12px}
+  .dr-timer{font-size:20px;min-width:48px}
+  .dr-round{font-size:12px}.dr-round b{font-size:14px}
+  .dr-strip,.dr-under{display:none}
+  .dr-topgive{display:inline-flex;height:30px;padding:0 12px;font-size:12.5px}
+  .dr-stage{grid-template-columns:var(--pw) var(--palw) var(--cw) var(--toolw);grid-template-rows:1fr 1fr;gap:4px var(--gap)}
+  .dr-seats{height:auto;gap:4px}
+  .dr-seats.l{grid-column:1;grid-row:1}.dr-seats.r{grid-column:1;grid-row:2}
+  .dr-seat{flex-direction:row;justify-content:flex-start;padding:0 6px;gap:7px}
+  .dr-avw{display:contents}
+  .dr-who{flex:1;flex-direction:row;gap:7px;text-align:left}
+  .dr-av,.dr-seat .dr-av{width:28px;height:28px;font-size:12.5px}
+  .dr-av.dr-none{width:auto;height:auto;box-shadow:none;font-size:11.5px;padding-left:4px}
+  .dr-nm{font-size:12.5px}.dr-sc{font-size:11px}.dr-sc b{font-size:12.5px}
+  .dr-who>div{display:flex;gap:6px;align-items:baseline;white-space:nowrap}
+  .dr-ph{display:flex}hr.dr-ph{display:block}
+  .dr-stage{align-content:start}.dr-seats{align-self:stretch}
+  .dr-tag{display:none!important}
+  .dr-seat:has(.dr-plus) .dr-sc{font-size:0}
+  .dr-plus{font-size:12.5px}
+  .dr-say{top:50%;margin-top:-13px;max-width:124px;font-size:12px;padding:4px 8px;-webkit-line-clamp:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .dr-say::before{top:6px;border-width:6px}
+  .dr-seats.l .dr-say{left:calc(100% - 2px)}
+  .dr-seats.r .dr-say{right:auto;left:calc(100% - 2px);transform-origin:0 50%}
+  .dr-seats.r .dr-say::before{right:auto;left:-11px;border-left-color:transparent;border-right-color:#fff}
+  .dr-seats.r .dr-say.ok::before{border-left-color:transparent;border-right-color:var(--green)}
+  .mine .dr-say{left:auto!important;right:5px!important;max-width:64px;opacity:.95}
+  .mine .dr-say::before{display:none}
+  .dr-plus{position:static}
+  .dr-board{grid-column:3;grid-row:1/3}
+  .dr-pal{grid-column:2;grid-row:1/3;margin-top:0;gap:6px;padding:6px;border-radius:14px;align-self:center}
+  .dr-tools{grid-column:4;grid-row:1/3;margin-top:0;gap:4px 4px;padding:4px;border-radius:14px;align-self:center}
+  .mine{--pw:132px;--toolw:88px;
+    --ch:min(calc(100dvh - var(--bar) - var(--pad)),calc((100vw - var(--sl) - var(--sr) - var(--pad)*2 - var(--pw) - var(--palw) - var(--toolw) - var(--gap)*3)*.75));--cw:calc(var(--ch)*4/3)}
+  .dr-pc,.dr-tools hr{display:none}
+  .dr-tools{display:grid;grid-template-columns:38px 38px;grid-template-rows:repeat(5,36px);grid-auto-flow:column}
+  .dr-szpop.dr-ph{display:grid;grid-template-columns:36px 1fr 36px;gap:8px 6px;align-items:center;position:fixed;z-index:6;left:calc(var(--sl) + var(--pad));bottom:var(--pad);width:206px;height:auto;padding:10px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.6),inset 0 0 0 1px var(--hair)}
+  .dr-szpop.dr-ph .dr-szprev{grid-column:1/3;justify-self:start}
+  .dr-szpop.dr-ph .dr-sznum{grid-column:3;grid-row:1}
+  .dr-tool{height:36px;width:38px;border-radius:10px;font-size:0;gap:0}
+  .dr-tool svg{width:20px;height:20px}
+  .dr-tools .dr-size{width:38px;height:36px;border-radius:10px}
+  .dr-canvas{border-radius:10px}
+  /* 맞히는 사람: 색·도구 자리가 없고, 오른쪽에 채팅 기록 */
+  .guess .dr-stage{grid-template-columns:var(--pw) var(--cw) minmax(0,1fr)}
+  .guess .dr-board{grid-column:2}
+  .guess .dr-log{display:flex;grid-column:3;grid-row:1/3;flex-direction:column;justify-content:flex-end;gap:4px;min-width:0;height:var(--ch);padding:8px;border-radius:14px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair);overflow:hidden}
+  .dr-log p{margin:0;font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+  .dr-log p b{color:var(--ink2);font-weight:600;margin-right:4px}
+  .dr-log p.sys{color:var(--accent)}
+  .guess .dr-topin{display:flex;flex:1;gap:6px;min-width:0}
+  .dr-topin .dr-input{height:30px;font-size:14px;padding:0 12px}
+  .dr-topin .dr-btn{height:30px;padding:0 12px;font-size:12.5px}
+  .guess .dr-sp{display:none}
+  /* 키보드가 올라온 상태(보이는 높이가 줄어든다) */
+  .kb{--ch:calc(100dvh - var(--bar) - var(--pad) - 196px)}
+  .kb .dr-seats{display:none}
+  .kb .dr-stage{grid-template-columns:var(--cw) minmax(0,1fr);grid-template-rows:auto;justify-content:start;align-content:start}
+  .kb .dr-board{grid-column:1;grid-row:1}.kb .dr-log{grid-column:2;grid-row:1}
+  .mk-kb{position:fixed;left:0;right:0;bottom:0;height:196px;background:#2a2a2d;display:grid;grid-template-columns:repeat(10,1fr);grid-auto-rows:1fr;gap:5px;padding:8px 60px 22px;z-index:5}
+  .mk-kb i{background:#5a5a5f;border-radius:6px}
+  .dr-over{gap:8px}.dr-over h3{font-size:17px}.dr-over p{font-size:12px}
+  .dr-picks{gap:8px}.dr-pick{width:118px;padding:10px 6px;border-radius:14px}.dr-pick b{font-size:17px}.dr-pick small{font-size:11px}
+  .dr-rev{bottom:10px;padding:8px 18px;border-radius:16px;gap:1px}.dr-rev b{font-size:24px}.dr-rev span{font-size:13px}.dr-rev small{font-size:11.5px}
+  .dr-center{gap:12px;padding:8px calc(8px + var(--sr)) 8px calc(8px + var(--sl))}
+  .dr-panel{padding:14px;gap:8px;border-radius:22px;min-height:calc(100dvh - 16px);max-height:calc(100dvh - 16px);width:calc(50vw - 56px)}
+  .dr-panel h1{font-size:24px}.dr-panel h2{font-size:17px}
+  .dr-cap{font-size:11.5px}
+  .dr-btn{height:36px;padding:0 14px}
+  .dr-seg span{height:30px;font-size:12.5px}
+  .dr-list li{min-height:30px;padding:2px 10px;font-size:13px}
+  .dr-list .dr-av{width:22px;height:22px;font-size:11px}
+  .dr-list small{font-size:11.5px}
+  .dr-codebig{font-size:24px}
+  .dr-set{gap:3px}.dr-set label{font-size:11.5px}
+  .dr-chips{gap:4px}.dr-chips span{height:24px;padding:0 8px;font-size:11.5px}
+  .dr-final{width:calc(100vw - 104px);gap:16px}
+  .dr-pod{width:76px;gap:3px}.dr-pod .dr-av{width:38px;height:38px;font-size:15px}.dr-pod.first .dr-av{width:50px;height:50px;font-size:20px}
+  .dr-pod .st{font-size:17px}.dr-pod.first .st{height:72px}.dr-pod.second .st{height:56px}.dr-pod.third .st{height:44px}
+}
+@media (min-height:481px){.mk-kb{display:none}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div id="app"></div>
+<nav class="mk-nav" id="nav"></nav>
+<script>
+// 게임 이름은 여기 한 곳만 바꾸면 시안 전체가 바뀐다(이름 미정).
+const GAME_NAME = '갱식마인드';
+document.title = GAME_NAME + ' — 정적 시안';
+const P = new URLSearchParams(location.search);
+const S = P.get('s') || 'draw';
+const SCREENS = [['lobby','a1 로비'],['room','a2 방 대기'],['pick','b1 단어 고르기'],['draw','b2 내가 그림'],['size','b3 굵기 조정'],['guess','c 맞히기'],['kb','c2 키보드(폰)'],['reveal','d 정답 공개'],['final','e 최종 순위']];
+if (P.get('shot') === '1') document.documentElement.classList.add('mk-still');   // 스크린샷용: 움직임 끔
+if (P.get('shot') !== '1') document.getElementById('nav').innerHTML = SCREENS.map(([k, n]) => `<a href="?s=${k}" class="${k === S ? 'on' : ''}">${n}</a>`).join('')
+  + (['draw', 'guess', 'size'].includes(S) ? '<a href="#" id="demoSay">▶ 말하기 시연</a><a href="#" id="demoHit">▶ 정답 시연</a>' : '');
+
+// 색 12개 (기획서 6-2와 같은 값·순서)
+const COLORS = ['#1c1c1e','#8e8e93','#8a5a2b','#f5c9a3','#e5352b','#ff8a1f','#ffd426','#1fa34a','#3bb8f5','#1f55d6','#8b45d1','#ff7eb8'];
+const PL = [
+  { n: '강식', c: '#b5651d', s: 310, host: 1 }, { n: '지호', c: '#2f6fde', s: 240 }, { n: '민수', c: '#1fa34a', s: 420 }, { n: '서연', c: '#d1456f', s: 150 },
+  { n: '태양', c: '#8b45d1', s: 260 }, { n: '유나', c: '#e08a1a', s: 80 }, { n: '도윤', c: '#3a9aa8', s: 120, off: 1 }, null,
+];
+const I = {
+  menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg>',
+  snd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M16 9a4 4 0 010 6"/></svg>',
+  pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-5L16 4l4 4L9 19l-5 1z"/><path d="M14 6l4 4"/></svg>',
+  era: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 19l-4-4a2 2 0 010-3l8-8a2 2 0 013 0l5 5a2 2 0 010 3l-7 7H8z"/><path d="M9 9l7 7M12 19h8"/></svg>',
+  eraS: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14c3-6 5 4 8-1s4-7 7-2 2 5 3 3" stroke-dasharray="0"/><path d="M6 20L18 5" stroke-width="2.6"/></svg>',
+  adj: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2.6" fill="currentColor"/><circle cx="15" cy="16" r="2.6" fill="currentColor"/></svg>',
+  undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 13L4 8l5-5"/><path d="M4 8h10a6 6 0 010 12h-4"/></svg>',
+  redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 13l5-5-5-5"/><path d="M20 8H10a6 6 0 000 12h4"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
+};
+// 가짜 그림: 짜장면
+const ART = `<svg viewBox="0 0 800 600" fill="none" stroke-linecap="round" stroke-linejoin="round">
+ <path d="M190 300c10 130 110 190 215 190s200-62 212-190" stroke="#1c1c1e" stroke-width="10"/>
+ <path d="M178 298c40-34 130-52 226-52s190 20 226 54c-40 30-130 44-226 44s-186-14-226-46z" stroke="#1c1c1e" stroke-width="10"/>
+ <path d="M236 292c30-30 60 26 92-4s58 28 90-2 60 26 92-2 46 14 70 6" stroke="#8a5a2b" stroke-width="26"/>
+ <path d="M262 316c40-22 70 18 110-2s80 18 120-4 60 6 84-4" stroke="#8a5a2b" stroke-width="26"/>
+ <path d="M300 276c20-12 40 10 60-2M420 300c22-12 40 10 62-4" stroke="#1c1c1e" stroke-width="5"/>
+ <path d="M372 262l30-10 22 16-26 14z" stroke="#1fa34a" stroke-width="10"/>
+ <path d="M470 250L640 96M500 262L672 118" stroke="#ff8a1f" stroke-width="10"/>
+ <path d="M150 150c14-22 30-22 44 0M110 196c14-22 30-22 44 0" stroke="#8e8e93" stroke-width="5"/>
+</svg>`;
+
+function seat(p, i, o) {
+  if (!p) return `<div class="dr-seat empty"><span class="dr-av dr-none">빈 자리</span></div>`;
+  const gain = o.gain && o.gain[i];                 // 정답 공개 때 이번 문제로 얻은 점수
+  const hit = (o.hits || []).includes(i) || (gain && o.turn !== i);
+  const cls = [p.off ? 'off' : '', o.turn === i ? 'turn' : '', hit ? 'hit' : ''].join(' ');
+  const say = o.says && o.says[i];
+  const tag = o.turn === i ? '<span class="dr-tag">그리는 중</span>' : hit ? '<span class="dr-tag ok">맞힘</span>' : p.off ? '<span class="dr-tag gone">끊김</span>' : p.host ? '<span class="dr-tag host">방장</span>' : '';
+  return `<div class="dr-seat ${cls}" data-i="${i}">
+    <div class="dr-who"><span class="dr-avw"><span class="dr-av" style="background:${p.c}">${p.n[0]}</span>${tag}
+      ${say && !hit ? `<span class="dr-say">${say}</span>` : hit && !gain ? '<span class="dr-say ok">정답!</span>' : ''}</span>
+      <div><div class="dr-nm">${p.n}</div><div class="dr-sc"><b>${p.s + (gain || 0)}</b>점</div></div></div>
+    ${gain ? `<span class="dr-plus">+${gain}</span>` : ''}
+  </div>`;
+}
+function game(o) {
+  // 굵기 빠른 버튼 3개 + 굵기 조정 버튼
+  const sizes = (cls) => [5, 11, 22].map((d, i) => `<button class="dr-size ${cls} ${i === 1 && !o.pop ? 'on' : ''}"><i style="width:${d}px;height:${d}px"></i></button>`).join('')
+    + `<button class="dr-size dr-adj ${cls} ${o.pop ? 'on' : ''}" aria-label="굵기 조정">${I.adj}</button>`;
+  // 굵기 조정 팝업(열린 상태): 미리보기 동그라미 + 숫자 + 막대 + 1씩 줄이기/늘리기
+  const pop = (cls) => `<div class="dr-szpop ${cls}"><span class="dr-szprev"><i style="width:14px;height:14px;background:${COLORS[2]}"></i></span><b class="dr-sznum">14</b>
+    <button class="dr-szstep">−</button><span class="dr-sztrack"><i style="width:32%"></i><u style="left:32%"></u></span><button class="dr-szstep">+</button></div>`;
+  const me = o.me;                       // 내가 그리는 사람인가
+  const wordHtml = me || o.rev ? `<span class="dr-word">짜장면</span>` : `<span class="dr-word blank">□□□</span><span class="dr-len">3글자</span>`;
+  const q = `<span class="dr-q">문제</span>${o.pick ? `<span class="dr-len">${me ? '단어를 골라 주세요' : '지호 님이 고르는 중'}</span>` : wordHtml}`;
+  const timer = `<span class="dr-timer ${o.low ? 'low' : ''}">${o.time}</span>`;
+  const tools = me && !o.pick;
+  return `<div class="dr-root ${me ? 'mine' : 'guess'} ${o.kb ? 'kb' : ''}">
+   <div class="dr-bar">
+     <button class="dr-ic" aria-label="메뉴">${I.menu}</button>
+     <span class="dr-brand">${GAME_NAME}</span><span class="dr-code">KQZT</span>
+     <span class="dr-topq">${q}</span>
+     <span class="dr-topin">${!o.rev && !o.pick ? '<input class="dr-input" placeholder="정답 입력"><button class="dr-btn primary">보내기</button>' : ''}</span>
+     <span class="dr-sp"></span>
+     <span class="dr-round">문제 <b>5</b> / 14</span>
+     <span class="dr-topq">${timer}</span>
+     ${tools ? '<button class="dr-btn danger dr-topgive">포기</button>' : ''}
+     <button class="dr-ic dr-sound" aria-label="소리">${I.snd}</button>
+     <button class="dr-btn tint dr-leave">나가기</button>
+   </div>
+   <div class="dr-stage">
+     <div class="dr-seats l">${PL.slice(0, 4).map((p, i) => seat(p, i, o)).join('')}</div>
+     ${tools ? `<div class="dr-pal" role="radiogroup" aria-label="색">${COLORS.map((c, i) => `<button class="dr-sw ${i === 2 ? 'on' : ''}" style="background:${c}" aria-label="색 ${i + 1}"></button>`).join('')}</div>` : ''}
+     <div class="dr-board">
+       <div class="dr-strip">${q}<span class="dr-sp"></span>${o.hits ? `<span class="dr-len">맞힌 사람 ${o.hits.length} / 5</span>` : ''}${timer}</div>
+       <div class="dr-canvas">${o.pick ? '' : ART}<div class="dr-tbar" style="width:${o.bar}%"></div>
+         ${o.pick && me ? `<div class="dr-over"><h3>그릴 단어를 고르세요</h3><div class="dr-picks">
+            <button class="dr-pick"><small>음식</small><b>짜장면</b></button><button class="dr-pick"><small>동물</small><b>기린</b></button><button class="dr-pick"><small>탈것</small><b>잠수함</b></button></div>
+            <span class="dr-count">7초 뒤 자동으로 고릅니다</span><p>글자·숫자는 쓰지 않고 그림으로만 설명해요</p></div>` : ''}
+         ${o.rev ? `<div class="dr-rev"><small>정답 · 5명 중 3명이 맞혔어요</small><b>짜장면</b><span>민수 <em>+112</em> · 태양 <em>+51</em> · 강식 <em>+46</em> · 그린 사람 지호 <em>+60</em></span><small>3초 뒤 다음 문제 · 다음 차례 민수</small></div>` : ''}
+       </div>
+       <div class="dr-under">${tools ? `
+          <div class="dr-sizes" role="radiogroup" aria-label="굵기">${sizes('')}</div>
+          ${o.pop ? pop('') : ''}
+          ${o.pop ? '' : '<span class="dr-hint">글자·숫자는 쓰지 않기 · 모두 맞히면 바로 끝나요</span>'}
+          <button class="dr-btn danger">포기</button>`
+        : o.rev || o.pick ? `<span class="dr-hint">${o.pick ? (me ? '' : '곧 그림이 시작됩니다') : ''}</span>`
+        : `<input class="dr-input" placeholder="정답을 입력하세요 (Enter)"><button class="dr-btn primary">보내기</button>`}</div>
+     </div>
+     ${tools ? `<div class="dr-tools">
+        <button class="dr-tool on">${I.pen}펜</button><button class="dr-tool">${I.era}정밀 지우개</button><button class="dr-tool">${I.eraS}획 지우개</button><hr>
+        <button class="dr-tool">${I.undo}되돌리기</button><button class="dr-tool dim">${I.redo}다시 하기</button><hr>
+        <button class="dr-tool dr-pc">${I.trash}전체 지우기</button>
+        ${sizes('dr-ph')}<button class="dr-tool dr-ph">${I.trash}</button></div>` : ''}
+     <div class="dr-seats r">${PL.slice(4).map((p, i) => seat(p, i + 4, o)).join('')}</div>
+     <div class="dr-log"><p><b>서연</b>우동</p><p><b>태양</b>라면??</p><p><b>유나</b>스파게티</p><p class="sys">민수 님 정답!</p>${o.rev ? '<p class="sys">태양 님 정답!</p><p class="sys">강식 님 정답!</p>' : '<p><b>강식</b>젓가락</p>'}</div>
+   </div>
+   ${o.pop ? pop('dr-ph') : ''}
+   ${o.kb ? `<div class="mk-kb">${'<i></i>'.repeat(40)}</div>` : ''}
+  </div>`;
+}
+const says = { 0: '젓가락', 3: '우동', 4: '라면??', 5: '스파게티', 2: '국수' };
+const VIEWS = {
+  pick: () => game({ me: 1, pick: 1, turn: 1, time: '0:07', bar: 100 }),
+  draw: () => game({ me: 1, turn: 1, time: '0:26', bar: 19, says, hits: [2] }),
+  guess: () => game({ turn: 1, time: '0:26', bar: 19, says, hits: [2] }),
+  size: () => game({ me: 1, turn: 1, time: '0:26', bar: 19, says, hits: [2], pop: 1 }),
+  kb: () => game({ turn: 1, time: '0:26', bar: 19, says, kb: 1, hits: [2] }),
+  reveal: () => game({ turn: 1, rev: 1, time: '0:00', bar: 0, says, gain: { 2: 112, 4: 51, 0: 46, 1: 60 } }),
+  lobby: () => `<div class="dr-center">
+    <section class="dr-panel"><h1>♠ 갱식 클럽</h1>
+      <div class="dr-row"><span class="dr-av" style="background:#b5651d;width:64px;height:64px;font-size:26px">강</span><div><h2>강식</h2><p class="dr-cap">칩 12,400 · 그림 1등 4번</p></div></div>
+      <span class="dr-grow"></span><button class="dr-btn tint">라이어 랭킹</button><p class="dr-cap">사진 바꾸기 · 로그아웃</p></section>
+    <section class="dr-panel"><h2>새 게임</h2>
+      <div class="dr-seg" style="--n:4"><span>홀덤</span><span>블러핑</span><span>라이어</span><span class="on">${GAME_NAME}</span></div>
+      <p class="dr-cap">2~8명 · 그림 보고 단어 맞히기</p>
+      <button class="dr-btn primary">방 만들기</button>
+      <h2>열린 방</h2>
+      <ul class="dr-list"><li><span class="g"><b>${GAME_NAME}</b><span class="dr-new">NEW</span> <small>지호 님의 방</small></span><small>3/8 · 대기</small></li>
+        <li><span class="g"><b>텍사스 홀덤</b> <small>민수 님의 방</small></span><small>4/6 · 게임 중</small></li></ul>
+      <span class="dr-grow"></span><p class="dr-cap">주소에 ?draw=1 이 있을 때만 "${GAME_NAME}" 칸이 보입니다 (숨김 스위치 DRAW=test)</p></section></div>`,
+  room: () => `<div class="dr-center">
+    <section class="dr-panel"><p class="dr-cap">${GAME_NAME} · 방 코드</p>
+      <div class="dr-row"><span class="dr-codebig">KQZT</span><span class="dr-grow"></span><button class="dr-btn tint">복사</button></div>
+      <h2>참가자 5 / 8</h2>
+      <ul class="dr-list">${PL.slice(0, 5).map((p) => `<li><span class="dr-av" style="background:${p.c}">${p.n[0]}</span><span class="g">${p.n}</span><small>${p.host ? '방장' : ''}</small></li>`).join('')}</ul>
+      <span class="dr-grow"></span><input class="dr-input" style="flex:none" placeholder="채팅"></section>
+    <section class="dr-panel"><h2>방 설정 <small class="dr-cap">방장만 바꿀 수 있어요</small></h2>
+      <div class="dr-set"><label>출제 순서 <small>· 자리 순서대로 돌아가며 그려요</small></label><div class="dr-seg" style="--n:3"><span class="on">순서대로</span><span>맞힌 사람</span><span>랜덤</span></div></div>
+      <div class="dr-set"><label>라운드 수 <small>· 한 라운드에 모두 한 번씩 그려요</small></label><div class="dr-seg" style="--n:4"><span>1</span><span class="on">2</span><span>3</span><span>5</span></div></div>
+      <div class="dr-set"><label>그리는 시간</label><div class="dr-seg" style="--n:3"><span>60초</span><span>90초</span><span class="on">2분 20초</span></div></div>
+      <div class="dr-set"><label>주제 <small>· 눌러서 켜고 끄기</small></label><div class="dr-chips">${['음식', '동물', '직업', '장소', '스포츠', '물건', '취미', '탈것'].map((t) => `<span class="on">${t}</span>`).join('')}${['영화·만화', '나라·도시', '인물'].map((t) => `<span>${t}</span>`).join('')}</div></div>
+      <p class="dr-cap">5명 × 2라운드 = 문제 10개 · 단어 3개 중 고르기 · 글자 수 표시</p>
+      <span class="dr-grow"></span>
+      <div class="dr-row"><button class="dr-btn danger" style="flex:0 0 auto">나가기</button><button class="dr-btn primary">시작</button></div></section></div>`,
+  final: () => {
+    const r = [['민수', '#1fa34a', 1120, 9], ['강식', '#b5651d', 960, 8], ['지호', '#2f6fde', 890, 7], ['태양', '#8b45d1', 720, 7], ['서연', '#d1456f', 540, 5], ['유나', '#e08a1a', 410, 4], ['도윤', '#3a9aa8', 180, 2]];
+    const pod = (i, cls, rank) => `<div class="dr-pod ${cls}"><span class="dr-av" style="background:${r[i][1]}">${r[i][0][0]}</span><span class="nm">${r[i][0]}</span><div class="st">${rank}<small>${r[i][2]}점</small></div></div>`;
+    return `<div class="dr-center"><section class="dr-panel dr-final">
+      <div><h2>최종 순위</h2><div class="dr-podium">${pod(1, 'second', 2)}${pod(0, 'first', 1)}${pod(2, 'third', 3)}</div></div>
+      <div><ul class="dr-list">${r.slice(3).map((p, i) => `<li><small>${i + 4}</small><span class="dr-av" style="background:${p[1]}">${p[0][0]}</span><span class="g">${p[0]}</span><small>맞힘 ${p[3]}</small><b class="s">${p[2]}점</b></li>`).join('')}</ul>
+        <p class="dr-cap">빨리 맞힐수록, 내 그림을 많이 맞힐수록 점수가 높아요. 점수가 같으면 맞힌 횟수가 많은 사람이 위.</p>
+        <span class="dr-grow"></span>
+        <div class="dr-row"><button class="dr-btn tint">방으로</button><button class="dr-btn primary">한 판 더</button></div></div>
+    </section></div>`;
+  },
+};
+document.getElementById('app').innerHTML = (VIEWS[S] || VIEWS.draw)();
+
+// ---------- 시안 전용: 말하기·정답 모션 시연 ----------
+function demo(kind) {
+  const seats = [...document.querySelectorAll('.dr-seat[data-i]:not(.turn):not(.off)')].filter((e) => kind === 'hit' ? !e.classList.contains('hit') : true);
+  const el = seats[Math.floor(Math.random() * seats.length)];
+  if (!el) return;
+  const av = el.querySelector('.dr-av');
+  const wrap = el.querySelector('.dr-avw');
+  el.querySelector('.dr-say')?.remove();                       // 새 말이 오면 바로 교체
+  const b = document.createElement('span');
+  b.className = 'dr-say' + (kind === 'hit' || el.classList.contains('hit') ? ' ok' : '');
+  b.textContent = kind === 'hit' || el.classList.contains('hit') ? '정답!' : ['짬뽕', '국수인가', '비빔면', '이거 뭐야 ㅋㅋㅋ', '파스타'][Math.floor(Math.random() * 5)];
+  wrap.appendChild(b);
+  if (kind === 'hit') { el.classList.add('hit'); wrap.querySelector('.dr-tag')?.remove(); wrap.insertAdjacentHTML('beforeend', '<span class="dr-tag ok">맞힘</span>'); }
+  av.classList.remove('talk', 'cheer'); void av.offsetWidth; av.classList.add(kind === 'hit' ? 'cheer' : 'talk');
+  setTimeout(() => { b.classList.add('out'); setTimeout(() => b.remove(), 400); }, 3500);   // 3.5초 뒤 사라짐
+}
+document.getElementById('demoSay')?.addEventListener('click', (e) => { e.preventDefault(); demo('say'); });
+document.getElementById('demoHit')?.addEventListener('click', (e) => { e.preventDefault(); demo('hit'); });
+</script>
+</body>
+</html>

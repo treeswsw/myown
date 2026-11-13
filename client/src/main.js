@@ -34,13 +34,18 @@ let liar = null;
 let liarQ = Promise.resolve(); // one queue for liar AND yacht: keeps their calls in message order while the modules load (stage.use is a single slot)
 const withLiar = (fn) => { liarQ = liarQ.then(async () => { if (liar) fn(liar); }).catch((e) => console.error(e)); };
 const inLiar = () => state.room?.mode === 'liar';
+/* draw game (갱식마인드): same pattern, own chunk */
+let draw = null;
+let drawQ = Promise.resolve();
+const withDraw = (fn) => { drawQ = drawQ.then(async () => { if (draw) fn(draw); }).catch((e) => console.error(e)); };
+const inDraw = () => state.room?.mode === 'draw';
 const liarAnchor = (id) => (liar && inLiar() ? liar.anchorOf(id) : null);
 /* yacht game: same idea, own chunk */
 let yacht = null;
 const withYacht = (fn) => { liarQ = liarQ.then(async () => { if (yacht) fn(yacht); }).catch((e) => console.error(e)); };
 const inYacht = () => state.room?.mode === 'yacht';
 const yachtAnchor = (id) => (yacht && inYacht() ? yacht.anchorOf(id) : null);
-const anchorOf = (id) => (inLiar() ? liarAnchor(id) : inYacht() ? yachtAnchor(id) : pins.anchor(id));
+const anchorOf = (id) => (inLiar() ? liarAnchor(id) : inYacht() ? yachtAnchor(id) : inDraw() ? null : pins.anchor(id));
 
 const table = createTable(stage);
 table.reset();
@@ -94,16 +99,17 @@ const toast = (msg) => {
   setTimeout(() => t.remove(), 3000);
 };
 
-/* liar room top bar (global classes, style.css): room code / emote / start / leave */
+/* liar / draw room top bar (global classes, style.css): room code / emote / start / leave */
 let liarPanel = null;
 const closeLiarPanel = () => { liarPanel?.remove(); liarPanel = null; };
 const lgBtn = (cls, text, onclick) => { const b = h('button', cls, text); b.type = 'button'; b.onclick = onclick; return b; };
 const lgCode = h('span', 'lgbar-code');
-const lgEmote = lgBtn('lgbar-btn', '이모티콘', () => {
+const toggleLiarPanel = () => {
   if (liarPanel) { closeLiarPanel(); return; }
   liarPanel = h('div', 'hpanel lgpanel', emotePanel.el);
   ui.append(liarPanel);
-});
+};
+const lgEmote = lgBtn('lgbar-btn', '이모티콘', toggleLiarPanel);
 const lgStart = lgBtn('lgbar-btn main', '시작', () => send({ t: 'start' }));
 const lgBar = h('div', 'lgbar', lgCode, h('span', 'lgbar-sp'), lgEmote, lgStart, lgBtn('lgbar-btn', '나가기', () => send({ t: 'leave' })));
 lgBar.hidden = true;
@@ -149,6 +155,34 @@ let wasMyTurn = false;
 let emphasized = false; // showdown emphasis is on screen
 let liarShown = false; // the screen currently shows a liar room (poker parts are cleared)
 let yachtShown = false; // the screen currently shows a yacht room (poker parts are cleared)
+let drawShown = false; // the screen currently shows a draw room (poker parts are cleared)
+let lastDrawToast = 0;
+const drawToast = (msg) => { lastDrawToast = Date.now(); toast(msg); };
+// Phone landscape: the draw screen uses its own top row, so the site bar is hidden there except in the waiting room.
+const drawBarHidden = (room) => innerHeight <= 480 && room.phase !== 'lobby';
+function applyDrawRoom(room) {
+  shown = room;
+  if (!drawShown) {
+    drawShown = true;
+    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null);
+    cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
+    wasMyTurn = false;
+    chat.close(); chat.setEnabled(false); chat.button.hidden = true; // the draw screen has its own chat
+  }
+  lobby.hide();
+  lgBar.hidden = drawBarHidden(room);
+  lgCode.textContent = `방 코드 ${room.code}`;
+  lgStart.hidden = true; // the draw waiting room has its own start button
+  if (!draw) {
+    drawQ = drawQ.then(async () => {
+      if (draw) return;
+      const { mountDraw } = await import('./draw/index.js');
+      draw = mountDraw({ ui, send, getMe: () => state.me, toast: drawToast, leave: () => send({ t: 'leave' }), openEmote: () => { if (!liarPanel) toggleLiarPanel(); } });
+    }).catch((e) => console.error(e));
+  }
+  withDraw((d) => d.room(state.room));
+}
+addEventListener('resize', () => { if (drawShown && state.room?.mode === 'draw') lgBar.hidden = drawBarHidden(state.room); });
 function applyLiarRoom(room) {
   shown = room;
   if (!liarShown) {
@@ -198,20 +232,29 @@ function applyYachtRoom(room) {
   withYacht((y) => y.applyRoom(state.room));
 }
 function applyRoom(room) {
-  if (room?.mode === 'yacht') { applyYachtRoom(room); return; }
-  if (yachtShown) {
+  // Leaving one game's screen first clears it, whichever screen comes next.
+  if (yachtShown && room?.mode !== 'yacht') {
     yachtShown = false;
     ytBar.hidden = true;
     closeLiarPanel();
     withYacht((y) => y.applyRoom(null));
   }
-  if (room?.mode === 'liar') { applyLiarRoom(room); return; }
-  if (liarShown) {
+  if (drawShown && room?.mode !== 'draw') {
+    drawShown = false;
+    lgBar.hidden = true;
+    lgStart.hidden = false;
+    closeLiarPanel();
+    withDraw((d) => d.room(null));
+  }
+  if (liarShown && room?.mode !== 'liar') {
     liarShown = false;
     lgBar.hidden = true;
     closeLiarPanel();
     withLiar((l) => l.applyRoom(null));
   }
+  if (room?.mode === 'yacht') { applyYachtRoom(room); return; }
+  if (room?.mode === 'liar') { applyLiarRoom(room); return; }
+  if (room?.mode === 'draw') { applyDrawRoom(room); return; }
   shown = room;
   if (!room) {
     table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null); emotePanel.clearRoom(); chat.close(); chat.setEnabled(false); chat.button.hidden = true;
@@ -259,6 +302,7 @@ function handle(msg) {
       lobby.setUser(msg.user);
       lobby.setLiar(msg.liar === 'on' || (msg.liar === 'test' && new URLSearchParams(location.search).get('liar') === '1'));
       lobby.setYacht(msg.yacht === 'on' || (msg.yacht === 'test' && new URLSearchParams(location.search).get('yacht') === '1'));
+      lobby.setDraw(msg.draw === 'on' || (msg.draw === 'test' && new URLSearchParams(location.search).get('draw') === '1'));
       if (pendingAvatar && !msg.user.avatar) send({ t: 'avatar', data: pendingAvatar });
       pendingAvatar = null;
       break;
@@ -266,8 +310,8 @@ function handle(msg) {
       // One room's chat log must never show in another (the server resends chatLog on join).
       if (msg.state?.code !== state.room?.code) { chat.setLog([]); emotePanel.clearRoom(); }
       state.room = msg.state;
-      if ((msg.state?.mode === 'liar' && !liarShown) || (msg.state?.mode === 'yacht' && !yachtShown)) { animator.flush(); special.skipAll(); }
-      if (msg.state?.mode === 'liar' || msg.state?.mode === 'yacht' || !animator.busy()) applyRoom(msg.state);
+      if ((msg.state?.mode === 'liar' && !liarShown) || (msg.state?.mode === 'yacht' && !yachtShown) || (msg.state?.mode === 'draw' && !drawShown)) { animator.flush(); special.skipAll(); }
+      if (msg.state?.mode === 'liar' || msg.state?.mode === 'yacht' || msg.state?.mode === 'draw' || !animator.busy()) applyRoom(msg.state);
       break;
     case 'resetAsk': loginId = null; lobby.showResetConfirm(); break;
     case 'resetDone':
@@ -289,6 +333,17 @@ function handle(msg) {
       else lobby.showRank({ top: msg.top, mine: msg.mine });
       break;
     case 'event':
+      if (inDraw()) { // draw rooms never use the poker animator; the draw screen has its own chat, so the site chat stays out
+        const e = msg.e;
+        if (e.k === 'pemote') emotePanel.showPhoto(e.id, e.data);
+        else if (e.k === 'snd') emotePanel.playSound(e.id, e.sid);
+        else if (e.k === 'sndAdd') emotePanel.addRoomSound(e);
+        else if (e.k === 'sndList') { emotePanel.setRoomSounds(e.items); emotePanel.syncMine(); }
+        else if (e.k === 'sndDel') emotePanel.removeRoomSound(e.sid);
+        else if (e.k === 'sndRename') emotePanel.renameRoomSound(e.sid, e.name);
+        else withDraw((d) => d.event(e)); // includes emote, faces, chat, chatLog, left, drSt ...
+        break;
+      }
       if (inYacht()) { // yacht rooms never use the poker animator either
         const e = msg.e;
         if (e.k === 'pemote') emotePanel.showPhoto(e.id, e.data);
@@ -329,7 +384,14 @@ function handle(msg) {
       break;
     case 'error':
       emotePanel.handleError(msg.msg);
-      if (inLiar() || inYacht() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
+      if (typeof msg.code === 'string' && msg.code.startsWith('dr_')) {
+        withDraw((d) => d.error(msg));
+        if (msg.code === 'dr_canvas_full') { if (Date.now() - lastDrawToast > 2000) drawToast(msg.msg); } // the draw screen may have just told the same thing
+        else if (inDraw()) toast(msg.msg);
+        else lobby.setError(msg.msg);
+        break;
+      }
+      if (inLiar() || inYacht() || inDraw() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
       break;
     default: break;
   }

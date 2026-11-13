@@ -6,6 +6,7 @@
 ## 1. 범위
 
 - 게임 모드 2개: **텍사스 홀덤**(2~6명), **블러핑 카드**(2~4명, 리볼버 벌칙).
+- 같은 사이트의 다른 게임: **라이어게임**(3~8명, 18절), **요트다이스**(2~4명, 19절), **갱식마인드**(2~8명, 그림 맞히기, 20절).
 - 독립 웹사이트. 서버가 모든 규칙을 판정하고, 각 플레이어에게는 그 사람이 볼 수 있는 정보만 보낸다.
 - 아이디만으로 로그인(비밀번호 없음). 아이디별로 칩·전적·프로필 사진이 저장된다.
 - PC 브라우저와 휴대폰 **가로 화면**. 세로로 들면 "화면을 가로로 돌려주세요" 안내만 띄운다.
@@ -31,7 +32,7 @@ design/   시안
 ## 3. 계정과 저장
 
 - 아이디: 2~12자, 한글·영문·숫자·`_`. 앞뒤 공백 제거, 대소문자 구분 없음(소문자로 정규화해 키로 쓰고 표시용 원문은 따로 저장).
-- 저장 항목: `id, name, bank(보유 칩), avatar(JPEG data URL 또는 null), stats{hands,wins,biggestWin,refills,bluffGames,bluffWins}`.
+- 저장 항목: `id, name, bank(보유 칩), avatar(JPEG data URL 또는 null), stats{hands,wins,biggestWin,refills,bluffGames,bluffWins}`(라이어게임은 `stats.liar`, 갱식마인드는 `stats.draw = {games,wins,correct,points}`가 더해진다).
 - 신규 아이디는 `bank = 10000`.
 - 프로필 사진: 클라이언트가 정사각형으로 잘라 160×160 JPEG로 줄여 보낸다. 서버는 `data:image/jpeg;base64,` 접두사와 60KB 이하만 허용한다.
 - 같은 아이디로 새 연결이 오면 이전 연결을 끊고 새 연결이 자리를 이어받는다.
@@ -147,6 +148,24 @@ design/   시안
 - `{t:'room', state}`에서 `state.mode==='liar'`이면 모양은 GDD 9-3(사진 없음). 알림 `event.e`는 GDD 9-4(`faces` 등).
 
 버튼 보이기(화면): `보임 = liar==='on' || (liar==='test' && 주소에 ?liar=1)`. `test`는 "숨김"이지 "잠금"이 아니다(주소를 아는 사람은 만들 수 있다).
+
+### 7-2. 갱식마인드 (추가)
+
+자세한 모양·값·오류 글은 `docs/draw/GDD.md` 10절(`shared/draw/protocol.js`가 요청 속을 검사). 사이트 전체 통신에서 바뀌는 점만 적는다.
+
+화면 → 서버
+- `{t:'create', mode:'draw'}` — 갱식마인드 방 만들기. `DRAW=off`면 오류 `dr_off`(`'갱식마인드는 아직 열리지 않았습니다.'`)
+- `{t:'dr', a: 글자 1~20자, ...}` — 갱식마인드 전용 요청 전부. 봉투만 hub 가 보고 속은 `shared/draw/protocol.js`가 검사한다.
+  포커·라이어 방에서 보내면 `'알 수 없는 요청입니다.'`
+- 갱식마인드 방에서 `mode`·`act`·`play`·`liar`·`lg`가 오면 오류 `dr_now`(`'지금은 할 수 없습니다.'`, 죽지 않는다)
+
+서버 → 화면
+- `{t:'me', user, liar, draw:'off'|'test'|'on'}` — **`me`에 `draw` 칸 하나 추가**(새 메시지 종류 없음). 로비 칸 보이기 판단에 쓴다.
+- `{t:'rooms', list}`의 항목에 `mode:'draw'`, `max:8`, `phase:'lobby'|'playing'`(`lobby`·`final`이 아니면 `'playing'`).
+- `{t:'error', msg, code}` — **`error`에 `code` 칸 추가**(갱식마인드 오류에만 있으면 된다. 기존 오류에는 없어도 된다). 화면 분기와 시험용.
+- `{t:'room', state}`에서 `state.mode==='draw'`이면 모양은 GDD 10-4. 알림 `event.e`는 GDD 10-5.
+
+로비 보이기(화면): `보임 = draw==='on' || (draw==='test' && 주소에 ?draw=1)`. `test`는 "숨김"이지 "잠금"이 아니다.
 
 ## 8. 화면
 
@@ -389,3 +408,11 @@ design/   시안
 - 화면은 세로일 때 사이트 `#rotate` 안내를 그대로 둔다(요트 전용 세로 배치 없음). 높이 720 미만은 점수표 두 덩어리(GDD 2-1).
 - 시간 관련 환경 변수는 사이트 공통 `GRACE_MS` 하나뿐이다(`YT_TURN_MS`·`YT_AWAY_MS`·`YT_AUTO_SHOW_MS` 는 없다).
 - 시험: `npm run check`(로비 요트 칸·방·컵·보관·두 번 눌러 기록·세로 안내 포함), `npm test`(+ `test/yacht/`, `test/ui/yacht-round.mjs` 한 판). 3D 모양·연출·소리·iPad/Safari 는 실기기 확인이 필요하다.
+
+## 20. 갱식마인드
+
+- 친구끼리 하는 그림 맞히기(2~8명). 한 사람이 단어를 그리고 나머지가 채팅으로 맞힌다. 규칙·화면·시간·점수·통신은 `docs/draw/GDD.md`를 따른다(다르면 이 절이 가리키는 GDD 가 갱식마인드에 한해 우선). 이름은 `shared/draw/name.js`의 `GAME_NAME` 한 곳에만 적는다.
+- 같은 아이디·프로필 사진·로비를 쓴다. 로비의 "새 게임"에 마지막(라이어게임·요트다이스 다음) 선택으로 "갱식마인드"(`2~8명 · 그림 보고 단어 맞히기`). `DRAW` 환경 변수가 `off`(기본)면 화면·서버 모두 없던 때와 같고, `test`는 주소에 `?draw=1`이 있을 때만 보이며, `on`은 모두에게 보인다. 서버 기본값은 `off`이고 `render.yaml` 은 2026-11-13 부터 `on`(공개). 3D 장면은 쓰지 않는다.
+- 통신은 GDD 10절(`{t:'dr', a, ...}` 한 봉투, 모양 검사는 `shared/draw/protocol.js`). 정답 단어는 그리는 사람과 이미 맞힌 사람에게만 보내고, 시간·정답 판정은 서버가 한다.
+- 누적 점수는 `users.stats.draw`(새 표 없음). 단어는 `server/liar/words.json`을 읽기만 한다.
+- 시험: `npm test`(+ `test/draw/`, 한 판 `test/ui/draw-round.mjs`). 선 느낌·펜슬·손바닥·키보드·소리·모션·iPad/Safari 는 실기기 확인이 필요하다.

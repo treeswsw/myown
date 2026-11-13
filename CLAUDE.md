@@ -16,6 +16,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 라이어게임: shared/liar/, server/liar/, client/src/liar/, test/liar/, scripts/build-words.mjs, docs/liar/ (한 과제는 그 안의 한 모듈만. 구역 나눔·모듈 접두사는 docs/liar/GDD.md 와 gamemine CLAUDE.md 의 요약대로: 설정 .lg-st-, 첫 발언 .lg-fs-, 상단 표시 .lg-hud-, 역할 .lg-role-, 투표 .lg-vt-, 결과 .lg-rs-, 랭킹 .lg-rk-, 규칙 .lg-rule-, 이모티콘 .lg-em-, 정체 공개 .lg-um-. 라이어 CSS 클래스는 전부 `.lg-`)
 - 요트다이스: shared/yacht/, server/yacht/, client/src/yacht/, test/yacht/, docs/yacht/ (한 과제는 그 안의 한 모듈만. 모듈·접두사는 docs/YACHT-PLAN.md 1절:
   규칙 shared/yacht/{constants,score,game,protocol}.js, 굴림 계산기 shared/yacht/sim.js, 점수표 .yt-sc-, 결과 .yt-rs-, 판 .yt-bd-, 연출 .yt-fx-, 3D 모델 client/src/yacht/scene/. 요트 CSS 클래스는 전부 `.yt-`)
+- 갱식마인드: shared/draw/, server/draw/, client/src/draw/, test/draw/, docs/draw/, design/draw/ (한 과제는 그 안의 한 모듈만. CSS 는 전부 .dr-, 모듈 접두사 GDD 11-1)
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
 - UI 시험: test/ui/, client/src/mock.js
 - 통합(한 번에 한 에이전트만): client/src/yacht/index.js, yacht.css, client/src/main.js, style.css, ui/dom.js, index.html,
@@ -52,6 +53,15 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - main.js 의 요트 연결: `import('./yacht/index.js')` 로 따로 불러온다. 상단 줄은 `.ytbar`(style.css). 라이어와 같은 대기 줄(`liarQ`)을 쓴다(stage.use 는 하나).
 - `npm test` 는 요트 한 판(test/ui/yacht-round.mjs)을 포함한다. 새 요트 화면이 생기면 smoke.mjs 와 거기에 클릭 한 줄을 추가한다.
 - 3D 주사위·컵·소리·저사양 폰은 항상 "미확인(실기기 확인 필요)"으로 보고한다. `?nogl=1` 은 2D 판으로 끝까지 된다.
+
+## 갱식마인드 (같은 사이트 안의 네 번째 게임, 그림 맞히기)
+- 스위치 환경 변수 `DRAW`: `off`(기본, 흔적 없음) / `test`(주소에 `?draw=1` 일 때만 버튼 보임) / `on`. 규칙·통신은 docs/draw/GDD.md (10절이 약속), 사이트 쪽 요약은 SPEC 20절.
+- render.yaml 은 `on`(2026-11-13 사용자 요청으로 공개). 서버 기본값은 그대로 `off`.
+- 반드시 지킬 약속: 단어는 그리는 사람 기기(와 이미 맞힌 사람)에만 보낸다. 맞히기 전 사람에게 정답 글·정답자끼리 채팅을 보내지 않는다(test/draw/leaks.test.js). 시간·정답 판정은 서버. 무작위는 crypto 난수만. 사용자 글자는 textContent 로만.
+- 단어는 server/liar/words.json 을 읽기만 한다(고치거나 옮기지 않는다). 이름은 shared/draw/name.js 한 곳.
+- main.js 의 연결: `import('./draw/index.js')` 로 따로 불러온다. 전용 요청은 전부 `{t:'dr', a: 종류, ...}`.
+- `npm test` 는 갱식마인드 한 판(test/ui/draw-round.mjs)을 포함한다.
+- 선 느낌·펜슬·손바닥·키보드·모션·소리는 항상 "미확인(실기기 확인 필요)"으로 보고한다.
 
 ## CSS
 - 접두사: 로비 .lb-, 채팅 .chat-, 이모티콘·사운드 .ep-. 새 모듈은 새 접두사.

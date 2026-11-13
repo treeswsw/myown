@@ -1,10 +1,11 @@
 import './lobby.css';
 import { openAvatarCrop } from './avatarCrop.js';
 import { h, svg, avatar, fmt } from './dom.js';
+import { GAME_NAME as DRAW_NAME } from '../../../shared/draw/name.js';
 
 // createLobby({onLogin(id, avatarDataUrl|null), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
-// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), setYacht(visible), showRank({top, mine}) }
+// -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), setYacht(visible), setDraw(visible), showRank({top, mine}) }
 // onRank() -> ask the server for the liar ranking, then call showRank.
 // onResetConfirm() is called when the user confirms 전체 초기화.
 //    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
@@ -14,10 +15,11 @@ const MODES = {
   bluff: { name: '블러핑 카드', desc: '2~4명 · 리볼버 벌칙', max: 4 },
   liar: { name: '라이어게임', desc: '3~8명 · 말로 하는 추리', max: 8 },
   yacht: { name: '요트다이스', desc: '2~4명 · 주사위 5개', max: 4 },
+  draw: { name: DRAW_NAME, desc: '2~8명 · 그림 보고 단어 맞히기', max: 8 },
 };
 const BASE_KEYS = ['holdem', 'bluff'];
-// Home picker order is fixed: holdem, bluff, liar, yacht (only the visible ones).
-function homeKeys(liar, yacht) { return [...BASE_KEYS, ...(liar ? ['liar'] : []), ...(yacht ? ['yacht'] : [])]; }
+// Home picker order is fixed: holdem, bluff, liar, yacht, draw (only the visible ones).
+const keysFor = (liar, yacht, draw) => [...BASE_KEYS, ...(liar ? ['liar'] : []), ...(yacht ? ['yacht'] : []), ...(draw ? ['draw'] : [])];
 const ID_RE = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9_]{2,12}$/;
 const LAST_ID_KEY = 'gs.lastId';
 const SPADE = '<path d="M12 2C8 7 3 9.5 3 14a4.5 4.5 0 0 0 7.6 3.2L9.5 22h5l-1.1-4.8A4.5 4.5 0 0 0 21 14c0-4.5-5-7-9-12z"/>';
@@ -72,7 +74,7 @@ function segmented(onPick, initKeys = BASE_KEYS) {
 
 export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onStart, onLeave, onLogout, onResetConfirm, onRank }) {
   const el = h('div', 'lb-root lobby');
-  let user = null, room = null, pendingAvatar = null, liarOn = false, yachtOn = false;
+  let user = null, room = null, pendingAvatar = null, liarOn = false, yachtOn = false, drawOn = false;
 
   const fileInput = h('input');
   fileInput.type = 'file';
@@ -178,7 +180,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   }
   function renderRooms(all) {
     lastRooms = all;
-    const list = all.filter((r) => (r.mode !== 'liar' || liarOn) && (r.mode !== 'yacht' || yachtOn));
+    const list = all.filter((r) => (r.mode !== 'liar' || liarOn) && (r.mode !== 'yacht' || yachtOn) && (r.mode !== 'draw' || drawOn));
     const seen = new Set();
     let ref = roomList.firstChild;
     for (const r of list) {
@@ -313,27 +315,31 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     closeBtn.focus();
   }
 
+  function applyKeys() {
+    homeSeg.setKeys(keysFor(liarOn, yachtOn, drawOn));
+    if ((!liarOn && pickedMode === 'liar') || (!yachtOn && pickedMode === 'yacht') || (!drawOn && pickedMode === 'draw')) pickedMode = 'holdem';
+    homeSeg.set(pickedMode);
+    updateCreate();
+    renderRooms(lastRooms);
+  }
   function setLiar(on) {
     on = !!on;
     if (on === liarOn) return;
     liarOn = on;
-    refreshHomeModes();
     rankBtn.hidden = !on;
-    updateCreate();
-    renderRooms(lastRooms);
-  }
-  function refreshHomeModes() {
-    homeSeg.setKeys(homeKeys(liarOn, yachtOn));
-    if ((!liarOn && pickedMode === 'liar') || (!yachtOn && pickedMode === 'yacht')) pickedMode = 'holdem';
-    homeSeg.set(pickedMode);
+    applyKeys();
   }
   function setYacht(on) {
     on = !!on;
     if (on === yachtOn) return;
     yachtOn = on;
-    refreshHomeModes();
-    updateCreate();
-    renderRooms(lastRooms);
+    applyKeys();
+  }
+  function setDraw(on) {
+    on = !!on;
+    if (on === drawOn) return;
+    drawOn = on;
+    applyKeys();
   }
 
   // ---------- state ----------
@@ -366,6 +372,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     showResetConfirm,
     setLiar,
     setYacht,
+    setDraw,
     showRank,
     show() { el.hidden = false; },
     hide() { el.hidden = true; },

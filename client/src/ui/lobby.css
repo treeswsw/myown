@@ -130,6 +130,7 @@
   .lb-row{min-height:34px;padding-top:2px;padding-bottom:2px}
   .lb-players .lb-row{min-height:40px}
   .lb-seg-box .lb-cap{display:none}
+  .lb-seg-item{font-size:calc(11.5px*var(--k,1));line-height:1.15;padding:2px 3px;white-space:normal;overflow:visible;text-overflow:clip;word-break:keep-all;height:46px;letter-spacing:-.03em}
   .lb-notice{padding:8px 12px;gap:0}.lb-notice p{font-size:13px}
   .lb-btn.lb-text.lb-accent{align-self:stretch;justify-content:flex-start;min-height:32px;font-size:14px;padding:0}
   .lb-brand.lb-small{display:none}
