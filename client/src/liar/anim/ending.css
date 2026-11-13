@@ -1,0 +1,69 @@
+/* 마지막 단계 글 (.lg-ed-). z-index 28: 이름표(10)·상단 표시(20) 위, 조작 줄(30) 아래. 누를 것이 없다. */
+.lg-ed-root {
+  position: absolute; inset: 0; z-index: 28; overflow: hidden; pointer-events: none;
+  font-family: var(--lg-serif, "Noto Serif KR", "Apple SD Gothic Neo", serif);
+  background: radial-gradient(ellipse at 50% 50%, rgba(4, 3, 5, 0) 45%, rgba(4, 3, 5, 0.6) 100%);
+  animation: lg-ed-in 0.4s ease both;
+}
+.lg-ed-root[hidden] { display: none !important; }
+.lg-ed-root.lg-ed-nogl { background: #040305; }
+.lg-ed-beam {
+  display: none; position: absolute; left: 50%; top: 0; height: 100%; width: min(64vw, 110vh);
+  transform: translateX(-50%); clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%);
+  background: linear-gradient(to bottom, rgba(255, 252, 240, 0.34), rgba(255, 252, 240, 0.03));
+}
+.lg-ed-nogl .lg-ed-beam { display: block; }
+.lg-ed-col {
+  position: absolute; left: 0; right: 0; z-index: 1; text-align: center; box-sizing: border-box;
+  top: calc(env(safe-area-inset-top, 0px) + max(34px, calc(46px * var(--lg-k, 1))));
+  padding: 0 var(--lg-gutter, 16px);
+}
+.lg-ed-col p { margin: 0; }
+.lg-ed-title, .lg-ed-secs, .lg-ed-answer, .lg-ed-verdict, .lg-ed-word, .lg-ed-mismatch {
+  font-weight: 900; line-height: 1.25; color: var(--lg-ink, #efe6d8); letter-spacing: 0.06em;
+  text-shadow: 0 0 30px rgba(0, 0, 0, 0.9), 0 3px 14px #000; overflow-wrap: anywhere;
+}
+.lg-ed-title { font-size: max(18px, calc(44px * var(--lg-k, 1))); min-height: 1.25em; color: #fff; }
+.lg-ed-secs { font-size: max(44px, calc(120px * var(--lg-k, 1))); line-height: 1.05; color: #fff; font-variant-numeric: tabular-nums; }
+.lg-ed-secs[data-urgent="1"] { color: var(--lg-red, #ea3a3d); text-shadow: 0 0 34px rgba(234, 58, 61, 0.55), 0 3px 14px #000; }
+.lg-ed-secs[hidden], .lg-ed-wait[hidden], .lg-ed-word[hidden], .lg-ed-mismatch[hidden] { display: none; }
+.lg-ed-wait { font-size: max(12px, calc(20px * var(--lg-k, 1))); color: rgba(239, 230, 216, 0.7); margin-top: 0.3em !important; }
+.lg-ed-words { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 calc(40px * var(--lg-k, 1)); }
+.lg-ed-word, .lg-ed-mismatch { font-size: max(16px, calc(36px * var(--lg-k, 1))); }
+.lg-ed-mismatch { color: #cfd6ff; }
+.lg-ed-root[data-phase="guess"] .lg-ed-words,
+.lg-ed-root[data-phase="guess"] .lg-ed-answer,
+.lg-ed-root[data-phase="guess"] .lg-ed-verdict,
+.lg-ed-root[data-phase="answer"] .lg-ed-title { display: none; }
+.lg-ed-answer { font-size: max(26px, calc(84px * var(--lg-k, 1))); line-height: 1.15; margin-top: 0.25em !important; min-height: 1.15em; }
+.lg-ed-answer[data-len="m"] { font-size: max(22px, calc(56px * var(--lg-k, 1))); }
+.lg-ed-answer[data-len="l"] { font-size: max(20px, calc(40px * var(--lg-k, 1))); }
+.lg-ed-answer[data-empty="1"] { opacity: 0.55; }
+.lg-ed-verdict { font-size: max(16px, calc(40px * var(--lg-k, 1))); margin-top: 0.3em !important; min-height: 1.25em; color: var(--lg-red, #ea3a3d); }
+.lg-ed-verdict[data-ok="1"] { color: var(--lg-gold, #f1c24a); }
+.lg-ed-ch { display: inline-block; visibility: hidden; opacity: 0; transform: scale(1.22); transition: opacity 0.14s ease, transform 0.3s ease; white-space: pre; }
+.lg-ed-ch.lg-ed-on { visibility: visible; opacity: 1; transform: none; }
+/* 3D 가 아닐 때: 라이어 카드 (조작 줄 위) */
+.lg-ed-mid {
+  display: none; position: absolute; left: 0; right: 0; bottom: calc(12px * var(--lg-k, 1) + 54px);
+  flex-direction: column; align-items: center; gap: 6px;
+}
+.lg-ed-nogl .lg-ed-mid { display: flex; }
+.lg-ed-card { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.lg-ed-face {
+  width: max(40px, calc(84px * var(--lg-k, 1))); aspect-ratio: 1; border-radius: 50%; overflow: hidden;
+  display: grid; place-items: center; font-weight: 900; font-size: max(18px, calc(36px * var(--lg-k, 1)));
+  color: #111; background: var(--c, #efe6d8); border: 3px solid #fff; box-shadow: 0 0 36px rgba(255, 252, 240, 0.55);
+}
+.lg-ed-face img { width: 100%; height: 100%; object-fit: cover; }
+.lg-ed-name { font-weight: 900; color: var(--c, #efe6d8); font-size: max(13px, calc(22px * var(--lg-k, 1))); text-shadow: 0 2px 8px #000; }
+.lg-ed-bubble {
+  box-sizing: border-box; max-width: min(70vw, 520px); padding: 6px 14px; border-radius: 14px; background: #fff; color: #111;
+  font-weight: 900; font-size: max(13px, calc(24px * var(--lg-k, 1))); line-height: 1.25; text-align: center; overflow-wrap: anywhere;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+}
+.lg-ed-bubble[hidden] { display: none; }
+.lg-ed-bubble.lg-ed-float { position: absolute; transform: translate(-50%, -140%); z-index: 2; }
+.lg-ed-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+@keyframes lg-ed-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .lg-ed-root, .lg-ed-root * { transition: none !important; animation: none !important; } }
