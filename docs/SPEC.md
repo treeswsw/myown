@@ -644,4 +644,4 @@ design/   시안
 - `shared/coin/shop.js`: `SLOTS`, `ITEMS`, `item(id) -> 품목|null`.
 - `shared/coin/protocol.js`: `parseCoin(msg) -> {ok, msg}|{ok:false, code}`, `parsePin(msg)` 같은 모양. `PIN_RE = /^\d{4}$/`.
 - 화면: `client/src/coin/index.js` 가 `export function createCoin({ send, root }) -> { onMe(me), onMsg(msg), open(kind) }` 를 내보낸다. `kind`: `'swap'|'draw'|'shop'|'rank'|'pin'`. `send(obj)` 는 net 의 보내기. `root` 는 창을 붙일 요소(#ui). 각 창 모듈은 `open{Swap,Rank}(ctx)`(wallet.js), `openGacha(ctx)`(gacha.js), `openShop(ctx)`(shop.js), `openPin(ctx)`(pin.js), `ctx = { send, root, wallet(), on(type, fn) -> 끄기 }`.
-- 로비: `createLobby` 옵션에 `onCoin(kind)` 콜백 추가, 로그인 콜백은 `onLogin(id, {pin, newPin})`. 로비는 `me.wallet.coins` 로 잔액을 보인다.
+- 로비: `createLobby` 옵션에 `onCoin(kind)` 콜백 추가, 로그인 콜백은 기존 `onLogin(id, avatar, pw)` 에 네 번째 인자 `{pin, newPin}` 추가(없으면 undefined). 초기화 확인 콜백은 `onResetConfirm(pw)`. 로비는 `me.wallet.coins` 로 잔액을 보인다.
