@@ -35,7 +35,7 @@ export function createResult(parent, ctx) {
   let pickLocked = false; // 이미 눌렀으면 다시 보내지 않는다
   let tick = null;
   let disposed = false;
-  const offs = [];
+  let againTimer = null;
 
   const meId = () => (ctx && typeof ctx.meId === 'function' ? ctx.meId() : null);
   const now = () => (ctx && typeof ctx.now === 'function' ? ctx.now() : Date.now());
@@ -116,6 +116,7 @@ export function createResult(parent, ctx) {
     box.appendChild(word);
 
     const line = h('div', 'dr-rs-gains');
+    if (!v.gains.length) line.appendChild(h('span', 'dr-rs-none', '맞힌 사람이 없어요'));
     v.gains.forEach((g, i) => {
       if (i > 0) line.appendChild(h('span', 'dr-rs-dot', '·'));
       const item = h('span', 'dr-rs-gain');
@@ -125,7 +126,7 @@ export function createResult(parent, ctx) {
       line.appendChild(item);
     });
     if (v.drawer) {
-      if (v.gains.length) line.appendChild(h('span', 'dr-rs-dot', '·'));
+      line.appendChild(h('span', 'dr-rs-dot', '·'));
       const item = h('span', 'dr-rs-gain');
       item.appendChild(document.createTextNode('그린 사람 '));
       item.appendChild(h('span', 'dr-rs-gname', v.drawer.name));
@@ -133,7 +134,6 @@ export function createResult(parent, ctx) {
       item.appendChild(h('span', 'dr-rs-pts', v.drawer.ptsText));
       line.appendChild(item);
     }
-    if (!v.gains.length && !v.drawer) line.appendChild(h('span', 'dr-rs-none', '맞힌 사람이 없어요'));
     box.appendChild(line);
 
     const foot = h('div', 'dr-rs-next');
@@ -198,10 +198,16 @@ export function createResult(parent, ctx) {
       again.type = 'button';
       again.addEventListener('click', () => {
         if (again.disabled) return;
-        again.disabled = true; // 연타 방지(상태가 바뀌면 화면이 다시 그려진다)
+        again.disabled = true; // 연타 방지. 서버가 거절해도 2초 뒤 다시 켠다
         send(act.restartMsg);
+        if (againTimer != null) clearTimeout(againTimer);
+        againTimer = setTimeout(() => { againTimer = null; again.disabled = false; }, 2000);
       });
       btns.appendChild(again);
+      const lobby = h('button', 'dr-rs-btn dr-rs-btn-sub', '방으로');
+      lobby.type = 'button';
+      lobby.addEventListener('click', () => send(act.lobbyMsg));
+      btns.insertBefore(lobby, again);
     } else {
       btns.appendChild(h('div', 'dr-rs-waitnote', act.waitText));
     }
@@ -234,7 +240,7 @@ export function createResult(parent, ctx) {
     if (next !== sig) {
       sig = next;
       clear();
-      el.className = `dr-rs dr-rs-${mode.kind}`;
+      el.dataset.mode = mode.kind;
       switch (mode.kind) {
         case 'pick-drawer': renderPickDrawer(pickCards(state, meId())); break;
         case 'pick-wait': renderPickWait(); break;
@@ -255,7 +261,7 @@ export function createResult(parent, ctx) {
   function dispose() {
     disposed = true;
     stopTick();
-    offs.forEach((f) => f());
+    if (againTimer != null) { clearTimeout(againTimer); againTimer = null; }
     el.remove();
   }
 

@@ -158,6 +158,7 @@ export function finalActions(state, meId) {
   return {
     canRestart: host,
     restartMsg: host ? { t: 'start' } : null,
+    lobbyMsg: host ? { t: 'dr', a: 'lobby' } : null, // 방 대기로(GDD 15절). checkDr 에는 room 과제가 추가 예정
     waitText: host ? '' : '방장이 시작하면 한 판 더 해요',
   };
 }

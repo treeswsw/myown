@@ -140,9 +140,10 @@ test('최종 순위: 공동 순위·단상 배치', () => {
 });
 
 test('한 판 더는 방장만', () => {
-  assert.deepEqual(finalActions({ hostId: 'a' }, 'a'), { canRestart: true, restartMsg: { t: 'start' }, waitText: '' });
+  assert.deepEqual(finalActions({ hostId: 'a' }, 'a'), { canRestart: true, restartMsg: { t: 'start' }, lobbyMsg: { t: 'dr', a: 'lobby' }, waitText: '' });
   const o = finalActions({ hostId: 'a' }, 'b');
   assert.equal(o.canRestart, false);
   assert.equal(o.restartMsg, null);
+  assert.equal(o.lobbyMsg, null);
   assert.ok(o.waitText);
 });

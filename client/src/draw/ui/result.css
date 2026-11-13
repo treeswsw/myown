@@ -13,7 +13,7 @@
   font-family: inherit;
 }
 .dr-rs[hidden] { display: none; }
-.dr-rs button { font: inherit; border: 0; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+:where(.dr-rs) button { font: inherit; border: 0; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
 .dr-rs-card { pointer-events: auto; box-sizing: border-box; max-width: 100%; text-align: center; }
 .dr-rs-title { font-size: calc(22px * var(--k, 1)); font-weight: 700; }
