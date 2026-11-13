@@ -39,7 +39,7 @@ export const GAMES = {
   gsk: {
     name: GSK_NAME, desc: '3~6명 · 해골을 피해 꽃 뒤집기',
     about: '3~6명 · 해골을 피해 꽃 뒤집기. 원판을 엎어 놓고 "몇 장까지 꽃만 뒤집겠다"를 겨룹니다. 해골이 나오면 원판을 잃어요.',
-    min: 3, max: 6, flag: 'gsk', msgs: ['gk'], err: 'gk_', css: 'gk-', coin: null /* 묶음 3 */, chat: CHAT, settings: [], own: GSK_OWN,
+    min: 3, max: 6, flag: 'gsk', msgs: ['gk'], err: 'gk_', css: 'gk-', coin: 'gsk', chat: CHAT, settings: [], own: GSK_OWN,
   },
   mini: {
     name: '미니게임', desc: '2명 · 오목·리버시·체커·체스·커넥트포',

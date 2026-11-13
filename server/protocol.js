@@ -1,3 +1,4 @@
+import { checkEcon } from '../shared/coin/rules.js';
 import { parseCoin, parsePin } from '../shared/coin/protocol.js';
 // Validation of everything a client may send. Returns sanitized messages only.
 import { GAME_IDS } from '../shared/mini/index.js';
@@ -116,6 +117,11 @@ export function parseMessage(raw) {
         const n = m.n;
         if (!target) return bad('없는 아이디입니다.', 'adm_noid');
         return Number.isInteger(n) && n >= 1 && n <= 10_000_000 ? good({ t: 'adm', a: m.a, id: target.key, n }) : bad('1~10,000,000 사이 정수를 적으세요.', 'adm_bad');
+      }
+      if (m.a === 'econ' || m.a === 'econReset') return good({ t: 'adm', a: m.a });
+      if (m.a === 'econSet') {
+        const r = checkEcon(m.econ);
+        return r.ok ? good({ t: 'adm', a: 'econSet', econ: r.econ }) : bad('값이 범위를 벗어났습니다.', 'adm_bad');
       }
       return ['bot+', 'bot-', 'skip'].includes(m.a) ? good({ t: 'adm', a: m.a }) : bad('알 수 없는 요청입니다.');
     }

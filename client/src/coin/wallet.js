@@ -1,5 +1,5 @@
 // 교환 창과 코인 랭킹 창 (SPEC 22-3, 22-6). 사용자 글자는 textContent 로만.
-const CHIPS_PER_COIN = 100;
+const DEFAULT_CPC = 100; // 서버가 준 wallet.chipsPerCoin 이 없을 때만
 const fmt = (n) => Number(n).toLocaleString('ko-KR');
 
 export function h(tag, cls, ...kids) {
@@ -72,8 +72,9 @@ export function openSwap(ctx) {
   function refresh() {
     input.value = input.value.replace(/[^\d]/g, '');
     const w = ctx.wallet();
-    have.textContent = `가진 코인 ${fmt(w.coins)}개 · 1코인 = ${CHIPS_PER_COIN}칩`;
-    preview.textContent = `= ${fmt((Number(input.value) || 0) * CHIPS_PER_COIN)}칩`;
+    const cpc = Number(w.chipsPerCoin) > 0 ? Number(w.chipsPerCoin) : DEFAULT_CPC;
+    have.textContent = `가진 코인 ${fmt(w.coins)}개 · 1코인 = ${fmt(cpc)}칩`;
+    preview.textContent = `= ${fmt((Number(input.value) || 0) * cpc)}칩`;
     go.disabled = !num();
     allBtn.disabled = w.coins < 1;
   }

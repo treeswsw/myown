@@ -86,7 +86,9 @@ export function createCoin({ send, root }) {
     if (msg.t === 'coin') {
       if (msg.a === 'got') {
         const n = Number(msg.n) || 0;
-        if (n > 0) flash('toast', `+${n} 코인`, 2500);
+        // 판 끝 알림(모든 게임 공용): 0 이어도 짧게 알린다. why:'gap' = 같은 게임을 너무 빨리 또 했을 때.
+        if (n > 0) flash('toast', `이번 판 코인 +${n}`, 2500);
+        else flash('toast', msg.why === 'gap' ? '이번 판은 코인 없음 (너무 자주 해서)' : '이번 판은 코인 없음', 2500);
       } else if (msg.a === 'news') {
         const name = String(msg.name ?? '');
         const chips = Number(msg.chips) || 0;
