@@ -465,15 +465,25 @@ async function runContext(browser, server, name, cfg) {
       await gone('[aria-label="라이어 랭킹"]');
     });
     for (const b of lgBots) b.close();
-    await step('poker still works after liar: create a hold\'em room', async () => {
-      await press('.lb-seg-item:has-text("홀덤")');
-      await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.lb-actions .lb-danger');
-    });
-    await step('poker after liar: leave the room (no leftover room for the next context)', async () => {
-      await press('.lb-actions .lb-danger');
-      await visible('button:has-text("방 만들기")');
-    });
+    // The all-in step above may have busted this account (the bot calls; the showdown is random). A bust is a legitimate
+    // state: hold'em must then be refused with the "새 아이디로 시작" notice instead of creating a room.
+    const busted = await page.locator('button:has-text("새 아이디로 시작")').first().isVisible().catch(() => false);
+    if (busted) {
+      await step('poker after liar: busted account cannot create a hold\'em room (create button disabled)', async () => {
+        await press('.lb-seg-item:has-text("홀덤")');
+        if (!(await page.locator('button.lb-primary:has-text("방 만들기")').first().isDisabled())) throw new Error('create button enabled with 0 chips');
+      });
+    } else {
+      await step('poker still works after liar: create a hold\'em room', async () => {
+        await press('.lb-seg-item:has-text("홀덤")');
+        await press('button.lb-primary:has-text("방 만들기")');
+        await visible('.lb-actions .lb-danger');
+      });
+      await step('poker after liar: leave the room (no leftover room for the next context)', async () => {
+        await press('.lb-actions .lb-danger');
+        await visible('button:has-text("방 만들기")');
+      });
+    }
   } catch (e) {
     if (!(e instanceof StepFailed)) check('unexpected error', false, String(e.stack || e).split('\n').slice(0, 3).join(' | '));
     const shot = path.join(os.tmpdir(), `smoke-fail-${name}.png`);
