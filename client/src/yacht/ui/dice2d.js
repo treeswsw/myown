@@ -48,7 +48,7 @@ export function createDiceView({ host, stage } = {}) {
   const cupSide = el('div', 'yt-bd-cupside');       // 옆으로 누운 컵(쉬는 모습)
   tray.append(slotsBox, felt, cupSide, cupTop);
   const dieEls = [0, 1, 2, 3, 4].map(() => makeDie());
-  dieEls.forEach((d, i) => { d.setAttribute('data-yt', `die-${i}`); tray.appendChild(d); });
+  dieEls.forEach((d, i) => { d.setAttribute('data-yt', `dv-${i}`); tray.appendChild(d); });
   root.appendChild(tray);
   host.appendChild(root);
 

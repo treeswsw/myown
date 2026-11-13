@@ -68,6 +68,7 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
   const btns = new Map();          // i -> button
   let ro = null;
   let dead = false;
+  let seq = 0;                     // 연출 번호(지난 연출의 뒤처리는 무시)
 
   const tall = () => (typeof window !== 'undefined' ? window.innerHeight >= 720 : true);
   const mine = () => !!state && state.phase === 'playing' && state.turn === state.you && !state.waiting;
@@ -92,7 +93,8 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
   function faceOf(id) {
     let f = null;
     try { f = getFace ? getFace(id) : null; } catch { f = null; }
-    return typeof f === 'string' ? f : (f && f.avatar) || null;
+    const src = typeof f === 'string' ? f : (f && f.avatar) || null;
+    return typeof src === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(src) ? src : null;
   }
   function avatar(id, name) {
     const a = el('span', 'yt-bd-av');
@@ -248,7 +250,7 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
   function syncHits() {
     const want = canKeep();
     for (const [i, b] of btns) {
-      if (!want || !liveDice || !liveDice[i]) { b.remove(); btns.delete(i); restoreDie(i); }
+      if (!want || !liveDice || !liveDice[i]) { b.remove(); btns.delete(i); }
     }
     if (!want) return;
     for (let i = 0; i < 5; i++) {
@@ -260,12 +262,9 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
       b.addEventListener('click', () => onDie(i));
       hits.appendChild(b);
       btns.set(i, b);
-      const de = view.dieEl(i);
-      if (de) de.setAttribute('data-yt', `dv-${i}`);   // die-i 는 버튼 하나만 쓴다
     }
     placeHits();
   }
-  function restoreDie(i) { const de = view.dieEl(i); if (de) de.setAttribute('data-yt', `die-${i}`); }
 
   function placeHits() {
     for (const [i, b] of btns) {
@@ -300,6 +299,7 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
 
   function update(next) {
     state = next || null;
+    if (holding && !mine()) { holding = null; shakeOffIn = null; view.setShaking(false); }   // 누르는 중 차례가 끝남
     elapsed = 0; lastWaitN = null;
     if (!state) {
       liveDice = null; sig = '';
@@ -327,8 +327,9 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
       sig = '';
       setBusy(true);
       syncCup(); syncHits();
+      const my = ++seq;
       view.playRoll({ seed: e.seed, thrown: e.thrown || [], dice: e.dice || [] }).then(() => {
-        if (dead) return;
+        if (dead || my !== seq) return;
         setBusy(false);
         if (state) { const sg = signature(state); if (state.rollNo >= e.rollNo) { redraw(); } else { sig = sg; } }
         placeHitsAfter();
@@ -343,10 +344,11 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
       }
       const b = btns.get(e.i);
       setBusy(true);
+      const my = ++seq;
       view.playKeep({ i: e.i, on: !!e.on, slot: e.slot, x: e.x, z: e.z, yaw: e.yaw }).then(() => {
-        if (dead) return;
+        if (dead || my !== seq) return;
         setBusy(false);
-        if (b) { b.remove(); btns.delete(e.i); restoreDie(e.i); }
+        if (b) { b.remove(); btns.delete(e.i); }
         sig = '';
         if (state) { redraw(); }
         syncCup(); syncHits(); updateHint();
@@ -384,6 +386,10 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
   }
 
   function resize() { layout(); }
+  const onAway = () => { if (typeof document !== 'undefined' && document.visibilityState && document.visibilityState !== 'hidden') return; onCupUp(); };
+  const onBlur = () => onCupUp();
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onAway);
+  if (typeof window !== 'undefined') window.addEventListener('blur', onBlur);
 
   comboEl.hidden = true;
   hintEl.hidden = true;
@@ -395,6 +401,8 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
 
   function dispose() {
     dead = true;
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onAway);
+    if (typeof window !== 'undefined') window.removeEventListener('blur', onBlur);
     if (ro) ro.disconnect();
     view.dispose();
     root.remove();

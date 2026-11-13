@@ -50,7 +50,7 @@ try {
   // 내 차례 첫 굴림: 컵 버튼 누름/뗌 순서
   await setState(big, 'myTurnFresh');
   ok(await yt(big, 'cup').count() === 1, 'myTurnFresh: 컵 버튼 있음');
-  ok(await yt(big, 'die-0').count() === 1 && await buttons(big) === 1, 'myTurnFresh: 주사위 버튼은 아직 없음(굴리기 전)');
+  ok(await yt(big, 'dv-0').count() === 1 && await buttons(big) === 1, 'myTurnFresh: 주사위 버튼은 아직 없음(굴리기 전)');
   const lt = ((await yt(big, 'left').textContent()) || '').trim();
   ok(/^3 left$/.test(lt) && (await attr(big, 'left', 'data-n')) === '3', `left 글자 "N left" 모양 (${lt})`);
   await clearSent(big);
@@ -79,15 +79,15 @@ try {
   await setState(big, 'myTurnRolled', { rollNo: 1, rollsLeft: 2, pick: null, round: 3 });
   const D = await big.evaluate(() => window.h.F.DICE);
   for (let i = 2; i < 5; i++) {
-    ok((await attr(big, `die-${i}`, 'data-v')) === String(D[i].v)
-      && (await attr(big, `die-${i}`, 'data-x')) === D[i].x.toFixed(3)
-      && (await attr(big, `die-${i}`, 'data-z')) === D[i].z.toFixed(3), `die-${i}: data-v·x·z 가 상태와 같다`);
+    ok((await attr(big, `dv-${i}`, 'data-v')) === String(D[i].v)
+      && (await attr(big, `dv-${i}`, 'data-x')) === D[i].x.toFixed(3)
+      && (await attr(big, `dv-${i}`, 'data-z')) === D[i].z.toFixed(3), `dv-${i}: data-v·x·z 가 상태와 같다`);
   }
   ok((await attr(big, 'slot-0', 'data-v')) === '4' && (await attr(big, 'slot-1', 'data-v')) === '4', 'die-0,1 은 보관 칸 0,1 에 있다');
   const inSlot = await big.evaluate(() => {
     const out = [];
     for (const i of [0, 1]) {
-      const d = document.querySelector(`[data-yt="die-${i}"]`).getBoundingClientRect();
+      const d = document.querySelector(`[data-yt="dv-${i}"]`).getBoundingClientRect();
       const s = document.querySelector(`[data-yt="slot-${i}"]`).getBoundingClientRect();
       out.push(Math.abs((d.left + d.width / 2) - (s.left + s.width / 2)) < 3 && Math.abs((d.top + d.height / 2) - (s.top + s.height / 2)) < 3);
     }
@@ -113,19 +113,42 @@ try {
   ok((await attr(big, 'slot-0', 'data-v')) !== null || true, 'ytKeep 처리');
   ok(await big.evaluate(() => window.h.busy.at(-1)) === false, 'ytKeep 연출 뒤 busy 해제');
 
+  // 컵을 누른 채 차례가 끝나도 다음 차례에 컵이 다시 눌린다
+  await setState(big, 'myTurnFresh', { gameNo: 7 });
+  await clearSent(big);
+  const [hx, hy] = await big.evaluate(() => { const r = document.querySelector('[data-yt="cup"]').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+  await big.mouse.move(hx, hy);
+  await big.mouse.down();
+  await setState(big, 'otherTurn', { gameNo: 7 });
+  await big.mouse.up();
+  await setState(big, 'myTurnFresh', { gameNo: 7 });
+  await clearSent(big);
+  await big.mouse.move(hx, hy);
+  await big.mouse.down();
+  s = await sent(big);
+  ok(s.length === 1 && s[0].a === 'shake' && s[0].on === true, '누르던 중 차례가 끝나도 다음 차례에 컵이 다시 눌린다');
+  await big.mouse.up();
+  await sleep(500);
+  // 같은 rollNo 알림이 또 와도 연출은 한 번
+  await setState(big, 'myTurnFresh', { gameNo: 8 });
+  await event(big, 'rollEvent', { rollNo: 1, rollsLeft: 2 });
+  await event(big, 'rollEvent', { rollNo: 1, rollsLeft: 2 });
+  await sleep(500);
+  ok(await big.evaluate(() => window.h.busy.filter((b) => b === true).length) >= 1 && await big.evaluate(() => window.h.busy.at(-1)) === false, '같은 rollNo 중복 알림: 연출 뒤 busy 해제');
+
   // 알림 없이 상태만
   const fresh = await open(1280, 720, 400);
   await setState(fresh, 'myTurnRolled');
   for (let i = 2; i < 5; i++) {
-    ok((await attr(fresh, `die-${i}`, 'data-x')) === D[i].x.toFixed(3) && (await attr(fresh, `die-${i}`, 'data-v')) === String(D[i].v), `알림 없이 상태만: die-${i} 같은 자리`);
+    ok((await attr(fresh, `dv-${i}`, 'data-x')) === D[i].x.toFixed(3) && (await attr(fresh, `dv-${i}`, 'data-v')) === String(D[i].v), `알림 없이 상태만: dv-${i} 같은 자리`);
   }
   ok((await attr(fresh, 'slot-0', 'data-v')) === '4', '알림 없이 상태만: 보관 칸 같은 모습');
   // 남의 차례
   await setState(fresh, 'otherTurn');
   ok(await buttons(fresh) === 0, 'otherTurn: 버튼 0개');
-  ok(await fresh.locator('[data-yt^="die-"]').count() === 5, 'otherTurn: 주사위 5개는 보인다');
-  ok(await fresh.locator('[data-yt^="die-"]').evaluateAll((els) => els.every((e) => { const r = e.getBoundingClientRect(); return r.width > 10 && r.height > 10; })), 'otherTurn: 주사위가 눈에 보이는 크기');
-  ok((await attr(fresh, 'die-2', 'data-x')) === D[2].x.toFixed(3), 'otherTurn: 내 화면과 같은 data-x');
+  ok(await fresh.locator('[data-yt^="dv-"]').count() === 5, 'otherTurn: 주사위 5개는 보인다');
+  ok(await fresh.locator('[data-yt^="dv-"]').evaluateAll((els) => els.every((e) => { const r = e.getBoundingClientRect(); return r.width > 10 && r.height > 10; })), 'otherTurn: 주사위가 눈에 보이는 크기');
+  ok((await attr(fresh, 'dv-2', 'data-x')) === D[2].x.toFixed(3), 'otherTurn: 내 화면과 같은 data-x');
   ok(!(await yt(fresh, 'keephint').isVisible()), 'otherTurn: 보관 안내 없음');
   ok((await yt(fresh, 'turn').textContent()).includes('지우'), 'otherTurn: 차례인 사람 이름');
   // 기다림
