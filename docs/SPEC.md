@@ -635,3 +635,13 @@ design/   시안
 3. 비밀이 있는 게임이면 결과가 모두에게 공개된 뒤에만 부르고, `test/coin/leaks.test.js`에 한 판을 더한다.
 4. `test/coin/award.test.js`에 표 한 줄, 한 판 클릭 시험에 알림 확인 한 줄.
 
+
+### 22-14. 코드 약속 (구역 사이의 함수 모양, 병렬 작업 기준)
+- `shared/coin/rules.js`: `COIN_RULES = { bluff:{finish:1,win:1,gapMs:30000}, liar:{finish:1,win:1,gapMs:45000}, draw:{finish:2,win:2,gapMs:120000}, yacht:{finish:3,win:4,gapMs:240000} }`, `coinsFor(mode, {won, opp}) -> 정수`(표에 없는 mode·홀덤은 0).
+- `shared/coin/gacha.js`: `COST = 10`, `TEN = 10`, `PITY = 80`, `ROLL = 10000`,
+  `TIERS = [{tier:0, chips:500, w:7310, name:'동', color:'#8d7b68'}, {tier:1, chips:2000, w:2500, name:'은', color:'#3d8bff'}, {tier:2, chips:5000, w:169, name:'금', color:'#b45cff'}, {tier:3, chips:20000, w:20, name:'잭팟', color:'#ffc93c'}, {tier:4, chips:100000, w:1, name:'갱식 잭팟', color:'rainbow'}]`,
+  `draw(rng, n, pity) -> { pulls:[{chips, tier}], chips, pity }`(`rng()` 는 0 이상 1 미만, n 은 1 또는 10, 22-4 의 천장·10연 보장 포함).
+- `shared/coin/shop.js`: `SLOTS`, `ITEMS`, `item(id) -> 품목|null`.
+- `shared/coin/protocol.js`: `parseCoin(msg) -> {ok, msg}|{ok:false, code}`, `parsePin(msg)` 같은 모양. `PIN_RE = /^\d{4}$/`.
+- 화면: `client/src/coin/index.js` 가 `export function createCoin({ send, root }) -> { onMe(me), onMsg(msg), open(kind) }` 를 내보낸다. `kind`: `'swap'|'draw'|'shop'|'rank'|'pin'`. `send(obj)` 는 net 의 보내기. `root` 는 창을 붙일 요소(#ui). 각 창 모듈은 `open{Swap,Rank}(ctx)`(wallet.js), `openGacha(ctx)`(gacha.js), `openShop(ctx)`(shop.js), `openPin(ctx)`(pin.js), `ctx = { send, root, wallet(), on(type, fn) -> 끄기 }`.
+- 로비: `createLobby` 옵션에 `onCoin(kind)` 콜백 추가, 로그인 콜백은 `onLogin(id, {pin, newPin})`. 로비는 `me.wallet.coins` 로 잔액을 보인다.
