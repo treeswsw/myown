@@ -131,7 +131,12 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   }).filter(([, v]) => Number.isFinite(v)));
   const app = await startServer({
     port: process.env.PORT === undefined ? 8080 : Number(process.env.PORT),
-    store, hubOptions: { timing, liar: ['test', 'on'].includes(process.env.LIAR) ? process.env.LIAR : (process.env.LIAR === 'off' ? 'off' : 'test') },
+    store,
+    hubOptions: {
+      timing,
+      liar: ['test', 'on'].includes(process.env.LIAR) ? process.env.LIAR : (process.env.LIAR === 'off' ? 'off' : 'test'),
+      yacht: ['test', 'on'].includes(process.env.YACHT) ? process.env.YACHT : (process.env.YACHT === 'off' ? 'off' : 'test'),
+    },
   });
   console.log(`listening on ${app.port}`);
   // Render kills the process about 30 s after SIGTERM: wait for the last saves (liar scores) at most 10 s.
