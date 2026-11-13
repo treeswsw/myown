@@ -1,0 +1,116 @@
+/* 갱식마인드 입구: 화면 뼈대와 배치 격자 (접두사 .dr- 중 모듈 접두사(.dr-cv- .dr-tb- .dr-hud- .dr-pl- .dr-st- .dr-rs-)가 아닌 이름만).
+   이 파일은 모듈 클래스를 다시 정의하지 않는다(css.test: 같은 클래스를 두 파일에 쓰지 않는다). 모듈 조각의 자리는
+   index.js 가 조각을 감싸 준 칸(.dr-c-*)과 그림판 칸(.dr-bd)으로 정하고, 모듈이 직접 격자 칸이 되는 것(플레이어 좌우 줄·채팅 기록)만
+   모듈 CSS 가 쓴 칸 번호(1열·5열 / 휴대폰 1열 1·2줄 / 기록 3열 / 이름 칸 dr-log)에 맞춘다.
+   시안: design/draw/index.html (PC 1280x800, 휴대폰 가로 844x390). 높이 480px 이하이면 휴대폰 배치(pure.js layoutFor 와 같은 값).
+
+   루트 클래스(pure.js rootClasses): dr-wide | dr-phone / dr-ph-<lobby|pick|draw|reveal|final> / dr-tools(내가 그리는 중) | dr-plain /
+   dr-lg-<full|small|hidden>(채팅 기록 칸) / dr-kb(휴대폰 키보드가 올라옴). */
+
+.dr-root {
+  /* 모듈들이 var(--x, 기본값) 으로 읽는 색 */
+  --ink: #fff; --ink2: rgba(255, 255, 255, .62); --ink3: rgba(255, 255, 255, .32);
+  --fill: rgba(255, 255, 255, .09); --fill2: rgba(255, 255, 255, .16); --hair: rgba(255, 255, 255, .12);
+  --accent: #f2c444; --on-accent: #1c1608; --red: #ff453a; --green: #34c759;
+  --panel: rgba(28, 28, 30, .62); --paper: #fffdf8;
+  /* 크기. 모듈의 calc(px * var(--k)) 는 시안 크기(k=1) 그대로 쓰므로 사이트 공통 배율을 막는다 */
+  --k: 1;
+  --pad: 12px; --gap: 12px; --bar: 54px; --strip: 52px; --under: 56px;
+  --pw: clamp(92px, 8.5vw, 112px); --palw: 84px; --toolw: 64px;
+  --sl: 0px; --sr: 0px;
+  --logrow: 0px;                      /* PC·iPad: 그림판 아래 채팅 기록 줄 높이(+간격). dr-lg-* 가 정한다 */
+  --dr-bar-l: 150px; --dr-bar-r: 330px; /* PC·iPad 윗줄: 사이트 상단 줄(.lgbar)의 방 코드·버튼 자리를 비워 둠. 통합 때 맞춘다 */
+  --ch: min(calc(100dvh - var(--bar) - var(--pad) * 2 - var(--strip) - var(--under) - var(--logrow) - 20px),
+            calc((100vw - var(--pad) * 2 - var(--pw) * 2 - var(--palw) - var(--toolw) - var(--gap) * 4) * .75));
+  --cw: calc(var(--ch) * 4 / 3);
+
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; flex-direction: column;
+  pointer-events: none;               /* 눌러야 하는 조각은 모듈이 스스로 pointer-events:auto */
+  color: var(--ink);
+  font-size: 15px; line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 42%, rgba(242, 196, 68, .10), transparent 70%),
+    radial-gradient(ellipse at 50% 50%, #1d1813 0%, #0c0a09 75%);
+  overflow: hidden;
+}
+.dr-root[hidden], .dr-spare[hidden] { display: none; }
+.dr-root *, .dr-root *::before, .dr-root *::after { box-sizing: border-box; }
+.dr-c[hidden] { display: none !important; } /* display:contents 인 칸도 숨겨야 한다 */
+
+/* 윗줄 */
+.dr-top {
+  flex: none; height: var(--bar); display: flex; align-items: center; gap: 10px; min-width: 0;
+  padding: 0 calc(var(--pad) + var(--sr)) 0 calc(var(--pad) + var(--sl));
+}
+.dr-sp { flex: 1; }
+
+/* 격자 */
+.dr-stage { flex: 1; min-height: 0; display: grid; justify-content: center; align-content: start; }
+.dr-c { min-width: 0; display: flex; flex-direction: column; }
+.dr-bd { position: relative; width: var(--cw); height: var(--ch); min-width: 0; }
+.dr-c-bar > * { flex: 1 1 auto; } /* 문제 띠가 칸 높이를 채운다 */
+.dr-c-bar { flex-direction: row; }
+.dr-c-meter { position: absolute; left: 0; right: 0; top: 0; z-index: 2; pointer-events: none; }
+.dr-lobby {
+  position: absolute; left: 0; right: 0; top: var(--bar); bottom: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: center; pointer-events: none;
+  padding: 0 calc(var(--pad) + var(--sr)) var(--pad) calc(var(--pad) + var(--sl));
+}
+.dr-ph-lobby .dr-stage { display: none; }
+.dr-ph-final .dr-bd { position: static; } /* 최종 순위 층(position:absolute; inset:0)이 그림판 칸이 아니라 화면 전체를 덮는다 */
+
+/* ---------- PC·iPad ---------- */
+.dr-wide .dr-top { padding-left: max(var(--dr-bar-l), calc(var(--pad) + var(--sl))); padding-right: max(var(--dr-bar-r), calc(var(--pad) + var(--sr))); }
+.dr-wide .dr-stage {
+  grid-template-columns: var(--pw) var(--palw) var(--cw) var(--toolw) var(--pw);
+  grid-template-rows: calc(var(--strip) + 10px) var(--ch) var(--logrow) calc(var(--under) + 10px);
+  grid-template-areas: ". . . . ." ". . . . ." ". . dr-log . ." ". . . . .";
+  column-gap: var(--gap);
+  padding: 0 calc(var(--pad) + var(--sr)) var(--pad) calc(var(--pad) + var(--sl));
+}
+.dr-wide .dr-c-bar { grid-column: 3; grid-row: 1; align-self: start; height: var(--strip); }
+.dr-wide .dr-bd { grid-column: 3; grid-row: 2; }
+.dr-wide .dr-c-pal { grid-column: 2; grid-row: 2; align-self: start; margin-top: 10px; }
+.dr-wide .dr-c-tools { grid-column: 4; grid-row: 2; align-self: start; margin-top: 10px; }
+.dr-wide .dr-c-answer, .dr-wide .dr-c-under { grid-column: 3; grid-row: 4; align-self: end; }
+.dr-wide .dr-c-give { grid-column: 4 / 6; grid-row: 4; align-self: end; justify-self: start; }
+.dr-wide.dr-lg-full { --logrow: 98px; }   /* 기록 88px + 간격 10px */
+.dr-wide.dr-lg-small { --logrow: 68px; }  /* 기록 58px + 간격 10px */
+.dr-wide.dr-lg-hidden { --logrow: 0px; }
+
+/* ---------- 휴대폰 가로 (높이 480px 이하) ---------- */
+.dr-phone {
+  --pad: 8px; --gap: 8px; --bar: 40px; --strip: 0px; --under: 0px;
+  --pw: 150px; --palw: 66px; --toolw: 46px; --sl: 44px; --sr: 44px; /* 좌우 44px 은 노치 자리 */
+  --logrow: 0px;
+  --ch: min(calc(100dvh - var(--bar) - var(--pad)),
+            calc((100vw - var(--sl) - var(--sr) - var(--pad) * 2 - var(--pw) - var(--palw) - var(--toolw) - var(--gap) * 3) * .75));
+  font-size: 13px;
+}
+.dr-phone.dr-tools { --pw: 132px; --toolw: 88px; }
+.dr-phone.dr-kb {
+  /* 키보드가 올라오면 보이는 높이(--dr-vvh, hud 가 알려 줌)에 맞춰 그림판을 줄인다 */
+  --ch: min(calc(var(--dr-vvh, 100dvh) - var(--bar) - var(--pad)),
+            calc((100vw - var(--sl) - var(--sr) - var(--pad) * 2 - var(--pw) - var(--palw) - var(--toolw) - var(--gap) * 3) * .75));
+}
+.dr-phone .dr-top { gap: 8px; padding-left: calc(var(--pad) + var(--sl)); padding-right: calc(var(--pad) + var(--sr)); }
+.dr-phone .dr-c-bar { flex: 0 1 auto; }
+.dr-phone .dr-c-answer { flex: 1 1 0; }
+.dr-phone .dr-c-give { margin-left: auto; }
+.dr-phone .dr-stage {
+  grid-template-columns: var(--pw) var(--cw) minmax(0, 1fr); /* 맞히는 사람: [플레이어][그림판][채팅 기록] */
+  grid-template-rows: 1fr 1fr;
+  column-gap: var(--gap); row-gap: 4px;
+  padding: 0 calc(var(--pad) + var(--sr)) var(--pad) calc(var(--pad) + var(--sl));
+}
+.dr-phone .dr-bd { grid-column: 2; grid-row: 1 / 3; align-self: start; }
+.dr-phone.dr-tools .dr-stage { grid-template-columns: var(--pw) var(--palw) var(--cw) var(--toolw); } /* 그리는 사람: [플레이어][색][그림판][도구] */
+.dr-phone.dr-tools .dr-bd { grid-column: 3; }
+.dr-phone .dr-c-pal { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+.dr-phone .dr-c-tools { grid-column: 4; grid-row: 1 / 3; align-self: center; }
+/* 굵기 조정 창(position:fixed)만 들어 있다. 크기 없는 실제 격자 칸으로 두어 자동 배치로 엉뚱한 칸을 차지하지 않게 한다 */
+.dr-phone .dr-c-under { grid-column: 1; grid-row: 1; width: 0; height: 0; align-self: start; overflow: visible; }
+.dr-phone.dr-kb .dr-stage { grid-template-columns: 0 var(--cw) minmax(0, 1fr); justify-content: start; column-gap: 0; }
+.dr-phone.dr-kb .dr-bd { margin-left: var(--gap); }
