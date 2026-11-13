@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   clampWidth, normalizeTool, currentWidth, widthPatch, quickIndex, stepWidth,
-  widthToRatio, ratioToWidth, toolsVisible, buttonStates, isTypingTarget, keyAction,
+  widthToRatio, ratioToWidth, toolsVisible, buttonStates, isTypingTarget, keyAction, layoutOf,
 } from '../../client/src/draw/ui/tools.pure.js';
 
 test('clampWidth: 2~40 정수로 정리', () => {
@@ -103,4 +103,11 @@ test('keyAction: 무시하는 경우', () => {
   assert.equal(keyAction({ code: 'KeyY', key: 'y', ctrlKey: true, shiftKey: true }), null);
   assert.equal(keyAction({ code: 'Digit1', key: '!', shiftKey: true }), null);
   assert.equal(keyAction(null), null);
+});
+
+test("layoutOf: phone 만 phone, 나머지는 wide", () => {
+  assert.equal(layoutOf("phone"), "phone");
+  assert.equal(layoutOf("wide"), "wide");
+  assert.equal(layoutOf(undefined), "wide");
+  assert.equal(layoutOf("tablet"), "wide");
 });
