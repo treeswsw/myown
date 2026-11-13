@@ -1,0 +1,107 @@
+/* 갱식마인드 상단·문제 띠 (접두사 .dr-hud- 만). 시안 design/draw/index.html 의 문제 띠·정답 입력을 옮김. */
+.dr-hud {
+  --dr-hud-ink: #fff;
+  --dr-hud-ink2: rgba(255, 255, 255, .62);
+  --dr-hud-panel: rgba(28, 28, 30, .62);
+  --dr-hud-hair: rgba(255, 255, 255, .12);
+  --dr-hud-accent: #f2c444;
+  --dr-hud-hot: #ff5a4d;
+  --dr-hud-ok: #34c759;
+  display: contents;
+}
+.dr-hud[hidden] { display: none; }
+/* 조각(slots)은 다른 격자 칸으로 옮겨질 수 있으므로 .dr-hud 밖에서도 숨김이 먹게 각 조각에 직접 건다 */
+.dr-hud [hidden],
+.dr-hud-title[hidden], .dr-hud-num[hidden], .dr-hud-bar[hidden], .dr-hud-meter[hidden],
+.dr-hud-answer[hidden], .dr-hud-barnum[hidden], .dr-hud-hits[hidden] { display: none !important; }
+
+/* 게임 이름·문제 번호 */
+.dr-hud-title { pointer-events: none; font-weight: 800; font-size: calc(18px * var(--k, 1)); color: var(--dr-hud-ink); white-space: nowrap; }
+.dr-hud-num { pointer-events: none; color: var(--dr-hud-ink2); font-size: calc(15px * var(--k, 1)); white-space: nowrap; }
+.dr-hud-numq { color: var(--dr-hud-ink); font-size: calc(20px * var(--k, 1)); }
+.dr-hud-num.dr-hud-phone { display: none; }
+
+/* 문제 띠 */
+.dr-hud-bar {
+  pointer-events: none;
+  display: flex; align-items: center; gap: calc(10px * var(--k, 1));
+  min-width: 0; box-sizing: border-box;
+  padding: calc(5px * var(--k, 1)) calc(10px * var(--k, 1)) calc(5px * var(--k, 1)) calc(6px * var(--k, 1));
+  border-radius: 999px; background: var(--dr-hud-panel); box-shadow: inset 0 0 0 1px var(--dr-hud-hair);
+  color: var(--dr-hud-ink);
+}
+.dr-hud-tag {
+  flex: none; padding: calc(7px * var(--k, 1)) calc(14px * var(--k, 1)); border-radius: 999px;
+  background: var(--dr-hud-accent); color: #1c1c1e; font-weight: 800; font-size: calc(15px * var(--k, 1));
+}
+.dr-hud-q { flex: none; display: inline-flex; align-items: center; gap: calc(8px * var(--k, 1)); min-width: 0; }
+.dr-hud-word { font-weight: 800; font-size: calc(22px * var(--k, 1)); letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dr-hud-note { color: var(--dr-hud-ink2); font-size: calc(14px * var(--k, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dr-hud-box { display: inline-block; width: calc(20px * var(--k, 1)); height: calc(20px * var(--k, 1)); border-radius: 4px; box-sizing: border-box; border: calc(3px * var(--k, 1)) solid var(--dr-hud-ink); }
+.dr-hud-gap { display: inline-block; width: calc(12px * var(--k, 1)); }
+.dr-hud-len { flex: none; color: var(--dr-hud-ink2); font-size: calc(13px * var(--k, 1)); white-space: nowrap; }
+.dr-hud-fill { flex: 1 1 0; min-width: 0; }
+.dr-hud-hits { flex: none; color: var(--dr-hud-ink2); font-size: calc(13px * var(--k, 1)); white-space: nowrap; }
+.dr-hud-barnum { flex: none; color: var(--dr-hud-ink2); font-size: calc(13px * var(--k, 1)); white-space: nowrap; }
+.dr-hud-bar.dr-hud-wide .dr-hud-barnum { display: none; }
+.dr-hud-time { flex: none; min-width: 3.2ch; text-align: right; font-weight: 800; font-size: calc(26px * var(--k, 1)); font-variant-numeric: tabular-nums; line-height: 1; }
+
+/* 10초 남음 / 첫 정답 뒤 단축 */
+.dr-hud-bar.dr-hud-urgent .dr-hud-time { color: var(--dr-hud-hot); animation: dr-hud-pulse .8s ease-in-out infinite; }
+.dr-hud-bar.dr-hud-urgent { box-shadow: inset 0 0 0 1.5px var(--dr-hud-hot); }
+.dr-hud-bar.dr-hud-rush .dr-hud-hits { color: var(--dr-hud-accent); font-weight: 700; }
+.dr-hud-bar.dr-hud-rush .dr-hud-time { color: var(--dr-hud-accent); }
+.dr-hud-bar.dr-hud-rush.dr-hud-urgent .dr-hud-time { color: var(--dr-hud-hot); }
+.dr-hud-bar.dr-hud-reveal .dr-hud-time { color: var(--dr-hud-ink2); font-size: calc(20px * var(--k, 1)); }
+@keyframes dr-hud-pulse { 50% { opacity: .55; } }
+
+/* 줄어드는 막대 */
+.dr-hud-meter { pointer-events: none; height: 4px; border-radius: 2px; overflow: hidden; background: transparent; }
+.dr-hud-meterfill { display: block; height: 100%; background: var(--dr-hud-accent); transform-origin: left center; transition: transform .3s linear; }
+.dr-hud-meter.dr-hud-rush .dr-hud-meterfill { background: var(--dr-hud-hot); }
+
+/* 정답 입력 */
+.dr-hud-answer {
+  pointer-events: auto; margin: 0;
+  display: flex; align-items: center; gap: calc(10px * var(--k, 1)); min-width: 0;
+}
+.dr-hud-input {
+  flex: 1 1 auto; min-width: 0; box-sizing: border-box;
+  height: calc(46px * var(--k, 1)); padding: 0 calc(20px * var(--k, 1));
+  border: 0; border-radius: 999px; outline: none;
+  background: rgba(255, 255, 255, .12); color: var(--dr-hud-ink);
+  font: inherit; font-size: 16px; /* 16px 미만이면 iOS 가 확대한다 */
+}
+.dr-hud-input::placeholder { color: var(--dr-hud-ink2); }
+.dr-hud-input:focus { box-shadow: 0 0 0 2px var(--dr-hud-accent); }
+.dr-hud-input:disabled { opacity: .5; }
+.dr-hud-send {
+  flex: none; height: calc(46px * var(--k, 1)); padding: 0 calc(20px * var(--k, 1));
+  border: 0; border-radius: 999px; background: #f2f2f7; color: #1c1c1e;
+  font: inherit; font-weight: 700; font-size: calc(15px * var(--k, 1)); cursor: pointer; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.dr-hud-send:disabled { opacity: .5; cursor: default; }
+/* 이미 맞힌 사람: 초록 */
+.dr-hud-answer.dr-hud-hit .dr-hud-input { box-shadow: inset 0 0 0 1.5px var(--dr-hud-ok); }
+.dr-hud-answer.dr-hud-hit .dr-hud-input::placeholder { color: var(--dr-hud-ok); }
+
+/* 휴대폰 가로: 윗줄. 키보드가 올라오면 입력 칸은 보이는 영역 맨 위에 남는다 */
+.dr-hud-bar.dr-hud-phone { gap: 6px; padding: 3px 8px 3px 4px; }
+.dr-hud-bar.dr-hud-phone .dr-hud-tag { padding: 5px 10px; font-size: 13px; }
+.dr-hud-bar.dr-hud-phone .dr-hud-word { font-size: 17px; }
+.dr-hud-bar.dr-hud-phone .dr-hud-box { width: 15px; height: 15px; border-width: 2.5px; }
+.dr-hud-bar.dr-hud-phone .dr-hud-gap { width: 8px; }
+.dr-hud-bar.dr-hud-phone .dr-hud-len { font-size: 12px; }
+.dr-hud-bar.dr-hud-phone .dr-hud-hits { display: none; }
+.dr-hud-bar.dr-hud-phone .dr-hud-barnum { font-size: 12px; }
+.dr-hud-bar.dr-hud-phone .dr-hud-time { font-size: 20px; }
+.dr-hud-answer.dr-hud-phone { gap: 6px; }
+.dr-hud-answer.dr-hud-phone .dr-hud-input { height: 36px; padding: 0 14px; }
+.dr-hud-answer.dr-hud-phone .dr-hud-send { height: 36px; padding: 0 14px; font-size: 14px; }
+.dr-hud-answer.dr-hud-kb { position: relative; z-index: 5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dr-hud-bar.dr-hud-urgent .dr-hud-time { animation: none; }
+  .dr-hud-meterfill { transition: none; }
+}

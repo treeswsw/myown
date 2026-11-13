@@ -142,3 +142,17 @@ export function logFromChatLog(items, state, meId) {
   for (const it of rows) pushLog(out, logEntryFromChat(it, state, meId));
   return out;
 }
+
+// 채팅 기록 칸을 어떻게 보이나 (GDD 15절 결정). 'full' 맞히는 사람 · 'small' 그리는 사람(PC·iPad 만) · 'hidden'
+//  휴대폰에서 그리는 사람은 자리가 없어 숨긴다.
+export function logMode(layout, drawerIsMe) {
+  if (!drawerIsMe) return 'full';
+  return layout === 'phone' ? 'hidden' : 'small';
+}
+
+// 새 글이 오면 맨 아래로 따라갈까. 사용자가 위로 올려 보고 있으면(맨 아래에서 slack px 넘게 떨어짐) 따라가지 않는다.
+export function shouldFollow(scrollTop, clientHeight, scrollHeight, slack = 24) {
+  const nums = [scrollTop, clientHeight, scrollHeight];
+  if (!nums.every((n) => Number.isFinite(n))) return true;
+  return scrollHeight - (scrollTop + clientHeight) <= slack;
+}
