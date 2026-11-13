@@ -964,17 +964,20 @@ async function coinCheck(browser) {
     });
     await step('coin balance is shown (500)', async () => { await waitCoins('(n) => n === 500', 'balance not 500'); });
     await step('swap window: 3 coins -> chips', async () => {
-      await page.click('.lb-coin-btn:has-text("교환")');
+      await page.click('.lb-coin-btn:has-text("상점")'); // 교환·뽑기는 상점 안에서만 (2026-11-13)
+      await visible2(page, '.sh-panel');
+      await page.click('.sh-swap:has-text("칩 교환")');
       await visible2(page, '.cn-field');
       await page.fill('.cn-field', '3');
       await page.click('.cn-btn.cn-primary:has-text("바꾸기")');
       await page.waitForSelector('.cn-msg.cn-ok', { timeout: T });
       await page.click('.cn-sheet .cn-btns button');
+      await page.click('.sh-close');
       await waitCoins('(n) => n === 497', 'balance not 497');
     });
     await step('draw 1 with skip, then 10', async () => {
-      await page.evaluate(() => { const b = [...document.querySelectorAll('.lb-coin-btn')].find((x) => x.textContent === '카드 뽑기'); if (b) b.hidden = false; }); // 뽑기 button is hidden in the lobby for now (SHOW_DRAW)
-      await page.click('.lb-coin-btn:has-text("뽑기")');
+      await page.click('.lb-coin-btn:has-text("상점")');
+      await page.click('.sh-swap:has-text("카드 뽑기")');
       await visible2(page, '.gc-panel');
       await page.click('.gc-btn:has-text("1회")');
       await page.waitForFunction(() => document.querySelector('.gc-panel')?.dataset.mode !== 'idle', null, { timeout: T });
@@ -989,7 +992,8 @@ async function coinCheck(browser) {
       await waitCoins('(n) => n === 442', 'balance not 442 after 11 pulls');
     });
     await step('capsule: title draw 1', async () => {
-      await page.click('.lb-coin-btn:has-text("칭호 뽑기")');
+      await page.click('.lb-coin-btn:has-text("상점")');
+      await page.click('.sh-swap:has-text("칭호 뽑기")');
       await visible2(page, '.cp-sheet');
       await page.click('.cp-sheet .cn-primary >> nth=0');
       await page.waitForSelector('.cp-row', { timeout: T });

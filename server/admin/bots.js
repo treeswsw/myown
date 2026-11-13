@@ -75,8 +75,8 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         hub.send(session, { t: 'admOk', a: 'pinclr' });
         return null;
       }
-      if (msg.a === 'chips') {
-        // 관리자 칩 추가(2026-11-13). 접속 중이면 그 세션의 user, 아니면 저장소에서 읽는다.
+      if (msg.a === 'chips' || msg.a === 'coins') {
+        // 관리자 칩·코인 추가(2026-11-13). 코인은 잔액만(랭킹용 번 합은 그대로), 장부 kind 'adm'. 접속 중이면 그 세션의 user, 아니면 저장소에서 읽는다.
         const live = hub.sessions.get(msg.id);
         let user = live?.user;
         if (!user) {
@@ -85,11 +85,13 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
           hub.userEpoch?.set(user, hub.epoch);
           user = hub.sessions.get(msg.id)?.user ?? user; // logged in meanwhile
         }
-        user.bank = Math.min(2_000_000_000, (user.bank | 0) + msg.n);
+        if (msg.a === 'chips') user.bank = Math.min(2_000_000_000, (user.bank | 0) + msg.n);
+        else user.coins = Math.min(2_000_000_000, (user.coins | 0) + msg.n);
         hub.persist(user);
+        if (msg.a === 'coins') hub.store.log?.({ uid: msg.id, kind: 'adm', delta: msg.n, bal: user.coins, chips: 0, note: { by: session.id } })?.catch?.(() => {});
         const s2 = hub.sessions.get(msg.id);
         if (s2?.conn) hub.sendMe(s2);
-        hub.send(session, { t: 'admOk', a: 'chips', id: msg.id, n: msg.n, bank: user.bank });
+        hub.send(session, { t: 'admOk', a: msg.a, id: msg.id, n: msg.n, bank: user.bank, coins: user.coins });
         return null;
       }
       if (!room) return admErr('adm_room');

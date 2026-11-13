@@ -228,7 +228,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   titleBadge.hidden = true;
   const walletRow = h('div', 'lb-sub lb-coins');
   const coinBtns = h('div', 'lb-coin-btns');
-  for (const [a, label] of [['shop', '상점'], ['draw', '카드 뽑기'], ['cap', '칭호 뽑기'], ['swap', '교환'], ['rank', '코인 랭킹']]) {
+  for (const [a, label] of [['shop', '상점'], ['rank', '코인 랭킹']] /* 교환·카드 뽑기·칭호 뽑기는 상점 안에서 (2026-11-13) */) {
     const b = button(label, 'lb-tint lb-coin-btn', () => onCoin?.(a));
     if (a === 'draw' && !SHOW_DRAW) b.hidden = true;
     coinBtns.append(b);
