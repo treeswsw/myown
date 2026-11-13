@@ -72,7 +72,7 @@ test('bot as drawer picks a word and draws strokes the other player sees', async
       await env.until((e) => phase(e) === 'draw');
       const before = env.admin.sock.msgs.length;
       await env.until((e) => e.admin.sock.msgs.slice(before).filter((m) => m.t === 'event' && m.e.k === 'drSt').length >= 3, { max: 20_000 });
-      assert.equal(env.room.drawing.ops.length >= 3, true);
+      assert.equal(env.room.impl.drawing.ops.length >= 3, true);
       env.close();
       assert.deepEqual(errors, []);
       return;

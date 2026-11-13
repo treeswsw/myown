@@ -162,13 +162,19 @@ test('다른 방·다른 요청: 포커·라이어 방의 dr, draw 방의 act/mo
   await until(() => c.state?.code, 'draw room');
   d.send({ t: 'join', code: c.state.code });
   await until(() => d.state?.players?.length === 2, 'join draw');
-  for (const m of [{ t: 'act', a: 'fold' }, { t: 'mode', mode: 'bluff' }, { t: 'play', cards: [0] }, { t: 'liar' }, { t: 'lg', a: 'rank' }, { t: 'lg', a: 'end' }]) {
+  for (const m of [{ t: 'act', a: 'fold' }, { t: 'mode', mode: 'bluff' }, { t: 'play', cards: [0] }, { t: 'liar' }]) {
     c.errors.length = 0;
     c.send(m);
     await until(() => c.errors.length, `dr_now for ${m.t}`);
     assert.equal(c.errors[0].code, 'dr_now', JSON.stringify(m));
     assert.equal(c.errors[0].msg, '지금은 할 수 없습니다.');
   }
+  // 공용 방 틀(1-6): 다른 게임의 봉투는 dr_bad
+  c.errors.length = 0;
+  c.send({ t: 'lg', a: 'end' });
+  await until(() => c.errors.length, 'dr_bad for lg');
+  assert.equal(c.errors[0].code, 'dr_bad');
+  assert.equal(c.errors[0].msg, '알 수 없는 요청입니다.');
   // 봉투 검사: a 가 없거나 너무 길면 형식 오류
   c.errors.length = 0;
   c.send({ t: 'dr' });

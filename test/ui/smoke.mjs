@@ -637,27 +637,34 @@ async function runContext(browser, server, name, cfg) {
       await page.waitForSelector('.lb-cap:has-text("2~8명 · 그림 보고 단어 맞히기")', { state: 'attached', timeout: T }); // phone landscape hides the caption by design
     });
     await occlusion('home lobby (draw on)');
-    await step('draw: create a room → waiting room (settings, start button)', async () => {
+    await step('draw: create a room → common waiting room (room code, settings, start button)', async () => {
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.dr-st-code');
-      await visible('[data-dr="st-start"]');
-      await visible('.lgbar-code');
+      await visible('[data-rm="wait-code"]');
+      await visible('[data-rm="wait-start"]');
+      await visible('.wr-opt:has-text("맞힌 사람")');
     });
-    await barOnTop('draw room (waiting)');
     await occlusion('draw room (waiting)');
     await step('draw: lobby and poker/liar parts are hidden inside the draw room', async () => {
-      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root') && !document.querySelector('.lb-root').hidden, chatBtn: !!document.querySelector('.chat-btn') && !document.querySelector('.chat-btn').hidden }));
+      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root:not(.wr-root)') && !document.querySelector('.lb-root:not(.wr-root)').hidden, chatBtn: !!document.querySelector('.chat-btn') && !document.querySelector('.chat-btn').hidden }));
       if (r.lobby) throw new Error('lobby is visible in the draw room');
       if (r.chatBtn) throw new Error('site chat button is visible in the draw room');
     });
     await step('draw: pick an order option (출제 순서) and it turns on', async () => {
-      await press('[data-dr="st-order"]', 1);
-      await page.waitForFunction(() => document.querySelectorAll('[data-dr="st-order"]')[1]?.getAttribute('aria-pressed') === 'true', null, { timeout: T });
+      await press('.wr-opt:has-text("맞힌 사람")');
+      await page.waitForFunction(() => [...document.querySelectorAll('.wr-opt')].some((b) => b.textContent === '맞힌 사람' && b.getAttribute('aria-checked') === 'true'), null, { timeout: T });
     });
-    await step('draw: 나가기 returns to the lobby, bar disappears', async () => {
-      await press('button.lgbar-btn:has-text("나가기")');
+    await step('draw: waiting-room chat works, and a 41+ character line is stopped at 40 in the input', async () => {
+      const inp = loc('.wr-chat .chat-in');
+      await inp.fill('가'.repeat(60));
+      const n = await inp.evaluate((e) => [...e.value].length);
+      if (n !== 40) throw new Error(`input kept ${n} characters`);
+      await inp.fill('hello-draw-wait');
+      await inp.press('Enter');
+      await visible('.wr-chat .chat-row:has-text("hello-draw-wait")');
+    });
+    await step('draw: 나가기 in the waiting room returns to the lobby', async () => {
+      await press('[data-rm="wait-leave"]');
       await visible('button:has-text("방 만들기")');
-      await gone('.lgbar-code');
       await gone('.dr-root');
     });
 

@@ -1,7 +1,10 @@
-// 갱식마인드 방(server/draw/room.js) 시험: 가짜 세션·가짜 타이머·가짜 단어 뽑기.
+// 갱식마인드 게임 훅(server/draw/room.js makeDrawGame)을 공용 방 Shell 에 올려 시험한다: 가짜 세션·가짜 타이머·가짜 단어 뽑기.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDrawRoom } from '../../server/draw/room.js';
+import { makeDrawGame } from '../../server/draw/room.js';
+import { createRoomShell } from '../../server/room/shell.js';
+
+const ENTRY = { mode: 'draw', max: 8, err: 'dr_', msgs: ['dr'], chat: null, coin: 'draw', make: makeDrawGame };
 
 function setup(n = 3, { saveDraw } = {}) {
   let now = 1_000_000;
@@ -9,7 +12,9 @@ function setup(n = 3, { saveDraw } = {}) {
   const pending = [];
   const out = []; // {to, m}
   const persisted = [];
+  const awards = [];
   const hub = {
+    award: (room, mode, rows) => awards.push({ mode, rows }),
     send: (s, m) => out.push({ to: s.id, m }),
     sendMe() {}, sendRooms() {}, roomsChanged() {},
     persist: (u) => persisted.push(u),
@@ -27,10 +32,10 @@ function setup(n = 3, { saveDraw } = {}) {
     pick: () => { k++; return ['a', 'b', 'c'].map((x) => ({ w: `ZZ${k}${x}`, topic: '음식', alt: [] })); },
     use() {},
   };
-  const room = createDrawRoom(hub, 'ABCD', { picker, saveDraw });
+  const room = createRoomShell(hub, 'ABCD', ENTRY, { picker, saveDraw });
   const ss = [];
   const addUser = (i) => {
-    const s = { id: 'u' + i, user: { name: 'N' + i, avatar: 'av' + i, stats: {} }, conn: {}, room: null };
+    const s = { id: 'u' + i, user: { name: 'N' + i, avatar: 'av' + i, stats: {} }, conn: {}, room: null, lastSent: {}, editTimes: [] };
     hub.sessions.set(s.id, s);
     assert.equal(room.join(s), null);
     return s;
@@ -48,11 +53,13 @@ function setup(n = 3, { saveDraw } = {}) {
     }
     now = target;
   };
-  const dr = (s, msg) => room.dr(s, { t: 'dr', ...msg });
+  const dr = (s, msg) => room.request(s, { t: 'dr', ...msg });
+  const req = (s, msg) => room.request(s, msg);
+  const chat = (s, text) => room.request(s, { t: 'chat', text });
   const to = (id, from = 0) => out.slice(from).filter((o) => o.to === id).map((o) => o.m);
   const events = (id, k2, from = 0) => to(id, from).filter((m) => m.t === 'event' && m.e.k === k2).map((m) => m.e);
   const lastState = (id) => to(id).filter((m) => m.t === 'room' && m.state).at(-1).state;
-  return { room, ss, out, hub, pending, advance, dr, to, events, lastState, addUser, persisted, clock: () => now };
+  return { room, ss, out, hub, pending, advance, dr, req, chat, to, events, lastState, addUser, persisted, awards, clock: () => now };
 }
 
 const LINE = { c: 1, w: 10, e: 0, p: [100, 100, 5, 5, 5, 5] };
@@ -66,7 +73,7 @@ function startPick(x, rounds = 1) {
 test('한 판 전체: 시작 → 고르기 → 그리기 → 정답 → 단축 → 모두 맞힘 → 공개 → 다음 문제 → 최종', () => {
   const x = setup(3);
   startPick(x);
-  assert.equal(x.room.phase, 'playing');
+  assert.equal(x.room.listInfo().phase, 'playing');
   const choices = x.lastState('u0').choices;
   assert.equal(choices.length, 3);
   assert.deepEqual(Object.keys(choices[0]).sort(), ['topic', 'w']);
@@ -87,12 +94,12 @@ test('한 판 전체: 시작 → 고르기 → 그리기 → 정답 → 단축 �
 
   // 첫 정답: 30초 단축
   const t0 = x.clock();
-  assert.equal(x.room.chat(x.ss[1], word), null);
+  assert.equal(x.chat(x.ss[1], word), null);
   for (const id of ['u0', 'u1', 'u2']) assert.equal(x.events(id, 'drHit', from).length, 1);
   const st = x.lastState('u0');
   assert.equal(st.rushed, true);
   assert.ok(st.endsAt <= t0 + 30_000);
-  assert.equal(x.room.chat(x.ss[2], word), null); // 모두 맞힘 → 공개
+  assert.equal(x.chat(x.ss[2], word), null); // 모두 맞힘 → 공개
   assert.equal(x.lastState('u0').phase, 'reveal');
   assert.equal(x.lastState('u2').reveal.word, word);
 
@@ -111,7 +118,13 @@ test('한 판 전체: 시작 → 고르기 → 그리기 → 정답 → 단축 �
   const fin = x.lastState('u0');
   assert.equal(fin.phase, 'final');
   assert.equal(fin.ranking.length, 3);
-  assert.equal(x.room.phase, 'lobby');
+  assert.equal(x.room.listInfo().phase, 'lobby');
+  assert.equal(x.room.phase, 'final');
+  // 코인: 판마다 한 번, 끝까지 있던 3명
+  assert.equal(x.awards.length, 1);
+  assert.equal(x.awards[0].mode, 'draw');
+  assert.equal(x.awards[0].rows.length, 3);
+  assert.ok(x.awards[0].rows.every((r) => r.opp === 2));
   // 기록 저장
   assert.equal(x.ss[1].user.stats.draw.games, 1);
   assert.equal(x.ss[1].user.stats.draw.correct, 1);
@@ -143,11 +156,11 @@ test('못 맞힌 사람에게 단어·후보·비밀 채팅이 한 번도 가지
   const from = x.out.length;
   x.dr(x.ss[0], { a: 'pick', i: 1 });
   x.dr(x.ss[0], { a: 'st', ...LINE });
-  assert.equal(x.room.chat(x.ss[2], '엉뚱한 답'), null);
-  assert.equal(x.room.chat(x.ss[1], cands[1]), null); // u1 정답
-  assert.equal(x.room.chat(x.ss[1], '비밀속삭임'), null); // u1 -> sec
-  x.room.emote('u1', 'smile');
-  assert.equal(x.room.phase, 'playing');
+  assert.equal(x.chat(x.ss[2], '엉뚱한 답'), null);
+  assert.equal(x.chat(x.ss[1], cands[1]), null); // u1 정답
+  assert.equal(x.chat(x.ss[1], '비밀속삭임'), null); // u1 -> sec
+  assert.equal(x.req(x.ss[1], { t: 'emote', e: 'smile' }), null);
+  assert.equal(x.room.listInfo().phase, 'playing');
   assert.equal(x.lastState('u0').phase, 'draw');
   const blind = JSON.stringify(x.to('u2', from));
   for (const w of cands) assert.ok(!blind.includes(w), `u2 에게 ${w} 가 갔다`);
@@ -170,15 +183,15 @@ test('못 맞힌 사람에게 단어·후보·비밀 채팅이 한 번도 가지
 test('그리는 사람 채팅·이모티콘 거절 dr_drawer_mute, 맞힌 사람 사진 이모티콘 거절', () => {
   const x = setup(3);
   startPick(x);
-  assert.equal(x.room.chat(x.ss[0], '힌트').code, 'dr_drawer_mute');
-  assert.equal(x.room.mediaBlocked(x.ss[0], 'emote').code, 'dr_drawer_mute');
-  assert.equal(x.room.mediaBlocked(x.ss[1], 'emote'), null);
+  assert.equal(x.chat(x.ss[0], '힌트').code, 'dr_drawer_mute');
+  assert.equal(x.room.impl.mediaBlocked(x.ss[0], 'emote').code, 'dr_drawer_mute');
+  assert.equal(x.room.impl.mediaBlocked(x.ss[1], 'emote'), null);
   const word = x.lastState('u0').choices[0].w;
   x.dr(x.ss[0], { a: 'pick', i: 0 });
-  x.room.chat(x.ss[1], word);
-  assert.equal(x.room.mediaBlocked(x.ss[1], 'pemote').code, 'dr_hit_media');
-  assert.equal(x.room.mediaBlocked(x.ss[1], 'emote'), null);
-  assert.equal(x.room.mediaBlocked(x.ss[2], 'snd'), null);
+  x.chat(x.ss[1], word);
+  assert.equal(x.room.impl.mediaBlocked(x.ss[1], 'pemote').code, 'dr_hit_media');
+  assert.equal(x.room.impl.mediaBlocked(x.ss[1], 'emote'), null);
+  assert.equal(x.room.impl.mediaBlocked(x.ss[2], 'snd'), null);
 });
 
 test('잘못된 그림 요청: 오류 글 없이 버리고 drSync 는 1초에 1번', () => {
@@ -265,7 +278,7 @@ test('재접속 순서와 drSync 내용', () => {
   x.dr(x.ss[0], { a: 'st', ...LINE });
   x.dr(x.ss[0], { a: 'pt', p: [], f: 1 });
   x.dr(x.ss[0], { a: 'st', c: 2, w: 4, e: 0, p: [50, 50, 1, 1] }); // 긋는 중
-  x.room.addSound(x.ss[1], 'sid1', '소리', 'data');
+  assert.equal(x.req(x.ss[1], { t: 'sndAdd', sid: 'sid1', name: '소리', data: 'data' }), null);
   x.room.setConnected('u2', false);
   assert.equal(x.lastState('u0').players.find((p) => p.id === 'u2').connected, false);
   const from = x.out.length;
@@ -275,9 +288,9 @@ test('재접속 순서와 drSync 내용', () => {
   x.room.sendExtras(x.ss[2]);
   const seq = x.to('u2', from).map((m) => (m.t === 'event' ? m.e.k : m.t));
   const at = (k) => seq.lastIndexOf(k);
-  assert.ok(at('room') < seq.indexOf('faces'));
-  assert.ok(seq.indexOf('faces') < seq.indexOf('chatLog'));
-  assert.ok(seq.indexOf('chatLog') < seq.indexOf('sndList'));
+  assert.ok(at('room') < seq.indexOf('chatLog'));
+  assert.ok(seq.indexOf('chatLog') < seq.indexOf('faces'));
+  assert.ok(seq.indexOf('faces') < seq.indexOf('sndList'));
   assert.ok(seq.indexOf('sndList') < seq.indexOf('drSync'));
   const sync = x.events('u2', 'drSync', from)[0];
   assert.equal(sync.ops.length, 1);
@@ -301,12 +314,12 @@ test('도중 입장자도 그 문제를 바로 맞힌다', () => {
   x.room.sendExtras(s3);
   assert.equal(x.events('u3', 'drSync', from)[0].ops.length, 1);
   assert.equal(x.lastState('u3').word, null);
-  assert.equal(x.room.chat(s3, word), null);
+  assert.equal(x.chat(s3, word), null);
   for (const id of ['u0', 'u1', 'u2', 'u3']) assert.equal(x.events(id, 'drHit', from).length, 1);
   assert.equal(x.lastState('u3').word, word);
   assert.equal(x.lastState('u0').phase, 'draw'); // u1·u2 가 아직
-  assert.equal(x.events('u3', 'joined').length, 0);
-  assert.equal(x.events('u0', 'joined').length, 4 - 1);
+  assert.equal(x.events('u3', 'joined').length, 1, '공용 joined 는 Shell 이 한 번만(엔진 것은 버림)');
+  assert.equal(x.events('u0', 'joined').length, 4);
 });
 
 test('타이머는 하나만 걸리고 시간이 끝나면 공개, 방장 요청 오류 코드', () => {
@@ -315,7 +328,7 @@ test('타이머는 하나만 걸리고 시간이 끝나면 공개, 방장 요청
   assert.equal(x.dr(x.ss[0], { a: 'settings' }).code, 'dr_bad');
   assert.equal(x.room.start('u1').code, 'dr_host');
   startPick(x);
-  assert.equal(x.room.timers.game !== null, true);
+  assert.equal(x.pending.length, 1, '게임 타이머 하나');
   x.advance(10_000); // 고르기 시간 끝 -> 자동 선택
   assert.equal(x.lastState('u0').phase, 'draw');
   x.advance(20_000); // 첫 선이 없어 넘김
@@ -325,9 +338,14 @@ test('타이머는 하나만 걸리고 시간이 끝나면 공개, 방장 요청
 
 test('나가기·내보내기·방 비면 정리', () => {
   const x = setup(3);
-  assert.equal(x.dr(x.ss[0], { a: 'kick', id: 'u2' }), null);
+  assert.equal(x.req(x.ss[1], { t: 'kick', id: 'u2' }).code, 'dr_host');
+  assert.equal(x.req(x.ss[0], { t: 'kick', id: 'u2' }), null);
   assert.ok(x.to('u2').some((m) => m.t === 'error' && m.code === 'dr_kicked'));
   assert.equal(x.ss[2].room, null);
+  assert.equal(x.room.members.length, 2);
+  assert.equal(x.lastState('u0').players.length, 2, '엔진에서도 빠졌다');
+  x.addUser(2);
+  assert.equal(x.dr(x.ss[0], { a: 'kick', id: 'u2' }), null, '옛 dr kick 도 같은 길');
   assert.equal(x.room.members.length, 2);
   x.room.leave('u1');
   x.room.leave('u0');
@@ -404,14 +422,15 @@ test('그리는 사람이 15초 끊기면 그 문제는 reveal why:left', () => 
 test('게임 중 전원이 나가면 게임 타이머 없이 정리 타이머 하나만 남는다', () => {
   const x = setup(3);
   startPick(x);
-  assert.equal(x.room.timers.game !== null, true);
+  assert.equal(x.pending.length, 1);
   x.room.leave('u1');
   x.room.leave('u2');
   x.room.leave('u0');
   assert.equal(x.room.members.length, 0);
-  assert.equal(x.room.timers.game, null);
-  assert.equal(x.pending.length, 1);
-  assert.equal(x.room.timers.gc, x.pending[0].id);
+  assert.equal(x.pending.length, 1, '정리 타이머 하나만');
+  x.hub.rooms.set('ABCD', x.room);
+  x.advance(60_000);
+  assert.equal(x.hub.rooms.has('ABCD'), false);
 });
 
 test('상태에 서버 시각 now 가 들어 있다', () => {
@@ -449,15 +468,15 @@ test('사진 바꾸기: 그리는 사람·맞힌 사람의 새 사진은 막힌 
   const s3 = x.addUser(3);
   assert.equal(x.events('u3', 'faces')[0].items.find((i) => i.id === 'u0').avatar, 'av0');
   // 맞힌 사람 u1
-  x.room.chat(x.ss[1], word);
+  x.chat(x.ss[1], word);
   const prev1 = x.ss[1].user.avatar;
   x.ss[1].user.avatar = 'NEW1';
   const f2 = x.out.length;
   x.room.faceChanged(x.ss[1], prev1);
   assert.equal(x.events('u2', 'faces', f2).length, 0);
   // 풀린다(공개 단계로)
-  x.room.chat(x.ss[2], word);
-  x.room.chat(s3, word);
+  x.chat(x.ss[2], word);
+  x.chat(s3, word);
   assert.equal(x.lastState('u0').phase, 'reveal');
   const items = x.events('u2', 'faces', f2).flatMap((e) => e.items);
   assert.ok(items.some((i) => i.id === 'u1' && i.avatar === 'NEW1'));
@@ -468,4 +487,71 @@ test('사진 바꾸기: 그리는 사람·맞힌 사람의 새 사진은 막힌 
   x.ss[2].user.avatar = 'NEW2';
   x.room.faceChanged(x.ss[2], prev2);
   assert.equal(x.events('u1', 'faces', f3)[0].items[0].avatar, 'NEW2');
+});
+
+// ---- 공용 방 틀(Shell) 위에서 ----
+
+test('대기실: wait.set 이 설정을 담고, set 으로 바꾸며, 주제를 전부 끄면 안내 코드', () => {
+  const x = setup(3);
+  const w = x.lastState('u1').wait;
+  assert.equal(w.can, true);
+  assert.equal(w.why, null);
+  assert.equal(w.set.rounds, 2);
+  assert.ok(Array.isArray(w.set.topics) && Array.isArray(w.set.allTopics));
+  assert.equal(x.req(x.ss[1], { t: 'set', patch: { rounds: 3 } }).code, 'dr_host');
+  assert.equal(x.req(x.ss[0], { t: 'set', patch: { rounds: 3 } }), null);
+  assert.equal(x.lastState('u1').wait.set.rounds, 3);
+  assert.equal(x.req(x.ss[0], { t: 'set', patch: { topics: [] } }).code, 'dr_topics');
+  assert.equal(x.req(x.ss[0], { t: 'set', patch: { rounds: 4 } }).code, 'dr_bad');
+  assert.equal(x.req(x.ss[1], { t: 'start' }).code, 'dr_host');
+  assert.equal(x.req(x.ss[0], { t: 'start' }), null);
+  assert.equal(x.lastState('u0').wait, null, '게임 중에는 wait 없음');
+  assert.equal(x.req(x.ss[0], { t: 'set', patch: { rounds: 1 } }).code, 'dr_now');
+});
+
+test('혼자면 시작 못 하고 이유가 wait.why 에 있다', () => {
+  const x = setup(1);
+  assert.equal(x.lastState('u0').wait.why.code, 'dr_need2');
+  assert.equal(x.req(x.ss[0], { t: 'start' }).code, 'dr_need2');
+});
+
+test('대기실 채팅: 엔진 채팅이 대기 중에도 방 전원에게 가고 41자는 거절', () => {
+  const x = setup(2);
+  const from = x.out.length;
+  assert.equal(x.chat(x.ss[0], '안녕'), null);
+  assert.equal(x.events('u1', 'chat', from).length, 1);
+  assert.equal(x.chat(x.ss[0], '가'.repeat(41)).code, 'dr_bad');
+  assert.equal(x.chat(x.ss[0], '가'.repeat(40)), null);
+});
+
+test('엔진이 먼저 지운 사람(자리 유지 60초)은 Shell 에서도 빠지고 방장이 맞춰진다', () => {
+  const x = setup(3);
+  startPick(x);
+  x.ss[0].conn = null;
+  x.room.setConnected('u0', false); // 방장이자 그리는 사람
+  x.advance(60_000);
+  assert.equal(x.room.members.length, 2);
+  assert.equal(x.room.hostId, 'u1');
+  assert.equal(x.room.impl.g.hostId, 'u1');
+  assert.equal(x.room.impl.g.players.length, 2);
+  assert.equal(x.hub.sessions.has('u0'), false);
+});
+
+test('혼자 남아 끝난 판은 코인이 없다', () => {
+  const x = setup(2);
+  startPick(x);
+  x.room.leave('u1');
+  assert.equal(x.lastState('u0').phase, 'lobby');
+  assert.equal(x.awards.length, 0);
+});
+
+test('전원 나갔다 다시 들어오면 새 방으로 시작', () => {
+  const x = setup(2);
+  startPick(x);
+  x.room.leave('u0');
+  x.room.leave('u1');
+  const s = x.addUser(5);
+  assert.equal(x.lastState('u5').phase, 'lobby');
+  assert.equal(x.room.hostId, 'u5');
+  assert.equal(s.room, x.room);
 });

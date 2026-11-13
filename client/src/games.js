@@ -10,7 +10,7 @@ export const CLIENT_GAMES = {
   bluff: { builtin: 'poker', stage: true, mount: false },
   liar: { load: () => import('./liar/index.js'), stage: true, mount: false },
   yacht: { load: () => import('./yacht/index.js'), stage: true, mount: true, bar: { leftVar: '--yt-sheet-w' } },
-  draw: { load: () => import('./draw/index.js'), stage: false, mount: false },
+  draw: { load: () => import('./draw/index.js'), stage: false, mount: true },
   gsk: { load: () => import('./gsk/index.js'), stage: false, mount: true },
   mini: { load: () => import('./mini/index.js'), stage: false, mount: true },
 };

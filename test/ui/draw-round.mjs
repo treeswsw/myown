@@ -157,7 +157,7 @@ try {
   browser = await chromium.launch();
   const A = await openPage(browser, url, 'A', { width: 1280, height: 800 });
   const B = await openPage(browser, url, 'B', { width: 1280, height: 800 });
-  const C = await openPage(browser, url, 'C', { width: 844, height: 390 });
+  const C = await openPage(browser, url, 'C', { width: 1024, height: 768 }); // iPad 가로 크기(휴대폰 배치는 쓰지 않는다)
   const names = { A: uid('가'), B: uid('나'), C: uid('다') };
   const win = { A, B, C };
 
@@ -170,38 +170,38 @@ try {
     }
     await A.page.click('.lb-seg-item:has-text("갱식마인드")');
     await A.page.click('button.lb-primary:has-text("방 만들기")');
-    await A.page.locator('.dr-st-code').waitFor({ state: 'visible' });
+    await A.page.locator('[data-rm="wait-code"]').waitFor({ state: 'visible' });
     for (const w of [B, C]) {
       const row = w.page.locator('.lb-room-row', { hasText: `${names.A}의 방` });
       await row.waitFor({ state: 'visible' });
       await row.locator('b', { hasText: '갱식마인드' }).waitFor({ state: 'visible' });
       await row.click();
-      await w.page.locator('.dr-st-player', { hasText: names[w.who] }).waitFor({ state: 'visible' });
+      await w.page.locator('.wr-players .lb-row', { hasText: names[w.who] }).waitFor({ state: 'visible' });
     }
-    await A.page.locator('.dr-st-player', { hasText: names.C }).waitFor({ state: 'visible' });
-    // 방 코드는 상단 줄과 설정 화면에 같은 값
-    const top = (await A.page.locator('.lgbar-code').innerText()).replace('방 코드', '').trim();
-    const st = (await A.page.locator('[data-dr="st-code"]').innerText()).trim();
-    if (!top || !st.includes(top)) throw new Error(`방 코드 불일치: 상단 "${top}" / 설정 "${st}"`);
+    await A.page.locator('.wr-players .lb-row', { hasText: names.C }).waitFor({ state: 'visible' });
+    const n = await A.page.locator('.wr-players .lb-row').count();
+    if (n !== 3) throw new Error(`대기실 참가자 ${n}명`);
     await occAll('waiting room');
     noErrors('waiting');
   });
 
   await step('새로고침(F5) 뒤에도 그리기 화면 요소가 하나뿐이다 (C)', async () => {
     await C.page.reload();
-    await C.page.locator('.dr-st-player', { hasText: names.C }).waitFor({ state: 'visible' });
+    await C.page.locator('.wr-players .lb-row', { hasText: names.C }).waitFor({ state: 'visible' });
     await C.page.waitForTimeout(400);
-    const n = await C.page.evaluate(() => ({ root: document.querySelectorAll('.dr-root').length, st: document.querySelectorAll('.dr-st-root').length }));
-    if (n.root !== 1 || n.st > 1) throw new Error(`중복 마운트: ${JSON.stringify(n)}`);
+    const n = await C.page.evaluate(() => ({ root: document.querySelectorAll('.dr-root').length, wait: document.querySelectorAll('.wr-root').length }));
+    if (n.root > 1 || n.wait !== 1) throw new Error(`중복 마운트: ${JSON.stringify(n)}`);
   });
 
   await step('방장이 라운드 1·그리는 시간 60초로 고르고 시작한다 → 세 창 단계가 넘어감', async () => {
-    await A.page.locator('[data-dr="st-rounds"][data-v="1"]').click();
-    await A.page.locator('[data-dr="st-rounds"][data-v="1"][aria-pressed="true"]').waitFor({ state: 'visible' });
-    await A.page.locator('[data-dr="st-time"][data-v="60"]').click();
-    await A.page.locator('[data-dr="st-order"]').nth(0).click();
-    await A.page.locator('[data-dr="st-start"]:not([disabled])').click();
-    for (const w of wins) await w.page.locator('.dr-st-root').waitFor({ state: 'hidden' });
+    const opt = (w, label, text) => w.page.locator('.wr-f', { hasText: label }).locator('.wr-opt', { hasText: new RegExp(`^${text}$`) });
+    await opt(A, '라운드 수', '1').click();
+    await A.page.locator('.wr-f', { hasText: '라운드 수' }).locator('.wr-opt[aria-checked="true"]', { hasText: /^1$/ }).waitFor({ state: 'visible' });
+    await opt(B, '라운드 수', '1').isDisabled().then((d) => { if (!d) throw new Error('방장이 아닌 사람이 설정을 바꿀 수 있음'); });
+    await opt(A, '그리는 시간', '1분').click();
+    await opt(A, '출제 순서', '순서대로').click();
+    await A.page.locator('[data-rm="wait-start"]:not([disabled])').click();
+    for (const w of wins) await w.page.locator('.wr-root').waitFor({ state: 'hidden' });
     noErrors('start');
   });
 
@@ -243,6 +243,16 @@ try {
     await waitInk(drawer, (n) => n > 50, '그린 사람 화면');
     for (const g of guessers) await waitInk(g, (n) => n > 50, '선이 도착하지 않음');
     noErrors('stroke');
+  });
+
+  await step('1번째 문제: 맞히는 사람의 기본 이모티콘이 모든 창에 보인다 (그리는 사람 창 포함)', async () => {
+    const { drawer, guessers } = q1;
+    const [g1] = guessers;
+    await g1.page.locator('[data-rm="bar-emote"]').click();
+    await g1.page.locator('.ep-btn.glyph').first().click();
+    for (const w of [drawer, ...guessers]) await w.page.locator('.rm-em').first().waitFor({ state: 'visible', timeout: 4000 });
+    await g1.page.mouse.click(5, 400); // 이모티콘 창은 바깥을 누르면 닫힌다
+    noErrors('emote');
   });
 
   await step('1번째 문제: 되돌리기 → 모두 그림이 사라지고, 다시 하기 → 모두 돌아온다', async () => {
@@ -353,12 +363,14 @@ try {
     if (ids.size !== 3) throw new Error(`한 라운드에 같은 사람이 두 번 그림: ${asked.map((a) => a.drawer)}`);
   });
 
-  await step('최종 순위: 세 창 모두 이름과 점수, 눌림 검사', async () => {
+  await step('최종 순위: 세 창 모두 이름과 점수, 프로필 사진 부품, 눌림 검사', async () => {
     for (const w of wins) await w.page.locator('.dr-rs-final-title').waitFor({ state: 'visible', timeout: 20000 });
     for (const w of wins) {
       const t = await w.page.locator('.dr-rs-final').innerText();
       for (const n of Object.values(names)) if (!t.includes(n)) throw new Error(`최종 순위에 ${n} 없음`);
       if (!/\d+점/.test(t)) throw new Error('점수 글자가 없음');
+      const av = await w.page.locator('.dr-rs-final .ui-avbox').count(); // 공용 프로필 부품
+      if (av < 3) throw new Error(`${w.who}: 최종 순위에 공용 프로필 부품이 ${av}개`);
     }
     // SPEC 22: everyone who stayed to the end got coins (message {t:'coin',a:'got'})
     for (const w of wins) await w.page.waitForFunction(() => window.__coinGot > 0, null, { timeout: 5000 }).catch(() => { throw new Error(`${w.who}: 최종 순위에 코인 알림이 오지 않음`); });
@@ -366,70 +378,62 @@ try {
     noErrors('final');
   });
 
-  await step('최종 순위에서 나가기 → 로비로 돌아온다 (C)', async () => {
+  await step('최종 순위에서 나가기 → 확인 없이 로비로 돌아온다 (C)', async () => {
     await C.page.locator('.dr-rs-btn', { hasText: '나가기' }).click();
     await C.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
-    await C.page.locator('.dr-root').waitFor({ state: 'hidden' }).catch(() => {});
-    const left = await C.page.evaluate(() => ({ root: document.querySelectorAll('.dr-root:not([hidden])').length, bar: !document.querySelector('.lgbar')?.hidden }));
+    const left = await C.page.evaluate(() => ({ root: document.querySelectorAll('.dr-root:not([hidden])').length, bar: !!document.querySelector('.rm-bar:not([hidden])') }));
     if (left.root || left.bar) throw new Error(`나간 뒤 화면이 남음: ${JSON.stringify(left)}`);
   });
 
-  // ---- 두 번째 판: 휴대폰 가로(C)의 ≡ 메뉴로 나가기 → 로비 → 포커 방에서 사이트 채팅 버튼이 다시 보인다 ----
-  await step('두 번째 방: A·B 나가기 → A 새 방 → B·C 참가 → 시작 (C 는 휴대폰 가로)', async () => {
-    for (const w of [A, B]) {
-      await w.page.locator('.dr-rs-btn', { hasText: '나가기' }).click();
-      await w.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
-    }
-    await A.page.click('.lb-seg-item:has-text("갱식마인드")');
-    await A.page.click('button.lb-primary:has-text("방 만들기")');
-    await A.page.locator('.dr-st-code').waitFor({ state: 'visible' });
-    for (const w of [B, C]) {
-      const row = w.page.locator('.lb-room-row', { hasText: `${names.A}의 방` });
-      await row.waitFor({ state: 'visible' });
-      await row.click();
-      await w.page.locator('.dr-st-player', { hasText: names[w.who] }).waitFor({ state: 'visible' });
-    }
-    await A.page.locator('[data-dr="st-start"]:not([disabled])').click();
-    for (const w of [A, B, C]) await w.page.locator('.dr-st-root').waitFor({ state: 'hidden' });
+  await step('최종 순위 → 대기실로: 방장 A 가 대기실에서 다시 시작할 수 있고 대기실 채팅이 된다 (A·B)', async () => {
+    await B.page.locator('[data-dr="rs-wait"]').click();
+    await B.page.locator('[data-rm="wait-start"]').waitFor({ state: 'attached' });
+    await B.page.locator('.wr-root').waitFor({ state: 'visible' });
+    await B.page.locator('[data-rm="wait-start"]').waitFor({ state: 'hidden' }); // 방장이 아니면 시작 버튼이 없다
+    await A.page.locator('[data-dr="rs-wait"]').click();
+    await A.page.locator('.wr-root').waitFor({ state: 'visible' });
+    // 최종 순위의 40자 규칙: 입력칸이 40자에서 멈춘다
+    const inp = B.page.locator('.wr-chat .chat-in');
+    await inp.fill('나'.repeat(50));
+    const n = await inp.evaluate((e) => [...e.value].length);
+    if (n !== 40) throw new Error(`대기실 채팅 입력이 ${n}자`);
+    await inp.fill('hello-after-game');
+    await inp.press('Enter');
+    await A.page.locator('.wr-chat .chat-row', { hasText: 'hello-after-game' }).waitFor({ state: 'visible' });
+    await occlusion(A, 'wait room after game');
+    await occlusion(B, 'wait room after game');
   });
 
-  await step('휴대폰 가로 게임 중: ≡ 메뉴 → 이모티콘 패널 열림 → 다시 ≡ → 나가기 → 로비', async () => {
-    const m = C.page.locator('[data-dr="menu"]');
-    await m.waitFor({ state: 'visible' });
-    await m.click();
-    await C.page.locator('[data-dr="menu-leave"]').waitFor({ state: 'visible' });
-    await C.page.locator('[data-dr="menu-emote"]').waitFor({ state: 'visible' });
-    const covered = await C.page.evaluate(() => ['menu-emote', 'menu-leave'].filter((k) => { // 메뉴가 열리면 뒤판이 나머지를 덮는 것이 정상이므로 메뉴 항목만 본다
-      const e = document.querySelector(`[data-dr="${k}"]`); const r = e.getBoundingClientRect();
-      const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      return !(t && (t === e || e.contains(t)));
-    }));
-    if (covered.length) throw new Error(`눌림 검사 실패(C, phone menu open): ${covered}`);
-    await C.page.screenshot({ path: path.join(shots, 'phone-menu.png') });
-    await C.page.locator('[data-dr="menu-emote"]').click();
-    await C.page.locator('.lgpanel').waitFor({ state: 'visible' });
-    await C.page.mouse.click(300, 60); // 바깥을 눌러 패널을 닫는다
-    await C.page.locator('.lgpanel').waitFor({ state: 'detached' });
-    await m.click();
-    await C.page.locator('[data-dr="menu-leave"]').click();
-    await C.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
-    const left = await C.page.evaluate(() => ({ root: document.querySelectorAll('.dr-root:not([hidden])').length, bar: !!document.querySelector('.lgbar') && !document.querySelector('.lgbar').hidden }));
-    if (left.root || left.bar) throw new Error(`나간 뒤 화면이 남음: ${JSON.stringify(left)}`);
-    await occlusion(C, 'lobby after menu leave');
+  await step('두 번째 판: A 가 대기실에서 시작(2명) → 단어 카드가 나타난다', async () => {
+    await A.page.locator('[data-rm="wait-start"]:not([disabled])').click();
+    for (const w of [A, B]) await w.page.locator('.wr-root').waitFor({ state: 'hidden' });
+    const drawer = await anyWin((w) => w.page.locator('.dr-rs-word').first().isVisible(), 20000);
+    if (!drawer) throw new Error('그리는 사람 없음');
+    noErrors('restart');
+  });
+
+  await step('게임 중 나가기는 확인을 먼저 묻고(취소하면 남음), 나가면 A 는 대기실로 (B 가 나감)', async () => {
+    await B.page.locator('[data-rm="bar-leave"]').click();
+    await B.page.locator('.ui-confirm', { hasText: '코인을 받지 못해요' }).waitFor({ state: 'visible' });
+    await B.page.locator('.ui-mbtn', { hasText: '취소' }).click();
+    await B.page.locator('.dr-root').waitFor({ state: 'visible' });
+    await B.page.locator('[data-rm="bar-leave"]').click();
+    await B.page.locator('.ui-mbtn.ui-danger').click();
+    await B.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
+    await A.page.locator('.wr-root').waitFor({ state: 'visible' }); // 혼자 남아 판이 끝나고 대기실
   });
 
   await step('그리기 방을 나간 뒤 포커 방을 만들면 사이트 채팅 버튼이 보인다 (C)', async () => {
+    await A.page.locator('[data-rm="wait-leave"]').click();
+    await A.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
     await C.page.click('.lb-seg-item:has-text("텍사스 홀덤")');
     await C.page.click('button.lb-primary:has-text("방 만들기")');
-    // 포커 대기실에서는 사이트 채팅 버튼이 원래 숨겨져 있다(대기실 방식). 게임이 시작되면 보여야 한다.
     for (const w of [A, B]) {
-      await w.page.locator('button.lgbar-btn', { hasText: '나가기' }).click();
-      await w.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
+      await w.page.click('.lb-seg-item:has-text("텍사스 홀덤")').catch(() => {});
       const row = w.page.locator('.lb-room-row', { hasText: `${names.C}의 방` });
       await row.waitFor({ state: 'visible' });
       await row.click();
     }
-    await C.page.locator('.lb-player, .lb-seat, .lb-pl', { hasText: names.A }).first().waitFor({ state: 'attached' }).catch(() => {});
     await C.page.locator('button:has-text("게임 시작"):not([disabled])').click();
     await C.page.locator('.chat-btn').waitFor({ state: 'visible' });
     await occlusion(C, 'poker room chat button');

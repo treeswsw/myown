@@ -29,20 +29,6 @@ export function nameOf(state, id) {
   return p && typeof p.name === 'string' && p.name ? p.name : '?';
 }
 
-/** 이름 첫 글자(프로필 사진이 없을 때 동그라미 글자). */
-export function initialOf(name) {
-  const c = Array.from(String(name || '?'))[0];
-  return c || '?';
-}
-
-const AV_COLORS = ['#b8651b', '#8a4fd0', '#2f6fe0', '#e08a1b', '#25a85a', '#d24a78', '#3a9aae', '#c0453a'];
-/** id 로 정한 프로필 색(같은 id 는 늘 같은 색). */
-export function avatarColor(id) {
-  let h = 0;
-  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return AV_COLORS[h % AV_COLORS.length];
-}
-
 /**
  * 지금 이 화면 모듈이 무엇을 보여 줄지.
  * kind: 'none' | 'pick-drawer' | 'pick-wait' | 'reveal' | 'final'
@@ -150,15 +136,4 @@ export function finalView(state, meId) {
   const top = rows.slice(0, 3);
   const podium = top.length === 3 ? [top[1], top[0], top[2]] : top.length === 2 ? [top[1], top[0]] : top;
   return { podium, rest: rows.slice(3), rows };
-}
-
-/** 최종 화면 버튼: 한 판 더는 방장만 (GDD 4절: 방장 "한 판 더", 10-2: start). */
-export function finalActions(state, meId) {
-  const host = !!state && state.hostId != null && state.hostId === meId;
-  return {
-    canRestart: host,
-    restartMsg: host ? { t: 'start' } : null,
-    lobbyMsg: host ? { t: 'dr', a: 'lobby' } : null, // 방 대기로(GDD 15절). checkDr 에는 room 과제가 추가 예정
-    waitText: host ? '' : '방장이 시작하면 한 판 더 해요',
-  };
 }
