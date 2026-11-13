@@ -36,6 +36,8 @@ export function chatLockFor(state) {
       return { locked: true, hint: '정체 공개 중에는 글을 쓸 수 없어요', hot: false };
     case 'guess':
       return { locked: true, hint: '정답 맞히기 중에는 글을 쓸 수 없어요', hot: false };
+    case 'answer':
+      return { locked: true, hint: '정답 공개 중에는 글을 쓸 수 없어요', hot: false };
     default:
       return open;
   }
@@ -71,7 +73,9 @@ function textsFor(state) {
     case 'unmask':
       return { title: '정체 공개', alert: [], plain: true, timed: false };
     case 'guess':
-      return { title: '정답 맞히기', alert: [], plain: true, timed: true };
+      return { title: '정답 맞히기', alert: [], plain: true, timed: false, compact: true };   // 엔딩 큰 글이 제목·초를 맡는다
+    case 'answer':
+      return { title: '정답 공개', alert: [], plain: true, timed: false, compact: true };
     case 'result':
       return { title: '결과', alert: [], plain: true, timed: false };
     default:
@@ -188,6 +192,7 @@ export function createHud(ctx) {
     if (state.accuseNo >= 2) parts.push(`${state.accuseNo}번째 지목`);
     kicker.textContent = parts.join(' · ');
     title.textContent = tx.title;
+    title.hidden = !!tx.compact;   // guess·answer: 맨 위 작은 줄(Round·주제)만 남긴다
 
     const me = meOf(state);
     let lines = tx.alert;
@@ -202,7 +207,7 @@ export function createHud(ctx) {
       s.textContent = t;
       return s;
     }));
-    alertEl.hidden = lines.length === 0;
+    alertEl.hidden = lines.length === 0 || !!tx.compact;
 
     timed = tx.timed && state.phaseEndsAt != null;
     secs = -2; // 강제로 다시 그림

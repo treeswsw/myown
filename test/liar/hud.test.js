@@ -15,6 +15,7 @@ const open = {
   judged: { me: false, speaker: false, accused: true, spec: false },
   unmask: { me: false, speaker: false, accused: false, spec: false },
   guess: { me: false, speaker: false, accused: false, spec: false },
+  answer: { me: false, speaker: false, accused: false, spec: false },
   result: { me: true, speaker: true, accused: true, spec: true },
 };
 
@@ -49,6 +50,10 @@ test('chatLockFor null/방 없음', () => {
 test('chatLockFor 문구', () => {
   assert.match(chatLockFor(stateFor('speak', { you: 'u5' })).hint, /차례인 사람만/);
   assert.match(chatLockFor(stateFor('defense', { you: 'u5' })).hint, /지목된 사람만/);
+});
+
+test('chatLockFor answer 문구', () => {
+  assert.equal(chatLockFor(stateFor('answer', { you: 'u5' })).hint, '정답 공개 중에는 글을 쓸 수 없어요');
 });
 
 test('chatLockFor hot: 내 차례·남의 차례·지목된 사람·구경', () => {
