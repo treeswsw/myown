@@ -149,7 +149,23 @@ design/   시안
 
 버튼 보이기(화면): `보임 = liar==='on' || (liar==='test' && 주소에 ?liar=1)`. `test`는 "숨김"이지 "잠금"이 아니다(주소를 아는 사람은 만들 수 있다).
 
-그림 메시지(`{t:'dr'}`, 갱식마인드)는 docs/draw/GDD.md 10절.
+### 7-2. 갱식마인드 (추가)
+
+자세한 모양·값·오류 글은 `docs/draw/GDD.md` 10절(`shared/draw/protocol.js`가 요청 속을 검사). 사이트 전체 통신에서 바뀌는 점만 적는다.
+
+화면 → 서버
+- `{t:'create', mode:'draw'}` — 갱식마인드 방 만들기. `DRAW=off`면 오류 `dr_off`(`'갱식마인드는 아직 열리지 않았습니다.'`)
+- `{t:'dr', a: 글자 1~20자, ...}` — 갱식마인드 전용 요청 전부. 봉투만 hub 가 보고 속은 `shared/draw/protocol.js`가 검사한다.
+  포커·라이어 방에서 보내면 `'알 수 없는 요청입니다.'`
+- 갱식마인드 방에서 `mode`·`act`·`play`·`liar`·`lg`가 오면 오류 `dr_now`(`'지금은 할 수 없습니다.'`, 죽지 않는다)
+
+서버 → 화면
+- `{t:'me', user, liar, draw:'off'|'test'|'on'}` — **`me`에 `draw` 칸 하나 추가**(새 메시지 종류 없음). 로비 칸 보이기 판단에 쓴다.
+- `{t:'rooms', list}`의 항목에 `mode:'draw'`, `max:8`, `phase:'lobby'|'playing'`(`lobby`·`final`이 아니면 `'playing'`).
+- `{t:'error', msg, code}` — **`error`에 `code` 칸 추가**(갱식마인드 오류에만 있으면 된다. 기존 오류에는 없어도 된다). 화면 분기와 시험용.
+- `{t:'room', state}`에서 `state.mode==='draw'`이면 모양은 GDD 10-4. 알림 `event.e`는 GDD 10-5.
+
+로비 보이기(화면): `보임 = draw==='on' || (draw==='test' && 주소에 ?draw=1)`. `test`는 "숨김"이지 "잠금"이 아니다.
 
 ## 8. 화면
 
