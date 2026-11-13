@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   layoutFor, keyboardUp, createToolStore, TOOL_DEFAULT, routesFor, MODULES, rootClasses,
-  soundForRoom, soundForEvent, tenSecondsKey, clockOffset,
+  soundForRoom, soundForEvent, tenSecondsKey,
 } from '../../client/src/draw/pure.js';
 import { createAudio, SOUNDS, SOUND_NAMES } from '../../client/src/draw/audio.js';
 
@@ -118,52 +118,31 @@ test('tenSecondsKey: 10초 안쪽에서 한 문제에 한 번', () => {
   assert.equal(tenSecondsKey(null, 95000, null), null);
 });
 
-test('clockOffset: 상태에 서버 시각이 있을 때만 보정', () => {
-  assert.equal(clockOffset({ now: 5000 }, 4000, 7), 1000);
-  assert.equal(clockOffset({}, 4000, 7), 7);
-  assert.equal(clockOffset(null, 4000), 0);
-});
-
-test('audio: 소리 이름마다 음이 있고, 소리 장치가 없어도 던지지 않는다', () => {
+test('audio: 소리 이름마다 음이 있고, 소리 엔진이 없어도 던지지 않는다', () => {
   for (const n of SOUND_NAMES) assert.ok(Array.isArray(SOUNDS[n]) && SOUNDS[n].length > 0, n);
   const a = createAudio();
-  assert.doesNotThrow(() => { a.unlock(); a.play('correct'); a.play('nope'); a.dispose(); a.play('correct'); });
+  assert.doesNotThrow(() => { a.play('correct'); a.play('nope'); a.dispose(); a.play('correct'); });
 });
 
-test('audio: 끄기 설정이면 틀지 않고, 켜면 튼다', () => {
+test('audio: 공용 소리 엔진이 꺼져 있으면 틀지 않고, 켜면 튼다', () => {
   let started = 0;
   const param = { setValueAtTime() {}, exponentialRampToValueAtTime() {} };
-  class FakeAC {
-    constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; }
-    createGain() { return { gain: { ...param, value: 0 }, connect() {} }; }
-    createOscillator() { return { type: '', frequency: param, connect() {}, start() { started++; }, stop() {} }; }
-    close() {}
-  }
-  const prev = globalThis.AudioContext;
-  globalThis.AudioContext = FakeAC;
-  try {
-    let muted = true;
-    const a = createAudio({ isMuted: () => muted });
-    a.unlock();
-    a.play('correct');
-    assert.equal(started, 0);
-    muted = false;
-    a.play('correct');
-    assert.equal(started, SOUNDS.correct.length);
-    a.play('bogus');
-    assert.equal(started, SOUNDS.correct.length);
-    a.dispose();
-  } finally {
-    if (prev === undefined) delete globalThis.AudioContext; else globalThis.AudioContext = prev;
-  }
-});
-
-test('menuVisible: 휴대폰 가로 + 진행 중일 때만', async () => {
-  const { menuVisible, menuItems } = await import('../../client/src/draw/pure.js');
-  for (const ph of ['pick', 'draw', 'reveal']) assert.equal(menuVisible('phone', { phase: ph }), true);
-  for (const ph of ['lobby', 'final']) assert.equal(menuVisible('phone', { phase: ph }), false);
-  assert.equal(menuVisible('wide', { phase: 'draw' }), false);
-  assert.equal(menuVisible('phone', null), false);
-  assert.deepEqual(menuItems(true), ['emote', 'leave']);
-  assert.deepEqual(menuItems(false), ['leave']);
+  const ac = {
+    currentTime: 0,
+    createGain() { return { gain: { ...param, value: 0 }, connect() {} }; },
+    createOscillator() { return { type: '', frequency: param, connect() {}, start() { started++; }, stop() {} }; },
+  };
+  let muted = true;
+  const sound = { context: () => ac, output: () => ({}), isMuted: () => muted };
+  const a = createAudio({ sound });
+  a.play('correct');
+  assert.equal(started, 0);
+  muted = false;
+  a.play('correct');
+  assert.equal(started, SOUNDS.correct.length);
+  a.play('bogus');
+  assert.equal(started, SOUNDS.correct.length);
+  a.dispose();
+  a.play('correct');
+  assert.equal(started, SOUNDS.correct.length);
 });

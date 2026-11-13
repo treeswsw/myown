@@ -3,7 +3,7 @@
 // 옮기기 과제가 자기 줄을 legacy -> make 로 바꾼다. bot: false = 관리자 봇 없음(adm_nobot).
 import { createLiarRoom } from './liar/room.js';
 import { makeYachtGame } from './yacht/room.js';
-import { createDrawRoom } from './draw/room.js';
+import { makeDrawGame } from './draw/room.js';
 import { createGskRoom } from './gsk/room.js';
 import { createMiniRoom } from './mini/room.js';
 import { hookRoom } from './coin/hooks.js';
@@ -35,7 +35,7 @@ export const SERVER_GAMES = {
   bluff: { legacy: (hub, code) => hub.pokerRoom(code, 'bluff'), bot: bluffBot },
   liar: { legacy: (hub, code) => hookRoom(hub, createLiarRoom(hub, code)), bot: liarBot, hubMsg: liarRank },
   yacht: { make: makeYachtGame, bot: yachtBot },
-  draw: { legacy: (hub, code) => hookRoom(hub, createDrawRoom(hub, code)), bot: drawBot },
+  draw: { make: makeDrawGame, bot: drawBot },
   gsk: { legacy: (hub, code) => createGskRoom(hub, code), bot: false, errors: { gk_off: '갱스껄은 지금 열려 있지 않습니다.' } },
   mini: { legacy: (hub, code, opt) => hookRoom(hub, createMiniRoom(hub, code, opt.game)), bot: false },
 };
