@@ -239,7 +239,7 @@ export const waitResult = (r) => until(() => r.cs.every((c) => c.state?.phase ==
 /** c 가 받은 것 중 "정체 공개 전"까지의 인덱스 끝(포함 안 함). unmask 이벤트나 unmask 가 든 room 이 처음 나온 자리. */
 export function preUnmaskEnd(c) {
   const i = c.msgs.findIndex((m) => (m.t === 'event' && m.e.k === 'unmask') ||
-    (m.t === 'room' && m.state && (m.state.unmask !== null || ['unmask', 'guess', 'result'].includes(m.state.phase))));
+    (m.t === 'room' && m.state && (m.state.unmask !== null || ['unmask', 'guess', 'answer', 'result'].includes(m.state.phase))));
   return i < 0 ? c.msgs.length : i;
 }
 

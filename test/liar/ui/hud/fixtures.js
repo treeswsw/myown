@@ -20,7 +20,7 @@ export function makeBase(n = 8) {
   };
 }
 
-export const PHASES = ['lobby', 'reveal', 'speak', 'discuss', 'revote', 'defense', 'judge', 'judged', 'unmask', 'guess', 'result'];
+export const PHASES = ['lobby', 'reveal', 'speak', 'discuss', 'revote', 'defense', 'judge', 'judged', 'unmask', 'guess', 'answer', 'result'];
 
 // 단계 이름 -> 가짜 상태. extra 로 덮어쓴다.
 export function stateFor(phase, extra = {}, n = 8) {
@@ -33,10 +33,10 @@ export function stateFor(phase, extra = {}, n = 8) {
     s.speaker = 'u1';
   } else {
     s.speaker = null;
-    s.phaseEndsAt = 1_000_000 + ({ reveal: 8, discuss: 90, revote: 30, defense: 20, judge: 10, judged: 3, unmask: 8, guess: 15, result: 0 }[phase] || 0) * 1000;
+    s.phaseEndsAt = 1_000_000 + ({ reveal: 8, discuss: 90, revote: 30, defense: 20, judge: 10, judged: 3, unmask: 8, guess: 15, answer: 15, result: 0 }[phase] || 0) * 1000;
     if (phase === 'result') s.phaseEndsAt = null;
   }
-  if (['defense', 'judge', 'judged', 'unmask', 'guess', 'result'].includes(phase)) s.accused = 'u3';
+  if (['defense', 'judge', 'judged', 'unmask', 'guess', 'answer', 'result'].includes(phase)) s.accused = 'u3';
   if (phase === 'revote') s.candidates = ['u2', 'u3'];
   if (phase === 'judged') s.judge = { picks: {}, executed: true };
   return Object.assign(s, extra);
