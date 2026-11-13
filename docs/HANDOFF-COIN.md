@@ -40,7 +40,7 @@
 
 ## 2026-11-13 두 번째 대화에서 한 것
 - 상점 진열(SPEC 22-18): 사람마다, 위 5칸 5분 / 아래 5칸 1시간, 서버+화면 완료. 시안 그림 docs/coin/shop-preview.png. 가격 두 번 눌러 사기.
-- 캡슐 뽑기 서버(cap·craft·pos, 조각, 수집 보상) 다시 만듦(옛 작업본은 원격에 없어 사라졌음).
+- 캡슐 뽑기 서버(cap·craft·pos, 조각, 수집 보상) 다시 만듦·병합(옛 작업본은 사라졌음). 응답: craft → {a:craft,id,shard,got?}, pos → 따로 답 없이 me 만 다시.
 - 준비중 규칙(SPEC 22-19). 로비 버튼: 상점·뽑기·캡슐·꾸미기·교환·코인 랭킹.
 - 진행 중이던 것(끝났는지 git log 로 확인): 카드 뽑기 화면(Fable, worktree-agent-aec3cce…), 캡슐 기계·내 꾸미기 화면(Fable, worktree-agent-a3ba2d08…). 끝나지 않았으면 client/src/coin/capsule.js·lookwin.js 는 "준비중" 자리 파일.
 - 남은 것: 위 두 화면 병합 → lobby.js SHOW_DRAW=true, 버튼 이름 '카드 뽑기' → 돈·서버 묶음(진열+캡슐) Opus 검토 → npm test → 배포(사용자에게 먼저 묻기). 치장템 그림, 방 안 looks, 무료 뽑기 주기 결정.
