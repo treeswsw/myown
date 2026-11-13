@@ -370,7 +370,7 @@ test('미니게임: 선(첫 자리)이 둘 중 하나로 균등 (실제 허브·
     await a.send({ t: 'start' });
     const room = h.hub.rooms.get(code);
     assert.equal(room.phase, 'play');
-    if (room.seats[0] === 'ann1') annFirst++;
+    if (a.state.seats[0] === 'ann1') annFirst++;
     await a.send({ t: 'leave' });
     await b.send({ t: 'leave' });
   }

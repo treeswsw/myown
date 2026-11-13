@@ -96,33 +96,23 @@
 .mn-pm-opt { fill: #ead9b9; }
 @media (hover: hover) { .mn-pm-opt:hover { fill: #f6ecd4; } }
 
-/* 화면 틀(대기실·판·결과). 상단 줄(.lgbar, 54px) 아래를 채운다. */
-.mn-root { position: fixed; left: 0; right: 0; top: 54px; bottom: 0; z-index: 20; display: flex; flex-direction: column; gap: 8px; padding: 6px 12px 12px; box-sizing: border-box; pointer-events: none; color: #fff; }
-.mn-root[hidden] { display: none; }
+/* 화면 틀(판·결과). 대기실은 공통 대기실(.wr-)이 그린다. 공통 상단 줄(.rm-bar, 54px) 아래를 채운다. */
+.mn-root { position: absolute; left: 0; right: 0; top: calc(54px + env(safe-area-inset-top, 0px)); bottom: 0; z-index: 20; display: flex; flex-direction: column; gap: 8px; padding: 6px 12px 12px; box-sizing: border-box; pointer-events: none; color: #fff; }
 .mn-root > * { pointer-events: auto; }
 .mn-top { display: flex; align-items: center; justify-content: center; gap: 10px; flex: none; }
-.mn-top[hidden], .mn-wait[hidden], .mn-boardwrap[hidden], .mn-bottom[hidden] { display: none; }
 .mn-vs { font-weight: 700; opacity: .6; font-size: 13px; }
 .mn-chip { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 44%; padding: 6px 10px; border-radius: 12px; background: rgba(0, 0, 0, .35); border: 2px solid transparent; }
 .mn-chip.mn-turn { border-color: #f3d36a; background: rgba(0, 0, 0, .55); }
 .mn-chip.mn-win { border-color: #6fcf8f; }
-.mn-dot-c { flex: none; width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .5); }
+.mn-chip-face { flex: none; display: inline-flex; }
 .mn-chip-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .mn-chip-sub { flex: none; font-size: 12px; opacity: .8; white-space: nowrap; }
-.mn-chip-em { flex: none; font-size: 18px; }
 .mn-boardwrap { position: relative; flex: 1; min-height: 0; }
 .mn-boardbox { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-.mn-wait { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 22px 18px; border-radius: 16px; background: rgba(0, 0, 0, .45); max-width: 92vw; }
-.mn-wait-title { margin: 0; font-size: 20px; }
-.mn-gamerow { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.mn-gbtn { min-height: 42px; padding: 0 16px; border-radius: 10px; border: 2px solid transparent; background: rgba(255, 255, 255, .16); color: inherit; font-weight: 700; font-size: 15px; }
-.mn-gbtn[aria-pressed=true] { border-color: #f3d36a; background: rgba(243, 211, 106, .25); }
-.mn-gbtn:disabled { opacity: .75; }
-.mn-wait-note { margin: 0; text-align: center; opacity: .85; font-size: 14px; }
 .mn-bottom { display: flex; align-items: center; justify-content: center; gap: 10px; flex: none; min-height: 44px; }
 .mn-status { font-weight: 700; text-align: center; min-width: 0; }
 .mn-status.mn-end { font-size: 18px; color: #f3d36a; }
-.mn-act { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); color: inherit; font-weight: 700; }
+.mn-act { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); color: inherit; font-weight: 700; touch-action: manipulation; }
 .mn-act.mn-main { background: #ea3a3d; }
 .mn-act[hidden] { display: none; }
 .mn-act:disabled { opacity: .5; }

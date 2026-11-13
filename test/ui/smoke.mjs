@@ -699,28 +699,34 @@ async function runContext(browser, server, name, cfg) {
       await press('.lb-seg-item:has-text("미니게임")');
       for (const g of ['오목', '리버시', '체커', '체스', '커넥트포']) await visible(`.lb-mini-item:has-text("${g}")`);
     });
-    await step('mini: pick 커넥트포, create a room → waiting room, the room list names the game', async () => {
+    await step('mini: pick 커넥트포, create a room → common waiting room lists the host, the room list names the game', async () => {
       await press('.lb-mini-item:has-text("커넥트포")');
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.lgbar-code');
-      await visible('[data-mn="start"]');
+      await visible('[data-rm="wait-start"]');
       const r = await openRoom('mini');
       if (r.game !== 'connect4') throw new Error(`room list game=${r.game}`);
       await mBot.join(r.code);
-      await visible('.mn-wait-note:has-text("시작을 누르세요")');
+      await page.waitForFunction(() => { const b = document.querySelector('[data-rm="wait-start"]'); return b && !b.disabled; }, null, { timeout: T });
+      await visible('.wr-root :text("커넥트포")');
     });
     await occlusion('mini room (waiting)');
-    await step('mini: the host switches the game to 체스 in the waiting room, then back to 커넥트포', async () => {
-      await press('[data-mn="game-chess"]');
+    await step('mini: the host switches the game to 체스 in the waiting room (set), then back to 커넥트포', async () => {
+      await press('.wr-root .lb-seg-item:has-text("체스")');
       await mBot.waitFor((b) => b.state?.game === 'chess', T, 'game chess');
-      await press('[data-mn="game-connect4"]');
+      await press('.wr-root .lb-seg-item:has-text("커넥트포")');
       await mBot.waitFor((b) => b.state?.game === 'connect4', T, 'game connect4');
     });
     await step('mini: 시작 → board shows, status says whose turn', async () => {
-      await press('[data-mn="start"]');
+      await press('[data-rm="wait-start"]');
       await mBot.waitFor((b) => b.state?.phase === 'play', T, 'play phase');
       await visible('.mn-board');
       await page.waitForFunction(() => /차례/.test(document.querySelector('[data-mn="status"]')?.textContent || ''), null, { timeout: T });
+    });
+    await step('mini: 기권 asks with the common confirm box (not the browser one); 취소 keeps playing', async () => {
+      await press('[data-mn="resign"]');
+      await visible('.ui-confirm');
+      await press('.ui-mbtn:has-text("취소")');
+      if (mState().phase !== 'play') throw new Error('cancelled resign ended the game');
     });
     await step('mini: both players drop four stones in a column → result text shows 승리', async () => {
       const bs = () => mState();
@@ -737,16 +743,20 @@ async function runContext(browser, server, name, cfg) {
       await mBot.waitFor((b) => b.state?.phase === 'end', T, 'end phase');
       await page.waitForFunction(() => /승리/.test(document.querySelector('[data-mn="status"]')?.textContent || ''), null, { timeout: T });
     });
-    await step('mini: 다시 (host) returns to the waiting room', async () => {
-      await press('[data-mn="again"]');
-      await mBot.waitFor((b) => b.state?.phase === 'lobby', T, 'lobby phase');
-      await visible('[data-mn="start"]');
+    await step('mini: result → 대기실로 → 게임 시작 again (host)', async () => {
+      await press('[data-mn="to-wait"]');
+      await visible('[data-rm="wait-start"]');
+      await press('[data-rm="wait-start"]');
+      await mBot.waitFor((b) => b.state?.phase === 'play', T, 'second play phase');
+      await visible('.mn-board');
     });
-    await step('mini: 나가기 returns to the lobby, bar and board disappear', async () => {
-      await press('button.lgbar-btn:has-text("나가기")');
+    await step('mini: 나가기 mid-game asks ("나가면 기권 처리돼요"), then returns to the lobby', async () => {
+      await press('[data-rm="bar-leave"]');
+      await visible('.ui-confirm:has-text("나가면 기권 처리돼요")');
+      await press('.ui-mbtn.ui-danger');
       await visible('button:has-text("방 만들기")');
-      await gone('.lgbar-code');
-      await page.waitForFunction(() => document.querySelector('.mn-root')?.hidden !== false);
+      await gone('.rm-bar:not([hidden])');
+      await page.waitForFunction(() => !document.querySelector('.mn-root'));
     });
     mBot.close();
   } catch (e) {

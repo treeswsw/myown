@@ -1,261 +1,129 @@
-// 미니게임 방 (docs/mini/PLAN.md). 본보기: server/yacht/room.js.
-// 규칙은 shared/mini 가 판정하고, 이 방은 사람(입장·끊김·기권)과 전달만 맡는다. 시간 제한 없음.
-// 자리(seats)는 먼저 들어온 연결된 2명, 선(seat 0)은 hub.rng(crypto)로 정한다. 나머지는 관전.
+// 미니게임 게임 훅 (docs/mini/PLAN.md, docs/COMMON-CONTRACT.md 1-4). 공용 방 틀(server/room/shell.js)이 쓴다.
+// 멤버·방장·끊김 유예·강퇴·채팅·이모티콘·소리·faces·빈 방 지우기는 Shell 이 맡는다. 이 파일은 규칙 전달과 판 끝(코인)만.
+// 규칙은 shared/mini 가 판정한다. 시간 제한 없음. 자리(seats)는 먼저 들어온 연결된 2명, 선(seat 0)은 crypto 난수로 정한다. 나머지는 관전.
 import { GAMES, GAME_IDS } from '../../shared/mini/index.js';
 
-export const MAX_PLAYERS = 8;
-const MAX_ROOM_SOUNDS = 24;
-const MAX_ACCOUNT_SOUNDS = 8;
-const CHAT_LOG = 30;
-const err = (code, msg) => ({ code, msg });
+export function makeMiniGame(ctx, opt = {}) {
+  const err = (c, msg) => ctx.err(`mn_${c}`, msg);
+  let phase = 'lobby'; // 'lobby' | 'play' | 'end'  (end = 결과 화면, 대기 상태)
+  let setting = GAME_IDS.includes(opt.game) ? opt.game : 'gomoku'; // 방장이 고른 종목
+  let played = setting; // 지금 판(또는 방금 끝난 판)의 종목
+  let seats = [null, null];
+  let names = [null, null];
+  let mn = null; // 규칙 상태
+  let result = null;
 
-export function createMiniRoom(hub, code, game = 'gomoku') {
-  return new MiniRoom(hub, code, GAME_IDS.includes(game) ? game : 'gomoku');
-}
-
-class MiniRoom {
-  constructor(hub, code, game) {
-    this.hub = hub;
-    this.code = code;
-    this.mode = 'mini';
-    this.hostId = null;
-    this.phase = 'lobby'; // 'lobby' | 'play' | 'end'
-    this.game = game;
-    this.members = []; // {id, session, connected, grace, awayUntil}
-    this.seats = [null, null];
-    this.names = [null, null];
-    this.mn = null; // 규칙 상태
-    this.result = null;
-    this.chatLog = [];
-    this.sounds = [];
-    this.timers = { gc: null };
-  }
-
-  member(id) {
-    return this.members.find((m) => m.id === id);
-  }
-
-  setTimer(name, ms, fn) {
-    this.clearTimer(name);
-    this.timers[name] = this.hub.timers.setTimeout(this.hub.guard(fn), ms);
-  }
-
-  clearTimer(name) {
-    if (this.timers[name] !== null && this.timers[name] !== undefined) this.hub.timers.clearTimeout(this.timers[name]);
-    this.timers[name] = null;
-  }
-
-  // ---- 입장·퇴장 ----
-
-  join(session) {
-    if (this.members.length >= MAX_PLAYERS) return { code: 'mn_full', msg: '방이 가득 찼습니다.' };
-    this.clearTimer('gc');
-    this.members.push({ id: session.id, session, connected: true, grace: null, awayUntil: null });
-    this.hostId ??= session.id;
-    session.room = this;
-    this.push();
-    this.sendFaces([session.id], (m) => m.id !== session.id);
-    this.sendEvents([{ k: 'joined', id: session.id, name: session.user.name }]);
-    this.sendExtras(session);
-    return null;
-  }
-
-  sendExtras(session) {
-    this.hub.send(session, { t: 'event', e: { k: 'chatLog', items: this.chatLog.map((x) => ({ ...x })) } });
-    this.hub.send(session, {
-      t: 'event',
-      e: { k: 'faces', items: this.members.map((m) => ({ id: m.id, avatar: m.session.user.avatar })) },
-    });
-    if (this.sounds.length) this.hub.send(session, { t: 'event', e: { k: 'sndList', items: this.sounds.map((x) => ({ ...x })) } });
-  }
-
-  sendFaces(ids, filter = () => true) {
-    const items = ids.map((id) => ({ id, avatar: this.member(id)?.session.user.avatar ?? null }));
-    for (const m of this.members) if (filter(m)) this.hub.send(m.session, { t: 'event', e: { k: 'faces', items } });
-  }
-
-  faceChanged(session) {
-    if (this.member(session.id)) this.sendFaces([session.id]);
-  }
-
-  setConnected(id, connected) {
-    const m = this.member(id);
-    if (!m) return;
-    const changed = m.connected !== connected;
-    m.connected = connected;
-    if (m.grace !== null) this.hub.timers.clearTimeout(m.grace);
-    m.grace = connected ? null : this.hub.timers.setTimeout(this.hub.guard(() => this.leave(id)), this.hub.timing.grace);
-    m.awayUntil = connected ? null : this.hub.now() + this.hub.timing.grace;
-    this.push(changed ? [{ k: connected ? 'back' : 'away', id }] : []);
-  }
-
-  leave(id) {
-    const m = this.member(id);
-    if (!m) return;
-    if (m.grace !== null) this.hub.timers.clearTimeout(m.grace);
-    m.grace = null;
-    const seat = this.seats.indexOf(id);
-    if (this.phase === 'play' && seat >= 0) this.finish(1 - seat, 'leave'); // 나가기·끊김 60초 = 기권
-    this.members = this.members.filter((x) => x !== m);
-    m.session.room = null;
-    if (this.hostId === id) this.hostId = this.members[0]?.id ?? null;
-    this.hub.send(m.session, { t: 'room', state: null });
-    this.hub.sendMe(m.session);
-    this.hub.sendRooms(m.session);
-    if (!m.session.conn) this.hub.sessions.delete(id);
-    if (this.members.length === 0) {
-      this.hub.roomsChanged();
-      this.setTimer('gc', this.hub.timing.roomGc, () => this.hub.rooms.delete(this.code));
-      return;
+  // 판이 끝났다. 보드에서 이긴 때만(기권·나감·무승부 제외) 이긴 사람에게 코인 한 번.
+  function finish(winner, reason) {
+    phase = 'end';
+    result = { winner, reason };
+    if (reason === 'win' && (winner === 0 || winner === 1) && seats[winner]) {
+      ctx.finish([{ id: seats[winner], won: true, opp: 1 }]);
     }
-    this.sendEvents([{ k: 'left', id, name: m.session.user.name }]);
-    this.push();
   }
 
-  // ---- 판 ----
+  const ready = () => ctx.members().filter((m) => m.connected).slice(0, 2);
 
-  finish(winner, reason) {
-    this.phase = 'end';
-    this.result = { winner, reason };
-  }
-
-  begin(id) {
-    if (id !== this.hostId) return err('mn_host', '방장만 시작할 수 있습니다.');
-    if (this.phase !== 'lobby') return err('mn_now', '지금은 할 수 없습니다.');
-    const ready = this.members.filter((m) => m.connected).slice(0, 2);
-    if (ready.length < 2) return err('mn_need2', '2명이 필요합니다.');
-    if (this.hub.rng() < 0.5) ready.reverse();
-    this.seats = ready.map((m) => m.id);
-    this.names = ready.map((m) => m.session.user.name);
-    this.mn = GAMES[this.game].init();
-    this.result = null;
-    this.phase = 'play';
-    this.push([{ k: 'mnStart', game: this.game }]);
+  function setSettings(byId, patch) {
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return err('bad');
+    if (!Object.keys(patch).every((k) => k === 'game')) return err('bad');
+    if (!GAME_IDS.includes(patch.game)) return err('game', '알 수 없는 게임입니다.');
+    setting = patch.game;
     return null;
   }
 
-  // 최상위 {t:'start'} 용
-  start(id) {
-    return this.begin(id)?.msg ?? null;
-  }
-
-  // 모든 {t:'mn'} 요청. 오류는 {code, msg} 또는 null.
-  request(session, msg) {
+  // 모든 {t:'mn'} 요청. 시작·종목·다시는 공용 {t:'start'}·{t:'set'} 이 맡는다(Shell).
+  function onAction(session, msg) {
     const id = session.id;
     switch (msg.a) {
-      case 'game':
-        if (id !== this.hostId) return err('mn_host', '방장만 고를 수 있습니다.');
-        if (this.phase !== 'lobby') return err('mn_now', '지금은 할 수 없습니다.');
-        if (!GAME_IDS.includes(msg.game)) return err('mn_game', '알 수 없는 게임입니다.');
-        this.game = msg.game;
-        this.push();
+      case 'game': { // 옛 요청(호환): {t:'set', patch:{game}} 와 같다
+        if (id !== ctx.hostId()) return err('host', '방장만 고를 수 있습니다.');
+        if (phase === 'play') return err('now');
+        const bad = setSettings(id, { game: msg.game });
+        if (bad) return bad;
+        ctx.push();
         return null;
-      case 'start': return this.begin(id);
+      }
       case 'move': {
-        if (this.phase !== 'play') return err('mn_now', '지금은 할 수 없습니다.');
-        const seat = this.seats.indexOf(id);
-        if (seat < 0) return err('mn_seat', '관전 중입니다.');
-        if (seat !== this.mn.turn) return err('mn_turn', '당신 차례가 아닙니다.');
-        const next = GAMES[this.game].apply(this.mn, msg.move);
-        if (!next) return err('mn_move', '둘 수 없는 곳입니다.');
-        this.mn = next;
-        if (next.winner !== null) this.finish(next.winner, next.winner === 'draw' ? 'draw' : 'win');
-        this.push();
+        if (phase !== 'play') return err('now');
+        const seat = seats.indexOf(id);
+        if (seat < 0) return err('seat', '관전 중입니다.');
+        if (seat !== mn.turn) return err('turn', '당신 차례가 아닙니다.');
+        const next = GAMES[played].apply(mn, msg.move);
+        if (!next) return err('move', '둘 수 없는 곳입니다.');
+        mn = next;
+        if (next.winner !== null) finish(next.winner, next.winner === 'draw' ? 'draw' : 'win');
+        ctx.push();
         return null;
       }
       case 'resign': {
-        const seat = this.seats.indexOf(id);
-        if (this.phase !== 'play' || seat < 0) return err('mn_now', '지금은 할 수 없습니다.');
-        this.finish(1 - seat, 'resign');
-        this.push();
+        const seat = seats.indexOf(id);
+        if (phase !== 'play' || seat < 0) return err('now');
+        finish(1 - seat, 'resign');
+        ctx.push();
         return null;
       }
-      case 'again':
-        if (id !== this.hostId) return err('mn_host', '방장만 다시 시작할 수 있습니다.');
-        if (this.phase !== 'end') return err('mn_now', '지금은 할 수 없습니다.');
-        this.phase = 'lobby';
-        this.mn = null;
-        this.result = null;
-        this.seats = [null, null];
-        this.names = [null, null];
-        this.push();
-        return null;
-      default: return err('mn_bad', '알 수 없는 요청입니다.');
+      default: return err('bad');
     }
   }
 
-  // ---- 소리·이모티콘·채팅 ----
+  return {
+    // 프로필 사진은 없다(faces 알림). 판은 모두에게 같다. 공통 칸(code·mode·hostId·you·now·wait·specs)은 Shell 이 덮는다.
+    view(viewerId) {
+      const turnId = phase === 'play' ? seats[mn.turn] : null;
+      const turnMember = turnId ? ctx.member(turnId) : null;
+      return {
+        phase,
+        game: phase === 'lobby' ? setting : played, // 판 그림은 지금 판의 종목, 대기실은 고른 종목
+        seats: [...seats],
+        names: [...names],
+        mySeat: seats.indexOf(viewerId), // -1 = 관전
+        players: ctx.members().map((m) => ({ id: m.id, spectating: phase !== 'lobby' && !seats.includes(m.id) })),
+        turn: turnId,
+        waiting: turnMember && !turnMember.connected ? turnMember.id : null,
+        mn,
+        result,
+      };
+    },
+    phase: () => phase,
+    isWaiting: () => phase !== 'play',
 
-  addSound(session, sid, name, data) {
-    const existing = this.sounds.find((x) => x.sid === sid);
-    if (existing) return existing.by === session.id ? null : '이미 사용 중인 소리 번호입니다.';
-    this.sounds.push({ sid, by: session.id, name, data });
-    const mine = this.sounds.filter((x) => x.by === session.id);
-    if (mine.length > MAX_ACCOUNT_SOUNDS) this.sounds.splice(this.sounds.indexOf(mine[0]), 1);
-    if (this.sounds.length > MAX_ROOM_SOUNDS) this.sounds.shift();
-    this.sendEvents([{ k: 'sndAdd', sid, by: session.id, name, data }]);
-    return null;
-  }
+    canStart() {
+      if (ready().length < 2) return err('need2', '2명이 필요합니다.');
+      return null;
+    },
 
-  editSound(session, sid, change) {
-    const sound = this.sounds.find((x) => x.sid === sid);
-    if (!sound) return '없는 소리입니다.';
-    if (sound.by !== session.id && this.hostId !== session.id) return '이 사운드를 수정할 권한이 없습니다.';
-    if (change.name === undefined) this.sounds.splice(this.sounds.indexOf(sound), 1);
-    else sound.name = change.name;
-    this.sendEvents([change.name === undefined ? { k: 'sndDel', sid } : { k: 'sndRename', sid, name: change.name }]);
-    return null;
-  }
+    onStart() {
+      const two = ready();
+      if (ctx.rng() < 0.5) two.reverse();
+      seats = two.map((m) => m.id);
+      names = two.map((m) => m.session.user.name);
+      played = setting;
+      mn = GAMES[played].init();
+      result = null;
+      phase = 'play';
+      ctx.emit([{ k: 'mnStart', game: played }]);
+      return null;
+    },
 
-  playSound(session, sid) {
-    if (!sid.startsWith('builtin:') && !this.sounds.some((x) => x.sid === sid)) return '없는 소리입니다.';
-    this.sendEvents([{ k: 'snd', id: session.id, sid }]);
-    return null;
-  }
+    setSettings,
+    waitInfo: () => ({ set: { game: setting }, own: {} }),
+    listExtra: () => ({ game: setting }),
+    onAction,
 
-  emote(id, e) {
-    if (this.member(id)) this.sendEvents([{ k: 'emote', id, e }]);
-  }
+    // 판 중 자리에 앉은 사람이 나가거나 끊김 60초가 지나면 기권(상대 승리, 코인 없음)
+    onLeave(id) {
+      const seat = seats.indexOf(id);
+      if (phase === 'play' && seat >= 0) finish(1 - seat, 'leave');
+      return [];
+    },
 
-  chat(session, text) {
-    const item = { id: session.id, name: session.user.name, text, ts: this.hub.now() };
-    this.chatLog.push(item);
-    if (this.chatLog.length > CHAT_LOG) this.chatLog.shift();
-    this.sendEvents([{ k: 'chat', ...item }]);
-  }
-
-  // ---- 내보내기 ----
-
-  sendEvents(events) {
-    for (const m of this.members) for (const e of events) this.hub.send(m.session, { t: 'event', e });
-  }
-
-  push(events = []) {
-    this.hub.roomsChanged();
-    this.sendEvents(events);
-    for (const m of this.members) this.hub.send(m.session, { t: 'room', state: this.view(m.id) });
-  }
-
-  // 프로필 사진은 없다(faces 알림). 판은 모두에게 같다.
-  view(viewerId) {
-    const turnId = this.phase === 'play' ? this.seats[this.mn.turn] : null;
-    const turnMember = turnId ? this.member(turnId) : null;
-    return {
-      code: this.code, mode: 'mini', hostId: this.hostId, you: viewerId,
-      now: this.hub.now(),
-      phase: this.phase,
-      game: this.game,
-      seats: [...this.seats],
-      names: [...this.names],
-      mySeat: this.seats.indexOf(viewerId), // -1 = 관전
-      players: this.members.map((m) => ({
-        id: m.id, name: m.session.user.name, connected: m.connected, awayUntil: m.awayUntil,
-        spectating: this.phase !== 'lobby' && !this.seats.includes(m.id),
-      })),
-      turn: turnId,
-      waiting: turnMember && !turnMember.connected ? turnMember.id : null,
-      mn: this.mn,
-      result: this.result,
-    };
-  }
+    onEmpty() {
+      phase = 'lobby';
+      seats = [null, null];
+      names = [null, null];
+      mn = null;
+      result = null;
+    },
+  };
 }

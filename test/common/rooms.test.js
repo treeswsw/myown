@@ -130,9 +130,8 @@ const MODES = [
   },
   {
     mode: 'mini', create: { mode: 'mini' }, max: 8, chatMax: 120, chatLong: HUB_LONG, flood: HUB_FLOOD,
-    // 버그로 보임: {t:'start'} 로 시작하면 오류 코드(mn_need2 / mn_host)가 빠지고 문장만 간다. {t:'mn',a:'start'} 는 코드가 있다.
-    startFew: '2명이 필요합니다.', startNonHost: HOST_ERR, startedPhase: 'play',
-    hostWhenNextAway: 'bob1', // 통일 예정: 방장은 연결된 사람에게
+    startFew: 'mn_need2', startNonHost: 'mn_host', startedPhase: 'play',
+    hostWhenNextAway: 'cat1', // 연결된 사람 우선 (Shell)
     leftEvent: true, awayEvents: true, faces: true,
     stages: [plain('진행 중(셋째 사람은 관전)')],
   },

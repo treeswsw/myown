@@ -12,7 +12,7 @@ export const CLIENT_GAMES = {
   yacht: { load: () => import('./yacht/index.js'), stage: true, mount: true, bar: { leftVar: '--yt-sheet-w' } },
   draw: { load: () => import('./draw/index.js'), stage: false, mount: false },
   gsk: { load: () => import('./gsk/index.js'), stage: false, mount: false },
-  mini: { load: () => import('./mini/index.js'), stage: false, mount: false },
+  mini: { load: () => import('./mini/index.js'), stage: false, mount: true },
 };
 
 /** 이 방을 공통 틀이 그리는가(옮긴 게임). */

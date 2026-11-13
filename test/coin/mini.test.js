@@ -1,30 +1,58 @@
-// 미니게임 코인(이긴 사람만 1코인, 기권·나가기·무승부는 없음).
+// 미니게임 코인(이긴 사람만 1코인, 기권·나가기·무승부는 없음). 공용 방 틀(Shell) 위에서 ctx.finish 한 번.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hookRoom } from '../../server/coin/hooks.js';
+import { createHub } from '../../server/rooms.js';
+import { createStore } from '../../server/store.js';
 import { coinsFor } from '../../shared/coin/rules.js';
+import { FakeClock, client, seeded } from '../helpers.js';
 
-function fake() {
-  const calls = [];
-  const hub = { award: (room, mode, rows) => calls.push({ mode, rows }) };
-  const room = { mode: 'mini', seats: ['a', 'b'], phase: 'play', finish(w, r) { this.phase = 'end'; this.result = { winner: w, reason: r }; } };
-  hookRoom(hub, room);
-  return { room, calls };
+async function setup() {
+  const clock = new FakeClock();
+  const hub = createHub({ store: createStore(undefined), rng: seeded(3), now: clock.now, timers: clock, mini: 'on' });
+  const a = client(hub);
+  const b = client(hub);
+  await a.send({ t: 'login', id: 'ann1' });
+  await b.send({ t: 'login', id: 'bob1' });
+  await a.send({ t: 'create', mode: 'mini', game: 'connect4' });
+  await b.send({ t: 'join', code: a.state.code });
+  await a.send({ t: 'start' });
+  const by = (seat) => (a.state.seats[seat] === 'ann1' ? a : b);
+  const coins = (id) => hub.sessions.get(id)?.user.coins ?? 0;
+  return { a, b, by, coins, clock };
 }
 
-test('mini: board win pays the winner 1 coin', () => {
-  const { room, calls } = fake();
-  room.finish(1, 'win');
-  assert.equal(room.phase, 'end');
-  assert.deepEqual(calls, [{ mode: 'mini', rows: [{ id: 'b', won: true, opp: 1 }] }]);
+async function winRound({ a, by }) {
+  const first = by(0);
+  const second = by(1);
+  for (let i = 0; i < 3; i++) {
+    await first.send({ t: 'mn', a: 'move', move: { x: 0 } });
+    await second.send({ t: 'mn', a: 'move', move: { x: 1 } });
+  }
+  await first.send({ t: 'mn', a: 'move', move: { x: 0 } });
+  assert.equal(a.state.phase, 'end');
+  return a.state.seats[0];
+}
+
+test('mini: board win pays the winner 1 coin, once; the next round pays again', async () => {
+  const r = await setup();
+  const winner = await winRound(r);
+  assert.equal(r.coins(winner), 1);
+  assert.equal(r.coins(winner === 'ann1' ? 'bob1' : 'ann1'), 0);
   assert.equal(coinsFor('mini', { won: true, opp: 1 }), 1);
   assert.equal(coinsFor('mini', { won: false, opp: 1 }), 0);
+  r.clock.advance(3_600_000); // 같은 사람에게 연달아 주지 않는 간격(gapMs)
+  await r.a.send({ t: 'start' }); // 결과 화면에서 바로 다음 판
+  assert.equal(r.a.state.phase, 'play');
+  await winRound(r);
+  assert.equal(r.coins('ann1') + r.coins('bob1'), 2, '두 번째 판도 한 번 지급');
 });
 
-test('mini: resign, leave and draw pay nothing', () => {
-  const { room, calls } = fake();
-  room.finish(0, 'resign');
-  room.finish(0, 'leave');
-  room.finish('draw', 'draw');
-  assert.equal(calls.length, 0);
+test('mini: resign, leave and draw pay nothing', async () => {
+  const r = await setup();
+  await r.by(1).send({ t: 'mn', a: 'resign' });
+  assert.equal(r.a.state.phase, 'end');
+  assert.equal(r.coins('ann1') + r.coins('bob1'), 0);
+  await r.a.send({ t: 'start' });
+  await r.by(0).send({ t: 'leave' });
+  assert.equal(r.coins('ann1') + r.coins('bob1'), 0);
 });
