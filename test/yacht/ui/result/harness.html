@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yacht result harness</title>
+<link rel="stylesheet" href="/client/src/yacht/ui/result.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #38241a; overflow: hidden; }
+  #root { position: fixed; inset: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+import { createResult } from '/client/src/yacht/ui/result.js';
+import { states } from '/test/yacht/ui/result/fixtures.js';
+
+const h = { me: { stats: { yacht: { games: 5, wins: 2, best: 241 } } } };
+h.res = createResult({ host: document.getElementById('root'), getFace: () => null, getMe: () => h.me });
+h.states = states;
+h.apply = (s) => h.res.update(s);
+window.h = h;
+window.__ready = true;
+</script>
+</body>
+</html>

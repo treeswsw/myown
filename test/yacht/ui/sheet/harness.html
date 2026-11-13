@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yacht sheet harness</title>
+<link rel="stylesheet" href="/client/src/yacht/ui/sheet.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #38241a; overflow: hidden; }
+  #root { position: fixed; inset: 0; display: flex; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+import { createSheet } from '/client/src/yacht/ui/sheet.js';
+import { states } from '/test/yacht/ui/sheet/fixtures.js';
+
+const h = { sent: [] };
+h.sheet = createSheet({ host: document.getElementById('root'), send: (m) => h.sent.push(m), getFace: () => null });
+h.states = states;
+h.set = (name, extra, opts) => { h.last = { ...states[name], ...(extra || {}) }; h.sheet.update(h.last, opts); return h.last; };
+h.apply = (s, opts) => { h.last = s; h.sheet.update(s, opts); };
+window.h = h;
+window.__ready = true;
+</script>
+</body>
+</html>
