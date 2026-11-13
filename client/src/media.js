@@ -85,82 +85,13 @@ export async function playDataUrl(url) {
   try { playBuffer(await decode(url)); } catch { /* undecodable sound */ }
 }
 
-// ---- built-in effects, synthesised sample by sample (mono, 22.05 kHz) and normalised
-const SR = 22050;
-const noise = () => Math.random() * 2 - 1;
-const lowpass = (k) => { let y = 0; return (x) => (y += k * (x - y)); };
-const pulse = (t, at, decay) => (t < at ? 0 : Math.exp(-(t - at) / decay));
-const TAU = Math.PI * 2;
+// ---- built-in sounds: short files in client/public/sounds (volume evened out, 5 s max)
+export const BUILTINS = [['one', '엄'], ['two', '뭐지'], ['three', '쿵'], ['four', '예'], ['five', '티원'], ['six', '딱']]
+  .map(([id, label], i) => ({ id, label, url: `/sounds/s${i + 1}.mp3` }));
 
-function render(dur, fn) {
-  const b = audio().createBuffer(1, Math.ceil(SR * dur), SR);
-  const d = b.getChannelData(0);
-  let peak = 0;
-  for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i] = fn(i / SR)));
-  for (let i = 0; i < d.length; i++) d[i] *= 0.55 / (peak || 1);
-  return b;
-}
-
-// vowel-like voiced puff: a few harmonics of f, shaped by `amp`
-const voice = (f, t, amp) => amp * (Math.sin(TAU * f * t) + 0.5 * Math.sin(TAU * 2 * f * t) + 0.25 * Math.sin(TAU * 3 * f * t));
-
-export const BUILTINS = [
-  { id: 'clap', label: '박수', make: () => {
-    const hits = [0, 0.11, 0.2, 0.33, 0.4, 0.52, 0.6, 0.73, 0.8, 0.9];
-    const lp = lowpass(0.5);
-    return render(1.2, (t) => { const n = noise(); return (n - lp(n)) * hits.reduce((s, h) => s + pulse(t, h, 0.03), 0); });
-  } },
-  { id: 'laugh', label: '웃음', make: () => render(0.9, (t) => {
-    const i = Math.min(3, Math.floor(t / 0.17));
-    const local = t - i * 0.17;
-    return voice(330 - i * 25 + 12 * Math.sin(local * 40), t, Math.min(local / 0.015, 1) * Math.exp(-local / 0.07) * (i === 3 && local > 0.2 ? 0 : 1));
-  }) },
-  { id: 'fail', label: '실패', make: () => {
-    const notes = [[392, 0, 0.22], [370, 0.24, 0.22], [349, 0.48, 0.22], [311, 0.72, 0.7]];
-    const lp = lowpass(0.16);
-    let ph = 0;
-    return render(1.5, (t) => {
-      const n = notes.find(([, at, len]) => t >= at && t < at + len);
-      if (!n) return lp(0);
-      const local = t - n[1];
-      ph += (n[0] * (n === notes[3] ? 1 - 0.04 * local - 0.012 * Math.sin(TAU * 6 * local) : 1)) / SR;
-      return lp(2 * (ph % 1) - 1) * Math.min(local / 0.02, 1) * Math.min(1, (n[2] - local) / 0.04);
-    });
-  } },
-  { id: 'roll', label: '드럼롤', make: () => {
-    const hits = [];
-    for (let t = 0, gap = 0.12; t < 1.3; t += gap, gap = Math.max(0.03, gap * 0.9)) hits.push(t);
-    const lp = lowpass(0.35);
-    const hp = lowpass(0.6);
-    return render(2, (t) => {
-      const n = noise();
-      const roll = hits.reduce((s, h) => s + pulse(t, h, 0.035), 0) * (0.35 + t / 1.3) * lp(n);
-      const crash = t > 1.4 ? (n - hp(n)) * pulse(t, 1.4, 0.35) * 1.3 : 0;
-      return roll + crash + (t > 1.4 ? Math.sin(TAU * 90 * t) * pulse(t, 1.4, 0.12) : 0);
-    });
-  } },
-  { id: 'ding', label: '딩동', make: () => render(1.3, (t) => {
-    const bell = (f, at) => (t < at ? 0 : (Math.sin(TAU * f * (t - at)) + 0.3 * Math.sin(TAU * 2.76 * f * (t - at))) * pulse(t, at, 0.3));
-    return bell(880, 0) + bell(659, 0.4);
-  }) },
-  { id: 'boo', label: '야유', make: () => {
-    const lp = lowpass(0.07);
-    let ph = 0;
-    return render(1.4, (t) => {
-      ph += (150 - 30 * t) / SR;
-      return lp(2 * (ph % 1) - 1) * Math.min(t / 0.2, 1) * Math.min(1, (1.4 - t) / 0.3) * (0.75 + 0.25 * Math.sin(TAU * 6 * t));
-    });
-  } },
-];
-
-const built = new Map();
 export function playBuiltin(id) {
   const def = BUILTINS.find((b) => b.id === id);
-  if (!def) return;
-  try {
-    if (!built.has(id)) built.set(id, def.make());
-    playBuffer(built.get(id));
-  } catch { /* audio unavailable */ }
+  if (def) playDataUrl(def.url);
 }
 
 // ---- custom sounds
