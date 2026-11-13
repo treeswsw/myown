@@ -20,6 +20,7 @@ const ERR = {
   adm_nobot: '내보낼 봇이 없습니다.',
   adm_noskip: '건너뛸 단계가 없습니다.',
   adm_test: '관리자 시험 중인 방입니다.',
+  adm_noid: '없는 아이디입니다.',
 };
 export const admErr = (code) => ({ msg: ERR[code], code });
 
@@ -68,6 +69,12 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
     // {t:'adm'} from dispatch. Returns an error (string or {msg, code}) or null after replying admOk.
     async handle(session, room, msg) {
       if (!session.admin) return admErr('adm_no');
+      if (msg.a === 'pinclr') {
+        // Works in or out of a room, with or without other people (it touches no game).
+        if (!(await hub.pinAuth.adminClear(msg.id))) return admErr('adm_noid');
+        hub.send(session, { t: 'admOk', a: 'pinclr' });
+        return null;
+      }
       if (!room) return admErr('adm_room');
       if (room.members.some((m) => m.id !== session.id && !m.session.bot)) return admErr('adm_people');
       const done = () => {

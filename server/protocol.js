@@ -1,4 +1,4 @@
-import { parseCoin } from '../shared/coin/protocol.js';
+import { parseCoin, parsePin } from '../shared/coin/protocol.js';
 // Validation of everything a client may send. Returns sanitized messages only.
 export const MAX_RAW = 70_000; // every message except sndAdd
 export const MAX_FRAME = 300_000; // WebSocket frame limit: room for sndAdd
@@ -10,6 +10,8 @@ export const RESET_ID = '초기화'; // reserved: asks for the full wipe instead
 export const AVATAR_PREFIX = 'data:image/jpeg;base64,';
 
 const ID_RE = /^[\p{Script=Hangul}A-Za-z0-9_]{2,12}$/u;
+const PIN_RE = /^\d{4}$/;
+const TOK_RE = /^[0-9a-f]{64}$/;
 const CODE_RE = /^[A-HJ-NP-Z]{4}$/;
 const JPEG_MAGIC = '/9j/'; // base64 of FF D8 FF
 const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -74,10 +76,20 @@ export function parseMessage(raw) {
       const id = normalizeId(m.id);
       // pw is only looked at for the reserved admin ID (SPEC 21-1); anything but a short string is dropped.
       const pw = typeof m.pw === 'string' && m.pw.length <= 32 ? m.pw : undefined;
-      return id ? good({ t: 'login', ...id, pw }) : bad('아이디는 2~12자의 한글, 영문, 숫자, _ 만 쓸 수 있습니다.');
+      if (!id) return bad('아이디는 2~12자의 한글, 영문, 숫자, _ 만 쓸 수 있습니다.');
+      // pin / newPin: 4 digits or the request is refused; tok: 64 hex chars, anything else is simply "no token" (SPEC 22-8).
+      const out = { t: 'login', ...id, pw };
+      for (const k of ['pin', 'newPin']) {
+        if (m[k] === undefined || m[k] === null) continue;
+        if (typeof m[k] !== 'string' || !PIN_RE.test(m[k])) return bad('비밀번호는 숫자 4자리입니다.', 'pin_fmt');
+        out[k] = m[k];
+      }
+      if (typeof m.tok === 'string' && TOK_RE.test(m.tok)) out.tok = m.tok;
+      return good(out);
     }
     case 'reset':
-      return m.confirm === true ? good({ t: 'reset' }) : bad('초기화 확인이 필요합니다.');
+      // pw = admin password (SPEC 22-9); checked by the hub, only its shape here.
+      return m.confirm === true ? good({ t: 'reset', pw: typeof m.pw === 'string' && m.pw.length <= 32 ? m.pw : undefined }) : bad('초기화 확인이 필요합니다.');
     case 'avatar':
       return validAvatar(m.data) ? good({ t: 'avatar', data: m.data }) : bad('프로필 사진은 60KB 이하의 JPEG여야 합니다.');
     case 'create':
@@ -88,7 +100,17 @@ export function parseMessage(raw) {
       return CODE_RE.test(code) ? good({ t: 'join', code }) : bad('방 코드가 올바르지 않습니다.');
     }
     case 'adm':
+    {
+      if (m.a === 'pinclr') {
+        const target = normalizeId(m.id);
+        return target ? good({ t: 'adm', a: 'pinclr', id: target.key }) : bad('없는 아이디입니다.', 'adm_noid');
+      }
       return ['bot+', 'bot-', 'skip'].includes(m.a) ? good({ t: 'adm', a: m.a }) : bad('알 수 없는 요청입니다.');
+    }
+    case 'pin': {
+      const r = parsePin(m);
+      return r.ok ? good(r.msg) : bad('비밀번호는 숫자 4자리입니다.', 'pin_fmt');
+    }
     case 'coin': {
       const r = parseCoin(m);
       return r.ok ? good(r.msg) : bad('잘못된 요청입니다.', 'coin_bad');
