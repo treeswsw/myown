@@ -25,7 +25,7 @@ test('keyboardUp: 휴대폰에서 보이는 높이가 80px 넘게 줄면 키보�
 test('createToolStore: 기본값, 정리, 구독', () => {
   const t = createToolStore();
   assert.deepEqual(t.get(), TOOL_DEFAULT);
-  assert.deepEqual(TOOL_DEFAULT, { tool: 'pen', color: 0, penW: 10, eraseW: 24 });
+  assert.deepEqual(TOOL_DEFAULT, { tool: 'pen', color: 0, penW: 10, eraseW: 24, palm: true });
   const seen = [];
   const off = t.on((v) => seen.push(v));
   t.set({ color: 5 });
@@ -37,7 +37,7 @@ test('createToolStore: 기본값, 정리, 구독', () => {
   assert.equal(t.get().penW, 40);
   assert.equal(t.get().color, 0);
   t.set({ tool: 'erase', eraseW: 2 });
-  assert.deepEqual(t.get(), { tool: 'erase', color: 0, penW: 40, eraseW: 2 });
+  assert.deepEqual(t.get(), { tool: 'erase', color: 0, penW: 40, eraseW: 2, palm: true });
   off();
   const n = seen.length;
   t.set({ tool: 'pen' });

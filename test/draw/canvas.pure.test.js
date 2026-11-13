@@ -166,3 +166,19 @@ test('finalPoint: 뗀 자리를 마지막 점으로(간격 규칙 지킴)', () =
   assert.ok(sm.x < 200);
   assert.deepEqual(P.finalPoint(sm, { x: 200, y: 100 }), { x: 200, y: 100 });
 });
+
+test('cancelWaitMs: 손가락 취소만 150ms 기다린다(손바닥 → 펜슬)', () => {
+  assert.equal(P.cancelWaitMs('touch'), 150);
+  assert.equal(P.cancelWaitMs('pen'), 0);
+  assert.equal(P.cancelWaitMs('mouse'), 0);
+});
+
+test('손바닥 방지 꺼짐(palm:false): 어떤 닿음이든 바로 시작, 기다림 없음', () => {
+  const base = { penSeen: true, activeType: 'touch', type: 'touch', button: 0, width: 80, height: 80 };
+  assert.equal(P.decideDown(base), 'ignore'); // 켜짐(기본)
+  assert.equal(P.decideDown({ ...base, palm: true }), 'ignore');
+  assert.equal(P.decideDown({ ...base, palm: false }), 'start'); // 꺼짐: 펜슬 우선·넓은 닿음·둘째 접촉 무시 모두 끔
+  assert.equal(P.decideDown({ ...base, palm: false, type: 'mouse', button: 2 }), 'ignore');
+  assert.equal(P.cancelWaitMs('touch', false), 0);
+  assert.equal(P.cancelWaitMs('touch', true), 150);
+});

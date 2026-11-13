@@ -250,6 +250,16 @@ try {
     for (const g of guessers) await waitInk(g, (n) => n > 50, '다시 하기가 전해지지 않음');
   });
 
+  await step('1번째 문제: 손바닥 방지 버튼 — 켜짐(기본) → 끄면 눌림 해제 → 다시 켜짐', async () => {
+    const palm = q1.drawer.page.locator('button[aria-label="손바닥 방지"]').first();
+    const pressed = () => palm.getAttribute('aria-pressed');
+    if ((await pressed()) !== 'true') throw new Error('손바닥 방지가 기본 켜짐이 아님');
+    await palm.click();
+    if ((await pressed()) !== 'false') throw new Error('끄기가 반영되지 않음');
+    await palm.click();
+    if ((await pressed()) !== 'true') throw new Error('다시 켜기가 반영되지 않음');
+  });
+
   // 실기기 버그: 펜을 떼고 곧바로 다시 대면 새 선이 씹힘. 쉬지 않고 짧은 선 10개를 그어 보는 사람 모두에게 drSt 10개가 오는지.
   await step('1번째 문제: 마우스·터치로 짧은 선을 쉬지 않고 10개씩 → 보는 사람 모두에게 선 10개씩 도착', async () => {
     const { drawer, guessers } = q1;

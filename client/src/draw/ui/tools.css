@@ -109,7 +109,7 @@
    각 조각이 스스로 .dr-tb-phone 을 갖는다(조상 .dr-tb 에 기대지 않는다). */
 .dr-tb-pal.dr-tb-phone { gap: 6px; padding: 6px; border-radius: 14px; align-self: center; }
 .dr-tb-tools.dr-tb-phone {
-  display: grid; grid-template-columns: 38px 38px; grid-template-rows: repeat(5, 38px); grid-auto-flow: column;
+  display: grid; grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(5, 38px); grid-auto-flow: column;
   gap: 4px; padding: 4px; border-radius: 14px; align-self: center;
 }
 .dr-tb-tools.dr-tb-phone .dr-tb-hr,
@@ -118,6 +118,7 @@
 .dr-tb-under.dr-tb-phone .dr-tb-sizes { display: none; }
 .dr-tb-tools.dr-tb-phone .dr-tb-ph { display: flex; }
 .dr-tb-tools.dr-tb-phone .dr-tb-clear { order: 1; }
+.dr-tb-tools.dr-tb-phone .dr-tb-palm { order: 2; }
 .dr-tb-tools.dr-tb-phone .dr-tb-tool { height: 38px; width: 38px; min-width: 0; border-radius: 10px; }
 .dr-tb-tools.dr-tb-phone .dr-tb-tool svg { width: 20px; height: 20px; }
 .dr-tb-tools.dr-tb-phone .dr-tb-size.dr-tb-ph { width: 38px; height: 38px; border-radius: 10px; }

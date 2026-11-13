@@ -27,6 +27,7 @@ export const REPLACED_CODE = 4001;
 const RESET_WINDOW = 60_000; // a reset needs a resetAsk this recent, and runs at most once per window
 const RATE_LIMIT = 20;
 const DR_RATE_LIMIT = 100; // {t:'dr'} is counted apart so a drawer's strokes are never dropped (board sends at most SEND_PER_SEC=50 per 1s, 2x margin for network bunching)
+const DR_DRAW_OPS = new Set(['st', 'pt', 'cx', 'rm', 'undo', 'redo', 'clear']);
 const MAX_ROOM_SOUNDS = 24;
 const MAX_ACCOUNT_SOUNDS = 8;
 const CHAT_LOG = 30; // messages remembered per room
@@ -591,7 +592,8 @@ function createConn(hub, sock) {
       } else if (++conn.count > RATE_LIMIT) return Promise.resolve();
       const parsed = parseMessage(raw);
       // A duplicate "t" key makes the real type differ from the prefix: such a disguised message also uses the normal limit.
-      if (isDr && parsed.ok && parsed.msg.t !== 'dr' && ++conn.count > RATE_LIMIT) return Promise.resolve();
+      // Only drawing ops (DR_DRAW_OPS) ride the high limit; other dr requests (settings, kick, pick, ...) also count against the normal one.
+      if (isDr && parsed.ok && (parsed.msg.t !== 'dr' || !DR_DRAW_OPS.has(parsed.msg.a)) && ++conn.count > RATE_LIMIT) return Promise.resolve();
       if (!parsed.ok) {
         conn.send({ t: 'error', msg: parsed.error });
         return Promise.resolve();

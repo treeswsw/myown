@@ -20,6 +20,7 @@ const ICON = {
   adj: svg('<path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2.6" fill="currentColor"/><circle cx="15" cy="16" r="2.6" fill="currentColor"/>'),
   undo: svg('<path d="M9 13L4 8l5-5"/><path d="M4 8h10a6 6 0 010 12h-4"/>'),
   redo: svg('<path d="M15 13l5-5-5-5"/><path d="M20 8H10a6 6 0 000 12h4"/>'),
+  palm: svg('<path d="M8 13V5.5a1.5 1.5 0 013 0V11M11 11V4a1.5 1.5 0 013 0v7M14 11V5.5a1.5 1.5 0 013 0V13M17 11.5V9a1.5 1.5 0 013 0v5.5c0 4-3 7-7 7h-1.2c-2.2 0-3.6-.9-4.9-2.7L4 14.4a1.5 1.5 0 012.3-1.9L8 14"/>'),
   trash: svg('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>'),
 };
 const QUICK_LABEL = ['가늘게', '보통', '굵게'];
@@ -72,6 +73,9 @@ export function createTools(parent, ctx) {
   on(undoB, 'click', () => act('undo'));
   on(redoB, 'click', () => act('redo'));
   on(clearB, 'click', () => act('clear'));
+  // 손바닥 방지 켜기/끄기: 켜짐 = 펜슬 우선·넓은 닿음 무시·손가락 취소 대기. 꺼짐 = 어떤 닿음이든 바로 그림
+  const palmB = btn('dr-tb-tool dr-tb-palm', '손바닥 방지', ICON.palm + '<span class="dr-tb-txt">손바닥 방지</span>', { 'aria-pressed': 'true' });
+  on(palmB, 'click', () => setTool({ palm: !tool().palm }));
 
   // 굵기 빠른 버튼 3개 + 조정 버튼. 두 벌: 아래 줄(PC·iPad), 도구 줄 안(휴대폰). CSS 가 하나만 보인다.
   const quickSets = [];
@@ -93,7 +97,7 @@ export function createTools(parent, ctx) {
 
   tools.append(
     mkTool('pen', '펜', '펜'), mkTool('erase', '정밀 지우개', '정밀 지우개'), mkTool('strokeErase', '획 지우개', '획 지우개'), hr(),
-    undoB, redoB, hr(), clearB,
+    undoB, redoB, hr(), clearB, hr(), palmB,
     ...phoneSizes,
   );
   // 휴대폰 격자(세로 흐름 5행): 왼쪽 펜·지우개 둘·되돌리기·다시 하기 / 오른쪽 굵기 3개·조정·전체 지우기
@@ -227,6 +231,8 @@ export function createTools(parent, ctx) {
       toolBtn[id].classList.toggle('dr-tb-on', on_);
       toolBtn[id].setAttribute('aria-pressed', String(on_));
     }
+    palmB.classList.toggle('dr-tb-on', t.palm);
+    palmB.setAttribute('aria-pressed', String(t.palm));
     undoB.disabled = !bs.undo;
     redoB.disabled = !bs.redo;
 

@@ -202,6 +202,8 @@ export function strokeHit(a, w, ax, ay, bx, by, box, radius = STROKE_ERASER_RADI
 export function decideDown(info) {
   const { penSeen, activeType, type, button, width, height } = info;
   if (type === 'mouse' && button !== 0) return 'ignore';
+  // 손바닥 방지 꺼짐(info.palm === false): 어떤 닿음이든 바로 그린다. 동시에 선은 하나라 앞 선이 있으면 끝내고 새 선(호출한 쪽이 처리).
+  if (info.palm === false) return 'start';
   if (type === 'pen') {
     if (!activeType) return 'start';
     return activeType === 'pen' ? 'ignore' : 'replace';
@@ -219,4 +221,12 @@ export function staleActive(active, next) {
   if (!active || !next) return false;
   if (next.id === active.id) return true;
   return next.type === active.type && next.isPrimary === true;
+}
+
+// 손가락(touch) 누름이 pointercancel 됐을 때: 손바닥이 닿자 브라우저가 취소한 것일 수 있다(펜슬이 곧 닿는다).
+// 그래서 PALM_CANCEL_WAIT_MS 동안 선을 열어 두고, 그 안에 펜슬이 닿으면 그 선을 지우고(cx), 아니면 정상으로 끝낸다.
+// 반환: 기다릴 시간(ms). 0 이면 바로 정상 종료. 펜·마우스의 취소는 기다리지 않는다.
+export const PALM_CANCEL_WAIT_MS = 150;
+export function cancelWaitMs(type, palm = true) {
+  return palm !== false && type === 'touch' ? PALM_CANCEL_WAIT_MS : 0;
 }

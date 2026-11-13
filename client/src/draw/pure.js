@@ -15,15 +15,24 @@ export function keyboardUp(layout, innerH, vvH, vvTop = 0) {
 }
 
 // ---- ctx.tool (GDD 11-2): { get(), set(patch), on(fn) → off } ----
-export const TOOL_DEFAULT = Object.freeze({ tool: 'pen', color: 0, penW: 10, eraseW: 24 });
+export const TOOL_DEFAULT = Object.freeze({ tool: 'pen', color: 0, penW: 10, eraseW: 24, palm: true });
+// 손바닥 방지 켜짐/꺼짐은 기기에 기억한다(localStorage 가 막혀 있어도 동작)
+const PALM_KEY = 'dr-palm';
+function loadPalm() {
+  try { return globalThis.localStorage && globalThis.localStorage.getItem(PALM_KEY) === 'off' ? false : true; } catch (_) { return true; }
+}
+function savePalm(on) {
+  try { if (globalThis.localStorage) globalThis.localStorage.setItem(PALM_KEY, on ? 'on' : 'off'); } catch (_) { /* 무시 */ }
+}
 export function createToolStore(initial) {
-  let cur = normalizeTool({ ...TOOL_DEFAULT, ...(initial || {}) });
+  let cur = normalizeTool({ ...TOOL_DEFAULT, palm: loadPalm(), ...(initial || {}) });
   const fns = new Set();
   return {
     get: () => ({ ...cur }),
     set(patch) {
       const next = normalizeTool({ ...cur, ...(patch && typeof patch === 'object' ? patch : {}) });
       if (JSON.stringify(next) === JSON.stringify(cur)) return;
+      if (next.palm !== cur.palm) savePalm(next.palm);
       cur = next;
       for (const fn of [...fns]) { try { fn({ ...cur }); } catch (_) { /* 한 구독자의 오류가 나머지를 막지 않게 */ } }
     },

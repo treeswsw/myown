@@ -56,18 +56,30 @@ function world(opts = {}) {
   let me = null;
   let rx = null;
   const deliverSync = [];
-  const send = (msg) => {
-    sent.push([now, msg]);
-    if (opts.drop && opts.drop(msg, sent.length)) return; // 서버 한도 등으로 조용히 버려짐
+  const D = opts.delay || 0; // 한쪽 통신 지연(ms). 왕복은 2배
+  let lastSync = -1e9;
+  let n = 0;
+  const arrive = (msg, k) => {
+    if (opts.drop && opts.drop(msg, k)) return; // 서버 한도 등으로 조용히 버려짐
     const c = checkDr(msg);
     assert.ok(c.ok, `형식 오류: ${JSON.stringify(msg)}`);
     const m = c.msg;
     const fn = { st: O.st, pt: O.pt, cx: O.cx, rm: O.rm, undo: O.undo, redo: O.redo, clear: O.clear }[m.a];
     const r = fn(server, m);
-    if (r.event) rx.event(r.event);
-    if (!r.ok) { rejected.push([m.a, r.error]); deliverSync.push(true); }
+    if (r.event) { const ev = r.event; if (D) setTimeout(() => rx.event(ev), D); else rx.event(ev); }
+    if (!r.ok) {
+      rejected.push([m.a, r.error]);
+      if (D) { // 거절 순간의 서버 그림을 담아 D 뒤에 도착(1초에 한 번만 보냄)
+        if (now - lastSync >= 1000) { lastSync = now; const snap = O.exportSync(server); setTimeout(() => me.event({ k: 'drSync', ...snap }), D); }
+      } else deliverSync.push(true);
+    }
   };
-  me = createBoard(mkEl(), { send, meId: () => 'A', now: () => now, layout: () => 'wide', clock: () => now, tool: { get: () => ({ tool: 'pen', color: 0, penW: 10, eraseW: 24 }) } });
+  const send = (msg) => {
+    sent.push([now, msg]);
+    const k = ++n;
+    if (D) setTimeout(() => arrive(msg, k), D); else arrive(msg, k);
+  };
+  me = createBoard(mkEl(), { send, meId: () => 'A', now: () => now, layout: () => 'wide', clock: () => now, tool: { get: opts.tool || (() => ({ tool: 'pen', color: 0, penW: 10, eraseW: 24 })) } });
   rx = createBoard(mkEl(), { send: () => assert.fail('받는 사람이 보냄'), meId: () => 'B', now: () => now, layout: () => 'wide', clock: () => now });
   for (const b of [me, rx]) { b.event({ k: 'drNew' }); b.update({ phase: 'draw', drawerId: 'A' }); }
   const cv = me.el.children[0];
@@ -154,6 +166,89 @@ test('서버가 요청을 버려 drSync 가 와도 그리는 사람이 긋던 �
   scribble(w, 'touch', 'up');
   assert.ok(w.rejected.length >= 1, '거절이 일어나야 시험이 된다');
   same(w, 'drop st');
+});
+
+// 통신 지연: 왕복 120ms 이상에서 "거절 순간의 서버 그림"이 늦게 도착해도 그리는 사람 화면이 서버와 갈라지지 않는다
+// (GDD 15절: 내 선이 서버에만 있는 선·내 화면에만 있는 선 어느 쪽이든 먼저 cx 로 지우고 다시 보낸다)
+for (const delay of [60]) { // 편도 150ms 넘게(왕복 300ms+)는 알려진 한계(GDD 15절)
+  test(`통신 지연 왕복 ${delay * 2}ms + 서버가 st 하나를 버림: 그리는 사람 = 서버 = 받는 사람`, () => {
+    let stN = 0;
+    const w = world({ delay, drop: (m) => m.a === 'st' && ++stN === 5 });
+    let id = 1;
+    for (let k = 0; k < 12; k++) {
+      id++;
+      const x = 40 + k * 50;
+      w.cv.fire('pointerdown', { pointerType: 'touch', pointerId: id, clientX: x, clientY: 100 });
+      for (let s = 1; s <= 6; s++) { w.tick(16); w.cv.fire('pointermove', { pointerType: 'touch', pointerId: id, clientX: x + s * 5, clientY: 100 + s * 40 }); }
+      w.cv.fire('pointerup', { pointerType: 'touch', pointerId: id, clientX: x + 30, clientY: 350 });
+      w.tick(15);
+    }
+    w.tick(5000);
+    assert.ok(w.rejected.length >= 1, '거절이 일어나야 시험이 된다');
+    const L = w.me.snapshot();
+    const S = O.exportSync(w.server);
+    assert.deepEqual(L, S, '그리는 사람 ≠ 서버');
+    assert.deepEqual(w.rx.snapshot(), S, '받는 사람 ≠ 서버');
+  });
+}
+
+function oneTouchThenCancel(w) {
+  w.cv.fire('pointerdown', { pointerType: 'touch', pointerId: 7, clientX: 100, clientY: 100 });
+  w.tick(16);
+  w.cv.fire('pointermove', { pointerType: 'touch', pointerId: 7, clientX: 140, clientY: 160 });
+  w.tick(16);
+  w.cv.fire('pointercancel', { pointerType: 'touch', pointerId: 7 });
+  w.cv.fire('lostpointercapture', { pointerType: 'touch', pointerId: 7 }); // 브라우저는 cancel 직후 이것도 보낸다
+}
+
+test('손바닥 대안: 손가락 취소 뒤 150ms 안에 펜슬이 닿으면 그 손가락 선은 지워진다(모두에게)', () => {
+  const w = world();
+  oneTouchThenCancel(w);
+  w.tick(60);
+  w.cv.fire('pointerdown', { pointerType: 'pen', pointerId: 9, clientX: 300, clientY: 300 });
+  w.tick(16);
+  w.cv.fire('pointermove', { pointerType: 'pen', pointerId: 9, clientX: 330, clientY: 340 });
+  w.cv.fire('pointerup', { pointerType: 'pen', pointerId: 9, clientX: 331, clientY: 341 });
+  w.tick(2000);
+  const S = O.exportSync(w.server);
+  assert.equal(lines(S), 1, '펜슬 선만 남는다');
+  assert.deepEqual(w.me.snapshot(), S);
+  assert.deepEqual(w.rx.snapshot(), S);
+});
+
+test('손바닥 대안: 손가락 취소 뒤 펜슬이 오지 않으면 150ms 뒤 정상 종료(선이 남는다)', () => {
+  const w = world();
+  oneTouchThenCancel(w);
+  w.tick(100);
+  assert.equal(lines(w.me.snapshot()), 0, '아직 기다리는 중(선이 열려 있다)');
+  w.tick(100);
+  w.tick(2000);
+  const S = O.exportSync(w.server);
+  assert.equal(lines(S), 1);
+  assert.deepEqual(w.me.snapshot(), S);
+  assert.deepEqual(w.rx.snapshot(), S);
+});
+
+test('손바닥 방지 꺼짐: 펜슬이 닿은 뒤에도 손가락이 바로 그려지고, 새 닿음은 앞 선을 끝내고 새 선', () => {
+  let palm = true;
+  const w = world({ tool: () => ({ tool: 'pen', color: 0, penW: 10, eraseW: 24, palm }) });
+  w.cv.fire('pointerdown', { pointerType: 'pen', pointerId: 1, clientX: 50, clientY: 50 });
+  w.cv.fire('pointerup', { pointerType: 'pen', pointerId: 1, clientX: 60, clientY: 60 });
+  w.tick(50);
+  w.cv.fire('pointerdown', { pointerType: 'touch', pointerId: 2, clientX: 200, clientY: 200 });
+  w.cv.fire('pointermove', { pointerType: 'touch', pointerId: 2, clientX: 230, clientY: 240 });
+  w.cv.fire('pointerup', { pointerType: 'touch', pointerId: 2, clientX: 231, clientY: 241 });
+  w.tick(500);
+  assert.equal(lines(O.exportSync(w.server)), 1, '켜짐: 펜슬을 본 뒤 손가락은 무시');
+  palm = false;
+  w.cv.fire('pointerdown', { pointerType: 'touch', pointerId: 3, clientX: 300, clientY: 100 });
+  w.cv.fire('pointermove', { pointerType: 'touch', pointerId: 3, clientX: 320, clientY: 140 });
+  w.cv.fire('pointerdown', { pointerType: 'touch', pointerId: 4, clientX: 400, clientY: 100 }); // 새 닿음(앞 선 끝내고 새 선)
+  w.cv.fire('pointermove', { pointerType: 'touch', pointerId: 4, clientX: 420, clientY: 140 });
+  w.cv.fire('pointerup', { pointerType: 'touch', pointerId: 4, clientX: 421, clientY: 141 });
+  w.tick(2000);
+  assert.equal(lines(O.exportSync(w.server)), 3, '꺼짐: 펜슬 1 + 손가락 2');
+  assert.deepEqual(w.me.snapshot(), O.exportSync(w.server));
 });
 
 test('아주 빠르게 긁어도 1초 보내기 상한을 넘지 않고, 미룬 것도 빠짐없이 간다', () => {

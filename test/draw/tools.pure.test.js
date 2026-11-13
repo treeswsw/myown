@@ -14,7 +14,7 @@ test('clampWidth: 2~40 정수로 정리', () => {
 });
 
 test('normalizeTool: 빠진 칸을 기본값으로', () => {
-  assert.deepEqual(normalizeTool(null), { tool: 'pen', color: 0, penW: 10, eraseW: 24 });
+  assert.deepEqual(normalizeTool(null), { tool: 'pen', color: 0, penW: 10, eraseW: 24, palm: true });
   assert.equal(normalizeTool({ tool: 'x', color: 12 }).tool, 'pen');
   assert.equal(normalizeTool({ color: 12 }).color, 0);
   assert.equal(normalizeTool({ color: 11, penW: 4 }).color, 11);
@@ -110,4 +110,10 @@ test("layoutOf: phone 만 phone, 나머지는 wide", () => {
   assert.equal(layoutOf("wide"), "wide");
   assert.equal(layoutOf(undefined), "wide");
   assert.equal(layoutOf("tablet"), "wide");
+});
+
+test("normalizeTool: palm 은 false 일 때만 꺼짐(기본 켜짐)", () => {
+  assert.equal(normalizeTool({}).palm, true);
+  assert.equal(normalizeTool({ palm: false }).palm, false);
+  assert.equal(normalizeTool({ palm: "x" }).palm, true);
 });

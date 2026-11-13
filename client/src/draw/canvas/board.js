@@ -231,7 +231,8 @@ export function createBoard(parent, ctx) {
       kick();
       return;
     }
-    if (state.cur) { opCx(state); sendDr('cx', {}); }
+    if (state.cur) opCx(state); // 내 화면에만 있던 선도 지운다: 서버에는 늘 cx 를 보낸다(서버 그림에 긋던 선이 없어도 안전)
+    sendDr('cx', {});
     if (!mine) { stopHere(null); return; }
     const r = opSt(state, { c: g.c, w: g.w, e: g.e, p: [mine[0], mine[1]] });
     if (!r.ok) { stopHere(r); return; }
@@ -251,6 +252,7 @@ export function createBoard(parent, ctx) {
 
   const input = createInput(canvas, {
     enabled: () => canDraw,
+    palm: () => !(ctx.tool && ctx.tool.get && ctx.tool.get().palm === false),
     down(cx, cy, type) {
       if (g) finishGesture(); // 앞 선이 아직 열려 있으면(끝 알림을 못 받음) 정상으로 끝내고 새 선
       const t = (ctx.tool && ctx.tool.get && ctx.tool.get()) || { tool: 'pen', color: 0, penW: 10, eraseW: 24 };
