@@ -2,17 +2,15 @@ import { secureRng } from '../shared/cards.js';
 import { describe } from '../shared/handeval.js';
 import * as holdem from '../shared/holdem.js';
 import * as bluff from '../shared/bluff.js';
-import { createLiarRoom } from './liar/room.js';
-import { createYachtRoom } from './yacht/room.js';
-import { createDrawRoom } from './draw/room.js';
-import { createGskRoom } from './gsk/room.js';
-import { createMiniRoom } from './mini/room.js';
+import { GAMES } from '../shared/games.js';
+import { SERVER_GAMES } from './games.js';
+import { createRoomShell } from './room/shell.js';
+import { tooSoon } from './room/media.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 import { createAdmin, ADMIN_ID } from './admin/bots.js';
 import { installWallet, walletOf } from './coin/wallet.js';
 import { POOL_START } from '../shared/coin/gacha.js';
 import { installPin, pinErr } from './coin/pin.js';
-import { hookRoom } from './coin/hooks.js';
 
 export const DEFAULT_TIMING = {
   grace: 60_000, // a disconnected player is auto-played (if on turn) and removed after this
@@ -26,15 +24,28 @@ export const DEFAULT_TIMING = {
   roomList: 500, // open-room list broadcasts are coalesced to one per this interval
   reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
-const MAX_PLAYERS = { holdem: 6, bluff: 4, liar: 8, yacht: 4, draw: 8, gsk: 6, mini: 8 };
 const MEDIA = new Set(['emote', 'pemote', 'snd', 'sndAdd', 'sndRename']);
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
 export const REPLACED_CODE = 4001;
 const RESET_WINDOW = 60_000; // a reset needs a resetAsk this recent, and runs at most once per window
 const RATE_LIMIT = 20;
-const DR_RATE_LIMIT = 100; // {t:'dr'} is counted apart so a drawer's strokes are never dropped (board sends at most SEND_PER_SEC=50 per 1s, 2x margin for network bunching)
-const DR_DRAW_OPS = new Set(['st', 'pt', 'cx', 'rm', 'undo', 'redo', 'clear']);
+// Games with `fast` (draw: {t:'dr'}) are counted apart so a drawer's strokes are never dropped
+// (board sends at most SEND_PER_SEC=50 per 1s, limit 100 = 2x margin for network bunching).
+const FAST = Object.values(GAMES).filter((g) => g.fast).map((g) => ({
+  t: g.msgs[0], prefix: `{"t":"${g.msgs[0]}"`, limit: g.fast.limit, ops: new Set(g.fast.ops),
+}));
+const FLAGGED = Object.entries(GAMES).filter(([, g]) => g.flag);
+// '<이름>은(는)': 받침이 있으면 은, 없으면 는.
+const josa = (name) => {
+  const c = name.charCodeAt(name.length - 1) - 0xac00;
+  return c >= 0 && c < 11172 && c % 28 !== 0 ? '은' : '는';
+};
+const offErr = (mode) => {
+  const g = GAMES[mode];
+  const code = `${g.err}off`;
+  return { msg: SERVER_GAMES[mode].errors?.[code] ?? `${g.name}${josa(g.name)} 아직 열리지 않았습니다.`, code };
+};
 const MAX_ROOM_SOUNDS = 24;
 const MAX_ACCOUNT_SOUNDS = 8;
 const CHAT_LOG = 30; // messages remembered per room
@@ -75,7 +86,7 @@ class Room {
   // ---- membership ----
 
   join(session) {
-    if (this.members.length >= MAX_PLAYERS[this.mode]) return '방이 가득 찼습니다.';
+    if (this.members.length >= GAMES[this.mode].max) return '방이 가득 찼습니다.';
     this.clearTimer('gc');
     this.members.push({ id: session.id, session, connected: true, grace: null, inHand: false });
     this.hostId ??= session.id;
@@ -181,7 +192,7 @@ class Room {
   setMode(id, mode) {
     if (id !== this.hostId) return '방장만 변경할 수 있습니다.';
     if (this.phase !== 'lobby') return '게임 중에는 변경할 수 없습니다.';
-    if (this.members.length > MAX_PLAYERS[mode]) return `${mode === 'bluff' ? '블러핑 카드' : '텍사스 홀덤'}은 최대 ${MAX_PLAYERS[mode]}명입니다.`;
+    if (this.members.length > GAMES[mode].max) return `${mode === 'bluff' ? '블러핑 카드' : '텍사스 홀덤'}은 최대 ${GAMES[mode].max}명입니다.`;
     this.mode = mode;
     this.push();
     return null;
@@ -492,7 +503,7 @@ class Room {
 }
 
 export function createHub({
-  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', gsk = 'off', mini = 'off', adminKey, coinSeed = 0, startCoins = 0,
+  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, adminKey, coinSeed = 0, startCoins = 0, ...flagOpts
 }) {
   const hub = {
     store, rng, now, timers, timing: { ...DEFAULT_TIMING, ...timing },
@@ -508,11 +519,8 @@ export function createHub({
     roomsTimer: null,
     coinSeed,
     startCoins, // 새 계정 시작 코인(배포 설정 20, 시험 기본 0). 랭킹(번 합)에는 넣지 않는다.
-    liar, // 'off' | 'test' | 'on'
-    yacht, // 'off' | 'test' | 'on'
-    draw, // 'off' | 'test' | 'on'
-    gsk, // 'off' | 'test' | 'on'
-    mini, // 'off' | 'test' | 'on'
+    // mode -> 'off' | 'test' | 'on' for games with a switch (GAMES[mode].flag; the hub option has the flag's name)
+    flags: Object.fromEntries(FLAGGED.map(([mode, g]) => [mode, flagOpts[g.flag] ?? 'off'])),
     pendingSaves: new Set(),
     epoch: 0, // bumped by a reset: user objects from an older epoch are never saved again
     userEpoch: new WeakMap(),
@@ -528,13 +536,13 @@ export function createHub({
     },
     sendMe(...sessions) {
       // admin: true only for the admin session; nobody else gets the field.
-      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, gsk: hub.gsk, mini: hub.mini, wallet: walletOf(s.user, hub), ...(s.admin ? { admin: true } : {}) });
+      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), ...Object.fromEntries(FLAGGED.map(([mode, g]) => [g.flag, hub.flags[mode]])), wallet: walletOf(s.user, hub), ...(s.admin ? { admin: true } : {}) });
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
-      return [...hub.rooms.values()].filter((r) => r.members.length > 0).map((r) => ({
+      return [...hub.rooms.values()].filter((r) => r.members.length > 0).map((r) => (r.shell ? r.listInfo() : {
         code: r.code, mode: r.mode, hostName: (r.member(r.hostId) ?? r.members[0]).session.user.name,
-        count: r.members.length, max: MAX_PLAYERS[r.mode], phase: r.phase,
+        count: r.members.length, max: GAMES[r.mode].max, phase: r.phase,
         ...(r.mode === 'mini' ? { game: r.game } : {}),
       }));
     },
@@ -597,12 +605,18 @@ export function createHub({
         }
       }
       for (const room of hub.rooms.values()) {
+        if (room.shell) {
+          room.close();
+          continue;
+        }
         for (const name of Object.keys(room.timers)) room.clearTimer(name);
         for (const m of room.members) if (m.grace !== null) timers.clearTimeout(m.grace);
       }
       return Promise.allSettled([...hub.pendingSaves]);
     },
   };
+  // Old poker room while holdem/bluff are still `legacy` in server/games.js (G-poker moves it to server/poker/room.js).
+  hub.pokerRoom = (code, mode) => new Room(hub, code, mode);
   hub.admin = createAdmin(hub, adminKey ?? '9975');
   installWallet(hub);
   installPin(hub);
@@ -624,7 +638,7 @@ function createConn(hub, sock) {
     queue: Promise.resolve(),
     windowStart: 0,
     count: 0,
-    drCount: 0,
+    fastCount: {},
     send(obj) {
       sock.send(JSON.stringify(obj));
     },
@@ -634,17 +648,18 @@ function createConn(hub, sock) {
       if (t - conn.windowStart >= 1000) {
         conn.windowStart = t;
         conn.count = 0;
-        conn.drCount = 0;
+        conn.fastCount = {};
       }
       // Counted on the prefix first, like sndAdd in parseMessage.
-      const isDr = typeof raw === 'string' && raw.startsWith('{"t":"dr"');
-      if (isDr) {
-        if (++conn.drCount > DR_RATE_LIMIT) return Promise.resolve();
+      const fast = typeof raw === 'string' ? FAST.find((f) => raw.startsWith(f.prefix)) : undefined;
+      if (fast) {
+        conn.fastCount[fast.t] = (conn.fastCount[fast.t] ?? 0) + 1;
+        if (conn.fastCount[fast.t] > fast.limit) return Promise.resolve();
       } else if (++conn.count > RATE_LIMIT) return Promise.resolve();
       const parsed = parseMessage(raw);
       // A duplicate "t" key makes the real type differ from the prefix: such a disguised message also uses the normal limit.
-      // Only drawing ops (DR_DRAW_OPS) ride the high limit; other dr requests (settings, kick, pick, ...) also count against the normal one.
-      if (isDr && parsed.ok && (parsed.msg.t !== 'dr' || !DR_DRAW_OPS.has(parsed.msg.a)) && ++conn.count > RATE_LIMIT) return Promise.resolve();
+      // Only the game's fast ops ride the high limit; its other requests (settings, kick, pick, ...) also count against the normal one.
+      if (fast && parsed.ok && (parsed.msg.t !== fast.t || !fast.ops.has(parsed.msg.a)) && ++conn.count > RATE_LIMIT) return Promise.resolve();
       if (!parsed.ok) {
         conn.send({ t: 'error', msg: parsed.error, ...(parsed.code ? { code: parsed.code } : {}) });
         return Promise.resolve();
@@ -768,15 +783,6 @@ async function login(hub, conn, msg) {
   return null;
 }
 
-// Per-account (not per-socket) minimum spacing; a refused attempt does not extend the wait.
-function tooSoon(hub, session, key, ms) {
-  const t = hub.now();
-  const last = session.lastSent[key];
-  if (last !== undefined && t - last < ms) return true;
-  session.lastSent[key] = t;
-  return false;
-}
-
 async function dispatch(hub, conn, msg) {
   if (msg.t === 'login') return login(hub, conn, msg);
   if (msg.t === 'reset') {
@@ -792,21 +798,14 @@ async function dispatch(hub, conn, msg) {
   const session = conn.session;
   if (!session) return '먼저 로그인하세요.';
   const room = session.room;
-  // A draw room has its own {t:'dr'} requests: the other games' requests (even the overall liar ranking) are refused first.
-  if (room?.mode === 'draw' && ['mode', 'act', 'play', 'liar', 'lg'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'dr_now' };
+  // (old rooms) A draw room has its own {t:'dr'} requests: the other games' requests (even the overall liar ranking) are refused first.
+  if (room && !room.shell && room.mode === 'draw' && ['mode', 'act', 'play', 'liar', 'lg'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'dr_now' };
   // A gsk room has its own {t:'gk'} requests too.
-  if (room?.mode === 'gsk' && ['mode', 'act', 'play', 'liar', 'lg', 'yt', 'dr', 'mn'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'gk_now' };
-  // Overall liar ranking: answered by the hub itself, in the lobby or in a room (never passed to the room).
-  if (msg.t === 'lg' && msg.a === 'rank') {
-    if (hub.liar === 'off') return '라이어게임은 아직 열리지 않았습니다.';
-    try {
-      const [top, mine] = await Promise.all([hub.store.topLiar(20), hub.store.liarRank(session.id)]);
-      hub.send(session, { t: 'lgRank', top, mine });
-    } catch (err) {
-      console.error('liar rank failed:', err.message);
-      return '랭킹을 불러오지 못했습니다.';
-    }
-    return null;
+  if (room && !room.shell && room.mode === 'gsk' && ['mode', 'act', 'play', 'liar', 'lg', 'yt', 'dr', 'mn'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'gk_now' };
+  // Hub-level requests of a game (liar ranking): answered by the hub itself, in the lobby or in a room (never passed to the room).
+  for (const g of Object.values(SERVER_GAMES)) {
+    const answer = g.hubMsg?.(hub, session, msg);
+    if (answer !== undefined) return answer;
   }
   switch (msg.t) {
     case 'avatar':
@@ -822,42 +821,13 @@ async function dispatch(hub, conn, msg) {
     case 'create': {
       if (room) return '이미 방에 있습니다.';
       if (msg.mode === 'holdem' && session.user.bank <= 0) return '칩이 없습니다. 새 아이디로 다시 시작하세요';
-      if (msg.mode === 'liar') {
-        if (hub.liar === 'off') return '라이어게임은 아직 열리지 않았습니다.';
-        const lr = createLiarRoom(hub, newCode(hub));
-        hookRoom(hub, lr);
-        hub.rooms.set(lr.code, lr);
-        return lr.join(session);
-      }
-      if (msg.mode === 'yacht') {
-        if (hub.yacht === 'off') return '요트다이스는 아직 열리지 않았습니다.';
-        const yr = createYachtRoom(hub, newCode(hub));
-        hookRoom(hub, yr);
-        hub.rooms.set(yr.code, yr);
-        return yr.join(session);
-      }
-      if (msg.mode === 'draw') {
-        if (hub.draw === 'off') return { msg: '갱식마인드는 아직 열리지 않았습니다.', code: 'dr_off' };
-        const dr = createDrawRoom(hub, newCode(hub));
-        hookRoom(hub, dr);
-        hub.rooms.set(dr.code, dr);
-        return dr.join(session);
-      }
-      if (msg.mode === 'gsk') {
-        if (hub.gsk === 'off') return { msg: '갱스껄은 지금 열려 있지 않습니다.', code: 'gk_off' };
-        const gr = createGskRoom(hub, newCode(hub));
-        hub.rooms.set(gr.code, gr);
-        return gr.join(session);
-      }
-      if (msg.mode === 'mini') {
-        if (hub.mini === 'off') return { msg: '미니게임은 아직 열리지 않았습니다.', code: 'mn_off' };
-        const mr = createMiniRoom(hub, newCode(hub), msg.game);
-        hookRoom(hub, mr);
-        hub.rooms.set(mr.code, mr);
-        return mr.join(session);
-      }
-      const r = new Room(hub, newCode(hub), msg.mode);
-      hub.rooms.set(r.code, r);
+      const g = GAMES[msg.mode];
+      if (g.flag && hub.flags[msg.mode] === 'off') return offErr(msg.mode);
+      const entry = SERVER_GAMES[msg.mode];
+      const code = newCode(hub);
+      // Old rooms (`legacy`) get their coin hooks inside the factory; a Shell room pays through ctx.finish (no hookRoom).
+      const r = entry.legacy ? entry.legacy(hub, code, msg) : createRoomShell(hub, code, { mode: msg.mode, ...g, ...entry }, msg);
+      hub.rooms.set(code, r);
       return r.join(session);
     }
     case 'join': {
@@ -872,6 +842,7 @@ async function dispatch(hub, conn, msg) {
     default:
   }
   if (!room) return '방에 들어가 있지 않습니다.';
+  if (room.shell) return room.request(session, msg);
   // A room may refuse emotes/photos/sounds for now (liar room: during the unmask animation etc.).
   if (MEDIA.has(msg.t)) {
     const why = room.mediaBlocked?.(session, msg.t);

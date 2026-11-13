@@ -3,7 +3,7 @@
 // so parsing, rate limit and the room's own rules apply to them like to a person. Nothing here knows a game.
 import crypto from 'node:crypto';
 import { newUser } from '../store.js';
-import { gameOf } from './games/index.js';
+import { gameOf, noBot } from './games/index.js';
 
 export const ADMIN_ID = '관리자';
 export const DEFAULT_ADMIN_KEY = '9975';
@@ -102,6 +102,7 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         return null;
       };
       if (msg.a === 'bot+') {
+        if (noBot(room.mode)) return { msg: '이 게임에는 봇이 없습니다.', code: 'adm_nobot' };
         const err = await admin.addBot(session, room);
         return err ?? done();
       }
@@ -111,7 +112,7 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         entry.bots.at(-1).leave();
         return done();
       }
-      if (msg.a === 'skip') return gameOf(room.mode).skip(room) ? done() : admErr('adm_noskip');
+      if (msg.a === 'skip') return gameOf(room.mode).skip(room.impl ?? room) ? done() : admErr('adm_noskip');
       return '알 수 없는 요청입니다.';
     },
 

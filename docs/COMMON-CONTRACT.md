@@ -37,7 +37,7 @@ room = {
   view(id), push(events = []), sendEvents(events),
   request(session, msg) → null|err,                 // 방 안 요청 전부(아래 1-6)
   listInfo() → {code, mode, hostName, count, max, phase, ...impl.listExtra?.()},
-  flush(), close(),                                 // close = impl.flush?.() + 타이머 전부 해제
+  flush(), close(),                                 // flush = impl.flush?.(). close = 타이머 전부 해제(게임·gc·유예). 허브는 초기화가 아닐 때 flush 를 먼저 부른다
 }
 ```
 
@@ -87,7 +87,7 @@ ctx = {
 오류 `err` 는 언제나 `{msg, code}`. 문자열을 돌려주던 옛 코드는 어댑터가 `ctx.err(code, 문자열)` 로 감싼다.
 
 ### 1-5. Shell 의 흐름 (훅 부르는 순서)
-- **join**: 정원(`entry.max`) → gc 해제 → 멤버 추가·`hostId ??=` → `onJoin(m)`(err면 되돌림) → `push()` → 남들에게 faces → `joined` 방송 → `sendExtras`.
+- **join**: 정원(`entry.max`, 넘으면 `{msg:'방이 가득 찼습니다.', code:'<p>full'}`) → gc 해제 → 멤버 추가·`hostId ??=` → `onJoin(m)`(err면 되돌림) → `push()` → 남들에게 faces → `joined` 방송 → `sendExtras`.
 - **setConnected**: 바뀌었을 때만 `away/back` 방송 + `onAway/onBack` 이벤트. 끊기면 `awayUntil = now + hub.timing.grace`, 타이머 끝에 `leave(id,'away')`. 다시 붙으면 해제. `push(events)`.
 - **leave**: 유예 해제 → `onLeave(id, reason)` → 멤버 빼기 → 방장이면 **연결된 사람 중 먼저 온 사람, 없으면 맨 앞** → `onHost` → 나간 사람에게 `room:null`·me·rooms, 세션 정리 → 비었으면 `onEmpty` + 타이머 전부 해제 + gc → 아니면 `left` 방송 + `push(events)`.
 - **kick(by, id)**: 방장·`isWaiting()`·자기 아님·멤버 → 대상에게 `{t:'error', msg:'방장이 내보냈습니다.', code:'<접두사>kicked'}` → `leave(id,'kick')`.
@@ -148,7 +148,7 @@ export const SERVER_GAMES = {
   mini:   { make: makeMiniGame, bot: false },
 };
 ```
-`bot: false` 인 방에서 `adm bot+` 는 `adm_nobot` 로 거절(B9). `server/admin/games/index.js:8` 의 games 표는 이 칸에서 만든다.
+`bot: false` 인 방에서 `adm bot+` 는 `adm_nobot` 로 거절(B9). 선택 칸 `errors: {코드: 문구}` = entry 오류표(`ctx.err`·`<p>off` 문구가 공용 문구보다 먼저 본다, 예: gsk `gk_off`). `server/admin/games/index.js:8` 의 games 표는 이 칸에서 만든다.
 
 ### 2-3. 이 표로 대체되는 곳
 | 파일:줄 | 지금 | 바뀐 뒤 |

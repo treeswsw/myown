@@ -169,6 +169,38 @@ design/   시안
 
 로비 보이기(화면): `보임 = draw==='on' || (draw==='test' && 주소에 ?draw=1)`. `test`는 "숨김"이지 "잠금"이 아니다.
 
+### 7-3. 공통 방 (2026-11-13, 묶음 2)
+접두사 `<p>` = 그 게임의 오류 코드 앞 글자(`pk_ lg_ yt_ dr_ gk_ mn_`). 모든 방 오류는 `{t:'error', msg, code}`.
+
+화면 → 서버
+| t | 필드 | 누가·언제 | 오류 code |
+|---|---|---|---|
+| `create` | `mode`, `game?` | 로비 | `<p>off` |
+| `start` | | 방장, `wait≠null` | `<p>host`, `<p>now`, canStart 의 코드 |
+| `set` | `patch: {키: 값}` (스키마 키, 중첩은 객체 그대로 예: `{times:{speak:30}}`) | 방장, `wait≠null` | `<p>host`, `<p>now`, 게임 검사 코드 |
+| `pick` | `patch: {키: 값}` (개인 칸: 갱스껄 `color`) | 본인, `wait≠null` | `<p>now`, 게임 검사 코드 |
+| `kick` | `id` | 방장, `wait≠null`, 자기 아님 | `<p>host`, `<p>now`, `<p>bad` |
+| `leave` `chat` `emote` `pemote` `snd*` | 그대로 | | |
+| ~~`mode`~~ | | **없어짐**(방 안 홀덤↔블러핑 전환) | 한 배포 동안 받아서 `{msg:'방을 새로 만들어 주세요.', code:'pk_mode'}`, 묶음 3 청소 때 protocol 에서 삭제 |
+
+서버 → 화면
+- `room.state` 공통 칸(모든 게임, 게임 칸은 그 아래에 그대로):
+```js
+{ code, mode, hostId, you, now, phase,
+  players: [{ id, name, connected, awayUntil, spectating, ...게임 칸 }],   // 사진 없음(포커는 이행 기간 avatar 유지, S3 때 뺌)
+  wait: null | { can, why: null | {msg, code}, set: {...방 설정}, own: { [id]: {...개인 칸} } },  // 대기·결과 동안만
+  specs: [] }                                   // 관전 계정 자리(묶음 3). 지금은 늘 빈 배열
+```
+- 강퇴된 사람: `{t:'error', msg:'방장이 내보냈습니다.', code:'<p>kicked'}` 다음 `room:null`.
+- `event.e`: `joined{id,name}` `left{id,name}` `away{id}` `back{id}` 를 **모든 게임**이 보낸다(포커 새로). `faces.items[]` 에 `look`(장착 아이템 `{title?, frame?, color?, …}`, 상점의 `g.equip` 그대로) 추가.
+- 판 끝 코인 알림은 기존 `{t:'coin', a:'got', n, mode, win}`(22-10) 그대로. 이제 `ctx.finish` 한 길이라 코인 규칙이 있는 모든 게임에서 온다.
+- `sndAdd` 로 방 소리가 넘쳐 지워지면 지워진 것마다 `sndDel{sid}` 가 뒤따른다.
+
+호환·이행
+- 옛 전용 요청은 그대로 받는다(같은 함수로 감): `lg settings/kick`, `dr settings/kick/lobby`, `gk color`, `mn game/again/start`. 화면이 새 메시지로 다 옮긴 뒤 묶음 3 청소에서 지운다.
+- 옛 상태 칸(라이어 `settings`, 갱식마인드 `settings` 등)도 그대로 둔다. `wait.set` 은 대기실용 사본이다.
+- 옮기기 전 게임은 옛 모양 그대로(공통 칸 없음). 화면 틀은 `client/src/games.js` 의 `mount` 가 있는 게임만 새 길로 그린다.
+
 ## 8. 화면
 
 시안 대응: `design/lobby.jpg`, `holdem-preflop.jpg`, `holdem-default.jpg`, `holdem-peek.jpg`, `holdem-board-zoom.jpg`, `holdem-raise-dial.jpg`, `holdem-win.jpg`, `bluff.jpg`.

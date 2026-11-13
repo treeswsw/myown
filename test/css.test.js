@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { GAMES } from '../shared/games.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CLIENT = join(ROOT, 'client');
@@ -142,19 +143,21 @@ test('a class is not defined in two CSS files', () => {
   assert.deepEqual(bad, [], `duplicate class definitions across CSS files (add to CROSS_FILE_ALLOW with a reason if intended):\n  ${bad.join('\n  ')}`);
 });
 
-// Liar module (client/src/liar/): every class starts with lg-.
-test('every class in client/src/liar css starts with lg-', () => {
-  const liar = files.filter((f) => f.rel.startsWith('client/src/liar/'));
-  assert.ok(liar.some((f) => f.rel === 'client/src/liar/liar.css'), 'client/src/liar/liar.css missing');
-  const bad = [];
-  for (const f of liar) for (const c of f.classes) if (!c.startsWith('lg-')) bad.push(`${f.rel}: ".${c}"`);
-  assert.deepEqual(bad, [], `classes must start with "lg-":\n  ${bad.join('\n  ')}`);
+// Game modules (client/src/<mode>/): every class starts with the game's prefix from the registry (shared/games.js `css`).
+// A game with css: null (poker) has no module folder of its own.
+test('liar module css exists', () => {
+  assert.ok(files.some((f) => f.rel === 'client/src/liar/liar.css'), 'client/src/liar/liar.css missing');
 });
 
-// Yacht module (client/src/yacht/): every class starts with yt-. Passes while no yacht css exists yet.
-test('every class in client/src/yacht css starts with yt-', () => {
-  const yacht = files.filter((f) => f.rel.startsWith('client/src/yacht/'));
-  const bad = [];
-  for (const f of yacht) for (const c of f.classes) if (!c.startsWith('yt-')) bad.push(`${f.rel}: ".${c}"`);
-  assert.deepEqual(bad, [], `classes must start with "yt-":\n  ${bad.join('\n  ')}`);
-});
+// Known unprefixed modifiers per game. TODO(G-gsk): rename the hand.css modifiers to gk-* and drop these.
+const GAME_CSS_ALLOW = { gsk: new Set(['abs', 'coins', 'ink', 'pass', 'two']) };
+
+for (const [mode, g] of Object.entries(GAMES)) {
+  if (!g.css) continue;
+  test(`every class in client/src/${mode} css starts with ${g.css}`, () => {
+    const mine = files.filter((f) => f.rel.startsWith(`client/src/${mode}/`));
+    const bad = [];
+    for (const f of mine) for (const c of f.classes) if (!c.startsWith(g.css) && !GAME_CSS_ALLOW[mode]?.has(c)) bad.push(`${f.rel}: ".${c}"`);
+    assert.deepEqual(bad, [], `classes must start with "${g.css}":\n  ${bad.join('\n  ')}`);
+  });
+}

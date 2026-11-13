@@ -1,6 +1,7 @@
 import { parseCoin, parsePin } from '../shared/coin/protocol.js';
 // Validation of everything a client may send. Returns sanitized messages only.
 import { GAME_IDS } from '../shared/mini/index.js';
+import { GAMES } from '../shared/games.js';
 export const MAX_RAW = 70_000; // every message except sndAdd
 export const MAX_FRAME = 300_000; // WebSocket frame limit: room for sndAdd
 export const MAX_PEMOTE = 40 * 1024;
@@ -16,7 +17,10 @@ const TOK_RE = /^[0-9a-f]{64}$/;
 const CODE_RE = /^[A-HJ-NP-Z]{4}$/;
 const JPEG_MAGIC = '/9j/'; // base64 of FF D8 FF
 const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
-const MODES = ['holdem', 'bluff', 'liar', 'yacht', 'draw', 'gsk', 'mini'];
+const MODES = Object.keys(GAMES);
+// Every game's own request types. act / play / liar (poker) have their own cases below; the rest are envelopes {t, a, ...}.
+const ENVELOPES = new Set(Object.values(GAMES).flatMap((g) => g.msgs));
+const isPatch = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const ACTIONS = ['fold', 'check', 'call', 'raise', 'allin'];
 
 // Account key (case-insensitive) and display name, or null if the ID breaks the rules.
@@ -127,13 +131,12 @@ export function parseMessage(raw) {
     case 'start':
     case 'liar':
       return good({ t: m.t });
-    case 'dr':
-    case 'lg':
-    case 'yt':
-    case 'gk':
-    case 'mn':
-      // Only the envelope is checked here; the liar / yacht / draw / gsk / mini room validates the contents.
-      return typeof m.a === 'string' && m.a.length > 0 && m.a.length <= 20 ? good(m) : bad('잘못된 메시지 형식입니다.');
+    // Common room (SPEC 7-3): the shape only; the room checks who and when, the game checks the values.
+    case 'set':
+    case 'pick':
+      return isPatch(m.patch) ? good({ t: m.t, patch: m.patch }) : bad('잘못된 메시지 형식입니다.');
+    case 'kick':
+      return typeof m.id === 'string' && m.id.length > 0 && m.id.length <= 40 ? good({ t: 'kick', id: m.id }) : bad('잘못된 메시지 형식입니다.');
     case 'act': {
       if (!ACTIONS.includes(m.a)) return bad('알 수 없는 행동입니다.');
       if (m.a === 'raise' && !(Number.isSafeInteger(m.amount) && m.amount > 0)) return bad('레이즈 금액이 올바르지 않습니다.');
@@ -174,6 +177,8 @@ export function parseMessage(raw) {
     case 'emote':
       return Number.isInteger(m.e) && m.e >= 0 && m.e <= 5 ? good({ t: 'emote', e: m.e }) : bad('잘못된 이모티콘입니다.');
     default:
+      // Only the envelope is checked here; the game's room validates the contents.
+      if (ENVELOPES.has(m.t)) return typeof m.a === 'string' && m.a.length > 0 && m.a.length <= 20 ? good(m) : bad('잘못된 메시지 형식입니다.');
       return bad('알 수 없는 요청입니다.');
   }
 }

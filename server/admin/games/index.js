@@ -1,11 +1,8 @@
-// Admin game registry: room.mode -> { createBrain(bot), skip(room) }. A new game adds one line here (SPEC 21-6).
-import * as holdem from './holdem.js';
-import * as bluff from './bluff.js';
-import * as liar from './liar.js';
-import * as yacht from './yacht.js';
-import * as draw from './draw.js';
+// Admin game registry: room.mode -> { createBrain(bot), skip(room) }, built from server/games.js `bot` (SPEC 21-6).
+// A plain object so tests can swap a brain. Games with `bot: false` are not listed (adm bot+ -> adm_nobot).
+import { SERVER_GAMES } from '../../games.js';
 
-export const games = { holdem, bluff, liar, yacht, draw };
+export const games = Object.fromEntries(Object.entries(SERVER_GAMES).filter(([, e]) => e.bot).map(([mode, e]) => [mode, e.bot]));
 
 const NONE = {
   createBrain: () => ({ onMsg() {} }),
@@ -14,3 +11,6 @@ const NONE = {
 
 // Unknown mode: a bot that does nothing and nothing to skip.
 export const gameOf = (mode) => games[mode] ?? NONE;
+
+// The registry says this game has no admin bot.
+export const noBot = (mode) => SERVER_GAMES[mode]?.bot === false;

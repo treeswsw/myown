@@ -8,6 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeHub, freeLimits, events, drain } from '../lib/hub.js';
+import { SERVER_GAMES } from '../../server/games.js';
 
 const JPG = 'data:image/jpeg;base64,/9j/AAAA';
 const AUD = 'data:audio/webm;base64,AAAA';
@@ -530,5 +531,33 @@ for (const spec of MODES) {
     assert.equal(c.sock.last('room').state, null);
     assert.equal(r.ids().includes('cat1'), false);
     assert.ok(r.hub.rooms.has(code) && r.ids().length >= 2, '남은 사람의 방은 유지');
+  });
+}
+
+// ---- 공통 방(Shell)으로 옮긴 게임만 (server/games.js 에서 legacy 가 아닌 줄). docs/COMMON-CONTRACT.md 5-4 마지막 줄 ----
+// "결과 뒤 대기실 시작" 은 게임마다 판을 끝내는 길이 달라 각 게임 과제가 자기 시험에 둔다.
+for (const spec of MODES.filter((s) => !SERVER_GAMES[s.mode].legacy)) {
+  const M = spec.mode;
+
+  test(`${M}: 공통 방 - wait 모양(대기 중에만), 강퇴(방장·대기·자기 아님)`, async () => {
+    const r = await seat(spec, 3);
+    const [a, b, c] = r.cs;
+    const w = a.state.wait;
+    assert.ok(w, '대기 중 wait');
+    assert.equal(typeof w.can, 'boolean');
+    assert.ok(w.why === null || (typeof w.why.msg === 'string' && typeof w.why.code === 'string'));
+    assert.equal(typeof w.set, 'object');
+    assert.equal(typeof w.own, 'object');
+    assert.deepEqual(a.state.specs, []);
+    const pre = a.state.players.map((p) => p.id).length;
+    await b.send({ t: 'kick', id: 'cat1' });
+    assert.match(lastErr(b), /_host$/);
+    await a.send({ t: 'kick', id: 'ann1' });
+    assert.match(lastErr(a), /_bad$/);
+    await a.send({ t: 'kick', id: 'cat1' });
+    const kicked = c.sock.msgs.filter((m) => m.t === 'error').at(-1);
+    assert.match(kicked.code, /_kicked$/);
+    assert.equal(c.sock.last('room').state, null);
+    assert.equal(a.state.players.length, pre - 1);
   });
 }
