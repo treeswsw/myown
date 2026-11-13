@@ -1,4 +1,5 @@
 // 비밀번호 창 (걸기·바꾸기·없애기). SPEC 22-8, 22-10, 22-11. 사용자 글자는 textContent 로만.
+import { saved, tokens } from '../state.js';
 import './pin.css';
 
 const ERR = {
@@ -104,7 +105,7 @@ export function openPin(ctx) {
     if (!m || m.a !== 'ok') return;
     busy = false;
     if (m.tok) {
-      try { localStorage.setItem('gs.tok', m.tok); } catch (e) { /* 저장 못 해도 계속 */ }
+      try { tokens.set(saved.get('gs.lastId'), m.tok); } catch (e) { /* 저장 못 해도 계속 */ }
     }
     mode = 'home';
     render();
