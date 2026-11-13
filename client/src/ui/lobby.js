@@ -157,6 +157,13 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     newPinInput.hidden = !pinChk.checked;
     if (pinChk.checked) newPinInput.focus(); else newPinInput.value = '';
   });
+  function resetPinFields() {
+    pinChk.checked = false;
+    newPinInput.hidden = true;
+    newPinInput.value = '';
+    pinInput.hidden = true;
+    pinInput.value = '';
+  }
   function submitLogin() {
     const id = idInput.value.trim();
     if (!ID_RE.test(id)) {
@@ -166,6 +173,11 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     }
     outErr.textContent = '';
     try { localStorage.setItem(LAST_ID_KEY, id); } catch { /* ignore */ }
+    if (pinChk.checked && !/^\d{4}$/.test(newPinInput.value)) {
+      outErr.textContent = '비밀번호는 숫자 4자리입니다.';
+      newPinInput.focus();
+      return;
+    }
     syncPw();
     const pin = !pinInput.hidden && pinInput.value ? pinInput.value : undefined;
     const newPin = pinChk.checked && newPinInput.value ? newPinInput.value : undefined;
@@ -456,7 +468,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
 
   return {
     el,
-    setUser(u) { if (u !== user) closeReset?.(); user = u; if (!u) { room = null; pinInput.hidden = true; pinInput.value = ''; } render(); },
+    setUser(u) { if (u !== user) closeReset?.(); user = u; if (!u) room = null; resetPinFields(); render(); },
     setRoom(r) { room = r; render(); },
     setRooms(list) { renderRooms(list); },
     setError(msg) { (!user ? outErr : room ? roomErr : homeErr).textContent = msg || ''; },
