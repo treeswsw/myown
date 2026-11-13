@@ -8,6 +8,7 @@ import { createDrawRoom } from './draw/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 import { createAdmin, ADMIN_ID } from './admin/bots.js';
 import { installWallet, walletOf } from './coin/wallet.js';
+import { installPin } from './coin/pin.js';
 import { hookRoom } from './coin/hooks.js';
 
 export const DEFAULT_TIMING = {
@@ -533,6 +534,7 @@ export function createHub({
       hub.rooms.clear();
       hub.roomsSig = '[]';
       hub.sessions.clear();
+      hub.pinAuth.reset();
       hub.conns.forEach((c) => { if (c.session?.bot) hub.conns.delete(c); });
       for (const c of hub.conns) c.session = null;
       try {
@@ -567,6 +569,7 @@ export function createHub({
   };
   hub.admin = createAdmin(hub, adminKey ?? '9975');
   installWallet(hub);
+  installPin(hub);
   return hub;
 }
 
@@ -656,17 +659,33 @@ async function login(hub, conn, msg) {
     return null;
   }
   let session = hub.sessions.get(msg.key);
+  let user = session?.user;
+  let fresh = false;
   if (!session) {
     if (hub.resetting) return RESET_BUSY_MSG;
     const epoch = hub.epoch;
-    const existed = hub.coinSeed > 0 ? await hub.store.exists(msg.key) : true;
-    const user = await hub.store.getOrCreate(msg.key, msg.name);
-    if (!existed && !user.coins) user.coins = hub.coinSeed; // tests only (hubOptions.coinSeed)
+    const existed = hub.coinSeed > 0 || msg.newPin !== undefined ? await hub.store.exists(msg.key) : true;
+    user = await hub.store.getOrCreate(msg.key, msg.name);
+    fresh = !existed;
+    if (fresh && !user.coins) user.coins = hub.coinSeed; // tests only (hubOptions.coinSeed)
     if (epoch !== hub.epoch) return RESET_BUSY_MSG; // a wipe happened while loading: the user is stale
     hub.userEpoch.set(user, epoch);
-    session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [], editTimes: [], lastSent: {} };
+    session = hub.sessions.get(msg.key);
+    if (session) {
+      user = session.user; // another login got there first
+      fresh = false;
+    }
+  }
+  // Password gate (SPEC 22-8): nothing is sent and no old connection is touched before this passes.
+  const gate = await hub.pinAuth.gate(user, msg.key, msg, fresh);
+  if (gate.err) return gate.err;
+  session = hub.sessions.get(msg.key);
+  if (!session) {
+    if (hub.resetting) return RESET_BUSY_MSG;
+    session = { id: msg.key, user, conn: null, room: null, chatTimes: [], editTimes: [], lastSent: {} };
     hub.sessions.set(msg.key, session);
   }
+  if (gate.changed) hub.persist(session.user);
   if (msg.key === ADMIN_ID) session.admin = true;
   const old = session.conn;
   if (old && old !== conn) {
@@ -676,7 +695,9 @@ async function login(hub, conn, msg) {
   }
   session.conn = conn;
   conn.session = session;
+  conn.tokHash = gate.hash ?? null;
   hub.sendMe(session);
+  if (gate.tok) hub.send(session, { t: 'pin', a: 'ok', has: true, tok: gate.tok });
   if (session.room) session.room.setConnected(session.id, true);
   hub.send(session, { t: 'room', state: session.room ? session.room.view(session.id) : null });
   session.room?.sendExtras(session);
@@ -699,6 +720,8 @@ async function dispatch(hub, conn, msg) {
     if (conn.session) return '로그인 상태에서는 초기화할 수 없습니다.';
     if (conn.resetAskedAt === null || hub.now() - conn.resetAskedAt > RESET_WINDOW) return '초기화 확인이 필요합니다.';
     if (resetCooling(hub) || hub.resetting) return RESET_COOLDOWN_MSG;
+    const denied = hub.admin.checkLogin(msg.pw); // same lockout as the admin login (SPEC 22-9)
+    if (denied) return denied;
     conn.resetAskedAt = null;
     await hub.reset();
     return null;
@@ -766,6 +789,7 @@ async function dispatch(hub, conn, msg) {
     }
     case 'adm': return hub.admin.handle(session, room, msg);
     case 'coin': return hub.coin(session, msg);
+    case 'pin': return hub.pinAuth.handle(session, conn, msg);
     default:
   }
   if (!room) return '방에 들어가 있지 않습니다.';
