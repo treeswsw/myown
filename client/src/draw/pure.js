@@ -95,3 +95,13 @@ export function tenSecondsKey(state, nowMs, firedKey) {
 export function clockOffset(state, localNow, prev = 0) {
   return state && Number.isFinite(state.now) ? state.now - localNow : prev;
 }
+
+// ---- 휴대폰 가로 메뉴 버튼(≡): 게임 진행 중(pick·draw·reveal)의 휴대폰 배치에서만 보인다(그 밖에는 사이트 상단 줄이 있다) ----
+export function menuVisible(layout, state) {
+  return layout === 'phone' && !!state && (state.phase === 'pick' || state.phase === 'draw' || state.phase === 'reveal');
+}
+
+// 메뉴 창 항목 이름 순서. 이모티콘은 콜백이 있을 때만.
+export function menuItems(hasEmote) {
+  return hasEmote ? ['emote', 'leave'] : ['leave'];
+}

@@ -114,3 +114,23 @@
 .dr-phone .dr-c-under { grid-column: 1; grid-row: 1; width: 0; height: 0; align-self: start; overflow: visible; }
 .dr-phone.dr-kb .dr-stage { grid-template-columns: 0 var(--cw) minmax(0, 1fr); justify-content: start; column-gap: 0; }
 .dr-phone.dr-kb .dr-bd { margin-left: var(--gap); }
+
+/* ---------- 휴대폰 가로 메뉴(≡): 윗줄 맨 왼쪽 칸 + 작은 창. PC·iPad·대기실·최종 순위에서는 index.js 가 숨긴다 ---------- */
+.dr-menu-btn {
+  flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 10px;
+  background: var(--fill); color: var(--ink); font-size: 22px; line-height: 1;
+  pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.dr-menu-btn[hidden], .dr-menu-back[hidden], .dr-menu-box[hidden] { display: none; }
+.dr-menu-back { position: absolute; inset: 0; z-index: 20; pointer-events: auto; }
+.dr-menu-box {
+  position: absolute; z-index: 21; top: calc(var(--bar) + 2px); left: calc(var(--pad) + var(--sl));
+  min-width: 140px; padding: 6px; display: flex; flex-direction: column; gap: 4px;
+  background: rgba(28, 28, 30, .96); border: 1px solid var(--hair); border-radius: 12px;
+  pointer-events: auto;
+}
+.dr-menu-code { padding: 2px 8px 4px; font-size: 11px; color: var(--ink2); }
+.dr-menu-item {
+  min-height: 36px; padding: 0 12px; border: 0; border-radius: 8px; text-align: left;
+  background: var(--fill); color: var(--ink); font: inherit; pointer-events: auto; cursor: pointer;
+}

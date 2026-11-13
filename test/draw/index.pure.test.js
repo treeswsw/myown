@@ -157,3 +157,13 @@ test('audio: 끄기 설정이면 틀지 않고, 켜면 튼다', () => {
     if (prev === undefined) delete globalThis.AudioContext; else globalThis.AudioContext = prev;
   }
 });
+
+test('menuVisible: 휴대폰 가로 + 진행 중일 때만', async () => {
+  const { menuVisible, menuItems } = await import('../../client/src/draw/pure.js');
+  for (const ph of ['pick', 'draw', 'reveal']) assert.equal(menuVisible('phone', { phase: ph }), true);
+  for (const ph of ['lobby', 'final']) assert.equal(menuVisible('phone', { phase: ph }), false);
+  assert.equal(menuVisible('wide', { phase: 'draw' }), false);
+  assert.equal(menuVisible('phone', null), false);
+  assert.deepEqual(menuItems(true), ['emote', 'leave']);
+  assert.deepEqual(menuItems(false), ['leave']);
+});

@@ -1,5 +1,6 @@
 // mountDraw: 갱식마인드 화면 모듈 6개를 하나로 묶는다 (GDD 7절, 11-1, 11-2). 라이어 index.js(mountLiar)와 같은 방식.
-//   const draw = mountDraw({ ui, send, getMe, toast, isMuted?, leave? });
+//   const draw = mountDraw({ ui, send, getMe, toast, isMuted?, leave?, openEmote? });
+//   휴대폰 가로·게임 진행 중에는 윗줄 왼쪽에 메뉴 버튼(≡): 나가기, (openEmote 가 있으면) 이모티콘. 방 코드도 작게 보인다.
 //   draw.room(state)   방 상태(10-4)가 올 때마다. 방을 나가면 room(null).
 //   draw.event(e)      event.e (10-5) 하나.
 //   draw.error(err)    {code, msg} 오류. dr_canvas_full 이면 긋던 선을 멈춘다.
@@ -24,7 +25,7 @@ import { createAudio } from './audio.js';
 import { isMuted as siteMuted } from '../audio.js';
 import {
   layoutFor, keyboardUp, createToolStore, routesFor, rootClasses,
-  soundForRoom, soundForEvent, tenSecondsKey, clockOffset,
+  soundForRoom, soundForEvent, tenSecondsKey, clockOffset, menuVisible, menuItems,
 } from './pure.js';
 
 export { layoutFor, createToolStore, routesFor, rootClasses, soundForRoom, soundForEvent, tenSecondsKey };
@@ -46,7 +47,7 @@ export function mountDraw(opts) {
   return inst;
 }
 
-function mountDrawInner({ ui, send, getMe, toast, isMuted, leave }) {
+function mountDrawInner({ ui, send, getMe, toast, isMuted, leave, openEmote }) {
   const root = el('div', 'dr-root');
   root.hidden = true;
   const top = el('div', 'dr-top');          // 윗줄
@@ -126,13 +127,51 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave }) {
   cGive.append(ts.give);
   stage.append(cPal, bd, cTools, cUnder);
 
+  // 휴대폰 가로 메뉴: 버튼(≡) + 작은 창(바깥을 누르면 닫힘). 사용자 글자 없음(방 코드는 textContent).
+  const menuBtn = el('button', 'dr-menu-btn');
+  menuBtn.type = 'button';
+  menuBtn.textContent = '\u2261';
+  menuBtn.setAttribute('aria-label', '메뉴');
+  menuBtn.dataset.dr = 'menu';
+  const menuBack = el('div', 'dr-menu-back');
+  const menuBox = el('div', 'dr-menu-box');
+  const menuCode = el('div', 'dr-menu-code');
+  menuBack.hidden = true;
+  menuBox.hidden = true;
+  const closeMenu = () => { menuBack.hidden = true; menuBox.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); };
+  const items = {
+    emote: ['이모티콘', 'menu-emote', () => { closeMenu(); openEmote?.(); }],
+    leave: ['나가기', 'menu-leave', () => { closeMenu(); (leave || (() => send({ t: 'leave' })))(); }],
+  };
+  menuBox.append(menuCode);
+  for (const name of menuItems(typeof openEmote === 'function')) {
+    const [label, dr, fn] = items[name];
+    const b = el('button', 'dr-menu-item');
+    b.type = 'button';
+    b.textContent = label;
+    b.dataset.dr = dr;
+    b.addEventListener('click', fn);
+    menuBox.append(b);
+  }
+  menuBtn.addEventListener('click', () => {
+    const open = menuBox.hidden;
+    menuCode.textContent = state?.code ? `방 ${state.code}` : '';
+    menuCode.hidden = !state?.code;
+    menuBack.hidden = !open;
+    menuBox.hidden = !open;
+    menuBtn.setAttribute('aria-expanded', String(open));
+  });
+  menuBack.addEventListener('pointerdown', closeMenu);
+  root.append(menuBack, menuBox);
+
   // 배치에 따라 윗줄과 격자에 조각을 나눠 담는다(휴대폰: 문제 띠·정답 입력·포기가 윗줄, PC·iPad: 격자 안).
   function place() {
     if (layout === 'phone') {
-      top.replaceChildren(cBar, cAnswer, cGive);
+      top.replaceChildren(menuBtn, cBar, cAnswer, cGive);
       spare.append(hs.title, hs.num);
     } else {
       top.replaceChildren(hs.title, sp, hs.num);
+      closeMenu();
       stage.append(cBar, cAnswer, cGive);
     }
   }
@@ -145,6 +184,9 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave }) {
 
   function refresh() {
     applyClasses();
+    const showMenu = menuVisible(layout, state);
+    menuBtn.hidden = !showMenu;
+    if (!showMenu) closeMenu();
     const s = state;
     mods.board.update(s);
     mods.tools.update(s);
@@ -183,6 +225,7 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave }) {
 
   place();
   applyClasses();
+  menuBtn.hidden = true;
 
   return {
     el: root,
@@ -192,6 +235,7 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave }) {
       if (!s) {
         state = null;
         root.hidden = true;
+        closeMenu();
         applyClasses();
         for (const m of Object.values(mods)) m.update(null);
         return;
