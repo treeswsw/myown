@@ -69,3 +69,23 @@ test('memory ledger keeps the last 10,000 lines', async () => {
   assert.equal(l[0].delta, 5);
   assert.equal(l.at(-1).delta, 10_004);
 });
+
+test('meta: get/set, clear wipes it; ledgerFor newest first', async () => {
+  const s = createStore(null);
+  assert.equal(await s.getMeta('pool'), null);
+  await s.setMeta('pool', 12345);
+  assert.equal(await s.getMeta('pool'), 12345);
+  await s.setMeta('pool', { a: [1] });
+  assert.deepEqual(await s.getMeta('pool'), { a: [1] });
+  await s.log({ uid: 'a', kind: 'draw', delta: -5, bal: 1, chips: 200, note: { n: 1 } });
+  await s.log({ uid: 'a', kind: 'swap', delta: -1, bal: 0, chips: 100 });
+  await s.log({ uid: 'a', kind: 'draw', delta: -50, bal: 0, chips: 2800, note: { n: 10 } });
+  await s.log({ uid: 'b', kind: 'draw', delta: -5, bal: 0, chips: 500 });
+  const rows = await s.ledgerFor('a', 'draw', 10);
+  assert.deepEqual(rows.map((r) => r.chips), [2800, 200]);
+  assert.equal(typeof rows[0].at, 'number');
+  assert.equal((await s.ledgerFor('a', 'draw', 1)).length, 1);
+  await s.clear();
+  assert.equal(await s.getMeta('pool'), null);
+  assert.deepEqual(await s.ledgerFor('a', 'draw', 10), []);
+});

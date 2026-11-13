@@ -10,6 +10,8 @@ export const ITEMS = [
   { id: 'color.rose', slot: 'color', name: '분홍색 글자', price: 80, v: { hex: 0xff6fa8 } },
   { id: 'suit.navy', slot: 'suit', name: '남색 정장', price: 60, v: { suit: 0x1c2a4a, tie: 0xd8353c } },
   { id: 'suit.white', slot: 'suit', name: '흰색 정장', price: 200, v: { suit: 0xf0f0f0, tie: 0x2a2a2a } },
+  // 뽑기 전용 (상점에서 팔지 않음)
+  { id: 'title.jackpot', slot: 'title', name: '잭팟의 주인', price: 0, shop: false, v: { text: '잭팟의 주인' } },
 ];
 
 const BY_ID = new Map(ITEMS.map((i) => [i.id, i]));

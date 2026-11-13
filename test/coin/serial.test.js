@@ -49,7 +49,7 @@ test('draw respects the chip cap like swap (coin_max)', async () => {
   await a.send({ t: 'login', id: 'aaa' });
   const u = hub.sessions.get('aaa').user;
   u.coins = 1000;
-  u.bank = 2_000_000_000 - 99_999;
+  u.bank = 2_000_000_000 - 19_999;
   await a.send({ t: 'coin', a: 'draw', n: 1 });
   assert.equal(lastCode(a), 'coin_max');
   assert.equal(u.coins, 1000);

@@ -897,7 +897,7 @@ async function coinCheck(browser) {
       await page.click('.gc-btn-skip', { timeout: 2500 }).catch(() => {});
       await page.waitForSelector('.gc-panel[data-mode="done"]', { timeout: T });
       await page.click('.gc-btn:has-text("닫기")');
-      await waitCoins('(n) => n === 387', 'balance not 387 after 11 pulls');
+      await waitCoins('(n) => n === 442', 'balance not 442 after 11 pulls');
     });
     await step('shop: buy then equip', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');

@@ -1,6 +1,6 @@
 // 뽑기 창 (SPEC 22-4, 22-11, 22-14). DOM/CSS 만 쓴다(WebGL 없음, ?nogl=1 에서도 같음).
 import './gacha.css';
-import { TIERS, COST, TEN, PITY, ROLL } from '../../../shared/coin/gacha.js';
+import { TIERS, COST, TEN, PITY } from '../../../shared/coin/gacha.js';
 
 const SHAKE_MIN = 600;   // 서버가 빨리 답해도 최소 흔드는 시간
 const STEP_MS = 350;     // 등급 한 단계 올라가는 시간
@@ -59,7 +59,7 @@ export function openGacha(ctx) {
   const bSkip = el('button', 'gc-btn gc-btn-skip', '건너뛰기');
   const bAgain = el('button', 'gc-btn gc-btn-pri', '한 번 더');
   const bAgain10 = el('button', 'gc-btn gc-btn-pri', `${TEN}연`);
-  const bOdds = el('button', 'gc-btn gc-btn-sub', '확률 보기');
+  const bOdds = el('button', 'gc-btn gc-btn-sub', '나올 수 있는 카드');
   const bClose = el('button', 'gc-btn gc-btn-sub', '닫기');
   for (const b of [bOne, bTen, bSkip, bAgain, bAgain10, bOdds, bClose]) b.type = 'button';
   acts.append(bOne, bTen, bSkip, bAgain, bAgain10, bOdds, bClose);
@@ -69,16 +69,15 @@ export function openGacha(ctx) {
   {
     const tb = el('table', 'gc-table');
     const hd = el('tr');
-    for (const h of ['등급', '칩', '확률']) hd.appendChild(el('th', null, h));
+    for (const h of ['등급', '칩']) hd.appendChild(el('th', null, h));
     tb.appendChild(hd);
     for (const t of TIERS) {
       const tr = el('tr', 'gc-t' + t.tier);
-      tr.append(el('td', 'gc-tn', t.name), el('td', null, fmt(t.chips)),
-        el('td', null, (t.w / (ROLL || 10000) * 100).toFixed(2) + '%'));
+      tr.append(el('td', 'gc-tn', t.name), el('td', null, t.tier === 5 ? '금고 전부' : fmt(t.chips)));
       tb.appendChild(tr);
     }
     odds.appendChild(tb);
-    odds.appendChild(el('div', 'gc-note', `금 이상이 ${PITY - 1}번 안 나오면 ${PITY}번째는 금 확정. ${TEN}연은 전부 동이면 마지막이 은으로 바뀝니다.`));
+    odds.appendChild(el('div', 'gc-note', `대박 이상이 ${PITY - 1}장 안 나오면 ${PITY}장째는 대박 확정. ${TEN}장은 금 이상이 없으면 마지막이 금으로 바뀝니다.`));
   }
 
   panel.append(head, stage, status, total, acts, odds);
@@ -94,7 +93,7 @@ export function openGacha(ctx) {
   }
   function refresh() {
     bal.textContent = `코인 ${fmt(coins())}`;
-    pityEl.textContent = `천장까지 ${Math.max(1, PITY - curPity())}번`;
+    pityEl.textContent = `대박 확정까지 ${Math.max(1, PITY - curPity())}장`;
     const c = coins();
     for (const [b, low] of [[bOne, c < COST], [bTen, c < COST * TEN], [bAgain, c < COST], [bAgain10, c < COST * TEN]]) {
       b.classList.toggle('gc-dim', low);
@@ -164,7 +163,7 @@ export function openGacha(ctx) {
     return { cap, val };
   }
   const setTier = (c, t) => {
-    c.cap.className = c.cap.className.replace(/\bgc-t\d\b/g, '').trim() + ' gc-t' + t;
+    c.cap.className = c.cap.className.replace(/\bgc-t\d\b/g, '').trim() + ' gc-t' + Math.min(t, 4);
   };
   function openCap(c, pull) {
     setTier(c, pull.tier);
@@ -185,8 +184,8 @@ export function openGacha(ctx) {
   }
   function celebrate(tier) {
     if (tier === 2) { flash('gc-fl-gold'); shake(700); }
-    else if (tier === 3) { flash('gc-fl-gold gc-fl-full'); shake(1000); rain(2000, 46, false); bigText(TIERS[3].name + '!', 'gc-big-gold'); }
-    else if (tier >= 4) { flash('gc-fl-rb gc-fl-full'); shake(1600); rain(4000, 90, true); bigText(TIERS[4].name + '!!!', 'gc-big-rb'); }
+    else if (tier === 3) { flash('gc-fl-gold gc-fl-full'); shake(1000); rain(2000, 46, false); bigText(TIERS[tier].name + '!', 'gc-big-gold'); }
+    else if (tier >= 4) { flash('gc-fl-rb gc-fl-full'); shake(1600); rain(4000, 90, true); bigText(TIERS[tier].name + '!!!', 'gc-big-rb'); }
   }
   // 한 캡슐 풀 연출: 등급이 한 단계씩 올라가며 멈칫 → 열림 → 숫자
   async function fullReveal(c, pull, id) {

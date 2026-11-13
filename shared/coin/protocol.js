@@ -19,6 +19,11 @@ export function parseCoin(msg) {
       return { ok: true, msg: { t: 'coin', a: 'swap', n: msg.n } };
     case 'draw':
       if (msg.n !== 1 && msg.n !== 10) return fail;
+      if (msg.free !== undefined && msg.free !== true && msg.free !== false) return fail;
+      if (msg.free === true) {
+        if (msg.n !== 1) return fail;
+        return { ok: true, msg: { t: 'coin', a: 'draw', n: 1, free: true } };
+      }
       return { ok: true, msg: { t: 'coin', a: 'draw', n: msg.n } };
     case 'buy':
       if (!isId(msg.id)) return fail;
@@ -29,6 +34,8 @@ export function parseCoin(msg) {
       return { ok: true, msg: { t: 'coin', a: 'equip', slot: msg.slot, id: msg.id } };
     case 'rank':
       return { ok: true, msg: { t: 'coin', a: 'rank' } };
+    case 'hist':
+      return { ok: true, msg: { t: 'coin', a: 'hist' } };
     default:
       return fail;
   }
