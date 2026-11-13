@@ -15,7 +15,7 @@ import { h, updateScale, view } from './ui/dom.js';
 import { createAnimator } from './anim/events.js';
 import { createSpecialFX } from './anim/special/index.js';
 import { connect, send, useTransport } from './net.js';
-import { state, saved } from './state.js';
+import { state, saved, tokens } from './state.js';
 import { sfx, isMuted, setMuted } from './audio.js';
 import { TY } from './scene/room.js';
 
@@ -85,20 +85,55 @@ chat.button.hidden = true;
 
 let pendingAvatar = null;
 let loginPw = null; // admin password typed on the login screen; remembered with the ID once the server accepts
+let resetWait = false; // a reset confirmation was sent and its answer is pending (adm_pw/adm_lock then belong to the reset sheet)
 let loginId = null; // remembered only once the server accepts it (the reserved reset ID is never accepted)
 const lobby = createLobby({
-  onLogin: (id, avatar, pw) => { pendingAvatar = avatar; loginId = id; loginPw = pw ?? null; send(pw ? { t: 'login', id, pw } : { t: 'login', id }); },
-  onResetConfirm: () => send({ t: 'reset', confirm: true }),
+  onLogin: (id, avatar, pw, pinFields) => {
+    resetWait = false;
+    pendingAvatar = avatar; loginId = id; loginPw = pw ?? null;
+    const m = { t: 'login', id };
+    if (pw) m.pw = pw;
+    const tok = tokens.get(id);
+    if (tok) m.tok = tok;
+    if (pinFields?.pin) m.pin = pinFields.pin;
+    if (pinFields?.newPin) m.newPin = pinFields.newPin;
+    send(m);
+  },
+  onResetConfirm: (pw) => { resetWait = true; send({ t: 'reset', confirm: true, pw }); },
+  onCoin: (kind) => { if (coin) coin.open(kind); else { pendingCoin = kind; loadCoin(); } },
   onAvatar: (data) => send({ t: 'avatar', data }),
   onCreate: (mode) => send({ t: 'create', mode }),
   onJoin: (code) => send({ t: 'join', code }),
   onMode: (mode) => send({ t: 'mode', mode }),
   onStart: () => send({ t: 'start' }),
   onLeave: () => send({ t: 'leave' }),
-  onLogout: () => { saved.del('gs.lastId'); saved.del('gs.adminPw'); location.reload(); },
+  onLogout: () => {
+    send({ t: 'pin', a: 'forget' }); // server forgets this device's token first
+    tokens.del(saved.get('gs.lastId') ?? loginId); // only this id's token
+    saved.del('gs.lastId'); saved.del('gs.adminPw');
+    setTimeout(() => location.reload(), 150); // let the message leave before the socket closes
+  },
   onRank: () => send({ t: 'lg', a: 'rank' }),
 });
 document.body.append(lobby.el);
+/* coin module (SPEC 22): loaded right after login; messages are buffered until it is ready */
+let coin = null;
+let coinLoading = false;
+let coinBuf = [];
+let pendingCoin = null; // a coin button pressed while the module was still loading
+let authed = false; // true between the server's first 'me' and the next disconnect: decides whether PIN messages belong to the login screen or the PIN window
+function loadCoin() {
+  if (coin || coinLoading) return;
+  coinLoading = true;
+  import('./coin/index.js').then(({ createCoin }) => {
+    coin = createCoin({ send, root: document.body }); // body, not #ui: #ui is a stacking context under the lobby (z 20), so windows would sit behind it
+    const buf = coinBuf; coinBuf = [];
+    if (state.me?.wallet) coin.onMe({ user: state.me, wallet: state.me.wallet });
+    for (const m of buf) coin.onMsg(m);
+    if (pendingCoin) { const k = pendingCoin; pendingCoin = null; coin.open(k); }
+  }).catch((e) => { coinLoading = false; console.error(e); });
+}
+const toCoin = (msg) => { if (coin) coin.onMsg(msg); else { coinBuf.push(msg); loadCoin(); } };
 const admin = createAdmin({ send, getRoom: () => state.room });
 
 const toast = (msg) => {
@@ -346,6 +381,19 @@ const animator = createAnimator({
   onIdle: () => applyRoom(state.room),
 });
 
+function backToLogin() {
+  animator.flush();
+  special.skipAll();
+  state.me = null;
+  authed = false;
+  admin.setAdmin(false);
+  state.room = null;
+  emotePanel.clearRoom();
+  chat.setLog([]);
+  applyRoom(null);
+  lobby.setUser(null);
+}
+
 function handle(msg) {
   switch (msg.t) {
     case 'me':
@@ -353,6 +401,8 @@ function handle(msg) {
       if (loginPw && msg.admin === true) saved.set('gs.adminPw', loginPw);
       loginPw = null;
       state.me = msg.user;
+      authed = true;
+      if (msg.wallet) { state.me.wallet = msg.wallet; if (coin) coin.onMe(msg); else loadCoin(); }
       admin.setAdmin(msg.admin === true);
       lobby.setUser(msg.user);
       lobby.setLiar(msg.liar === 'on' || (msg.liar === 'test' && new URLSearchParams(location.search).get('liar') === '1'));
@@ -383,6 +433,9 @@ function handle(msg) {
       emotePanel.clearRoom();
       chat.setLog([]);
       applyRoom(null);
+      resetWait = false;
+      lobby.closeReset();
+      authed = false;
       lobby.setUser(null);
       lobby.showNotice('초기화되었습니다');
       break;
@@ -455,21 +508,29 @@ function handle(msg) {
       else { wheel.update(null, null, false); animator.push(msg.e); }
       break;
     case 'admOk': admin.ok(msg); break;
+    case 'coin': toCoin(msg); break;
+    case 'pin':
+      // login-time answer: keep this device's token (has:false = no PIN on the account any more)
+      if (msg.a === 'ok') {
+        if (msg.has === false) tokens.del(loginId ?? saved.get('gs.lastId'));
+        else if (typeof msg.tok === 'string' && msg.tok) tokens.set(loginId ?? saved.get('gs.lastId'), msg.tok);
+      }
+      toCoin(msg);
+      break;
     case 'error':
-      if (msg.code === 'adm_pw' || msg.code === 'adm_lock') { // admin login refused (SPEC 21-1)
+      if (/^pin_(need|bad|lock|exists|fmt)$/.test(msg.code ?? '') && !authed) { // login-time PIN problem (belongs to the login screen)
+        if (msg.code === 'pin_need') tokens.del(loginId ?? saved.get('gs.lastId')); // a stale token: ask the PIN
+        loginPw = null;
+        if (state.me) backToLogin(); // reconnect refused after a drop: the login screen again
+        if (msg.code === 'pin_need') lobby.askPin(msg.msg); else lobby.loginError(msg.code, msg.msg);
+        break;
+      }
+      if (typeof msg.code === 'string' && /^(coin|shop|pin)_/.test(msg.code)) { toCoin(msg); break; }
+      if (msg.code === 'adm_pw' || msg.code === 'adm_lock') { // admin login refused (SPEC 21-1) or reset password refused (22-9)
+        if (resetWait) { lobby.resetError(msg.msg); break; } // reset sheet open: stay logged out / in as is
         if (msg.code === 'adm_pw') saved.del('gs.adminPw');
         loginId = null; loginPw = null;
-        if (state.me) { // the server session is not an admin one: always fall back to the login screen
-          animator.flush();
-          special.skipAll();
-          state.me = null;
-          admin.setAdmin(false);
-          state.room = null;
-          emotePanel.clearRoom();
-          chat.setLog([]);
-          applyRoom(null);
-          lobby.setUser(null);
-        }
+        if (state.me) backToLogin(); // the server session is not an admin one: always fall back to the login screen
         lobby.setError(msg.msg);
         break;
       }
@@ -502,6 +563,7 @@ if (mock) {
   applyRoom(null); // hides every in-game element until a room arrives
   connect(handle, (up, code) => {
     if (up) return;
+    authed = false;
     if (code === 4001) {
       const t = h('div', 'toast hit', '다른 곳에서 접속했어요. 눌러서 다시 접속');
       t.onclick = () => location.reload();

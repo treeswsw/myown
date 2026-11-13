@@ -1,4 +1,4 @@
-import { saved } from './state.js';
+import { saved, tokens } from './state.js';
 
 let transport = { send() {} };
 
@@ -16,7 +16,11 @@ export function connect(onMessage, onStatus) {
       onStatus(true);
       const id = saved.get('gs.lastId');
       const pw = id === '관리자' ? saved.get('gs.adminPw') : null;
-      if (id) ws.send(JSON.stringify(pw ? { t: 'login', id, pw } : { t: 'login', id }));
+      const tok = tokens.get(id);
+      const m = { t: 'login', id };
+      if (pw) m.pw = pw;
+      if (tok) m.tok = tok;
+      if (id) ws.send(JSON.stringify(m));
     };
     ws.onmessage = (ev) => {
       try { onMessage(JSON.parse(ev.data)); } catch (err) { console.error('bad message', err); }
