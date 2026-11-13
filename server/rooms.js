@@ -8,6 +8,7 @@ import { createDrawRoom } from './draw/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 import { createAdmin, ADMIN_ID } from './admin/bots.js';
 import { installWallet, walletOf } from './coin/wallet.js';
+import { hookRoom } from './coin/hooks.js';
 
 export const DEFAULT_TIMING = {
   grace: 60_000, // a disconnected player is auto-played (if on turn) and removed after this
@@ -316,13 +317,16 @@ class Room {
     if (g.phase === 'reveal') {
       this.setTimer('next', this.hub.timing.reveal, () => this.afterBluff(bluff.nextRound(g).events));
     } else if (g.phase === 'done') {
+      const rows = [];
       for (const [id, user] of users) {
+        if (this.members.some((m) => m.id === id)) rows.push({ id, won: id === g.winner, opp: users.size - 1 });
         user.stats.bluffGames++;
         if (id === g.winner) user.stats.bluffWins++;
         this.hub.persist(user);
         const session = this.hub.sessions.get(id);
         if (session) this.hub.sendMe(session);
       }
+      this.hub.award(this, 'bluff', rows);
       this.phase = 'result';
       this.setTimer('next', this.hub.timing.bluffResult, () => this.toLobby());
     }
@@ -732,18 +736,21 @@ async function dispatch(hub, conn, msg) {
       if (msg.mode === 'liar') {
         if (hub.liar === 'off') return '라이어게임은 아직 열리지 않았습니다.';
         const lr = createLiarRoom(hub, newCode(hub));
+        hookRoom(hub, lr);
         hub.rooms.set(lr.code, lr);
         return lr.join(session);
       }
       if (msg.mode === 'yacht') {
         if (hub.yacht === 'off') return '요트다이스는 아직 열리지 않았습니다.';
         const yr = createYachtRoom(hub, newCode(hub));
+        hookRoom(hub, yr);
         hub.rooms.set(yr.code, yr);
         return yr.join(session);
       }
       if (msg.mode === 'draw') {
         if (hub.draw === 'off') return { msg: '갱식마인드는 아직 열리지 않았습니다.', code: 'dr_off' };
         const dr = createDrawRoom(hub, newCode(hub));
+        hookRoom(hub, dr);
         hub.rooms.set(dr.code, dr);
         return dr.join(session);
       }
