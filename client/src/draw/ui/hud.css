@@ -10,7 +10,10 @@
   display: contents;
 }
 .dr-hud[hidden] { display: none; }
-.dr-hud [hidden] { display: none !important; }
+/* 조각(slots)은 다른 격자 칸으로 옮겨질 수 있으므로 .dr-hud 밖에서도 숨김이 먹게 각 조각에 직접 건다 */
+.dr-hud [hidden],
+.dr-hud-title[hidden], .dr-hud-num[hidden], .dr-hud-bar[hidden], .dr-hud-meter[hidden],
+.dr-hud-answer[hidden], .dr-hud-barnum[hidden], .dr-hud-hits[hidden] { display: none !important; }
 
 /* 게임 이름·문제 번호 */
 .dr-hud-title { pointer-events: none; font-weight: 800; font-size: calc(18px * var(--k, 1)); color: var(--dr-hud-ink); white-space: nowrap; }
