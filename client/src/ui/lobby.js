@@ -66,16 +66,18 @@ function segmented(onPick, initKeys = BASE_KEYS) {
       b.addEventListener('click', () => onPick(k));
       return b;
     });
-    el.style.setProperty('--n', keys.length);
-    el.classList.toggle('lb-seg-4', keys.length >= 4);
-    el.replaceChildren(h('span', 'lb-seg-thumb'), ...btns);
+    // 3 or fewer: one row. 4+: two rows (top row gets the extra one), each row centred on a 6-column grid.
+    const n = keys.length, top = n > 3 ? Math.ceil(n / 2) : n;
+    const span = 6 / top, m = n - top;
+    btns.forEach((b, i) => { b.style.gridColumn = i === top && m ? `${1 + (6 - m * span) / 2} / span ${span}` : `span ${span}`; });
+    el.classList.toggle('lb-seg-2row', n > 3);
+    el.replaceChildren(...btns);
   }
   build(keys);
   return {
     el, caption,
     setKeys(next) { build(next); },
     set(mode, enabled = true) {
-      el.style.setProperty('--i', keys.indexOf(mode));
       btns.forEach((b, i) => { b.setAttribute('aria-checked', String(keys[i] === mode)); b.disabled = !enabled; });
       caption.textContent = MODES[mode].desc;
     },
