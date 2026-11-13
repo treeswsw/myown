@@ -5,6 +5,8 @@
 .dr-pl-col { display: flex; flex-direction: column; gap: 10px; min-height: 0; align-self: stretch; }
 .dr-pl-col.dr-pl-l { grid-column: 1; }
 .dr-pl-col.dr-pl-r { grid-column: 5; }
+/* PC·iPad: 좌우 줄이 격자 전체 높이(줄 번호가 없으면 첫 줄에 눌린다). 휴대폰은 아래에서 1열 1·2줄로 덮어쓴다 */
+.dr-pl-root.dr-pl-wide .dr-pl-col { grid-row: 1 / -1; }
 .dr-pl-seat { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
 .dr-pl-seat.dr-pl-off { opacity: .45; }
 .dr-pl-who { display: flex; flex-direction: column; gap: 9px; align-items: center; min-width: 0; max-width: 100%; text-align: center; }
@@ -98,6 +100,9 @@
 .dr-pl-root.dr-pl-phone .dr-pl-seat[data-mode='inrow'] .dr-pl-say { position: static; margin: 0; order: 3; max-width: 90px; flex: none; transform-origin: 0 50%; animation-name: dr-pl-pop; }
 .dr-pl-root.dr-pl-phone .dr-pl-seat[data-mode='inrow'] .dr-pl-say::before { display: none; }
 .dr-pl-root.dr-pl-phone .dr-pl-seat.dr-pl-inrow.dr-pl-say-on .dr-pl-sc { display: none; }
+
+/* 휴대폰 키보드가 올라오면(입구가 .dr-root 에 dr-kb 를 붙인다) 플레이어 목록은 숨긴다. 채팅 기록(.dr-pl-log)은 시안(kb-phone)대로 보인다 */
+.dr-kb .dr-pl-col { display: none; }
 
 /* 채팅 기록 칸. 자리·크기는 부모 격자(draw.css)가 정한다.
    휴대폰: 맞히는 사람에게만(칸 3, 줄 1~2). PC·iPad: 그림판 아래 줄의 격자 칸 `dr-log`.
