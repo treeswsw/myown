@@ -85,6 +85,7 @@ svg{display:block}
 .dr-tools{grid-column:4;align-self:start;margin-top:calc(var(--strip) + 10px);display:flex;flex-direction:column;gap:6px;padding:6px;border-radius:18px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--hair)}
 .dr-tool{height:54px;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10.5px;color:var(--ink2);font-weight:600;white-space:nowrap}
 .dr-tool svg{width:22px;height:22px;color:#fff}
+.dr-tool.dim{opacity:.35}
 .dr-tool.on{background:#fff;color:#000}.dr-tool.on svg{color:#000}
 .dr-tools hr{border:0;height:1px;background:var(--hair);margin:2px 4px}
 .dr-sizes{display:flex;gap:6px;align-items:center}
@@ -205,9 +206,9 @@ svg{display:block}
   .dr-board{grid-column:3;grid-row:1/3}
   .dr-pal{grid-column:2;grid-row:1/3;margin-top:0;gap:6px;padding:6px;border-radius:14px;align-self:center}
   .dr-tools{grid-column:4;grid-row:1/3;margin-top:0;gap:4px;padding:4px;border-radius:14px;align-self:center}
-  .dr-tool{height:38px;width:38px;border-radius:10px;font-size:0;gap:0}
+  .dr-tool{height:34px;width:38px;border-radius:10px;font-size:0;gap:0}
   .dr-tool svg{width:20px;height:20px}
-  .dr-tools .dr-size{width:38px;height:34px;border-radius:10px}
+  .dr-tools .dr-size{width:38px;height:30px;border-radius:10px}
   .dr-canvas{border-radius:10px}
   /* 맞히는 사람: 색·도구 자리가 없고, 오른쪽에 채팅 기록 */
   .guess .dr-stage{grid-template-columns:var(--pw) var(--cw) minmax(0,1fr)}
@@ -274,6 +275,7 @@ const I = {
   pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-5L16 4l4 4L9 19l-5 1z"/><path d="M14 6l4 4"/></svg>',
   era: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 19l-4-4a2 2 0 010-3l8-8a2 2 0 013 0l5 5a2 2 0 010 3l-7 7H8z"/><path d="M9 9l7 7M12 19h8"/></svg>',
   undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 13L4 8l5-5"/><path d="M4 8h10a6 6 0 010 12h-4"/></svg>',
+  redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 13l5-5-5-5"/><path d="M20 8H10a6 6 0 000 12h4"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
 };
 // 가짜 그림: 짜장면
@@ -343,7 +345,7 @@ function game(o) {
      ${tools ? `<div class="dr-tools">
         <button class="dr-tool on">${I.pen}펜</button><button class="dr-tool">${I.era}지우개</button><hr>
         ${[5, 11, 22].map((d, i) => `<button class="dr-size dr-ph ${i === 1 ? 'on' : ''}"><i style="width:${d}px;height:${d}px"></i></button>`).join('')}<hr class="dr-ph">
-        <button class="dr-tool">${I.undo}되돌리기</button><button class="dr-tool">${I.trash}전체 지우기</button></div>` : ''}
+        <button class="dr-tool">${I.undo}되돌리기</button><button class="dr-tool dim">${I.redo}다시 하기</button><hr><button class="dr-tool">${I.trash}전체 지우기</button></div>` : ''}
      <div class="dr-seats r">${PL.slice(4).map((p, i) => seat(p, i + 4, o)).join('')}</div>
      <div class="dr-log"><p><b>서연</b>우동</p><p><b>태양</b>라면??</p><p><b>유나</b>스파게티</p><p class="sys">민수 님 정답!</p>${o.rev ? '<p class="sys">태양 님 정답!</p><p class="sys">강식 님 정답!</p>' : '<p><b>강식</b>젓가락</p>'}</div>
    </div>
