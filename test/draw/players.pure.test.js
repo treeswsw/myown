@@ -106,3 +106,10 @@ test('사진·글자·색', () => {
   assert.equal(firstChar('강식'), '강'); assert.equal(firstChar(''), '?'); assert.equal(firstChar('😀x'), '😀');
   assert.equal(seatColor(0), '#b5651d'); assert.equal(seatColor(9), seatColor(1)); assert.equal(seatColor(undefined), seatColor(0));
 });
+
+test('끊긴 그리는 사람은 끊김 배지, 휴대폰에서 내가 그리면 줄 안(inrow)', () => {
+  const st = S({ players: [P('a', 0), P('b', 1, { connected: false })] });
+  assert.deepEqual(playerView(st, st.players[1]).badge, { kind: 'gone', text: '끊김' });
+  assert.equal(playerView(st, st.players[1]).drawing, true);
+  assert.equal(bubbleMode('phone', 'l', iAmDrawer(st, 'b')), 'inrow');
+});

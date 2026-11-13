@@ -154,7 +154,8 @@ export function createPlayers(parent, ctx) {
     if (i == null) return;
     const s = seats[i];
     clearBubble(s); // 새 말이면 교체
-    const el = h('span', 'dr-pl-say dr-pl-' + b.kind, b.text);
+    const el = h('span', 'dr-pl-say dr-pl-' + b.kind);
+    el.appendChild(h('span', 'dr-pl-say-t', b.text));
     el.setAttribute('aria-hidden', 'true');
     s.avw.appendChild(el);
     s.bubble = el;

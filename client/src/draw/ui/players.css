@@ -18,8 +18,7 @@
   box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, .9), 0 6px 16px rgba(0, 0, 0, .5);
 }
 .dr-pl-av img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
-.dr-pl-av.dr-pl-none { background: none; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .14); color: var(--ink3, #6e6e73); font-size: 12px; font-weight: 500; border: 0; }
-.dr-pl-av.dr-pl-none { box-shadow: none; outline: 1.5px dashed rgba(255, 255, 255, .22); outline-offset: -1.5px; }
+.dr-pl-av.dr-pl-none { background: none; box-shadow: none; outline: 1.5px dashed rgba(255, 255, 255, .22); outline-offset: -1.5px; color: var(--ink3, #6e6e73); font-size: 12px; font-weight: 500; border: 0; }
 .dr-pl-seat.dr-pl-turn .dr-pl-av { box-shadow: inset 0 0 0 3px var(--accent, #f2c444), 0 0 0 4px rgba(242, 196, 68, .3), 0 0 22px rgba(242, 196, 68, .7); }
 .dr-pl-seat.dr-pl-hit .dr-pl-av { box-shadow: inset 0 0 0 3px var(--green, #34c759), 0 0 0 4px rgba(52, 199, 89, .3), 0 0 18px rgba(52, 199, 89, .6); }
 
@@ -48,9 +47,11 @@
   font-size: 13.5px; line-height: 1.3; padding: 6px 10px; border-radius: 13px;
   background: #fff; color: #111; opacity: .95; pointer-events: none;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere;
+  display: block;
   animation: dr-pl-pop .28s cubic-bezier(.3, 1.6, .5, 1) both;
 }
+/* 글자는 안쪽 span: 줄 자르기는 여기서만 하고, 바깥 풍선은 overflow 없이 꼬리가 보이게 한다 */
+.dr-pl-say-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .dr-pl-say::before { content: ''; position: absolute; top: 9px; border: 7px solid transparent; }
 .dr-pl-say.dr-pl-out { opacity: 0; transition: opacity .4s; }
 .dr-pl-say.dr-pl-ok { background: var(--green, #34c759); color: #fff; font-weight: 700; }
@@ -88,7 +89,8 @@
 .dr-pl-root.dr-pl-phone .dr-pl-tag { display: none; }
 .dr-pl-root.dr-pl-phone .dr-pl-plus { font-size: 12.5px; margin-left: 3px; }
 /* 줄 옆으로 튀어나와 그림판 왼쪽 끝에 겹친다. 한 줄·최대 124px */
-.dr-pl-root.dr-pl-phone .dr-pl-say { top: 50%; margin-top: -13px; max-width: 124px; font-size: 12px; padding: 4px 8px; -webkit-line-clamp: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.dr-pl-root.dr-pl-phone .dr-pl-say { top: 50%; margin-top: -13px; max-width: 124px; font-size: 12px; padding: 4px 8px; }
+.dr-pl-root.dr-pl-phone .dr-pl-say-t { display: block; white-space: nowrap; text-overflow: ellipsis; }
 .dr-pl-root.dr-pl-phone .dr-pl-say::before { top: 6px; border-width: 6px; }
 .dr-pl-root.dr-pl-phone .dr-pl-seat[data-mode='right'] .dr-pl-say { left: calc(100% - 2px); right: auto; transform-origin: 0 50%; }
 .dr-pl-root.dr-pl-phone .dr-pl-seat[data-mode='right'] .dr-pl-say::before { left: -11px; }
