@@ -413,3 +413,10 @@ test('게임 중 전원이 나가면 게임 타이머 없이 정리 타이머 �
   assert.equal(x.pending.length, 1);
   assert.equal(x.room.timers.gc, x.pending[0].id);
 });
+
+test('상태에 서버 시각 now 가 들어 있다', () => {
+  const x = setup(2);
+  assert.equal(x.lastState('u0').now, x.clock());
+  x.advance(500);
+  assert.equal(x.room.view('u1').now, x.clock());
+});

@@ -205,7 +205,8 @@ class DrawRoom {
   }
 
   view(id) {
-    return this.g ? viewFor(this.g, id) : null;
+    // now = 서버 시각(epochMs): 화면이 endsAt 을 자기 시계에 맞추는 데 쓴다(라이어 상태와 같음)
+    return this.g ? { ...viewFor(this.g, id), now: this.hub.now() } : null;
   }
 
   push() { // 허브가 상태만 다시 보내고 싶을 때
