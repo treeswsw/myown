@@ -15,5 +15,7 @@ services:
         value: on # off(요트다이스 흔적 없음) | test(주소에 ?yacht=1 일 때만 보임) | on(모두에게 보임, 값이 없을 때도 on)
       - key: DRAW
         value: "on" # off(갱식마인드 흔적 없음) | test(주소에 ?draw=1 일 때만 보임) | on(모두에게 보임)
+      - key: GSK
+        value: test # off(갱스껄 흔적 없음) | test(주소에 ?gsk=1 일 때만 보임) | on(모두에게 보임)
       - key: DATABASE_URL
         sync: false # Neon 연결 문자열을 대시보드에서 입력

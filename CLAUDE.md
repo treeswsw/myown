@@ -17,6 +17,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 요트다이스: shared/yacht/, server/yacht/, client/src/yacht/, test/yacht/, docs/yacht/ (한 과제는 그 안의 한 모듈만. 모듈·접두사는 docs/YACHT-PLAN.md 1절:
   규칙 shared/yacht/{constants,score,game,protocol}.js, 굴림 계산기 shared/yacht/sim.js, 점수표 .yt-sc-, 결과 .yt-rs-, 판 .yt-bd-, 연출 .yt-fx-, 3D 모델 client/src/yacht/scene/. 요트 CSS 클래스는 전부 `.yt-`)
 - 갱식마인드: shared/draw/, server/draw/, client/src/draw/, test/draw/, docs/draw/, design/draw/ (한 과제는 그 안의 한 모듈만. CSS 는 전부 .dr-, 모듈 접두사 GDD 11-1)
+- 갱스껄: shared/gsk/, server/gsk/, client/src/gsk/, test/gsk/, docs/gsk/, design/gsk/ (한 과제는 그 안의 한 모듈만. CSS 는 전부 .gk-, 모듈 접두사 GDD 10절)
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
 - UI 시험: test/ui/, client/src/mock.js
 - 통합(한 번에 한 에이전트만): client/src/yacht/index.js, yacht.css, client/src/main.js, style.css, ui/dom.js, index.html,
@@ -62,6 +63,14 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - main.js 의 연결: `import('./draw/index.js')` 로 따로 불러온다. 전용 요청은 전부 `{t:'dr', a: 종류, ...}`.
 - `npm test` 는 갱식마인드 한 판(test/ui/draw-round.mjs)을 포함한다.
 - 선 느낌·펜슬·손바닥·키보드·모션·소리는 항상 "미확인(실기기 확인 필요)"으로 보고한다.
+
+## 갱스껄 (같은 사이트 안의 다섯 번째 게임, 해골 피하기 블러핑)
+- 스위치 환경 변수 `GSK`: `off`(흔적 없음) / `test`(주소에 `?gsk=1` 일 때만 버튼 보임) / `on`. 서버 기본값 `test`, render.yaml 도 `test`(Render 는 기존 서비스에 환경 변수를 반영하지 않음). 사용자가 확인한 뒤 `on`. 규칙·통신은 docs/gsk/GDD.md (9절 통신, 4절 비밀), 사이트 쪽 요약은 SPEC 21절.
+- 반드시 지킬 약속: 공개 전 원판 종류·손 구성·버린 종류는 그 사람 기기 밖으로 보내지 않는다(test/gsk/leaks.test.js). 시간·판정은 서버, 무작위는 crypto 난수만. 사용자 글자는 textContent 로만. 갱스껄 방 상태에는 프로필 사진을 넣지 않는다(`faces` 알림).
+- 전용 요청은 전부 `{t:'gk', a: 종류, ...}`. 이름은 shared/gsk/name.js 한 곳.
+- main.js 의 연결: `import('./gsk/index.js')` 의 `mountGsk(opts)` 로 따로 불러온다. 상단 줄은 `.gkbar`(style.css).
+- `npm test` 는 test/gsk/ 와 test/gsk-seam.test.js 를 포함한다. 게임 화면 안쪽 클릭은 화면이 확정된 뒤 smoke.mjs 에 붙인다.
+- 3D·연출·소리·iPad/Safari 는 항상 "미확인(실기기 확인 필요)"으로 보고한다.
 
 ## CSS
 - 접두사: 로비 .lb-, 채팅 .chat-, 이모티콘·사운드 .ep-. 새 모듈은 새 접두사.
