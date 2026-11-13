@@ -269,6 +269,23 @@
 - ✅ 사용자: "매번 5장이 아니니까" — 고조 단계는 장수가 아니라 **남은 장수 기준**(마지막 장에 가까울수록 높은 단계)으로, 마지막 필요한 장은 항상 피날레. 도전 숫자 1~24 어느 경우든 자연스럽게.
 - 소리는 WebAudio 합성(외부 파일 없음), 사이트 소리 설정을 따른다. 모든 사람이 같은 순간에 같은 연출(서버 이벤트 기준).
 
+## 16. ✅ 진짜 화면 만들기 (2026-11-13 사용자 "이대로 다 진행해봐", 디자인 기준 = 캔버스)
+- 디자인 기준: 디자인 캔버스 https://claude.ai/artifact/7aT4LEgYA5B3AzfsaysaWC 의 사본 `design/gsk/canvas/*.dc.html`(글꼴·색·크기·자리 계산·연출 시간·소리 설계가 그 안에 있다. CSS 값·키프레임·WebAudio 코드는 그대로 옮겨 쓴다). 그림 주소 `/_blob/…` 는 실제 게임에서 `client/src/gsk/art.js` 의 함수로 바꾼다(BLOBS.md 표 = 색 번호·종류 대응).
+- 펼친 줄(뒤집힌 원판): 9장까지 한 줄, 10장부터 두 줄(✅ 사용자 "가").
+- 화면 모듈(모두 `client/src/gsk/`, 서로 직접 부르지 않고 ctx 로만):
+  | 모듈 | 파일 | 접두사 | 하는 일 |
+  |---|---|---|---|
+  | 입구·탁자 | `index.js`, `gsk.css`, `ui/table.js`, `ui/table.css` | `.gk-` `.gk-tb-` | mountGsk, 바닥·비네팅, 정다각형 자리(나=아래 가운데), 개인판(앞/1점), 더미(pile: 장수만큼 옆면 띠 + ×n), 이름표(프로필·이름·색 점·점수 마름모·남은 원판), 가운데(숫자·색 뺀 해골·상황 문구), 펼친 줄(9장까지 한 줄, 10장부터 두 줄), 상대 더미 누르기(flip), 모듈 조립 |
+  | 손·버튼 | `ui/hand.js`, `ui/hand.css` | `.gk-hd-` | 내 차례 선택("원판 내기"/"도전"), 손패(왼쪽 아래 → 가운데 아래 펼침), 원판 고르기, 도전 숫자 동전, 경매 올리기·패스, 준비 단계 놓기 |
+  | 벌칙·결과·대기 | `ui/result.js`·`.css`, `ui/wait.js`·`.css` | `.gk-rs-` `.gk-wt-` | 벌칙 고르기(뒷면 칸 / 자기 해골이면 앞면), 결과(승자·순위·한 판 더), 방 대기(색 고르기·시작) |
+  | 연출·소리 | `anim/fx.js`, `anim/fx.css`, `audio.js` | `.gk-fx-` | 놓기 날아가기, 뒤집기(들림·멈칫 tease·꽃 효과·단계 고조 levelFor(r)·가운데로 이동), 해골 패배, 성공 피날레, 1점 판 뒤집힘, 소리(WebAudio, 사이트 소리 설정 따름) |
+- 약속: `createXxx(parent, ctx)` → `{ el, update(view), event(e), dispose() }`. `view` = `model.js` 의 `toView(state, meId)` 결과(+ 아래 hold). `ctx = { send(msg), meId(), now(), face(id)→사진 URL|null, anchor(kind, id)→DOM 요소, fx, busy() }`.
+  - `anchor`: 탁자가 제공. kind = `'mat'|'stack'|'tag'|'center'|'row'|'rowSlot'(id=칸 번호)|'handDock'`. 연출과 손이 이것으로 위치를 얻는다.
+  - **보여 주기 지연(hold)**: index.js 가 `gkFlip` 이벤트를 받으면 `fx.flip(e, ctx)`(Promise)를 줄 세워 돌리고, 연출이 끝날 때까지 그 원판은 탁자 상태에서 아직 안 뒤집힌 것처럼 그린다: `view.hold = { shown: {id: 감출 장수}, row: 감출 칸 수 }`. 끝나면 줄이고 다시 그린다. `gkPlace`(남의 것)도 `fx.place(e)` 로 짧게. 판정·벌칙·결과 화면은 앞 연출이 끝난 뒤 뜬다(`ctx.busy()` 가 true 면 기다림).
+  - 도전자는 연출 중 다음 더미를 못 누른다(busy). 서버 시간도 연출에 맞춘다(아래).
+- 서버 시간(연출에 맞춤): 자동 공개 간격 = 꽃 1700ms, tease 이면 +1400ms. `flip` 요청 뒤 판정(reveal)까지 같은 만큼 기다린 뒤 `gkReveal`. `REVEAL_MS` 3500(해골 패배·성공 피날레가 보일 시간). 값은 `shared/gsk/constants.js` 한 곳.
+- data-gk 속성은 임시 화면과 같은 이름으로 유지(시험 `test/ui/gsk-round.mjs` 가 그대로 돈다): place-F/S, bid-n, pass, flip-id, discard-i/F/S, color-c, start, center, result, data-gk-seat. 새로 생기는 "원판 내기"/"도전" 선택 버튼은 `choose-place`, `choose-bid`. 상단 나가기는 `.gkbar` 하나만(임시 화면의 윗줄 없앰).
+
 ## 14. 대기열 (막지 않는 의견, 진짜 화면 작업 때 함께 처리)
 - room: `flush()` 이름이 hub.close() 의 flush 호출과 겹침(지금 해 없음) → 이름 바꾸거나 빈 flush.
 - room: 실패한 요청에도 방 전체에 상태 재전송, join 때 `joined` 이벤트가 상태보다 먼저 감.
