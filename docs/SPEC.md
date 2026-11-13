@@ -669,3 +669,35 @@ design/   시안
 - **기록**: 최근 뽑기 50건을 `{t:'coin', a:'hist'}` → `{t:'coin', a:'hist', list:[{at, n, chips, best}]}` (장부 coin_log 에서 읽음).
 - 결과 메시지: `{t:'coin', a:'draw', pulls:[{chips, tier}], chips, pity, pool, free:{n, at}}`. `me.wallet` 에 `free:{n, next}`(next = 다음 충전까지 ms, 가득이면 null), 상태로 `pool`(금고)을 함께 보낸다.
 - 연출: 카드가 깔리고, 뒤집기 전 테두리 빛으로 등급을 암시한다. 10장은 한 장씩 뒤집고 가장 높은 카드를 마지막에. [한 번에 다 뒤집기]·건너뛰기 언제나. 화면 디자인은 사용자 시안(상점 "딜러의 테이블", 뽑기 첫 화면·10장 결과).
+
+### 22-16. 치장템·캡슐 뽑기 (2026-11-13 사용자 요청. 22-5 상점 뼈대의 품목 부분을 대체)
+품목 목록은 `docs/COIN-ITEMS.md` 가 기준이다.
+
+**품목 형식** (`shared/coin/items/` 아래 slot 별 파일 + `shared/coin/shop.js` 가 모아서 `SLOTS`, `ITEMS`, `item(id)`, `GRADES` 를 내보낸다)
+- `SLOTS = ['title','hat','acc','face','frame','color','suit']`. 슬롯마다 하나만 낀다.
+- `{id:'hat.crown', slot, g:0~4, name, shop:true|false, price?, cap:true|false, v:{...}, art?:{type:'edge'|'cover'|'sticker', at?:'top'|'side'|'bottom'|'ring', key}}`.
+  `price` 는 `shop:true` 일 때만(잡템 20~60, 흔템 80~150). `cap:false` 는 캡슐에서 안 나온다(`title.jackpot`, `title.trashking`).
+  칭호 `v:{text, fx?}`(fx = 효과 이름, 레전드·갱식만). 그림은 `art.key` 로 화면 쪽 그림 모음에서 찾는다(서버는 그림을 모른다).
+- `GRADES = [{g:0,name:'잡템',color:'#9a9a9a'},{g:1,name:'흔템',color:'#3d8bff'},{g:2,name:'컨셉',color:'#b45cff'},{g:3,name:'레전드',color:'#ffc93c'},{g:4,name:'갱식',color:'rainbow'}]`.
+
+**캡슐 뽑기** (`shared/coin/capsule.js`)
+- 1개 10코인, 10개 100코인. 방 밖에서만. 서버가 `hub.rng` 로 정한다.
+- 등급 가중치(10,000 중): 잡템 6000 / 흔템 2800 / 컨셉 900 / 레전드 270 / 갱식 30. 등급을 정한 뒤 그 등급의 `cap:true` 품목 중 하나를 고르게 뽑는다(모든 slot 섞임).
+- 천장: 레전드 이상이 안 나온 개수(`gear.cpity`). 79개 연속 안 나오면 80개째는 레전드 이상. 10개 보장: 컨셉 이상이 없으면 마지막을 컨셉으로.
+- 중복(이미 가진 품목)은 조각으로 바뀐다: 1 / 3 / 10 / 30 / 100 (`gear.shard`). 조각 100개로 원하는 레전드(g=3, `cap:true`) 하나와 바꾼다 `{t:'coin', a:'craft', id}` (없는 품목·이미 가짐·조각 부족은 `shop_no`·`shop_own`·`coin_low`).
+- 수집 보상: 잡템 칭호(g=0, slot title)를 20개 가지면 `title.trashking`("좆븅신 중의 좆븅신") 자동 지급.
+- 요청 `{t:'coin', a:'cap', n:1|10}` → `{t:'coin', a:'cap', pulls:[{id, g, dup, shard}], shard, cpity, got?:[자동 지급된 id]}`. 0.3초에 한 번. 레전드 이상은 `news`(레전드는 로비, 갱식은 모두): `{t:'coin', a:'news', name, item, g}`.
+- 장부 kind `cap`(delta −코인, note `{ids}`), `craft`.
+
+**스티커 위치** : `gear.pos = {품목 id: {x, y, s, r}}` (x·y 는 프사 지름 대비 −0.5~0.5, s 0.3~2, r −180~180). `{t:'coin', a:'pos', id, x, y, s, r}`(가진 sticker 품목만, 1초에 5번). 없으면 기본값(가운데, s 1).
+
+**겉모습 보내기 (모든 게임 공용)**
+- `look = {title?, hat?, acc?, face?, frame?, color?, pos?:{id:{x,y,s,r}}}` (낀 품목 id 만, suit 는 포커 쪽에서 따로). `me.wallet.equip` 과 같은 내용.
+- 방 안에서 남에게 보이기: 게임 폴더·방 상태는 고치지 않는다. 허브가 방 사람들에게 `{t:'looks', looks:{아이디: look}}` 를 입장·변경 때 보낸다(`faces` 알림과 같은 방식). 화면은 공용 꾸미기 함수 `client/src/coin/look.js` 의 `decorate(프사 요소, look)` 와 `titleBadge(look)` 로 그린다.
+- 단계: (A) 품목·캡슐 서버·내 꾸미기 화면·로비 프로필 → (B) 방 안(포커·블러핑·라이어·요트·갱식마인드)에서 보이기. B 는 게임별 프사 요소를 찾는 조사 뒤에 한다.
+- 라이어·갱식마인드 약속: 겉모습은 역할·제시어와 무관한 정보만 담는다. 보내는 시점은 입장·변경 때뿐(판 진행과 무관).
+
+**화면**
+- 내 꾸미기(`.lk-`): 큰 프사 미리보기, slot 탭, 가진 품목(등급 색 테두리), 끼기/빼기, 스티커형은 끌기·크기·돌리기 조절, 게임 안 모습 예시.
+- 캡슐 뽑기(`.cp-`): 캡슐 기계(손잡이 → 캡슐 굴러 나옴 → 색으로 등급 암시·페이크 → 열림), 10개 결과, 조각, 천장 남은 수. 확률 숫자는 보이지 않는다.
+- 칭호 효과(`.tfx-`): 레전드·갱식 칭호의 움직이는 효과. `prefers-reduced-motion` 이면 멈춘 그림.
