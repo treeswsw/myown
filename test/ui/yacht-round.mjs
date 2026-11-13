@@ -41,6 +41,20 @@ async function openPage(ctx, w) {
 async function makeWin(browser, url, who) {
   const ctx = await browser.newContext({ viewport: { width: VW, height: VH }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  // SPEC 22-12: remember the {t:'coin',a:'got'} message (the "+N 코인" toast only lasts 2.5 s)
+  await ctx.addInitScript(() => {
+    const WS = window.WebSocket;
+    window.__coinGot = 0;
+    window.WebSocket = class extends WS {
+      constructor(...a) {
+        super(...a);
+        this.addEventListener('message', (ev) => {
+          if (typeof ev.data !== 'string' || !ev.data.startsWith('{"t":"coin"')) return;
+          try { const m = JSON.parse(ev.data); if (m.a === 'got') window.__coinGot += Number(m.n) || 0; } catch { /* ignore */ }
+        });
+      }
+    };
+  });
   const w = { who, ctx, url, errors: [], page: null };
   await openPage(ctx, w);
   wins.push(w);
@@ -210,6 +224,9 @@ try {
     if (cols.length !== 2) throw new Error(`점수 줄 ${cols.length}개`);
     for (const c of cols) if (!c.total || c.total !== c.sum) throw new Error(`합계 ${c.total} ≠ 칸 합+보너스 ${c.sum}`);
     for (const w of [A, B, C]) await noButtons(w, '결과');
+    // SPEC 22: both players got a coin message at the result (the spectator C gets none)
+    for (const w of [A, B]) await w.page.waitForFunction(() => window.__coinGot > 0, null, { timeout: 5000 }).catch(() => { throw new Error(`${w.who}: 결과에 코인 알림이 오지 않음`); });
+    if (await C.page.evaluate(() => window.__coinGot)) throw new Error('관전자에게 코인 알림이 감');
   });
 
   await step('방장 시작 → 새 판: 관전자가 점수표 줄에 들어온다 (3줄)', async () => {
