@@ -3,6 +3,7 @@ import { describe } from '../shared/handeval.js';
 import * as holdem from '../shared/holdem.js';
 import * as bluff from '../shared/bluff.js';
 import { createLiarRoom } from './liar/room.js';
+import { createDrawRoom } from './draw/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
 
 export const DEFAULT_TIMING = {
@@ -17,13 +18,14 @@ export const DEFAULT_TIMING = {
   roomList: 500, // open-room list broadcasts are coalesced to one per this interval
   reveal: 4_000, // bluff: penalty is shown with no one on turn before the next round is dealt
 };
-const MAX_PLAYERS = { holdem: 6, bluff: 4, liar: 8 };
+const MAX_PLAYERS = { holdem: 6, bluff: 4, liar: 8, draw: 8 };
 const MEDIA = new Set(['emote', 'pemote', 'snd', 'sndAdd']);
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 // WebSocket close code sent to a connection that was taken over by a newer login of the same ID.
 export const REPLACED_CODE = 4001;
 const RESET_WINDOW = 60_000; // a reset needs a resetAsk this recent, and runs at most once per window
 const RATE_LIMIT = 20;
+const DR_RATE_LIMIT = 40; // {t:'dr'} is counted apart so a drawer's strokes (about 16/s) are never dropped
 const MAX_ROOM_SOUNDS = 24;
 const MAX_ACCOUNT_SOUNDS = 8;
 const CHAT_LOG = 30; // messages remembered per room
@@ -451,7 +453,7 @@ class Room {
 }
 
 export function createHub({
-  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off',
+  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', draw = 'off',
 }) {
   const hub = {
     store, rng, now, timers, timing: { ...DEFAULT_TIMING, ...timing },
@@ -466,6 +468,7 @@ export function createHub({
     },
     roomsTimer: null,
     liar, // 'off' | 'test' | 'on'
+    draw, // 'off' | 'test' | 'on'
     pendingSaves: new Set(),
     epoch: 0, // bumped by a reset: user objects from an older epoch are never saved again
     userEpoch: new WeakMap(),
@@ -479,7 +482,7 @@ export function createHub({
       session.conn?.send(obj);
     },
     sendMe(...sessions) {
-      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar });
+      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, draw: hub.draw });
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
@@ -567,6 +570,7 @@ function createConn(hub, sock) {
     queue: Promise.resolve(),
     windowStart: 0,
     count: 0,
+    drCount: 0,
     send(obj) {
       sock.send(JSON.stringify(obj));
     },
@@ -576,8 +580,12 @@ function createConn(hub, sock) {
       if (t - conn.windowStart >= 1000) {
         conn.windowStart = t;
         conn.count = 0;
+        conn.drCount = 0;
       }
-      if (++conn.count > RATE_LIMIT) return Promise.resolve();
+      // Counted on the prefix, like sndAdd in parseMessage: a dr message that hides its type just uses the normal limit.
+      if (typeof raw === 'string' && raw.startsWith('{"t":"dr"')) {
+        if (++conn.drCount > DR_RATE_LIMIT) return Promise.resolve();
+      } else if (++conn.count > RATE_LIMIT) return Promise.resolve();
       const parsed = parseMessage(raw);
       if (!parsed.ok) {
         conn.send({ t: 'error', msg: parsed.error });
@@ -585,7 +593,7 @@ function createConn(hub, sock) {
       }
       conn.queue = conn.queue
         .then(() => dispatch(hub, conn, parsed.msg))
-        .then((err) => err && conn.send({ t: 'error', msg: err }))
+        .then((err) => err && conn.send(typeof err === 'string' ? { t: 'error', msg: err } : { t: 'error', ...err }))
         .catch((err) => {
           console.error('handler failed:', err.message);
           conn.send({ t: 'error', msg: '서버 오류가 발생했습니다.' });
@@ -672,6 +680,8 @@ async function dispatch(hub, conn, msg) {
   const session = conn.session;
   if (!session) return '먼저 로그인하세요.';
   const room = session.room;
+  // A draw room has its own {t:'dr'} requests: the other games' requests (even the overall liar ranking) are refused first.
+  if (room?.mode === 'draw' && ['mode', 'act', 'play', 'liar', 'lg'].includes(msg.t)) return { msg: '지금은 할 수 없습니다.', code: 'dr_now' };
   // Overall liar ranking: answered by the hub itself, in the lobby or in a room (never passed to the room).
   if (msg.t === 'lg' && msg.a === 'rank') {
     if (hub.liar === 'off') return '라이어게임은 아직 열리지 않았습니다.';
@@ -703,6 +713,12 @@ async function dispatch(hub, conn, msg) {
         hub.rooms.set(lr.code, lr);
         return lr.join(session);
       }
+      if (msg.mode === 'draw') {
+        if (hub.draw === 'off') return { msg: '갱식마인드는 아직 열리지 않았습니다.', code: 'dr_off' };
+        const dr = createDrawRoom(hub, newCode(hub));
+        hub.rooms.set(dr.code, dr);
+        return dr.join(session);
+      }
       const r = new Room(hub, newCode(hub), msg.mode);
       hub.rooms.set(r.code, r);
       return r.join(session);
@@ -723,6 +739,7 @@ async function dispatch(hub, conn, msg) {
   switch (msg.t) {
     case 'leave': room.leave(session.id); return null;
     case 'lg': return room.lg ? room.lg(session, msg) : '알 수 없는 요청입니다.';
+    case 'dr': return room.mode === 'draw' ? room.dr(session, msg) : '알 수 없는 요청입니다.';
     case 'start': return room.start(session.id);
     case 'mode':
     case 'act':
@@ -730,7 +747,7 @@ async function dispatch(hub, conn, msg) {
     case 'liar':
       // Poker/bluff requests. A liar room has its own methods of the same names (play), so test the mode, not the method.
       if (room.mode === 'liar') return '지금은 할 수 없습니다.';
-      if (msg.t === 'mode') return msg.mode === 'liar' ? '라이어게임은 방을 새로 만들어 주세요.' : room.setMode(session.id, msg.mode);
+      if (msg.t === 'mode') return msg.mode === 'liar' ? '라이어게임은 방을 새로 만들어 주세요.' : msg.mode === 'draw' ? '방을 새로 만들어 주세요.' : room.setMode(session.id, msg.mode);
       if (msg.t === 'act') return room.act(session.id, msg.a, msg.amount);
       if (msg.t === 'play') return room.play(session.id, msg.cards);
       return room.liar(session.id);
@@ -756,6 +773,7 @@ async function dispatch(hub, conn, msg) {
       if (tooSoon(hub, session, 'snd', 2000)) return '소리를 너무 빨리 재생하고 있습니다';
       return room.playSound(session, msg.sid);
     case 'chat': {
+      if (room.mode === 'draw') return room.chat(session, msg.text) ?? null; // the engine counts chat speed itself
       const t = hub.now();
       // Kept on the account, not the socket, so reconnecting or taking over does not reset it.
       const times = session.chatTimes.filter((x) => t - x < 10_000);
