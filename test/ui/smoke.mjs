@@ -988,6 +988,13 @@ async function coinCheck(browser) {
       await page.click('.gc-btn:has-text("닫기")');
       await waitCoins('(n) => n === 442', 'balance not 442 after 11 pulls');
     });
+    await step('capsule: title draw 1', async () => {
+      await page.click('.lb-coin-btn:has-text("칭호 뽑기")');
+      await visible2(page, '.cp-sheet');
+      await page.click('.cp-sheet .cn-primary >> nth=0');
+      await page.waitForSelector('.cp-row', { timeout: T });
+      await page.keyboard.press('Escape');
+    });
     await step('shop: buy then equip', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');
       await visible2(page, '.sh-panel');

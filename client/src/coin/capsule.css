@@ -1,0 +1,7 @@
+.cp-go{flex:1}
+.cp-list{display:flex;flex-direction:column;gap:6px;max-height:min(46vh,360px);overflow-y:auto}
+.cp-row{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:12px;background:rgba(255,255,255,.05);border-left:4px solid var(--g)}
+.cp-row.cp-big{background:rgba(255,201,60,.14)}
+.cp-txt{display:flex;flex-direction:column;min-width:0}
+.cp-txt b{font-size:15px}
+.cp-txt span{font-size:12px;opacity:.75}

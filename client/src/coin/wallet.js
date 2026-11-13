@@ -2,13 +2,13 @@
 const CHIPS_PER_COIN = 100;
 const fmt = (n) => Number(n).toLocaleString('ko-KR');
 
-function h(tag, cls, ...kids) {
+export function h(tag, cls, ...kids) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   for (const k of kids) if (k != null) e.append(k);
   return e;
 }
-function btn(label, cls, onClick) {
+export function btn(label, cls, onClick) {
   const b = h('button', cls);
   b.type = 'button';
   b.textContent = label;
@@ -17,7 +17,7 @@ function btn(label, cls, onClick) {
 }
 
 // 공통 덮개: Esc·바깥 누름·[닫기]. 닫으면 구독도 모두 끈다.
-function sheet(ctx, label, content, extraCls = '') {
+export function sheet(ctx, label, content, extraCls = '') {
   const prev = document.activeElement;
   const closeBtn = btn('닫기', 'cn-btn', () => close());
   const head = h('div', 'cn-head');

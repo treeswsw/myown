@@ -56,13 +56,14 @@ export function openGacha(ctx) {
   const acts = el('div', 'gc-acts');
   const bOne = el('button', 'gc-btn gc-btn-pri', `1회 · ${COST}코인`);
   const bTen = el('button', 'gc-btn gc-btn-pri', `${TEN}연 · ${COST * TEN}코인`);
+  const bFree = el('button', 'gc-btn gc-btn-pri', '무료 1장');
   const bSkip = el('button', 'gc-btn gc-btn-skip', '건너뛰기');
   const bAgain = el('button', 'gc-btn gc-btn-pri', '한 번 더');
   const bAgain10 = el('button', 'gc-btn gc-btn-pri', `${TEN}연`);
   const bOdds = el('button', 'gc-btn gc-btn-sub', '나올 수 있는 카드');
   const bClose = el('button', 'gc-btn gc-btn-sub', '닫기');
-  for (const b of [bOne, bTen, bSkip, bAgain, bAgain10, bOdds, bClose]) b.type = 'button';
-  acts.append(bOne, bTen, bSkip, bAgain, bAgain10, bOdds, bClose);
+  for (const b of [bFree, bOne, bTen, bSkip, bAgain, bAgain10, bOdds, bClose]) b.type = 'button';
+  acts.append(bFree, bOne, bTen, bSkip, bAgain, bAgain10, bOdds, bClose);
 
   const odds = el('div', 'gc-odds');
   odds.hidden = true;
@@ -91,7 +92,11 @@ export function openGacha(ctx) {
     const p = Number(wallet().pity);
     return Number.isFinite(p) ? p : 0;
   }
+  function freeN() { const f = wallet().free; return (f && Number(f.n)) || 0; }
   function refresh() {
+    const fn = freeN();
+    bFree.textContent = `무료 1장 (${fn}장 남음)`;
+    if (panel.dataset.mode !== 'busy') bFree.hidden = fn < 1;
     bal.textContent = `코인 ${fmt(coins())}`;
     pityEl.textContent = `대박 확정까지 ${Math.max(1, PITY - curPity())}장`;
     const c = coins();
@@ -100,10 +105,11 @@ export function openGacha(ctx) {
       b.setAttribute('aria-disabled', low ? 'true' : 'false');
     }
   }
-  function lock(on) { for (const b of [bOne, bTen, bAgain, bAgain10]) b.disabled = on; }
+  function lock(on) { for (const b of [bFree, bOne, bTen, bAgain, bAgain10]) b.disabled = on; }
   function setMode(m) { // idle | busy | done
     panel.dataset.mode = m;
     bOne.hidden = bTen.hidden = m !== 'idle';
+    bFree.hidden = m === 'busy' || freeN() < 1;
     bSkip.hidden = m !== 'busy';
     bAgain.hidden = bAgain10.hidden = m !== 'done';
     bOdds.hidden = m === 'busy';
@@ -217,10 +223,10 @@ export function openGacha(ctx) {
   // ---------- 뽑기 한 번 ----------
   function clearWait() { clearTimeout(waitTimer); waitTimer = null; }
 
-  function start(n) {
+  function start(n, free) {
     if (busy || closed) return;
     if (performance.now() - lastDone < 350) return; // 서버가 0.3초 안 연타를 무시한다
-    if (coins() < COST * n) { status.textContent = '코인이 모자랍니다.'; refresh(); return; }
+    if (!free && coins() < COST * n) { status.textContent = '코인이 모자랍니다.'; refresh(); return; }
     busy = true;
     lock(true);
     skipFlag = false;
@@ -232,7 +238,7 @@ export function openGacha(ctx) {
     stage.textContent = '';
     stage.dataset.n = String(n);
     setMode('busy');
-    tracked = coins() - COST * n;
+    tracked = free ? coins() : coins() - COST * n;
     refresh();
 
     const caps = [];
@@ -247,7 +253,7 @@ export function openGacha(ctx) {
     waitTimer = setTimeout(() => {
       if (pending) { const p = pending; pending = null; p.resolve({ err: '응답이 없습니다. 다시 시도하세요.' }); }
     }, WAIT_MAX);
-    try { send({ t: 'coin', a: 'draw', n }); } catch { /* 시간 초과로 처리 */ }
+    try { send(free ? { t: 'coin', a: 'draw', n: 1, free: true } : { t: 'coin', a: 'draw', n }); } catch { /* 시간 초과로 처리 */ }
 
     answer.then(async (res) => {
       clearWait();
@@ -347,6 +353,7 @@ export function openGacha(ctx) {
   function onKey(e) { if (e.key === 'Escape' && !busy) close(); }
   document.addEventListener('keydown', onKey);
 
+  bFree.onclick = () => start(1, true);
   bOne.onclick = () => start(1);
   bTen.onclick = () => start(TEN);
   bAgain.onclick = () => start(1);
