@@ -28,6 +28,8 @@
 .chat-w.big{max-width:min(60vw,560px);font-size:calc(max(14px,16.5px*var(--k))*var(--bf,3))}
 .chat-b.big{color:var(--chat-hot);-webkit-text-stroke:.13em #17110a;font-weight:900;filter:drop-shadow(0 0 .04em #fff) drop-shadow(0 0 .04em #fff) drop-shadow(0 0 .08em rgba(255,255,255,.7));line-height:1.25;letter-spacing:-.03em;animation:chat-big 5600ms both}
 .chat-b.old,.chat-b.big.old{animation:chat-push 600ms ease-in both}
+.chat-w.s1{max-width:min(50vw,max(238px,calc(288px*var(--k))));font-size:calc(max(14px,16.5px*var(--k))*1.25)}
+.chat-w.s3{max-width:min(80vw,720px);--bf:4.8}
 @keyframes chat-life{
   0%{opacity:0;transform:translateY(.6em) scale(.55)}
   6%{opacity:1;transform:translateY(-.25em) scale(1.07);animation-timing-function:ease-in-out}
@@ -83,7 +85,7 @@
 .chat-empty{padding:14px 16px;text-align:center;font-size:13px;color:var(--ink2)}
 
 /* waiting room: docked strip */
-.chat-dock{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);width:min(420px,calc(100vw - 24px));height:114px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px}
+.chat-dock{position:absolute;left:50%;bottom:calc(12px + var(--chat-kb,0px));transform:translateX(-50%);width:min(420px,calc(100vw - 24px));height:114px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px}
 .chat-dock .chat-bar{animation:none}
 .chat-msgs{pointer-events:none;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;padding:0 12px;font-size:13.5px;line-height:1.35;min-height:0}
 .chat-msg{padding:3px 12px;border-radius:12px;background:rgba(28,28,30,.55);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);overflow:hidden;
@@ -95,8 +97,26 @@
 .chat-docked .lobby{padding-bottom:calc(var(--chat-dock) + 12px)}
 .chat-docked .lobby .panel:not(.narrow){max-height:calc(100dvh - 24px - var(--chat-dock) - 12px);min-height:min(440px,calc(100dvh - 24px - var(--chat-dock) - 12px))}
 :root{--chat-dock:114px}
+html.chat-liar{--chat-dock:48px}
+/* liar room: bar always at bottom centre, recent lines top right, history sheet opens in the feed's place */
+.chat.chat-liar .chat-dock{width:min(560px,calc(100vw - 24px));height:48px;flex-direction:row;align-items:flex-end}
+.chat.chat-liar .chat-dock .chat-bar{width:100%;flex:1;height:48px;border-radius:24px}
+.chat-bar.chat-hot{box-shadow:inset 0 0 0 2px #ea3a3d,0 0 18px rgba(234,58,61,.55),0 12px 36px rgba(0,0,0,.4)}
+.chat-bar.chat-locked{opacity:.55}
+.chat.chat-liar .chat-col{top:calc(env(safe-area-inset-top,0px) + 104px);right:10px;width:min(340px,40vw)}
+.chat.chat-liar .chat-sheet{max-height:calc(100dvh - env(safe-area-inset-top,0px) - 104px - 84px - var(--chat-kb,0px))}
+.chat-feed{position:absolute;top:calc(env(safe-area-inset-top,0px) + 104px);right:10px;width:min(300px,30vw);max-height:min(34vh,220px);overflow:hidden;
+  display:flex;flex-direction:column;justify-content:flex-start;gap:3px;pointer-events:none}
+.chat-fr{padding:3px 10px;border-radius:10px;background:rgba(20,20,22,.6);font-size:max(12px,14px);line-height:1.3;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+.chat-fr b{font-weight:700;color:var(--ink2);margin-right:6px}
+.chat-fr.mine b{color:var(--accent)}
+.chat-fr:nth-last-child(n+4){opacity:.7}.chat-fr:nth-last-child(n+5){opacity:.5}.chat-fr:nth-last-child(n+6){opacity:.35}
+/* 아래에 붙은 채팅이 차지하는 높이(다른 화면이 그 위로 비켜 앉도록 읽는다. 붙어 있지 않으면 정의되지 않음) */
+html.chat-docked{--chat-docked-h:calc(var(--chat-dock) + 12px)}
 @media (max-height:480px){
   .chat-w.big{--bf:2.4}
+  .chat-w.s3{--bf:3.84}
   :root{--chat-dock:44px}
   .chat-dock{width:min(640px,calc(100vw - 24px));height:44px;flex-direction:row;align-items:flex-end;gap:8px}
   .chat-msgs{flex:1;min-width:0;padding:0;font-size:11.5px;line-height:1.25;gap:1px;height:44px;overflow:hidden}

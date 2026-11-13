@@ -1,0 +1,41 @@
+/* 방 설정 패널 (.lg-st-). 모양은 design/mockup-table.html 의 .btn·.seg·판(panel) */
+.lg-st-root[hidden] { display: none !important; }
+.lg-st-root {
+  box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: calc(14px * var(--lg-k, 1));
+  max-height: 100%; overflow-y: auto; padding: calc(12px * var(--lg-k, 1));
+  border: 1px solid var(--lg-line, rgba(239, 230, 216, .16)); border-radius: 8px; background: var(--lg-panel, rgba(13, 10, 11, .8));
+  color: var(--lg-ink, #efe6d8); font-family: var(--lg-sans, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif);
+  pointer-events: auto; -webkit-overflow-scrolling: touch;
+}
+.lg-st-col { min-width: 0; }
+.lg-st-field { margin-bottom: calc(8px * var(--lg-k, 1)); }
+.lg-st-label { margin-bottom: 4px; font-size: max(11px, calc(12px * var(--lg-k, 1))); letter-spacing: .06em; color: var(--lg-ink-dim, #a39a8f); }
+.lg-st-seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.lg-st-opt {
+  min-height: 44px; min-width: 44px; padding: 0 max(10px, calc(12px * var(--lg-k, 1))); box-sizing: border-box;
+  border: 1px solid var(--lg-line, rgba(239, 230, 216, .16)); border-radius: 8px; background: var(--lg-panel, rgba(13, 10, 11, .8));
+  color: inherit; font: inherit; font-size: max(12px, calc(14px * var(--lg-k, 1))); font-weight: 700; white-space: nowrap;
+  cursor: pointer; touch-action: manipulation;
+}
+.lg-st-opt[aria-pressed="true"] { background: var(--lg-ink, #efe6d8); color: #120d0c; border-color: var(--lg-ink, #efe6d8); }
+.lg-st-opt:disabled { cursor: default; opacity: .5; }
+.lg-st-opt[aria-pressed="true"]:disabled { opacity: .85; }
+.lg-st-opt:focus-visible, .lg-st-kick:focus-visible { outline: 2px solid var(--lg-ink, #efe6d8); outline-offset: 2px; }
+.lg-st-players { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lg-st-player {
+  display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; box-sizing: border-box;
+  border: 1px solid var(--lg-line, rgba(239, 230, 216, .16)); border-radius: 8px; background: rgba(0, 0, 0, .25);
+  font-size: max(12px, calc(14px * var(--lg-k, 1)));
+}
+.lg-st-off { opacity: .6; }
+.lg-st-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.lg-st-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.lg-st-tag { flex: none; font-size: .8em; color: var(--lg-gold, #d9b26a); }
+.lg-st-dim { color: var(--lg-ink-dim, #a39a8f); }
+.lg-st-score { flex: none; color: var(--lg-ink-dim, #a39a8f); font-variant-numeric: tabular-nums; }
+.lg-st-kick {
+  flex: none; min-height: 44px; min-width: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--lg-red, #ea3a3d); background: var(--lg-panel, rgba(13, 10, 11, .8)); color: var(--lg-red, #ea3a3d);
+  font: inherit; font-size: max(12px, calc(13px * var(--lg-k, 1))); font-weight: 700; touch-action: manipulation;
+}
+.lg-st-note { margin-top: 8px; font-size: max(11px, calc(12px * var(--lg-k, 1))); color: var(--lg-ink-dim, #a39a8f); }

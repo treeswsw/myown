@@ -3,15 +3,16 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "node server/index.js & vite client --host",
     "build": "vite build client --outDir ../dist --emptyOutDir",
     "start": "node server/index.js",
-    "test": "node --test test/*.test.js test/e2e/*.test.js",
-    "test:unit": "node --test test/*.test.js",
-    "test:e2e": "node --test test/e2e/*.test.js",
+    "test": "node --test test/*.test.js test/liar/*.test.js test/e2e/*.test.js test/liar/e2e/*.test.js && node test/ui/liar-round.mjs",
+    "test:unit": "node --test test/*.test.js test/liar/*.test.js",
+    "test:e2e": "node --test test/e2e/*.test.js test/liar/e2e/*.test.js",
+    "words": "node scripts/build-words.mjs",
     "test:ui": "node test/ui/smoke.mjs",
     "check": "npm run build && npm run test:unit && npm run test:ui"
   },

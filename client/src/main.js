@@ -28,6 +28,14 @@ await Promise.all(['700 30px "Libre Baskerville"', '30px Bangers', '30px "Black 
   .map((f) => document.fonts.load(f, 'K9레이즈♠').catch(() => {})));
 
 const stage = createStage(document.getElementById('cv'));
+
+/* liar game: loaded on first use (separate chunk, so poker-only players never download it) */
+let liar = null;
+let liarQ = Promise.resolve(); // keeps liar calls in message order while the module loads
+const withLiar = (fn) => { liarQ = liarQ.then(async () => { if (liar) fn(liar); }).catch((e) => console.error(e)); };
+const inLiar = () => state.room?.mode === 'liar';
+const liarAnchor = (id) => (liar && inLiar() ? liar.anchorOf(id) : null);
+
 const table = createTable(stage);
 table.reset();
 const scenedim = h('div', 'scenedim');
@@ -42,16 +50,19 @@ const emotePanel = createEmotePanel({
   onSoundRename: (sid, name) => send({ t: 'sndRename', sid, name }),
   getName: (id) => state.room?.players.find((p) => p.id === id)?.name ?? '',
   isHost: () => state.room?.hostId === state.room?.you,
-  getAnchor: (id) => pins.anchor(id),
+  getAnchor: (id) => (inLiar() ? liarAnchor(id) : pins.anchor(id)),
   getSelf: () => state.me?.id ?? null,
-  onClose: () => hud.closePanel(),
+  onClose: () => { hud.closePanel(); closeLiarPanel(); },
 });
 const hud = createHud(ui, { send, getMe: () => state.me, emotePanel });
 const cluster = createCluster(ui);
 const wheel = createWheel(ui, send);
 const bluff = createBluff(ui, send);
 
-const chat = createChat({ onSend: (text) => send({ t: 'chat', text }), getAnchor: (id) => pins.anchor(id) });
+const chat = createChat({
+  onSend: (text) => send(liar && inLiar() ? liar.chatMsg(text) : { t: 'chat', text }),
+  getAnchor: (id) => (inLiar() ? liarAnchor(id) : pins.anchor(id)),
+});
 document.body.append(chat.el, chat.button);
 chat.button.hidden = true;
 
@@ -67,6 +78,7 @@ const lobby = createLobby({
   onStart: () => send({ t: 'start' }),
   onLeave: () => send({ t: 'leave' }),
   onLogout: () => { saved.del('gs.lastId'); location.reload(); },
+  onRank: () => send({ t: 'lg', a: 'rank' }),
 });
 document.body.append(lobby.el);
 
@@ -75,6 +87,22 @@ const toast = (msg) => {
   ui.append(t);
   setTimeout(() => t.remove(), 3000);
 };
+
+/* liar room top bar (global classes, style.css): room code / emote / start / leave */
+let liarPanel = null;
+const closeLiarPanel = () => { liarPanel?.remove(); liarPanel = null; };
+const lgBtn = (cls, text, onclick) => { const b = h('button', cls, text); b.type = 'button'; b.onclick = onclick; return b; };
+const lgCode = h('span', 'lgbar-code');
+const lgEmote = lgBtn('lgbar-btn', '이모티콘', () => {
+  if (liarPanel) { closeLiarPanel(); return; }
+  liarPanel = h('div', 'hpanel lgpanel', emotePanel.el);
+  ui.append(liarPanel);
+});
+const lgStart = lgBtn('lgbar-btn main', '시작', () => send({ t: 'start' }));
+const lgBar = h('div', 'lgbar', lgCode, h('span', 'lgbar-sp'), lgEmote, lgStart, lgBtn('lgbar-btn', '나가기', () => send({ t: 'leave' })));
+lgBar.hidden = true;
+ui.append(lgBar);
+document.addEventListener('pointerdown', (e) => { if (liarPanel && !liarPanel.contains(e.target) && !lgEmote.contains(e.target)) closeLiarPanel(); });
 
 /* special animations: the host supplies seat geometry and the camera shake */
 const seatInfo = (id) => {
@@ -93,7 +121,38 @@ const special = createSpecialFX({ scene: stage.scene, camera: stage.camera, getS
 let shown = null; // what the screen currently reflects
 let wasMyTurn = false;
 let emphasized = false; // showdown emphasis is on screen
+let liarShown = false; // the screen currently shows a liar room (poker parts are cleared)
+function applyLiarRoom(room) {
+  shown = room;
+  if (!liarShown) {
+    liarShown = true;
+    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null);
+    cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
+    wasMyTurn = false;
+  }
+  lobby.hide();
+  lgBar.hidden = false;
+  lgCode.textContent = `방 코드 ${room.code}`;
+  lgStart.hidden = room.hostId !== room.you || room.phase !== 'lobby';
+  chat.setEnabled(true);
+  chat.setMode(room.phase === 'lobby' ? 'lobby' : 'liar');
+  if (!liar) {
+    liarQ = liarQ.then(async () => {
+      if (liar) return; // reconnects can queue several mounts: check again inside the queue
+      const { mountLiar } = await import('./liar/index.js');
+      liar = mountLiar({ ui, stage, send, getMe: () => state.me, chat, toast, emotePanel });
+    }).catch((e) => console.error(e));
+  }
+  withLiar((l) => l.applyRoom(state.room));
+}
 function applyRoom(room) {
+  if (room?.mode === 'liar') { applyLiarRoom(room); return; }
+  if (liarShown) {
+    liarShown = false;
+    lgBar.hidden = true;
+    closeLiarPanel();
+    withLiar((l) => l.applyRoom(null));
+  }
   shown = room;
   if (!room) {
     table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null); emotePanel.clearRoom(); chat.close(); chat.setEnabled(false); chat.button.hidden = true;
@@ -139,6 +198,7 @@ function handle(msg) {
       if (loginId) { saved.set('gs.lastId', loginId); loginId = null; }
       state.me = msg.user;
       lobby.setUser(msg.user);
+      lobby.setLiar(msg.liar === 'on' || (msg.liar === 'test' && new URLSearchParams(location.search).get('liar') === '1'));
       if (pendingAvatar && !msg.user.avatar) send({ t: 'avatar', data: pendingAvatar });
       pendingAvatar = null;
       break;
@@ -146,7 +206,8 @@ function handle(msg) {
       // One room's chat log must never show in another (the server resends chatLog on join).
       if (msg.state?.code !== state.room?.code) { chat.setLog([]); emotePanel.clearRoom(); }
       state.room = msg.state;
-      if (!animator.busy()) applyRoom(msg.state);
+      if (msg.state?.mode === 'liar' && !liarShown) { animator.flush(); special.skipAll(); }
+      if (msg.state?.mode === 'liar' || !animator.busy()) applyRoom(msg.state);
       break;
     case 'resetAsk': loginId = null; lobby.showResetConfirm(); break;
     case 'resetDone':
@@ -163,7 +224,24 @@ function handle(msg) {
       lobby.showNotice('초기화되었습니다');
       break;
     case 'rooms': lobby.setRooms(msg.list); break;
+    case 'lgRank':
+      if (liar && inLiar()) withLiar((l) => l.handleEvent({ k: 'lgRank', top: msg.top, mine: msg.mine }));
+      else lobby.showRank({ top: msg.top, mine: msg.mine });
+      break;
     case 'event':
+      if (inLiar()) { // liar rooms never use the poker animator
+        const e = msg.e;
+        if (e.k === 'pemote') emotePanel.showPhoto(e.id, e.data);
+        else if (e.k === 'snd') emotePanel.playSound(e.id, e.sid);
+        else if (e.k === 'sndAdd') emotePanel.addRoomSound(e);
+        else if (e.k === 'sndList') { emotePanel.setRoomSounds(e.items); emotePanel.syncMine(); }
+        else if (e.k === 'sndDel') emotePanel.removeRoomSound(e.sid);
+        else if (e.k === 'sndRename') emotePanel.renameRoomSound(e.sid, e.name);
+        else if (e.k === 'chat') { chat.push(e, { mine: e.id === state.room?.you, bubble: !(e.kind === 'say' || e.kind === 'plea') }); withLiar((l) => l.handleEvent(e)); }
+        else if (e.k === 'chatLog') { chat.setLog(e.items, state.room?.you); withLiar((l) => l.handleEvent(e)); }
+        else withLiar((l) => l.handleEvent(e)); // includes emote
+        break;
+      }
       // Emotes and chat are not choreography: they bypass the queue so animations never delay them.
       if (msg.e.k === 'emote') pins.emote(msg.e.id, msg.e.e);
       else if (msg.e.k === 'pemote') emotePanel.showPhoto(msg.e.id, msg.e.data);
@@ -178,14 +256,14 @@ function handle(msg) {
       break;
     case 'error':
       emotePanel.handleError(msg.msg);
-      if (msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
+      if (inLiar() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
       break;
     default: break;
   }
 }
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { animator.flush(); applyRoom(state.room); } });
-stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); emotePanel.update(); });
+stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); emotePanel.update(); liar?.frame(dt / 1000); }); // onFrame is ms, liar takes seconds
 
 const mock = new URLSearchParams(location.search).get('mock');
 if (mock) {

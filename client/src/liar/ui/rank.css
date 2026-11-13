@@ -1,0 +1,23 @@
+/* 전체 랭킹 창 (.lg-rk-). 버튼은 조작 줄, 창은 z-index 65. */
+.lg-rk-root { position: absolute; inset: 0; pointer-events: none; z-index: 65; color: var(--lg-ink, #efe6d8); font-family: var(--lg-sans, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif); }
+.lg-rk-root[hidden], .lg-rk-panel[hidden], .lg-rk-open[hidden], .lg-rk-mine[hidden] { display: none !important; }
+.lg-rk-open, .lg-rk-close {
+  pointer-events: auto; cursor: pointer; color: var(--lg-ink, #efe6d8); background: var(--lg-panel, rgba(13,10,11,.8));
+  border: 1px solid var(--lg-line, rgba(239,230,216,.16)); border-radius: 8px; padding: 0 calc(14px * var(--lg-k, 1));
+  min-height: 40px; font: inherit; font-size: max(13px, calc(15px * var(--lg-k, 1)));
+}
+.lg-rk-panel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: auto;
+  width: min(92%, calc(460px * var(--lg-k, 1))); max-height: 92%; display: flex; flex-direction: column; box-sizing: border-box;
+  background: var(--lg-panel-solid, #141012); border: 1px solid var(--lg-line, rgba(239,230,216,.16)); border-radius: 10px; padding: 12px 14px;
+}
+.lg-rk-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.lg-rk-title { font-family: var(--lg-serif, "Noto Serif KR", serif); font-weight: 900; font-size: max(16px, calc(20px * var(--lg-k, 1))); color: var(--lg-gold, #d9b26a); }
+.lg-rk-body { flex: 1; min-height: 0; overflow-y: auto; font-size: max(12px, calc(14px * var(--lg-k, 1))); }
+.lg-rk-note { padding: 14px 0; text-align: center; color: var(--lg-ink-dim, #a39a8f); }
+.lg-rk-row { display: grid; grid-template-columns: 2.2em 1fr auto auto; gap: 10px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--lg-line, rgba(239,230,216,.16)); }
+.lg-rk-no { font-variant-numeric: tabular-nums; color: var(--lg-gold, #d9b26a); font-weight: 700; text-align: right; }
+.lg-rk-name { overflow-wrap: anywhere; }
+.lg-rk-score { font-variant-numeric: tabular-nums; font-weight: 700; }
+.lg-rk-games { color: var(--lg-ink-dim, #a39a8f); font-variant-numeric: tabular-nums; }
+.lg-rk-mine { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--lg-line, rgba(239,230,216,.16)); color: var(--lg-gold, #d9b26a); font-weight: 700; font-size: max(13px, calc(15px * var(--lg-k, 1))); }

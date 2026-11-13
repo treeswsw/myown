@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vote harness</title>
+<link rel="stylesheet" href="/client/src/liar/ui/vote.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #070608; color: #efe6d8; overflow: hidden; font-family: sans-serif; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+  #action { position: fixed; left: 16px; right: 16px; bottom: 8px; display: flex; gap: 8px; pointer-events: none; z-index: 30; }
+</style>
+</head>
+<body>
+<div id="ui"></div>
+<div id="action"></div>
+<script type="module">
+import { createVote } from '/client/src/liar/ui/vote.js';
+import { fixture } from './fixtures.js';
+
+const q = new URLSearchParams(location.search);
+const nogl = q.get('nogl') === '1';
+const h = {
+  sent: [], clock: 1_000_000, anchorMode: 'null', faces: {}, state: null,
+  fixture,
+};
+// 가짜 3D 좌표: 8명이면 두 줄로 엇갈리게, 화면 안
+h.anchor = (id) => {
+  if (h.anchorMode === 'null') return null;
+  const n = h.state ? h.state.players.length : 8;
+  const i = Number(id.slice(1));
+  const w = 844;
+  return { x: 70 + i * ((w - 140) / Math.max(1, n - 1)), y: i % 2 ? 170 : 250 };
+};
+const ctx = {
+  root: document.getElementById('ui'), action: document.getElementById('action'),
+  send: (m) => h.sent.push(m), now: () => h.clock, toast() {}, nogl,
+  anchor: (id) => h.anchor(id), faceOf: (id) => h.faces[id] ?? null,
+  limits: { say: 80, chat: 80, guess: 30 },
+};
+h.mod = createVote(ctx);
+h.set = (name, n = 8, over = {}) => {
+  h.state = name === null ? null : fixture(name, n, over);
+  h.mod.update(h.state);
+  h.mod.frame(0.016);
+};
+h.setState = (s) => { h.state = s; h.mod.update(s); h.mod.frame(0.016); };
+const loop = () => { h.mod.frame(0.016); requestAnimationFrame(loop); };
+requestAnimationFrame(loop);
+window.h = h;
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rules harness</title>
+<link rel="stylesheet" href="/client/src/liar/ui/rules.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #070608; color: #efe6d8; overflow: hidden; font-family: sans-serif; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="ui"></div>
+<script type="module">
+import { createRules } from '/client/src/liar/ui/rules.js';
+import { fixture } from './fixtures.js';
+
+const h = { fixture };
+const ctx = { root: document.getElementById('ui'), action: document.body, send() {}, toast() {}, nogl: true };
+h.mod = createRules(ctx);
+h.set = (phase, n = 8, over = {}) => { h.state = phase === null ? null : fixture(phase, n, over); h.mod.update(h.state); };
+window.h = h;
+</script>
+</body>
+</html>

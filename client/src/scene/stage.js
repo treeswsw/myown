@@ -110,6 +110,16 @@ export function createStage(canvas) {
       resize();
     } else if (avg > 36 && composer) composer = null;
   }
+  // Liar scene override: render another scene/camera directly (no composer/bloom). null = poker as before.
+  let ext = null;
+  const use = (sc, cam) => {
+    const was = !!ext;
+    ext = sc && cam ? { scene: sc, camera: cam } : null;
+    if (!renderer || was === !!ext) return;
+    // The liar test page uses the renderer defaults (no tone mapping); poker uses ACES.
+    renderer.toneMapping = ext ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+    scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+  };
   const loop = (now) => {
     requestAnimationFrame(loop);
     const dt = Math.min(now - last, 1000); // one slow frame must still advance animations by real time
@@ -117,12 +127,14 @@ export function createStage(canvas) {
     tick(now);
     applyCamera();
     subs.forEach((f) => f(dt));
-    if (composer) composer.render(); else renderer?.render(scene, camera);
+    if (ext) renderer?.render(ext.scene, ext.camera);
+    else if (composer) composer.render(); else renderer?.render(scene, camera);
     adapt(now, dt);
   };
   requestAnimationFrame(loop);
 
   return {
+    nogl, use,
     scene, camera, size, project, shake, pushIn,
     isLowPower: () => lowPower,
     ready: room.ready,

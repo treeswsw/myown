@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>result harness</title>
+<link rel="stylesheet" href="/client/src/liar/ui/result.css">
+<style>
+  :root { --lg-k: 1; }
+  html, body { margin: 0; height: 100%; background: #070608; color: #efe6d8; font-family: "Noto Sans KR", system-ui, sans-serif; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+  .lg-root { position: absolute; inset: 0; pointer-events: none; }
+  .lg-action { position: absolute; left: 16px; right: 16px; bottom: 8px; display: flex; z-index: 30; }
+</style>
+</head>
+<body>
+<div id="ui"><div class="lg-root" id="root"></div><div class="lg-action" id="action"></div></div>
+<script type="module">
+import { createResult } from '/client/src/liar/ui/result.js';
+import { make } from './fixtures.js';
+const h = { sent: [], clock: 1_000_000, errors: [] };
+window.addEventListener('error', (e) => h.errors.push(String(e.message)));
+const ctx = {
+  root: document.getElementById('root'), action: document.getElementById('action'),
+  send: (m) => h.sent.push(m), now: () => h.clock, anchor: () => null, faceOf: () => null,
+  toast: () => {}, nogl: true, limits: { say: 80, chat: 80, guess: 30 },
+};
+h.mod = createResult(ctx);
+h.make = make;
+h.set = (name, opts = {}) => { h.state = make(name, opts); h.mod.update(h.state); };
+h.raw = (state) => { h.state = state; h.mod.update(state); };
+window.h = h;
+</script>
+</body>
+</html>

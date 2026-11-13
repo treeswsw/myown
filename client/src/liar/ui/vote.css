@@ -1,0 +1,123 @@
+/* 이름표·지목·찬반 투표 (.lg-vt-). 모양은 design/mockup-table.html 의 .tag·.jv·.verdict·#jt */
+.lg-vt-root[hidden], .lg-vt-list[hidden], .lg-vt-board [hidden], .lg-vt-count[hidden], .lg-vt-verdicts[hidden], .lg-vt-judgebox[hidden], .lg-vt-tally[hidden] { display: none !important; }
+
+.lg-vt-root { position: absolute; inset: 0; z-index: 10; pointer-events: none; overflow: hidden; }
+.lg-vt-layer { position: absolute; inset: 0; pointer-events: none; }
+
+/* 좌표를 따라다니는 이름표 */
+.lg-vt-tag {
+  position: absolute; left: 0; top: 0; min-width: 44px; min-height: 44px; padding: 0; margin: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  background: none; border: 0; color: inherit; font: inherit; cursor: default;
+  pointer-events: none; will-change: transform; touch-action: manipulation;
+}
+.lg-vt-body {
+  display: inline-flex; align-items: center; gap: 0.4em;
+  padding: 0.15em 0.65em 0.2em; border-radius: 3px; white-space: nowrap;
+  font-family: var(--lg-sans, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif);
+  font-size: max(11px, calc(14px * var(--lg-k, 1))); font-weight: 700; letter-spacing: 0.02em;
+  color: var(--c, #efe6d8); background: rgba(8, 6, 7, 0.78);
+  border: 1px solid color-mix(in srgb, var(--c, #efe6d8) 55%, transparent);
+  border-bottom: 2px solid var(--c, #efe6d8);
+}
+.lg-vt-av {
+  flex: none; width: max(18px, calc(24px * var(--lg-k, 1))); height: max(18px, calc(24px * var(--lg-k, 1)));
+  margin-left: -0.3em; border-radius: 50%; border: 2px solid var(--c, #efe6d8); background: #0c0909;
+  overflow: hidden; display: inline-flex; align-items: center; justify-content: center;
+}
+.lg-vt-av.lg-vt-initial { background: var(--c, #efe6d8); color: #120d0c; font-size: 0.8em; line-height: 1; }
+.lg-vt-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lg-vt-me, .lg-vt-away, .lg-vt-mark { font-weight: 500; }
+.lg-vt-me:empty, .lg-vt-away:empty { display: none; }
+.lg-vt-me { color: var(--lg-ink-dim, #a39a8f); }
+.lg-vt-away { color: var(--lg-ink-dim, #a39a8f); font-size: 0.85em; }
+.lg-vt-tag[data-mark="지목"] .lg-vt-mark::after { content: "· 지목"; }
+.lg-vt-tag[data-mark="지목됨"] .lg-vt-mark::after { content: "· 지목됨"; }
+.lg-vt-off { opacity: 0.6; }
+.lg-vt-self { opacity: 0.85; }
+
+/* 지목 가능한 이름표만 눌린다 */
+.lg-vt-can { pointer-events: auto; cursor: pointer; }
+.lg-vt-can .lg-vt-body { padding: 0.4em 0.8em 0.45em; }
+.lg-vt-tag:focus-visible .lg-vt-body { outline: 2px solid var(--lg-ink, #efe6d8); outline-offset: 2px; }
+.lg-vt-picked .lg-vt-body, .lg-vt-accused .lg-vt-body {
+  color: #fff; background: var(--lg-red-deep, #6f1216); border-color: var(--lg-red, #ea3a3d);
+  box-shadow: 0 0 18px rgba(234, 58, 61, 0.55);
+}
+
+/* 찬반 딱지 */
+.lg-vt-jv {
+  display: block; margin-top: 3px; padding: 0.05em 0.7em 0.12em; border-radius: 999px; white-space: nowrap;
+  font-style: normal; font-weight: 700; font-size: max(11px, calc(13px * var(--lg-k, 1))); letter-spacing: 0.04em;
+  border: 1px solid transparent; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+.lg-vt-jv:empty { display: none; }
+.lg-vt-jv[data-v="yes"] { background: var(--lg-red, #ea3a3d); color: #fff; border-color: var(--lg-red, #ea3a3d); }
+.lg-vt-jv[data-v="no"] { background: var(--lg-ink, #efe6d8); color: #120d0c; border-color: var(--lg-ink, #efe6d8); }
+.lg-vt-jv[data-v="wait"] {
+  background: rgba(8, 6, 7, 0.78); color: var(--lg-ink-dim, #a39a8f); border: 1px dashed var(--lg-line, rgba(239, 230, 216, 0.16));
+  font-weight: 500; box-shadow: none;
+}
+.lg-vt-jv[data-v="abs"] {
+  background: rgba(8, 6, 7, 0.6); color: var(--lg-ink-dim, #a39a8f); border: 1px dashed var(--lg-line, rgba(239, 230, 216, 0.16));
+  font-weight: 500; box-shadow: none;
+}
+.lg-vt-pop { animation: lg-vt-pop 0.3s ease both; }
+@keyframes lg-vt-pop { from { transform: scale(1.5); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .lg-vt-pop { animation: none; } }
+
+/* 좌표가 없을 때: 왼쪽 이름 버튼 목록 */
+.lg-vt-list {
+  /* 구석 "내 제시어" 버튼(.lg-role-corner, 상단 줄 아래 54px~약 92px) 아래에서 시작한다 */
+  position: absolute; left: var(--lg-gutter, 16px); top: max(calc(76px * var(--lg-k, 1)), calc(env(safe-area-inset-top, 0px) + 100px));
+  display: grid; grid-auto-flow: row; grid-template-columns: max-content; gap: 4px 6px;
+  pointer-events: none; max-height: calc(100% - max(calc(76px * var(--lg-k, 1)), calc(env(safe-area-inset-top, 0px) + 100px)) - 74px * var(--lg-k, 1)); overflow: hidden;
+}
+.lg-vt-list[data-count="5"], .lg-vt-list[data-count="6"], .lg-vt-list[data-count="7"], .lg-vt-list[data-count="8"] { grid-template-columns: repeat(2, max-content); }
+.lg-vt-listed { position: static; transform: none !important; flex-direction: row; align-items: center; justify-content: flex-start; gap: 4px; min-height: 36px; }
+.lg-vt-listed .lg-vt-jv { margin-top: 0; }
+
+/* 오른쪽 현황판 */
+.lg-vt-board {
+  position: absolute; right: var(--lg-gutter, 16px); top: calc(env(safe-area-inset-top, 0px) + 112px + min(34vh, 220px));
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 40%;
+  pointer-events: none;
+  font-family: var(--lg-sans, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif);
+  font-size: max(12px, calc(14px * var(--lg-k, 1)));
+}
+.lg-vt-tally {
+  padding: 0.3em 0.9em; border-radius: 999px; background: var(--lg-panel, rgba(13, 10, 11, 0.8));
+  border: 1px solid var(--lg-line, rgba(239, 230, 216, 0.16)); font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--lg-ink, #efe6d8);
+}
+.lg-vt-status { display: flex; flex-direction: column; gap: 2px; align-items: flex-end; color: var(--lg-ink, #efe6d8); }
+.lg-vt-line { padding: 0.1em 0.6em; border-radius: 4px; background: var(--lg-panel, rgba(13, 10, 11, 0.8)); white-space: nowrap; }
+.lg-vt-none { color: var(--lg-ink-dim, #a39a8f); }
+/* 3D 가 있으면 글자 현황은 화면 읽기용으로만 둔다 */
+.lg-vt-root:not(.lg-vt-nogl) .lg-vt-status {
+  position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* 조작 줄에 붙는 것 (이 파일의 클래스만 쓴다) */
+.lg-vt-count {
+  flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 14px;
+  min-height: max(54px, calc(58px * var(--lg-k, 1))); border: 1px solid var(--lg-line, rgba(239, 230, 216, 0.16));
+  border-radius: 8px; background: var(--lg-panel, rgba(13, 10, 11, 0.8)); color: var(--lg-ink-dim, #a39a8f);
+  pointer-events: none; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 132px;
+  font-family: var(--lg-sans, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif);
+}
+.lg-vt-judgebox { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.lg-vt-verdicts { display: flex; justify-content: center; gap: 12px; pointer-events: none; }
+.lg-vt-verdict {
+  min-height: max(60px, calc(66px * var(--lg-k, 1))); min-width: max(132px, calc(150px * var(--lg-k, 1))); white-space: nowrap; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--lg-line, rgba(239, 230, 216, 0.16)); background: var(--lg-panel, rgba(13, 10, 11, 0.8));
+  color: var(--lg-ink, #efe6d8); pointer-events: auto; touch-action: manipulation;
+  font-family: var(--lg-serif, "Noto Serif KR", "Apple SD Gothic Neo", serif); font-weight: 700; letter-spacing: 0.06em;
+  font-size: max(18px, calc(24px * var(--lg-k, 1)));
+}
+.lg-vt-verdict:focus-visible { outline: 2px solid var(--lg-ink, #efe6d8); outline-offset: 2px; }
+.lg-vt-verdict[aria-pressed="true"] { background: var(--lg-ink, #efe6d8); color: #120d0c; border-color: var(--lg-ink, #efe6d8); }
+.lg-vt-verdict.lg-vt-yes { border-color: var(--lg-red, #ea3a3d); color: var(--lg-red, #ea3a3d); }
+.lg-vt-verdict.lg-vt-yes[aria-pressed="true"] { background: var(--lg-red, #ea3a3d); color: #fff; border-color: var(--lg-red, #ea3a3d); }
+
+.lg-vt-tag.lg-vt-gone { display: none !important; }

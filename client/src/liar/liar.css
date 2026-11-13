@@ -1,0 +1,18 @@
+/* Liar game screen (shell). Prefix: .lg- . Variables per docs/team/CONTRACTS.md 0-6. */
+.lg-root {
+  --lg-bg: #070608; --lg-ink: #efe6d8; --lg-ink-dim: #a39a8f; --lg-red: #ea3a3d; --lg-red-deep: #6f1216; --lg-gold: #d9b26a;
+  --lg-panel: rgba(13, 10, 11, .8); --lg-panel-solid: #141012; --lg-line: rgba(239, 230, 216, .16); --lg-k: var(--k, 1);
+  --lg-serif: "Noto Serif KR", "Apple SD Gothic Neo", serif; --lg-sans: "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+  position: fixed; inset: 0; pointer-events: none; color: var(--lg-ink); font-family: var(--lg-sans); z-index: 10;
+}
+.lg-root[hidden] { display: none; }
+.lg-action {
+  position: fixed; left: 50%; bottom: calc(12px * var(--lg-k)); transform: translateX(-50%); z-index: 30;
+  display: flex; gap: calc(8px * var(--lg-k)); align-items: center; justify-content: center; pointer-events: none;
+}
+/* 방 대기: 설정 창(ui/settings.js)을 담는 상자. 방 대기 단계에서만 보인다. */
+.lg-lobbybox {
+  position: absolute; left: 50%; top: calc(48px * var(--lg-k)); bottom: calc(12px * var(--lg-k)); transform: translateX(-50%);
+  width: min(560px, calc(100vw - 24px)); display: flex; flex-direction: column; z-index: 15; pointer-events: none;
+}
+.lg-lobbybox[hidden] { display: none; }

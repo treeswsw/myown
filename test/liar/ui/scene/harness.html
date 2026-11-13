@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>scene harness</title>
+<style>html,body{margin:0;background:#070608;width:100%;height:100%;overflow:hidden}canvas{display:block;width:100%;height:100%}</style>
+</head><body>
+<canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { createLiarScene } from '/client/src/liar/scene/index.js';
+
+const errors = [];
+window.addEventListener('error', (e) => errors.push(String(e.message)));
+window.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
+
+const names = ['민수','서아','지호','병철','유나','도윤','하린','태오'];
+const colors = ['#e5484d','#f2a33a','#e9d758','#46a758','#3db9cf','#4c7dff','#a06cff','#ff6fb5'];
+const mkPlayers = (n) => Array.from({ length: n }, (_, i) => ({
+  id: 'u' + i, name: names[i], color: colors[i], body: i, seat: i, connected: true, spectating: false }));
+
+const sc = createLiarScene();
+sc.resize(844, 390);
+let renderer = null;
+// ?gl=1 이면 사람이 볼 수 있게 렌더러를 만든다(자동 시험에는 안 씀)
+if (new URLSearchParams(location.search).get('gl') === '1') {
+  renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
+  renderer.setSize(844, 390, false);
+  renderer.shadowMap.enabled = true;
+  (function loop() { requestAnimationFrame(loop); sc.frame(0.016); renderer.render(sc.scene, sc.camera); })();
+}
+const countMannequins = () => sc.scene.children.reduce((n, o) => n + (o.name === 'liar-seats' ? o.children.filter((c) => c.name.startsWith('mannequin:')).length : 0), 0);
+window.h = {
+  sc, THREE, errors, countMannequins, players: mkPlayers,
+  frames(n = 30) { for (let i = 0; i < n; i++) sc.frame(0.05); },
+};
+window.h.ready = true;
+</script></body></html>

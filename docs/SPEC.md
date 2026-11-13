@@ -130,6 +130,24 @@ design/   시안
 
 `event.e` 종류: `deal`, `blinds`, `action{id,a,amount}`, `street{street,cards}`, `allin{id}`, `showdown`, `win{...}`, `bust{id, by}`, `bluffDeal`, `bluffPlay{id,count}`, `liar{caller,by}`, `reveal{...}`, `shot{id,dead,shots}`, `bluffWin{id}`, `emote{id,e}`. 클라이언트는 이벤트로 연출을 재생하고, 화면의 진짜 상태는 항상 `room.state`를 따른다.
 
+### 7-1. 라이어게임 (추가)
+
+화면 → 서버
+- `{t:'create', mode:'liar'}` — 라이어 방 만들기. `LIAR=off`면 `'라이어게임은 아직 열리지 않았습니다.'`
+- `{t:'lg', a: 글자 1~20자, ...}` — 라이어 전용 요청 전부. 봉투만 protocol.js 가 보고 속은 방(`shared/liar/protocol.js`)이 검사한다.
+  포커 방에서 보내면 `'알 수 없는 요청입니다.'`
+- `{t:'lg', a:'rank'}` — 방 안팎 어디서나. 서버(hub)가 직접 `lgRank`로 답하고 방에 넘기지 않는다. `LIAR=off`면 거절.
+- 라이어 방에서 `mode`·`act`·`play`·`liar`(블러핑) → `'지금은 할 수 없습니다.'` (오류로 죽지 않는다)
+- 포커 방에서 `{t:'mode', mode:'liar'}` → `'라이어게임은 방을 새로 만들어 주세요.'`
+
+서버 → 화면
+- `{t:'me', user, liar:'off'|'test'|'on'}` — **`me`에 `liar` 칸 하나 추가**(새 메시지 종류 없음). 버튼 보이기 판단에 쓴다.
+- `{t:'lgRank', top:[{name, score, games}], mine:{rank|null, score}}` — 누적 1점 이상 상위 20명. 사진 없음.
+- `{t:'rooms', list}`의 항목에 `mode:'liar'`, `max:8`.
+- `{t:'room', state}`에서 `state.mode==='liar'`이면 모양은 GDD 9-3(사진 없음). 알림 `event.e`는 GDD 9-4(`faces` 등).
+
+버튼 보이기(화면): `보임 = liar==='on' || (liar==='test' && 주소에 ?liar=1)`. `test`는 "숨김"이지 "잠금"이 아니다(주소를 아는 사람은 만들 수 있다).
+
 ## 8. 화면
 
 시안 대응: `design/lobby.jpg`, `holdem-preflop.jpg`, `holdem-default.jpg`, `holdem-peek.jpg`, `holdem-board-zoom.jpg`, `holdem-raise-dial.jpg`, `holdem-win.jpg`, `bluff.jpg`.
@@ -274,3 +292,11 @@ design/   시안
 - 로그인 화면에서 아이디 칸에 `초기화`를 입력하고 입장을 누르면 계정이 만들어지지 않고 확인 화면이 뜬다: "모든 아이디와 칩, 전적, 프로필 사진을 지웁니다. 되돌릴 수 없습니다." [취소] [전부 지우기].
 - 규약: `{t:'login', id:'초기화'}` → 서버는 로그인시키지 않고 `{t:'resetAsk'}`로 답한다. 확인하면 `{t:'reset', confirm:true}` → 서버는 저장소의 모든 계정을 지우고(Postgres는 `TRUNCATE users`, 메모리는 비움), 모든 방을 닫고, 접속 중인 모든 사람에게 `{t:'resetDone'}`을 보낸 뒤 로그아웃 상태로 만든다. 클라이언트는 `resetDone`을 받으면 저장된 아이디를 지우고 로그인 화면으로 돌아가 "초기화되었습니다"를 보여준다.
 - `초기화`는 예약어라 계정 이름으로 쓸 수 없다. 초기화는 1분에 한 번만 실행된다(그 안에 다시 요청하면 `error` "방금 초기화했습니다. 잠시 후 다시 시도하세요").
+
+## 18. 라이어게임
+
+- 친구끼리 하는 말로 하는 추리 게임(3~8명). 규칙·화면·시간·점수는 `docs/liar/GDD.md`를 따른다(뒤 절이 앞 절보다 우선인 규칙은 이 문서와 같다. 다르면 이 절이 가리키는 GDD 가 라이어게임에 한해 우선).
+- 같은 아이디·프로필 사진·로비를 쓴다. 로비의 "새 게임"에 3번째 선택으로 "라이어게임"(`3~8명 · 말로 하는 추리`), 로비 첫 화면에 "라이어 랭킹" 버튼. `LIAR` 환경 변수가 `off`(기본)면 화면·서버 모두 포커만 있던 때와 같고, `test`는 주소에 `?liar=1`이 있을 때만 보이며, `on`은 모두에게 보인다.
+- 통신은 7-1절. 라이어 방에서는 포커 방 화면(테이블·HUD·휠·블러핑)을 쓰지 않고 `client/src/liar/`의 화면을 쓴다. 상단 줄(방 코드·이모티콘·시작·나가기)만 main.js 가 그린다. 채팅·이모티콘·사운드는 이 사이트의 것을 그대로 쓴다(채팅 글 앞 `*`/`**`/`***` 크기 표시는 포커 방에도 적용).
+- 누적 점수는 `users.stats.liar`(새 표 없음). 랭킹은 점수 큰 순 → 판 수 적은 순 → 이름 순, 0점 제외, 상위 20명.
+- 시험: `npm run check`(라이어 로비 칸·랭킹 버튼·방·채팅 잠금·이모티콘 포함), `npm test`(+ `test/ui/liar-round.mjs` 한 판). 3D 모양·연출·소리·iPad/Safari 는 실기기 확인이 필요하다.

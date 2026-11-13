@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>role harness</title>
+<link rel="stylesheet" href="/client/src/liar/ui/role.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #070608; overflow: hidden; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="ui"></div>
+<script type="module">
+import { createRole } from '/client/src/liar/ui/role.js';
+import { stateFor } from '/test/liar/ui/role/fixtures.js';
+
+const h = { sent: [], clock: 1_000_000, mod: null, last: null };
+const ctx = {
+  root: document.getElementById('ui'), action: document.body,
+  send: (m) => h.sent.push(m), now: () => h.clock,
+  anchor: () => null, faceOf: () => null, toast: () => {}, nogl: true, limits: { say: 80, chat: 80, guess: 30 },
+};
+h.mod = createRole(ctx);
+h.set = (phase, extra, n) => { h.last = stateFor(phase, extra, n); h.mod.update(h.last); return h.last; };
+h.apply = (state) => { h.last = state; h.mod.update(state); };
+h.stateFor = stateFor;
+window.h = h;
+window.__ready = true;
+</script>
+</body>
+</html>

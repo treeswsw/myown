@@ -9,6 +9,6 @@ const commit = () => {
 
 export default defineConfig({
   define: { __BUILD__: JSON.stringify(commit()) },
-  server: { proxy: { '/ws': { target: 'ws://localhost:8080', ws: true } } },
+  server: { fs: { allow: ['..'] }, proxy: { '/ws': { target: 'ws://localhost:8080', ws: true } } },
   build: { target: 'es2022', chunkSizeWarningLimit: 1200 },
 });
