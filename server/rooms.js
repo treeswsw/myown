@@ -154,7 +154,7 @@ class Room {
       // A leaver folds: committed chips stay in the pot, the rest goes home now. Only an
       // uncalled-bet refund can still arrive later (see settleSeat).
       const seat = this.hand.st.seats.find((x) => x.id === id);
-      this.settleSeat(seat, m.session.user);
+      this.settleLive(seat);
       seat.stack = 0;
       this.hand.start.set(id, 0);
     }
@@ -245,19 +245,43 @@ class Room {
     this.hub.persist(user);
   }
 
+  // Only the chip difference is applied, and always to the account that is live now (the object
+  // captured at hand start may be stale after a re-login). Nobody logged in: the stored row gets
+  // the difference (re-checking for a login meanwhile), never a saved stale copy.
+  settleLive(seat, stats) {
+    const live = this.hub.sessions.get(seat.id)?.user;
+    if (live) {
+      this.settleSeat(seat, live);
+      if (stats) stats(live);
+      this.hub.persist(live);
+      return;
+    }
+    const delta = seat.stack - this.hand.start.get(seat.id);
+    this.hand.start.set(seat.id, seat.stack);
+    if (delta === 0) return;
+    const hub = this.hub;
+    const epoch = hub.epoch;
+    hub.store.getOrCreate(seat.id).then((row) => {
+      if (epoch !== hub.epoch) return; // account wipe meanwhile
+      hub.userEpoch.set(row, epoch);
+      const target = hub.sessions.get(seat.id)?.user ?? row;
+      target.bank += delta;
+      hub.persist(target);
+    }).catch((e) => console.error('settle failed', e));
+  }
+
   endHand(events) {
-    const { st, users } = this.hand;
+    const { st } = this.hand;
     const res = st.result;
     for (const seat of st.seats) {
-      const user = users.get(seat.id);
-      this.settleSeat(seat, user);
-      user.stats.hands++;
       const w = res.winners.find((x) => x.id === seat.id);
-      if (w) {
-        user.stats.wins++;
-        user.stats.biggestWin = Math.max(user.stats.biggestWin, w.amount);
-      }
-      this.hub.persist(user);
+      this.settleLive(seat, (user) => {
+        user.stats.hands++;
+        if (w) {
+          user.stats.wins++;
+          user.stats.biggestWin = Math.max(user.stats.biggestWin, w.amount);
+        }
+      });
       const session = this.hub.sessions.get(seat.id);
       if (session) this.hub.sendMe(session);
     }
