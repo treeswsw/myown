@@ -3,6 +3,7 @@
 실시간 카드게임 웹사이트. Node `ws` 서버(server/, shared/) + Vite/three.js 화면(client/).
 Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절이 앞 절보다 우선).
 사용자는 개발자가 아니다. 보고는 쉬운 한국어로, 짧게.
+새 게임을 추가하거나 게임 사이에 겹치는 기능을 고칠 때는 docs/NEW-GAME.md (공용 부품·예외 표·확장성 조건)를 따른다.
 
 일하는 방식 전체(역할, 분배, 검토, 검증, 보고)는 스킬 `agent-team-dev`를 따른다
 (.claude/skills/agent-team-dev/SKILL.md). 아래는 이 저장소에만 해당하는 내용이다.
