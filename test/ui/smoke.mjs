@@ -885,7 +885,7 @@ async function coinCheck(browser) {
       await waitCoins('(n) => n === 497', 'balance not 497');
     });
     await step('draw 1 with skip, then 10', async () => {
-      await page.evaluate(() => { const b = [...document.querySelectorAll('.lb-coin-btn')].find((x) => x.textContent === '뽑기'); if (b) b.hidden = false; }); // 뽑기 button is hidden in the lobby for now (SHOW_DRAW)
+      await page.evaluate(() => { const b = [...document.querySelectorAll('.lb-coin-btn')].find((x) => x.textContent === '카드 뽑기'); if (b) b.hidden = false; }); // 뽑기 button is hidden in the lobby for now (SHOW_DRAW)
       await page.click('.lb-coin-btn:has-text("뽑기")');
       await visible2(page, '.gc-panel');
       await page.click('.gc-btn:has-text("1회")');

@@ -5,7 +5,7 @@ import { GAME_NAME as DRAW_NAME } from '../../../shared/draw/name.js';
 import { item as shopItem, GRADES } from '../../../shared/coin/shop.js';
 
 // 뽑기 버튼은 나중에 공개. true 로 바꾸면 다시 보인다.
-const SHOW_DRAW = false;
+const SHOW_DRAW = true;
 
 // createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
@@ -219,7 +219,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   titleBadge.hidden = true;
   const walletRow = h('div', 'lb-sub lb-coins');
   const coinBtns = h('div', 'lb-coin-btns');
-  for (const [a, label] of [['shop', '상점'], ['draw', '뽑기'], ['cap', '캡슐'], ['look', '꾸미기'], ['swap', '교환'], ['rank', '코인 랭킹']]) {
+  for (const [a, label] of [['shop', '상점'], ['draw', '카드 뽑기'], ['swap', '교환'], ['rank', '코인 랭킹']]) {
     const b = button(label, 'lb-tint lb-coin-btn', () => onCoin?.(a));
     if (a === 'draw' && !SHOW_DRAW) b.hidden = true;
     coinBtns.append(b);
