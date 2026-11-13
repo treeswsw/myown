@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>갱스껄 — 정적 시안</title>
+<!--
+  정적 시안(가짜 데이터). 실제 코드가 아니다. 그림은 전부 client/src/gsk/art.js 에서 온다.
+  저장소 루트에서 서빙:  python3 -m http.server 8765  →  /design/gsk/index.html
+  화면 고르기: 왼쪽 아래 버튼, 또는 주소 ?s=A|B|C|D|E|F|G   (&shot=1 이면 버튼 숨김)
+  A 견본표 · B 내 차례 · C 경매 · D 뒤집기(해골) · E 벌칙 고르기 · F 결과 · G 휴대폰 가로(844x390)의 B
+  크기: PC 1280x720. 판 높이 500px 미만이면 휴대폰 배치.
+  시안이라 innerHTML 을 쓴다. 실제 화면에서는 사용자 글자를 textContent 로만 넣는다.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Black+Han+Sans&family=Noto+Sans+KR:wght@500;700;900&display=swap">
+<style>
+:root{--gold:#ffc62a;--gold-d:#8a5d00;--ink:#fff;--ink2:rgba(255,255,255,.66);--cream:#f6ecd6;--red:#ff5548}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0b0806;color:var(--ink);
+  font-family:"Noto Sans KR","Apple SD Gothic Neo","WenQuanYi Zen Hei",sans-serif;font-size:14px;line-height:1.25;
+  -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+.gk-art-disc,.gk-art-mat,.gk-art-icon{display:block;width:100%;height:100%;overflow:visible}
+.ko{font-family:"Black Han Sans","Noto Sans KR",sans-serif;font-weight:400;-webkit-text-stroke:5px #17110a;paint-order:stroke fill}
+.num{font-family:"Bangers","Black Han Sans",sans-serif;font-weight:400;color:var(--gold);-webkit-text-stroke:6px #17110a;paint-order:stroke fill;letter-spacing:1px;line-height:1}
+
+/* 시안 전용 */
+.mk-nav{position:fixed;left:6px;bottom:6px;z-index:99;display:flex;gap:4px;opacity:.9}
+.mk-nav a{font-size:11px;padding:3px 8px;border-radius:8px;background:#000;color:#fff;text-decoration:none;border:1px solid #555}
+.mk-nav a.on{background:var(--gold);color:#000}
+.mk-frame{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+
+/* ── 판 ── */
+.gk-stage{position:relative;width:100%;height:100%;overflow:hidden;
+  --mat:128px;--disc:94px;--hd:100px;--bar:46px;--av:42px;--fs:14px}
+.gk-stage.phone{--mat:76px;--disc:56px;--hd:62px;--bar:30px;--av:24px;--fs:11px}
+.gk-stage.boxed{width:844px;height:390px;flex:none;outline:1px solid rgba(255,255,255,.25)}
+.gk-wood{position:absolute;inset:0;width:100%;height:100%}
+.gk-wood-seam{position:absolute;inset:0;background:
+  repeating-linear-gradient(180deg,transparent 0 118px,rgba(0,0,0,.42) 118px 120px,rgba(255,255,255,.035) 120px 121px),
+  radial-gradient(ellipse 62% 58% at 50% 46%,rgba(255,214,150,.13),transparent 70%),
+  radial-gradient(ellipse 90% 90% at 50% 50%,transparent 55%,rgba(0,0,0,.55))}
+.gk-stage.phone .gk-wood-seam{background-size:auto,auto,auto;background:
+  repeating-linear-gradient(180deg,transparent 0 76px,rgba(0,0,0,.42) 76px 78px),
+  radial-gradient(ellipse 62% 58% at 50% 46%,rgba(255,214,150,.13),transparent 70%),
+  radial-gradient(ellipse 90% 90% at 50% 50%,transparent 55%,rgba(0,0,0,.55))}
+
+/* 상단 줄 */
+.gk-bar{position:absolute;left:0;right:0;top:0;height:var(--bar);display:flex;align-items:center;gap:12px;padding:0 16px}
+.gk-brand{font-size:calc(var(--fs) * 1.75);color:var(--gold);-webkit-text-stroke-width:4px}
+.gk-code{font-family:"Bangers",sans-serif;font-size:calc(var(--fs) * 1.35);letter-spacing:3px;color:#e9e1d2}
+.gk-round{font-size:calc(var(--fs) * .95);font-weight:700;color:var(--ink2);padding:3px 10px;border-radius:99px;background:rgba(0,0,0,.35)}
+.gk-sp{flex:1}
+.gk-ic{width:calc(var(--bar) - 14px);height:calc(var(--bar) - 14px);border-radius:50%;background:rgba(20,16,12,.72);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center}
+.gk-ic svg{width:52%;height:52%}
+
+/* 자리 */
+.gk-seat{position:absolute;width:var(--mat);height:var(--mat);transform:translate(-50%,-50%)}
+.gk-mat{position:absolute;inset:0;border-radius:10%;filter:drop-shadow(0 8px 10px rgba(0,0,0,.55))}
+.gk-seat.turn .gk-mat{box-shadow:0 0 0 3px var(--gold),0 0 0 7px rgba(255,198,42,.28),0 0 30px rgba(255,198,42,.75)}
+.gk-seat.dim .gk-mat,.gk-seat.dim .gk-pile{filter:saturate(.55) brightness(.62)}
+.gk-pile{position:absolute;left:50%;top:50%;width:0;height:0}
+.gk-d{position:absolute;width:var(--disc);height:var(--disc);left:calc(var(--disc) / -2);top:calc(var(--disc) / -2);
+  transform:translate(var(--x,0px),var(--y,0px)) rotate(var(--r,0deg)) scale(var(--s,1));
+  filter:drop-shadow(0 2.5px 0 rgba(0,0,0,.6)) drop-shadow(0 6px 7px rgba(0,0,0,.45))}
+.gk-d.hot{z-index:5;filter:drop-shadow(0 0 0 #000) drop-shadow(0 0 14px rgba(255,70,50,.95)) drop-shadow(0 8px 10px rgba(0,0,0,.6))}
+.gk-d.ok{filter:drop-shadow(0 2.5px 0 rgba(0,0,0,.6)) drop-shadow(0 0 9px rgba(255,236,170,.75))}
+.gk-tag{position:absolute;left:50%;top:0;transform:translate(-50%,-62%);z-index:6;white-space:nowrap;
+  font-family:"Black Han Sans","Noto Sans KR",sans-serif;font-size:calc(var(--fs) * 1.05);padding:2px 11px 3px;border-radius:99px;
+  background:var(--gold);color:#1c1608;box-shadow:0 2px 0 var(--gold-d),0 4px 8px rgba(0,0,0,.5)}
+.gk-tag.pass{background:#3a332c;color:#d8cfbf;box-shadow:0 2px 0 #17120d,0 4px 8px rgba(0,0,0,.5)}
+.gk-tag.bad{background:var(--red);color:#fff;box-shadow:0 2px 0 #8a1b12,0 4px 8px rgba(0,0,0,.5)}
+.gk-cnt{position:absolute;right:-6px;bottom:-6px;z-index:6;min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:#17110a;
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-family:"Bangers",sans-serif;font-size:17px;letter-spacing:.5px}
+.gk-stage.phone .gk-cnt{min-width:19px;height:19px;font-size:12px;right:-5px;bottom:-5px}
+
+/* 이름표 */
+.gk-plate{position:absolute;left:50%;top:calc(100% + 7px);transform:translateX(-50%);display:flex;align-items:center;gap:8px;white-space:nowrap;
+  padding:4px 12px 4px 4px;border-radius:99px;background:rgba(18,14,10,.78);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 4px 10px rgba(0,0,0,.4)}
+.gk-stage.phone .gk-plate{gap:5px;padding:2px 8px 2px 2px;top:calc(100% + 4px)}
+.gk-stage:not(.phone) .gk-seat.me .gk-plate{left:auto;right:calc(100% + 12px);top:50%;transform:translateY(-50%)}
+.gk-av{width:var(--av);height:var(--av);border-radius:50%;flex:none;background-size:cover;background-position:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.9)}
+.gk-av.letter{display:flex;align-items:center;justify-content:center;font-family:"Black Han Sans",sans-serif;font-size:calc(var(--av) * .5);background:radial-gradient(circle at 50% 30%,#7a6858,#241c17)}
+.gk-nm{font-weight:700;font-size:var(--fs);display:flex;align-items:center;gap:6px}
+.gk-nm i{font-style:normal;font-size:.72em;font-weight:700;color:#1c1608;background:var(--gold);padding:0 5px;border-radius:5px}
+.gk-sub{font-size:calc(var(--fs) * .82);color:var(--ink2);font-weight:500;margin-top:1px}
+.gk-stage.phone .gk-sub{display:none}
+.gk-pips{display:flex;gap:3px;margin-left:2px}
+.gk-pips b{width:calc(var(--fs) * .78);height:calc(var(--fs) * .78);transform:rotate(45deg);border-radius:2px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.4)}
+.gk-pips b.on{background:var(--gold);box-shadow:0 0 8px rgba(255,198,42,.8)}
+
+/* 가운데 상황 줄 */
+.gk-status{position:absolute;left:50%;top:43.2%;transform:translate(-50%,-50%);text-align:center;white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:8px}
+.gk-stage.phone .gk-status{top:55%;gap:3px}
+.gk-line{font-size:calc(var(--fs) * 2.5);line-height:1.05}
+.gk-line em{font-style:normal;color:var(--gold)}
+.gk-line.bad{color:var(--red)}
+.gk-hint{font-size:calc(var(--fs) * 1.02);font-weight:500;color:#efe7d8;padding:5px 15px;border-radius:99px;background:rgba(14,10,7,.62);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.gk-hint b{color:var(--gold);font-weight:700}
+.gk-stage.phone .gk-hint{padding:2px 10px}
+.gk-big{display:flex;align-items:flex-end;gap:18px}
+.gk-big .num{font-size:76px}
+.gk-big .gk-line{padding-bottom:8px}
+.gk-big .num small{font-size:.5em;color:#e9e1d2}
+.gk-who{display:flex;align-items:center;gap:8px;padding-bottom:14px;font-weight:700;font-size:17px;text-align:left}
+.gk-who .gk-av{--av:38px}
+
+/* 아래: 내 손과 버튼 */
+.gk-dock{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:flex-end;gap:22px}
+.gk-stage.phone .gk-dock{left:auto;right:12px;bottom:8px;transform:none;gap:12px}
+.gk-tray{display:flex;gap:10px;padding:12px 14px 9px;border-radius:26px;background:linear-gradient(180deg,rgba(24,17,11,.82),rgba(10,7,5,.9));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14),inset 0 2px 0 rgba(255,255,255,.07),0 10px 24px rgba(0,0,0,.5)}
+.gk-stage.phone .gk-tray{gap:6px;padding:6px 8px;border-radius:18px}
+.gk-slot{width:var(--hd);text-align:center}
+.gk-slot .gk-hdisc{width:var(--hd);height:var(--hd);border-radius:50%;filter:drop-shadow(0 3px 0 rgba(0,0,0,.6)) drop-shadow(0 8px 9px rgba(0,0,0,.5))}
+.gk-slot.pick .gk-hdisc{transform:translateY(-12px);filter:drop-shadow(0 0 0 #000) drop-shadow(0 0 12px rgba(255,198,42,.9)) drop-shadow(0 14px 12px rgba(0,0,0,.5))}
+.gk-slot.gone .gk-hdisc{filter:none;box-shadow:inset 0 0 0 2px rgba(255,255,255,.16);background:rgba(255,255,255,.035)}
+.gk-slot span{display:block;margin-top:5px;font-size:12px;font-weight:700;color:var(--ink2)}
+.gk-slot.gone span{color:rgba(255,255,255,.3)}
+.gk-stage.phone .gk-slot span{display:none}
+.gk-acts{display:flex;flex-direction:column;gap:9px;width:206px;padding-bottom:6px}
+.gk-stage.phone .gk-acts{width:150px;gap:5px;padding-bottom:0}
+.gk-step{display:flex;align-items:center;justify-content:space-between;height:62px;padding:0 7px;border-radius:31px;background:rgba(14,10,7,.82);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+.gk-step button{width:48px;height:48px;border-radius:50%;background:#2e261f;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.3),0 3px 0 #0c0906;font-size:28px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;padding-bottom:3px}
+.gk-step button.off{opacity:.35}
+.gk-step .num{font-size:46px}
+.gk-step small{display:block;font-size:11px;color:var(--ink2);font-weight:500;text-align:center;margin-top:-2px}
+.gk-stage.phone .gk-step{height:40px}
+.gk-stage.phone .gk-step button{width:32px;height:32px;font-size:20px}
+.gk-stage.phone .gk-step .num{font-size:28px;-webkit-text-stroke-width:4px}
+.gk-stage.phone .gk-step small{display:none}
+.gk-btn{height:58px;border-radius:18px;font-family:"Black Han Sans","Noto Sans KR",sans-serif;font-size:25px;display:flex;align-items:center;justify-content:center;gap:8px;
+  background:linear-gradient(180deg,#ffd95c,#ffc02a 55%,#f0a50c);color:#1c1608;box-shadow:0 5px 0 var(--gold-d),0 10px 16px rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.55)}
+.gk-btn.ghost{height:46px;font-size:20px;background:rgba(40,33,27,.92);color:#efe7d8;box-shadow:0 4px 0 #0c0906,inset 0 0 0 1.5px rgba(255,255,255,.26)}
+.gk-btn .n{font-family:"Bangers",sans-serif;font-size:1.25em;letter-spacing:1px;padding-top:2px}
+.gk-stage.phone .gk-btn{height:38px;font-size:18px;border-radius:13px;box-shadow:0 3px 0 var(--gold-d),inset 0 2px 0 rgba(255,255,255,.55)}
+.gk-stage.phone .gk-btn.ghost{height:30px;font-size:15px;box-shadow:0 3px 0 #0c0906,inset 0 0 0 1.5px rgba(255,255,255,.26)}
+.gk-row{display:flex;gap:8px}
+.gk-row>*{flex:1}
+
+/* 덮는 창(벌칙·결과) */
+.gk-veil{position:absolute;inset:0;background:rgba(8,5,3,.72);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.gk-sheet{padding:28px 44px 30px;border-radius:30px;text-align:center;background:linear-gradient(180deg,#2c2119,#17100b);
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.16),inset 0 2px 0 rgba(255,255,255,.1),0 30px 80px rgba(0,0,0,.7)}
+.gk-sheet h2{margin:10px 0 4px;font-size:40px;font-weight:400;color:var(--gold)}
+.gk-sheet p{margin:0;color:var(--ink2);font-weight:500;font-size:15px}
+.gk-sheet p b{color:#fff}
+.gk-headrow{display:inline-flex;align-items:center;gap:9px;font-weight:700;font-size:16px;padding:4px 14px 4px 4px;border-radius:99px;background:rgba(255,255,255,.08)}
+.gk-headrow .gk-av{--av:34px}
+.gk-picks{display:flex;gap:30px;justify-content:center;margin:30px 0 24px}
+.gk-pick{width:148px;height:148px;border-radius:50%;position:relative;filter:drop-shadow(0 5px 0 rgba(0,0,0,.6)) drop-shadow(0 14px 14px rgba(0,0,0,.55))}
+.gk-pick.on{transform:translateY(-14px) rotate(-5deg);filter:drop-shadow(0 0 0 #000) drop-shadow(0 0 16px rgba(255,198,42,.95)) drop-shadow(0 22px 16px rgba(0,0,0,.5))}
+.gk-pick.on::after{content:"이걸 버리기";position:absolute;left:50%;bottom:-34px;transform:translateX(-50%) rotate(5deg);white-space:nowrap;font-weight:700;font-size:13px;color:#1c1608;background:var(--gold);padding:2px 10px;border-radius:99px}
+
+.gk-res{display:flex;gap:56px;align-items:center;padding:34px 52px}
+.gk-win{position:relative;width:330px;text-align:center}
+.gk-win .gk-rays{position:absolute;left:50%;top:92px;width:420px;height:420px;transform:translate(-50%,-50%);opacity:.5}
+.gk-win .gk-wav{position:relative;width:176px;height:176px;margin:0 auto;border-radius:50%;background-size:cover;background-position:center;
+  box-shadow:0 0 0 5px #17110a,0 0 0 11px var(--gold),0 0 0 14px #17110a,0 0 50px rgba(255,198,42,.7)}
+.gk-win .gk-wmat{position:absolute;right:26px;top:118px;width:74px;height:74px;transform:rotate(11deg);filter:drop-shadow(0 6px 8px rgba(0,0,0,.6))}
+.gk-win h1{position:relative;margin:22px 0 2px;font-size:54px;font-weight:400;color:var(--gold);line-height:1.05;white-space:nowrap}
+.gk-win .gk-wname{position:relative;font-size:22px;font-weight:900}
+.gk-win .gk-wwhy{position:relative;margin-top:4px;color:var(--ink2);font-weight:500}
+.gk-ranks{width:400px;display:flex;flex-direction:column;gap:8px}
+.gk-rank{display:flex;align-items:center;gap:12px;height:56px;padding:0 16px 0 10px;border-radius:16px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.gk-rank.first{background:linear-gradient(90deg,rgba(255,198,42,.26),rgba(255,198,42,.06));box-shadow:inset 0 0 0 1.5px rgba(255,198,42,.6)}
+.gk-rank.outp{opacity:.55}
+.gk-rank .rk{width:30px;text-align:center;font-family:"Bangers",sans-serif;font-size:28px;color:var(--gold)}
+.gk-rank .gk-av{--av:38px}
+.gk-rank .nm{flex:1;text-align:left;font-weight:700;font-size:16px}
+.gk-rank .ds{display:flex;gap:3px}
+.gk-rank .ds i{width:22px;height:22px;display:block}
+.gk-rank .ds i.no{border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.18)}
+.gk-rank .gk-pips b{width:13px;height:13px}
+.gk-resbtns{display:flex;gap:10px;margin-top:14px}
+.gk-resbtns .gk-btn{flex:1.4}
+.gk-resbtns .gk-btn.ghost{flex:1;height:58px}
+
+/* A 견본표 */
+.gk-sw{position:absolute;inset:0;display:grid;grid-template-columns:86px repeat(6,1fr);grid-template-rows:54px repeat(6,1fr);padding:10px 34px 18px 20px;align-items:center;justify-items:center}
+.gk-sw h1{grid-column:1/-1;justify-self:start;margin:0;font-size:26px;font-weight:400;color:var(--gold);display:none}
+.gk-sw .hd{font-weight:700;font-size:14px;color:#efe7d8;align-self:end;padding-bottom:8px;text-align:center}
+.gk-sw .hd small{display:block;font-weight:500;color:var(--ink2);font-size:11.5px}
+.gk-sw .cn{font-size:22px;justify-self:start}
+.gk-sw .cell{width:96px;height:96px;filter:drop-shadow(0 3px 0 rgba(0,0,0,.6)) drop-shadow(0 8px 9px rgba(0,0,0,.5))}
+.gk-sw .cell.m{filter:drop-shadow(0 8px 9px rgba(0,0,0,.55))}
+</style>
+</head>
+<body>
+<div class="mk-frame"><div class="gk-stage" id="stage"></div></div>
+<nav class="mk-nav" id="nav"></nav>
+
+<script type="module">
+import { COLORS, discBack, discFlower, discSkull, mat, skullIcon } from '../../client/src/gsk/art.js';
+
+// ── 가짜 프로필 사진(사람 사진 아님). 비율이 제각각이라 원 안에 꽉 차는지 볼 수 있다 ──
+const svgUrl = (w, h, body) => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w * 4}" height="${h * 4}">${body}</svg>`);
+const AV = {
+  // 세로로 긴 사진: 노을빛 고양이
+  cat: svgUrl(90, 120, `<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#ff5e7e"/></linearGradient></defs>
+    <rect width="90" height="120" fill="url(#g)"/><circle cx="70" cy="18" r="26" fill="#fff" opacity=".18"/>
+    <path d="M14,52L20,22L40,40ZM76,52L70,22L50,40Z" fill="#3b2a4a"/><ellipse cx="45" cy="64" rx="33" ry="29" fill="#3b2a4a"/>
+    <ellipse cx="33" cy="60" rx="5.5" ry="7.5" fill="#ffe36b"/><ellipse cx="57" cy="60" rx="5.5" ry="7.5" fill="#ffe36b"/><ellipse cx="33" cy="60" rx="1.8" ry="6" fill="#1a1024"/><ellipse cx="57" cy="60" rx="1.8" ry="6" fill="#1a1024"/>
+    <path d="M42,71h6l-3,4z" fill="#ff8fa3"/><path d="M45,75q-5,6 -10,2M45,75q5,6 10,2" stroke="#ffd7de" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <path d="M10,120q35,-34 70,0z" fill="#3b2a4a"/>`),
+  // 정사각 사진: 줄무늬 배경 + 안경
+  specs: svgUrl(100, 100, `<rect width="100" height="100" fill="#123b5c"/>
+    <g stroke="#1f6f8f" stroke-width="9">${[-60, -30, 0, 30, 60, 90, 120].map((x) => `<path d="M${x},110L${x + 60},-10"/>`).join('')}</g>
+    <circle cx="50" cy="52" r="30" fill="#ffd9b0"/><path d="M20,46q4,-32 30,-30q28,-2 30,30q-12,-16 -30,-14q-18,-2 -30,14z" fill="#2a1a12"/>
+    <g fill="none" stroke="#10222e" stroke-width="3"><circle cx="38" cy="54" r="9"/><circle cx="62" cy="54" r="9"/><path d="M47,54h6"/></g>
+    <circle cx="38" cy="54" r="2.4" fill="#10222e"/><circle cx="62" cy="54" r="2.4" fill="#10222e"/>
+    <path d="M40,68q10,8 20,0" stroke="#a84a3a" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M8,100q42,-22 84,0z" fill="#e8553f"/>`),
+  // 정사각 사진: 물방울 무늬 + 곰
+  bear: svgUrl(100, 100, `<rect width="100" height="100" fill="#6b3fd1"/>
+    <g fill="#ffd23f">${[[12, 14], [46, 8], [84, 18], [28, 40], [70, 46], [10, 70], [90, 76], [50, 92]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6"/>`).join('')}</g>
+    <circle cx="27" cy="30" r="13" fill="#8a5a36"/><circle cx="73" cy="30" r="13" fill="#8a5a36"/><circle cx="27" cy="30" r="6" fill="#e9b98a"/><circle cx="73" cy="30" r="6" fill="#e9b98a"/>
+    <circle cx="50" cy="56" r="33" fill="#8a5a36"/><ellipse cx="50" cy="66" rx="15" ry="12" fill="#e9b98a"/>
+    <circle cx="37" cy="50" r="4" fill="#20120a"/><circle cx="63" cy="50" r="4" fill="#20120a"/><ellipse cx="50" cy="61" rx="5" ry="3.6" fill="#20120a"/>
+    <path d="M50,64v6q-5,5 -9,1M50,70q5,5 9,1" stroke="#20120a" stroke-width="2" fill="none" stroke-linecap="round"/>`),
+  // 가로로 긴 사진: 얼굴 없는 풍경
+  hill: svgUrl(160, 90, `<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b4c9b"/><stop offset=".7" stop-color="#f6a85c"/></linearGradient></defs>
+    <rect width="160" height="90" fill="url(#s)"/><circle cx="84" cy="50" r="17" fill="#fff3c4"/>
+    <path d="M0,70L38,34L66,62L96,26L160,74V90H0z" fill="#27324f"/><path d="M0,78q40,-16 80,-4t80,-6V90H0z" fill="#12182b"/>
+    <path d="M96,26l10,12l-8,-2l-6,8z" fill="#fff" opacity=".8"/>`),
+  // 정사각: 바둑판 + 로봇
+  bot: svgUrl(100, 100, `<rect width="100" height="100" fill="#0f5132"/>
+    <g fill="#198754">${Array.from({ length: 25 }, (_, i) => ((i % 5) + ((i / 5) | 0)) % 2 ? '' : `<rect x="${(i % 5) * 20}" y="${((i / 5) | 0) * 20}" width="20" height="20"/>`).join('')}</g>
+    <path d="M50,14v12" stroke="#dfe6e9" stroke-width="4"/><circle cx="50" cy="12" r="5" fill="#ff7675"/>
+    <rect x="22" y="26" width="56" height="48" rx="12" fill="#dfe6e9"/><rect x="30" y="38" width="16" height="13" rx="4" fill="#0984e3"/><rect x="54" y="38" width="16" height="13" rx="4" fill="#0984e3"/>
+    <path d="M34,61h32" stroke="#2d3436" stroke-width="4" stroke-linecap="round" stroke-dasharray="1 7"/><rect x="34" y="78" width="32" height="22" fill="#b2bec3"/>`),
+  // 정사각: 달밤
+  moon: svgUrl(100, 100, `<defs><radialGradient id="m" cx=".6" cy=".35" r=".9"><stop offset="0" stop-color="#b56cff"/><stop offset="1" stop-color="#1a0b3a"/></radialGradient></defs>
+    <rect width="100" height="100" fill="url(#m)"/><circle cx="56" cy="46" r="27" fill="#ffe9a8"/><circle cx="68" cy="38" r="24" fill="#6a34b8"/>
+    <g fill="#fff">${[[14, 18, 1.6], [30, 70, 2], [84, 76, 1.4], [20, 44, 1.2], [78, 14, 1.8], [50, 88, 1.3]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('')}</g>`),
+};
+
+// ── 가짜 사람들. 0번이 나, 그 뒤는 시계 방향 ──
+const P = [
+  { id: 'me', name: '하린', color: 4, photo: AV.cat },
+  { id: 'a', name: '도윤', color: 0, photo: AV.specs },
+  { id: 'b', name: '민서', color: 1, photo: null },
+  { id: 'c', name: '지호', color: 2, photo: AV.bear, points: 1 },
+  { id: 'd', name: '서아', color: 5, photo: AV.hill },
+];
+// 자리: [x%, y%, 공개한 원판을 펼치는 방향]
+const POS = {
+  pc: [[50, 63, 1], [13.5, 46.5, 1], [33, 21.5, 1], [67, 21.5, -1], [86.5, 46.5, -1]],
+  phone: [[24, 76.5, 1], [10, 31.5, 1], [36, 27.5, 1], [64, 27.5, -1], [90, 31.5, -1]],
+};
+const JIT = [[0, 0, -5], [3, -5, 7], [-3, -10, -9], [2, -15, 4]];
+
+// 상태(9-2 모양을 줄인 것). stack = 판 위 장수, shown = 위에서부터 공개된 것
+const S = {
+  B: {
+    round: 3, turn: 'me', total: 8,
+    seats: [{ hand: 3, stack: 1 }, { hand: 2, stack: 2 }, { hand: 3, stack: 1 }, { hand: 1, stack: 2 }, { hand: 2, stack: 2 }],
+    mine: ['F', 'F', 'S', null], pick: 0,
+    line: '<em>내 차례</em>', hint: '원판을 하나 더 놓거나 <b>도전</b>하세요 · 판 위 원판 <b>8</b>장',
+    acts: { step: 3, min: 1, max: 8, main: '도전' },
+  },
+  C: {
+    round: 3, turn: 'me', total: 9, bid: { n: 5, by: 3 },
+    seats: [{ hand: 2, stack: 2 }, { hand: 2, stack: 2, passed: 1 }, { hand: 2, stack: 2 }, { hand: 1, stack: 2, tag: '5' }, { hand: 3, stack: 1, passed: 1 }],
+    mine: ['F', 'F', null, null],
+    hint: '더 높이 부르거나 <b>패스</b> · 판 위 원판 <b>9</b>장',
+    acts: { step: 6, min: 6, max: 9, main: '올리기', n: 6, pass: 1 },
+  },
+  D: {
+    round: 3, turn: null, total: 9, challenger: 2,
+    seats: [{ hand: 2, stack: 2, shown: ['S'], hot: 1 }, { hand: 2, stack: 2, shown: ['F'] }, { hand: 2, stack: 2, shown: ['F', 'F'], tag: '도전 5', bad: 1 }, { hand: 1, stack: 2 }, { hand: 3, stack: 1 }],
+    mine: ['F', 'F', null, null],
+    flip: [3, 5], line2: '해골! 도전 실패', hint: '<b>하린</b> 님의 해골이 나왔습니다',
+  },
+  F: { round: 6, total: 0, seats: [{ hand: 3, stack: 0 }, { hand: 4, stack: 0 }, { hand: 0, stack: 0, out: 1 }, { hand: 3, stack: 0, points: 2 }, { hand: 2, stack: 0 }], mine: ['F', 'F', 'S', null], result: 1 },
+};
+S.E = { ...S.D, penalty: 1 };
+S.G = S.B;
+
+const q = new URLSearchParams(location.search);
+const key = (q.get('s') || 'B').toUpperCase();
+const stage = document.getElementById('stage');
+document.getElementById('nav').innerHTML = q.get('shot') ? '' : 'ABCDEFG'.split('').map((k) => `<a href="?s=${k}" class="${k === key ? 'on' : ''}">${k}</a>`).join('');
+
+const avatar = (p) => p.photo ? `<span class="gk-av" style="background-image:url('${p.photo}')"></span>` : `<span class="gk-av letter">${p.name[0]}</span>`;
+const pips = (n) => `<span class="gk-pips"><b class="${n > 0 ? 'on' : ''}"></b><b class="${n > 1 ? 'on' : ''}"></b></span>`;
+const face = (p, k) => k === 'S' ? discSkull(p.color, p.photo) : discFlower(p.color);
+
+function wood() {
+  return `<svg class="gk-wood" preserveAspectRatio="none"><filter id="wd" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.0032 0.21" numOctaves="4" seed="11"/>
+    <feColorMatrix values="0.27 0 0 0 0.03  0.17 0 0 0 0.018  0.105 0 0 0 0.012  0 0 0 0 1"/></filter>
+    <rect width="100%" height="100%" fill="#2a1b12"/><rect width="100%" height="100%" filter="url(#wd)"/></svg><div class="gk-wood-seam"></div>`;
+}
+
+function seatHtml(st, i, phone) {
+  const p = P[i], s = st.seats[i], [x, y, dir] = (phone ? POS.phone : POS.pc)[i];
+  const shown = s.shown || [], hidden = s.stack - shown.length;
+  let pile = '';
+  for (let j = 0; j < hidden; j++) pile += `<div class="gk-d" style="--x:${JIT[j][0]}px;--y:${JIT[j][1]}px;--r:${JIT[j][2]}deg">${discBack(p.color)}</div>`;
+  // 공개된 원판은 판 옆으로 펼친다(나중에 뒤집힌 것이 판 가까이)
+  shown.forEach((k, j) => {
+    const hot = s.hot && k === 'S';
+    const off = `calc(${dir} * (var(--mat) * .5 + var(--disc) * ${(0.56 + 0.7 * (shown.length - 1 - j) + (hot ? 0.16 : 0)).toFixed(2)} + 6px))`;
+    pile += `<div class="gk-d ${hot ? 'hot' : 'ok'}" style="--x:${off};--y:${hot ? -4 : 0}px;--r:${hot ? -9 : [4, -6][j % 2]}deg;--s:${hot ? 1.3 : 1}">${face(p, k)}</div>`;
+  });
+  const points = s.points ?? p.points ?? 0;
+  const tag = st.turn === p.id ? `<span class="gk-tag">${i ? '차례' : '내 차례'}</span>`
+    : s.passed ? '<span class="gk-tag pass">패스</span>'
+    : s.tag ? `<span class="gk-tag ${s.bad ? 'bad' : ''}">${s.tag}</span>` : '';
+  return `<div class="gk-seat ${i ? "" : "me"} ${st.turn === p.id ? 'turn' : ''} ${s.passed || s.out ? 'dim' : ''}" style="left:${x}%;top:${y}%">
+    <div class="gk-mat">${mat(p.color, points > 0)}</div>
+    <div class="gk-pile">${pile}</div>${tag}
+    ${s.stack ? `<span class="gk-cnt">${s.stack}</span>` : ''}
+    <div class="gk-plate">${avatar(p)}<div><div class="gk-nm">${p.name}${i ? '' : '<i>나</i>'}${pips(points)}</div>
+      <div class="gk-sub">${s.out ? '탈락' : `손 ${s.hand} · 판 ${s.stack}`}</div></div></div>
+  </div>`;
+}
+
+function statusHtml(st) {
+  if (st.bid) {
+    const by = P[st.bid.by];
+    return `<div class="gk-status"><div class="gk-big"><span class="num">${st.bid.n}</span>
+      <div class="gk-who">${avatar(by)}<div>${by.name} 님이 부름<div class="gk-sub" style="display:block">꽃만 ${st.bid.n}장 뒤집겠다!</div></div></div></div>
+      <div class="gk-hint">${st.hint}</div></div>`;
+  }
+  if (st.flip) {
+    return `<div class="gk-status"><div class="gk-big"><span class="num">${st.flip[0]}<small> / ${st.flip[1]}</small></span><div class="gk-line ko bad">${st.line2}</div></div>
+      <div class="gk-hint">${st.hint}</div></div>`;
+  }
+  return `<div class="gk-status"><div class="gk-line ko">${st.line}</div><div class="gk-hint">${st.hint}</div></div>`;
+}
+
+function dockHtml(st) {
+  const me = P[0], a = st.acts;
+  const tray = st.mine.map((k, j) => k
+    ? `<div class="gk-slot ${st.pick === j ? 'pick' : ''}"><div class="gk-hdisc">${face(me, k)}</div><span>${k === 'S' ? '해골 (내 사진)' : '꽃'}</span></div>`
+    : '<div class="gk-slot gone"><div class="gk-hdisc"></div><span>판 위</span></div>').join('');
+  let acts = '';
+  if (a) {
+    acts = `<div class="gk-acts"><div class="gk-step"><button class="${a.step <= a.min ? 'off' : ''}">−</button>
+      <div><span class="num">${a.step}</span><small>${a.min} ~ ${a.max}</small></div><button class="${a.step >= a.max ? 'off' : ''}">+</button></div>
+      ${a.pass ? `<div class="gk-row"><button class="gk-btn ghost">패스</button><button class="gk-btn" style="flex:1.5">${a.main} <span class="n">${a.n}</span></button></div>`
+        : `<button class="gk-btn">${a.main}</button>`}</div>`;
+  }
+  return `<div class="gk-dock"><div class="gk-tray">${tray}</div>${acts}</div>`;
+}
+
+function penaltyHtml() {
+  const c = P[2];
+  return `<div class="gk-veil"><div class="gk-sheet">
+    <span class="gk-headrow">${avatar(c)}${c.name} 님의 도전 실패 · 남은 원판 3장</span>
+    <h2 class="ko">하나를 골라 버리세요</h2>
+    <p>내 해골이 나왔으니 <b>내가</b> 고릅니다. 뒷면으로 섞여 있어요.</p>
+    <div class="gk-picks"><div class="gk-pick">${discBack(c.color)}</div><div class="gk-pick on">${discBack(c.color)}</div><div class="gk-pick">${discBack(c.color)}</div></div>
+    <p style="margin-top:44px">무엇을 버렸는지는 ${c.name} 님만 압니다</p>
+  </div></div>`;
+}
+
+function resultHtml(st) {
+  const w = P[3];
+  const order = [[3, 2, 3], [1, 0, 4], [0, 0, 3], [4, 0, 2], [2, 0, 0]];   // [사람, 점수, 남은 원판]
+  const rays = `<svg class="gk-rays" viewBox="-100 -100 200 200">${Array.from({ length: 18 }, (_, i) => `<path transform="rotate(${i * 20})" d="M0,0L-7,-100L7,-100Z" fill="#ffc62a" opacity=".22"/>`).join('')}</svg>`;
+  return `<div class="gk-veil"><div class="gk-sheet gk-res">
+    <div class="gk-win">${rays}<div class="gk-wav" style="background-image:url('${w.photo}')"></div><div class="gk-wmat">${mat(w.color, true)}</div>
+      <h1 class="ko">갱스껄 승리!</h1><div class="gk-wname">${w.name}</div><div class="gk-wwhy">도전 두 번 성공 · 6라운드</div></div>
+    <div><div class="gk-ranks">${order.map(([i, pt, ds], r) => {
+      const p = P[i];
+      return `<div class="gk-rank ${r ? '' : 'first'} ${ds ? '' : 'outp'}"><span class="rk">${r + 1}</span>${avatar(p)}
+        <span class="nm">${p.name}${i ? '' : ' (나)'}${ds ? '' : ' · 탈락'}</span>${pips(pt)}
+        <span class="ds">${[0, 1, 2, 3].map((d) => d < ds ? `<i>${discBack(p.color)}</i>` : '<i class="no"></i>').join('')}</span></div>`;
+    }).join('')}</div>
+    <div class="gk-resbtns"><button class="gk-btn">한 판 더</button><button class="gk-btn ghost">나가기</button></div></div>
+  </div></div>`;
+}
+
+function swatches() {
+  const photos = [AV.specs, AV.moon, AV.bear, AV.bot, AV.cat, AV.hill];
+  const heads = [['원판 뒷면', '꽃·해골 같음'], ['꽃', ''], ['해골 · 사진 있음', '원 안에 꽉 차게'], ['해골 · 사진 없음', '문양 해골'], ['개인판 앞면', '0점'], ['개인판 뒷면', '1점 · 금테']];
+  let h = '<span></span>' + heads.map(([a, b]) => `<div class="hd">${a}<small>${b}</small></div>`).join('');
+  COLORS.forEach((c, i) => {
+    h += `<div class="cn ko" style="color:${c.base}">${c.name}</div>`
+      + `<div class="cell">${discBack(i)}</div><div class="cell">${discFlower(i)}</div><div class="cell">${discSkull(i, photos[i])}</div><div class="cell">${discSkull(i, null)}</div>`
+      + `<div class="cell m">${mat(i, false)}</div><div class="cell m">${mat(i, true)}</div>`;
+  });
+  return wood() + `<div class="gk-sw">${h}</div>`;
+}
+
+function render() {
+  const boxed = key === 'G' && (innerWidth > 860 || innerHeight > 400);
+  stage.classList.toggle('boxed', boxed);
+  const phone = stage.clientHeight < 500;
+  stage.classList.toggle('phone', phone);
+  if (key === 'A') { stage.innerHTML = swatches(); return; }
+  const st = S[key] || S.B;
+  const icon = (d) => `<span class="gk-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
+  stage.innerHTML = wood()
+    + `<div class="gk-bar"><span class="gk-brand ko">갱스껄</span><span class="gk-code">4821</span><span class="gk-round">${st.round}라운드</span><span class="gk-sp"></span>`
+    + icon('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9a4 4 0 0 1 0 6"/>') + icon('<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/>') + icon('<path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4M18 12H9"/>') + '</div>'
+    + P.map((_, i) => seatHtml(st, i, phone)).join('')
+    + (st.result ? '' : statusHtml(st)) + dockHtml(st)
+    + (st.penalty ? penaltyHtml() : '') + (st.result ? resultHtml(st) : '');
+}
+render();
+addEventListener('resize', render);
+window.__ready = true;
+void skullIcon;
+</script>
+</body>
+</html>
