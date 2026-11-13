@@ -15,6 +15,7 @@ export const PHASES = Object.freeze({
   JUDGED: 'judged',
   UNMASK: 'unmask',
   GUESS: 'guess',
+  ANSWER: 'answer',   // 정답 공개 연출(guess 와 result 사이)
   RESULT: 'result',
 });
 
@@ -41,6 +42,8 @@ export const FIXED_TIMES = Object.freeze({
   unmaskLiar: 6,      // 라이어 처형
   unmaskCitizen: 11,  // 시민 처형 (두 줄 6초 + 라이어 클로즈업 5초)
   unmaskFail: 5,      // 지목 실패 (라이어 클로즈업만)
+  answer: 10,         // 정답 공개 ('word' 방식). 사용자 결정 2026-11-13
+  answerNotice: 10,   // 정답 공개 ('notice' 방식)
 });
 
 // 첫 설명을 쓴 뒤 다음 차례로 넘어가기 전에 그 사람과 글을 보여 주는 시간(초). 사용자 요청 (GDD 4-1)
