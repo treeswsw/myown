@@ -488,7 +488,7 @@ test('엔진 소스에 Math.random / Date.now / new Date 가 없다', () => {
 
 test('상수: 시간 기본값이 선택지 안에 있고 고정값·색·목표 점수가 GDD 와 같다', () => {
   for (const k of Object.keys(DEFAULT_TIMES)) assert.ok(TIME_CHOICES[k].includes(DEFAULT_TIMES[k]), k);
-  assert.deepEqual(DEFAULT_TIMES, { speak: 30, discuss: 90, rediscuss: 60, defense: 20, judge: 10, guess: 15 });
+  assert.deepEqual(DEFAULT_TIMES, { speak: 30, discuss: 90, rediscuss: 60, defense: 20, judge: 15, guess: 15 });
   assert.deepEqual(FIXED_TIMES, { reveal: 8, revote: 30, judged: 3, unmaskLiar: 6, unmaskCitizen: 11, unmaskFail: 5 });
   assert.deepEqual(LIMITS, { say: 80, chat: 80, guess: 30 });
   assert.equal(DISCUSS_FLOOR, 30);
@@ -561,14 +561,14 @@ for (const N of [3, 8]) {
     assert.equal(wakeAt(g), g.phaseEndsAt);
   });
 
-  test(`[${N}명] judge 마감: yes > no 면 처형, 안 고른 사람은 no, 동수는 살림`, () => {
+  test(`[${N}명] judge 마감: yes > no 면 처형, 안 고른 사람은 기권, 동수는 살림`, () => {
     const voters = ids(N).filter((p) => p !== 'p1');   // N-1 명
-    // 안 고름 = no: yes 가 과반 미만
+    // 안 고름 = 기권: 맞다 1 · 기권 나머지 → 처형
     let g = make(N, { liarIdx: 0 }); toJudge(g, 'p1');
     judgeAct(g, voters[0], 'yes', g.phaseStartedAt);
     let r = tick(g, g.phaseEndsAt);
     const ev = r.events.find((e) => e.k === 'judged');
-    assert.equal(ev.executed, false);       // yes 1 뿐, 나머지는 안 고름 = no
+    assert.equal(ev.executed, true);        // yes 1 > no 0
     assert.deepEqual(ev.picks, { [voters[0]]: 'yes' });
     // 전원 yes → 처형
     g = make(N, { liarIdx: 0 }); toJudge(g, 'p1'); judgeAll(g, 'p1', 'yes');
@@ -591,6 +591,29 @@ for (const N of [3, 8]) {
       vs.forEach((id, i) => judgeAct(g, id, i < 4 ? 'yes' : 'no', g.phaseStartedAt));
       pastJudge(g); assert.equal(g.judge.executed, true);
     }
+  });
+
+  test(`[${N}명] 기권: 전원 기권 살림 / 맞다1·아니다1·기권 살림 / 기권자 점수 0`, () => {
+    let g = make(N, { liarIdx: 0 }); toJudge(g, 'p1'); pastJudge(g);
+    assert.equal(g.judge.executed, false);
+    const vs = ids(N).filter((p) => p !== 'p1');
+    g = make(N, { liarIdx: 0 }); toJudge(g, 'p1');
+    judgeAct(g, vs[0], 'yes', g.phaseStartedAt); judgeAct(g, vs[1], 'no', g.phaseStartedAt); pastJudge(g);
+    assert.equal(g.judge.executed, false);
+    // 라이어 처형: 맞다 1 · 기권 나머지. 기권자 0, 맞다 +2
+    g = make(N, { liarIdx: 0 }); toJudge(g, liar);
+    const cs = ids(N).filter((p) => p !== liar);
+    judgeAct(g, cs[0], 'yes', g.phaseStartedAt); pastJudge(g); tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
+    act(g, { type: 'guess', by: liar, text: 'x', correct: false }, g.phaseStartedAt);
+    assert.equal(g.result.delta[cs[0]], 2);
+    assert.equal(g.result.delta[cs[1]], 0);
+    // 시민 처형: 맞다 1 · 기권 나머지. 기권자 0, 맞다 −1
+    g = make(N, { liarIdx: 0 }); toJudge(g, 'p1');
+    const c2 = vs.filter((p) => p !== liar);   // 지목 안 된 시민
+    judgeAct(g, c2[0], 'yes', g.phaseStartedAt); pastJudge(g); tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
+    act(g, { type: 'guess', by: liar, text: 'x', correct: false }, g.phaseStartedAt);
+    assert.equal(g.result.delta[c2[0]], -1);
+    if (c2[1]) assert.equal(g.result.delta[c2[1]], 0);
   });
 
   test(`[${N}명] 살림: 3초 뒤 accuseNo+1, 표·후보·지목·찬반을 비우고 rediscuss 60초 토론`, () => {

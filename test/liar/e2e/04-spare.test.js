@@ -9,7 +9,7 @@ import {
 const T = { judge: 15, guess: 30 };
 
 describe('13-4 살리기와 끝내기', { concurrency: true }, () => {
-  it('살림 4번(동수·전원 아니다·안 고름 포함) 뒤 5번째에 처형, 쉬는 단계 없음, voteLog 5줄, 점수는 마지막 표만', async (t) => {
+  it('살림 4번(동수·전원 아니다·기권 포함) 뒤 5번째에 처형, 쉬는 단계 없음, voteLog 5줄, 점수는 마지막 표만', async (t) => {
     const r = await roomN(5);
     t.after(() => r.close());
     await setTimes(r, T);
@@ -20,7 +20,7 @@ describe('13-4 살리기와 끝내기', { concurrency: true }, () => {
     const rounds = [
       { [a.id]: 'yes', [b.id]: 'yes', [c.id]: 'no', [d.id]: 'no' }, // 2 대 2 동수 → 살림
       { [a.id]: 'no', [b.id]: 'no', [c.id]: 'no', [d.id]: 'no' }, // 전원 아니다
-      { [a.id]: 'yes' }, // 나머지는 안 고름 = 아니다 → 1 대 3
+      { [a.id]: 'yes', [b.id]: 'no', [c.id]: 'no' }, // d 기권 → 1 대 2
       { [a.id]: 'yes', [b.id]: 'no', [c.id]: 'no', [d.id]: 'no' },
       { [a.id]: 'yes', [b.id]: 'yes', [c.id]: 'yes', [d.id]: 'no' }, // 3 대 1 → 처형
     ];

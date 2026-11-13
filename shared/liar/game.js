@@ -244,11 +244,12 @@ function startJudge(g, now, events) {
   enter(g, P.JUDGE, now, g.times.judge, events);
 }
 
-// 찬반 마감: yes 수 > no 수(안 고른 사람 = no)면 처형. 동수는 살림.
+// 찬반 마감: yes 수 > no 수면 처형. 안 고른 사람은 기권(어느 쪽에도 안 넣음). 동수·전원 기권은 살림.
 function endJudge(g, now, events) {
   const voters = judgeVoters(g);
   const yes = voters.filter((id) => g.judge.picks[id] === 'yes').length;
-  const executed = yes > voters.length - yes;
+  const no = voters.filter((id) => g.judge.picks[id] === 'no').length;
+  const executed = yes > no;
   g.judge.executed = executed;
   const log = g.voteLog[g.voteLog.length - 1];
   log.picks = { ...g.judge.picks };
@@ -548,7 +549,9 @@ export function score(g) {
   if (last?.executed) {
     for (const id of active(g)) {
       if (id === g.liarId || id === last.accused) continue;
-      const yes = last.picks[id] === 'yes';
+      const v = last.picks[id];
+      if (v !== 'yes' && v !== 'no') continue;   // 기권 0점
+      const yes = v === 'yes';
       delta[id] = o.reason === 'executedLiar' ? (yes ? 2 : 1) : (yes ? -1 : 0);
     }
   }
