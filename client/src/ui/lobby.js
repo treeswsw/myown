@@ -1,10 +1,10 @@
 import './lobby.css';
 import { openAvatarCrop } from './avatarCrop.js';
 import { h, svg, avatar, fmt } from './dom.js';
-import { GAME_NAME as DRAW_NAME } from '../../../shared/draw/name.js';
 import { GAME_NAME as GSK_NAME } from '../../../shared/gsk/name.js';
+import { GAME_NAME as DRAW_NAME } from '../../../shared/draw/name.js';
 
-// createLobby({onLogin(id, avatarDataUrl|null), onAvatar(dataUrl), onCreate(mode), onJoin(code),
+// createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
 // -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), setYacht(visible), setDraw(visible), setGsk(visible), showRank({top, mine}) }
 // onRank() -> ask the server for the liar ranking, then call showRank.
@@ -107,6 +107,26 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   idInput.spellcheck = false;
   idInput.setAttribute('aria-label', '아이디');
   idInput.value = (() => { try { return localStorage.getItem(LAST_ID_KEY) || ''; } catch { return ''; } })();
+  // admin (SPEC 21-1): the password field only exists while the ID is exactly 관리자
+  // created lazily so normal users have no admin trace in the DOM
+  let pwInput = null;
+  const makePw = () => {
+    const i = h('input', 'lb-field');
+    i.type = 'password';
+    i.inputMode = 'numeric';
+    i.autocomplete = 'current-password';
+    i.placeholder = '비밀번호';
+    i.maxLength = 32;
+    i.setAttribute('aria-label', '관리자 비밀번호');
+    i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
+    i.addEventListener('input', () => { outErr.textContent = ''; });
+    return i;
+  };
+  const syncPw = () => {
+    if (idInput.value.trim() === '관리자') {
+      if (!pwInput) { pwInput = makePw(); idInput.after(pwInput); }
+    } else if (pwInput) { pwInput.remove(); pwInput = null; }
+  };
   const outErr = err();
   function submitLogin() {
     const id = idInput.value.trim();
@@ -117,13 +137,17 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     }
     outErr.textContent = '';
     try { localStorage.setItem(LAST_ID_KEY, id); } catch { /* ignore */ }
-    onLogin(id, pendingAvatar);
+    syncPw();
+    onLogin(id, pendingAvatar, pwInput && pwInput.value ? pwInput.value : undefined);
   }
   idInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
+  idInput.addEventListener('input', syncPw);
+  syncPw();
   const outInfo = h('p', 'lb-cap lb-center');
   idInput.addEventListener('input', () => { outErr.textContent = ''; outInfo.textContent = ''; });
   const form = h('div', 'lb-stack');
   form.append(outInfo, idInput, outErr);
+  syncPw();
   out.append(brand('lb-large'), outPhoto, form, button('입장', 'lb-primary', submitLogin));
   renderOutPhoto();
 

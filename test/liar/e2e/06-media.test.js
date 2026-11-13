@@ -142,6 +142,11 @@ describe('13-6 이모티콘과 사운드', { concurrency: true }, () => {
     assert.match(sender.errors[e1], /기본 이모티콘만/);
     // 결과에서는 모두 다시 가능
     liar.guess('틀린답');
+    await waitPhase(r, 'answer'); // 정답 공개 중에는 기본 이모티콘도 거절
+    const e2 = sender.errors.length;
+    sender.send({ t: 'emote', e: 3 });
+    await until(() => sender.errors.length >= e2 + 1 || r.host.state.phase !== 'answer', 'emote refused in answer', { clients: r.cs });
+    if (r.host.state.phase === 'answer') assert.match(sender.errors[e2], /정답 공개 중/);
     await until(() => r.cs.every((c) => c.state.phase === 'result'), 'result', { clients: r.cs });
     sender.send({ t: 'pemote', data: PHOTO });
     await until(() => gotAll(r, 'pemote', (x) => x.id === sender.id), 'pemote in result', { clients: r.cs });

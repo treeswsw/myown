@@ -22,7 +22,8 @@ test('soundForEvent / resultSound: 역할과 무관', () => {
   assert.equal(soundForEvent({ k: 'turn', id: 'a' }, 'a'), 'myTurn');
   assert.equal(soundForEvent({ k: 'turn', id: 'b' }, 'a'), 'turn');
   assert.equal(soundForEvent({ k: 'judged', executed: false }, 'a'), 'spared');
-  assert.equal(soundForEvent({ k: 'guess', correct: true }, 'a'), 'guessOk');
+  assert.equal(soundForEvent({ k: 'guess', correct: true }, 'a'), null); // 소리는 엔딩이 판정 때 낸다
+  assert.equal(soundForEvent({ k: 'guess', correct: false }, 'a'), null);
   assert.equal(soundForEvent({ k: 'unmask' }, 'a'), null);
   assert.equal(resultSound({ phase: 'result', result: { winner: 'void' } }), null);
   assert.equal(resultSound({ phase: 'result', result: { winner: 'liar', champions: ['a'] } }), 'champion');

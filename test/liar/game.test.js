@@ -508,7 +508,7 @@ test('엔진 소스에 Math.random / Date.now / new Date 가 없다', () => {
 test('상수: 시간 기본값이 선택지 안에 있고 고정값·색·목표 점수가 GDD 와 같다', () => {
   for (const k of Object.keys(DEFAULT_TIMES)) assert.ok(TIME_CHOICES[k].includes(DEFAULT_TIMES[k]), k);
   assert.deepEqual(DEFAULT_TIMES, { speak: 30, discuss: 90, rediscuss: 60, defense: 20, judge: 15, guess: 15 });
-  assert.deepEqual(FIXED_TIMES, { reveal: 8, revote: 30, judged: 3, unmaskLiar: 6, unmaskCitizen: 11, unmaskFail: 5 });
+  assert.deepEqual(FIXED_TIMES, { reveal: 8, revote: 30, judged: 3, unmaskLiar: 6, unmaskCitizen: 11, unmaskFail: 5, answer: 10, answerNotice: 10 });
   assert.deepEqual(LIMITS, { say: 80, chat: 80, guess: 30 });
   assert.equal(DISCUSS_FLOOR, 30);
   assert.equal(SHORTEN_TO, 5);
@@ -624,6 +624,7 @@ for (const N of [3, 8]) {
     const cs = ids(N).filter((p) => p !== liar);
     judgeAct(g, cs[0], 'yes', g.phaseStartedAt); pastJudge(g); tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
     act(g, { type: 'guess', by: liar, text: 'x', correct: false }, g.phaseStartedAt);
+    tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
     assert.equal(g.result.delta[cs[0]], 2);
     assert.equal(g.result.delta[cs[1]], 0);
     // 시민 처형: 맞다 1 · 기권 나머지. 기권자 0, 맞다 −1
@@ -631,6 +632,7 @@ for (const N of [3, 8]) {
     const c2 = vs.filter((p) => p !== liar);   // 지목 안 된 시민
     judgeAct(g, c2[0], 'yes', g.phaseStartedAt); pastJudge(g); tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
     act(g, { type: 'guess', by: liar, text: 'x', correct: false }, g.phaseStartedAt);
+    tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
     assert.equal(g.result.delta[c2[0]], -1);
     if (c2[1]) assert.equal(g.result.delta[c2[1]], 0);
   });
@@ -668,6 +670,7 @@ for (const N of [3, 8]) {
     assert.deepEqual(events.at(-1), { k: 'unmask', id: liar, wasLiar: true, liarId: liar });
     tick(g, g.phaseEndsAt); assert.equal(g.phase, 'guess');
     act(g, { type: 'guess', by: liar, text: '틀림', correct: false }, g.phaseStartedAt + S);
+    tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
     assert.equal(g.phase, 'result');
     const res = viewFor(g, 'p1').result;
     assert.equal(res.voteLog.length, 3);
@@ -700,12 +703,15 @@ for (const N of [3, 8]) {
     assert.equal(r.ok, true);
     assert.deepEqual(r.events.map((e) => e.k), ['guess', 'phase']);
     assert.deepEqual(r.events[0], { k: 'guess', text: '도서관', correct: true });
-    assert.equal(g.phase, 'result');
+    assert.deepEqual(r.events[1], { k: 'phase', phase: 'answer', round: 1, accuseNo: 1 });
+    assert.equal(g.phase, 'answer');
     assert.equal(act(g, { type: 'guess', by: liar, text: '또', correct: false }, t + 2 * S).ok, false);
     // 시간 초과
     const h = make(N, { liarIdx: 0 }); toJudge(h, liar); judgeAll(h, liar, 'yes'); pastJudge(h); tick(h, h.phaseEndsAt); tick(h, h.phaseEndsAt);
     const e = tick(h, h.phaseEndsAt).events;
     assert.deepEqual(e[0], { k: 'guess', text: null, correct: false });
+    assert.equal(h.phase, 'answer');
+    tick(h, h.phaseEndsAt);
     assert.equal(h.phase, 'result');
     assert.deepEqual(viewFor(h, 'p1').guess, { text: null, correct: false });
   });
@@ -717,6 +723,7 @@ for (const N of [3, 8]) {
     if (N === 3) judgeAct(g, 'p1', 'yes', g.phaseStartedAt);
     pastJudge(g); tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
     act(g, { type: 'guess', by: liar, text: '도서관', correct: true }, g.phaseStartedAt);
+    tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
     const res = viewFor(g, 'p3' in g.seats ? 'p3' : 'p2').result;
     assert.equal(res.winner, 'liar'); assert.equal(res.reason, 'executedLiar');
     assert.equal(res.caught, true); assert.equal(res.guessed, true);
@@ -733,6 +740,7 @@ for (const N of [3, 8]) {
     const g = make(N, { liarIdx: 0 }); toJudge(g, liar); judgeAll(g, liar, 'yes'); pastJudge(g);
     tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
     act(g, { type: 'guess', by: liar, text: '엉뚱', correct: false }, g.phaseStartedAt);
+    tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
     const res = g.result;
     assert.deepEqual([res.winner, res.caught, res.guessed], ['citizens', true, false]);
     assert.equal(res.delta[liar], 0);
@@ -747,6 +755,7 @@ for (const N of [3, 8]) {
       if (N === 8) { judgeAct(g, 'p6', 'no', g.phaseStartedAt); judgeAct(g, 'p7', 'no', g.phaseStartedAt); }   // yes 5 no 2
       pastJudge(g); tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
       act(g, { type: 'guess', by: liar, text: 'x', correct }, g.phaseStartedAt);
+      tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
       const res = g.result;
       assert.deepEqual([res.winner, res.reason, res.caught, res.guessed], ['liar', 'executedCitizen', false, correct]);
       assert.equal(res.delta[liar], correct ? 3 : 1);
@@ -762,6 +771,7 @@ for (const N of [3, 8]) {
     assert.equal(g.phase, 'unmask');
     tick(g, g.phaseEndsAt);
     act(g, { type: 'guess', by: liar, text: '도서관', correct: true }, g.phaseStartedAt);
+    tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
     assert.deepEqual([g.result.reason, g.result.winner, g.result.delta[liar], g.result.delta.p1], ['noVotes', 'liar', 3, 0]);
     // tie: 재투표도 동점
     g = make(N, { liarIdx: 0 }); toDiscuss(g);
@@ -775,6 +785,7 @@ for (const N of [3, 8]) {
     assert.equal(g.failReason, 'tie');
     tick(g, g.phaseEndsAt);
     act(g, { type: 'guess', by: liar, text: 'x', correct: false }, g.phaseStartedAt);
+    tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
     assert.equal(g.result.caught, false);
     assert.equal(g.result.delta[liar], 1);
     assert.equal(g.result.delta.p1, 0);
@@ -797,6 +808,7 @@ for (const N of [3, 8]) {
     tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt); judgeAll(g, 'p2', 'yes'); pastJudge(g); tick(g, g.phaseEndsAt);
     tick(g, g.phaseEndsAt);
     act(g, { type: 'guess', by: liar, text: 'x', correct: false }, g.phaseStartedAt);
+    tick(g, g.phaseEndsAt);   // answer 연출이 끝나면 result
     const log = g.result.voteLog;
     assert.deepEqual(log[0].firstVotes, { p0: 'p1', p1: 'p0' });
     assert.deepEqual(log[0].votes, { p2: 'p1' });
@@ -952,7 +964,8 @@ test('away: 끊긴 라이어의 정답 시간은 그대로 흐른다', () => {
   tick(g, g.phaseEndsAt); assert.equal(g.phase, 'guess');
   const end = g.phaseEndsAt;
   A(g, 'away', 'p0'); assert.equal(g.phaseEndsAt, end);
-  tick(g, end); assert.equal(g.phase, 'result'); assert.equal(wakeAt(g), null);
+  tick(g, end); assert.equal(g.phase, 'answer'); assert.ok(wakeAt(g) > end);
+  tick(g, g.phaseEndsAt); assert.equal(g.phase, 'result'); assert.equal(wakeAt(g), null);
 });
 
 test('away/back/drop: 참가자 아님·끝난 판은 거절, away 중복은 무해', () => {
@@ -1074,6 +1087,7 @@ test('drop: 처형된 시민이 unmask 중 빠져도 정상 진행, 빠진 사�
   assert.equal(g.phase, 'unmask');
   A(g, 'drop', 'p2');
   tick(g, g.phaseEndsAt); tick(g, g.phaseEndsAt);
+  tick(g, g.phaseEndsAt);   // guess 시간 끝 → answer → result
   assert.equal(g.phase, 'result'); assert.equal(g.result.delta.p2, 0);
 });
 
@@ -1095,4 +1109,202 @@ test('drop: 무작위로 끊고 빠지며 끝까지 돌려도 wakeAt 이 과거�
       t = w; tick(g, t);
     }
   }
+});
+
+// ================= 정답 공개 단계(answer): guess 와 result 사이, 10초 =================
+// 라이어(p0) 처형 → unmask → guess 시작까지
+function toGuessPhase(settings = {}, n = 4) {
+  const g = make(n, { liarIdx: 0, settings });
+  toJudge(g, 'p0'); judgeAll(g, 'p0', 'yes'); pastJudge(g); tick(g, g.phaseEndsAt);
+  assert.equal(g.phase, 'unmask'); tick(g, g.phaseEndsAt);
+  assert.equal(g.phase, 'guess');
+  return g;
+}
+
+test('answer: 제출 → answer(10초, guess·words 채움, 점수·result 아직 없음) → 10초 뒤 result(점수는 예전과 같음)', () => {
+  const g = toGuessPhase();
+  const t = g.phaseStartedAt + 2 * S;
+  const r = act(g, { type: 'guess', by: 'p0', text: '도서관', correct: true }, t);
+  assert.ok(r.ok);
+  assert.equal(g.phase, 'answer');
+  assert.equal(g.phaseEndsAt, t + FIXED_TIMES.answer * S);
+  assert.equal(FIXED_TIMES.answer, 10);
+  assert.equal(g.result, null); assert.equal(g.outcome, null);
+  assert.equal(wakeAt(g), g.phaseEndsAt);
+  const v = viewFor(g, 'p1');
+  assert.equal(v.phase, 'answer'); assert.equal(v.phaseEndsAt, t + 10 * S);
+  assert.deepEqual(v.guess, { text: '도서관', correct: true });
+  assert.deepEqual(v.words, { citizen: '도서관', liar: '놀이공원' });
+  assert.equal(v.result, null);
+  assert.equal(viewFor(g, 'p0').my.role, 'liar');
+  assert.equal(viewFor(g, 'p1').my.role, 'citizen');
+  // 9.999초에는 아직 answer
+  assert.deepEqual(tick(g, t + 10 * S - 1).events, []);
+  assert.equal(g.phase, 'answer');
+  const ev = tick(g, t + 10 * S).events;
+  assert.deepEqual(ev, [{ k: 'phase', phase: 'result', round: 1, accuseNo: 1 }]);
+  assert.equal(g.phase, 'result');
+  assert.equal(g.phaseEndsAt, null); assert.equal(wakeAt(g), null);
+  assert.deepEqual([g.result.winner, g.result.reason, g.result.caught, g.result.guessed], ['liar', 'executedLiar', true, true]);
+  assert.equal(g.result.delta.p0, 1);
+  assert.deepEqual(viewFor(g, 'p1').words, { citizen: '도서관', liar: '놀이공원' });
+  assert.deepEqual(viewFor(g, 'p1').guess, { text: '도서관', correct: true });
+});
+
+test('answer: guess 시간 끝 → answer(text null, 오답) → 10초 뒤 result', () => {
+  const g = toGuessPhase();
+  const end = g.phaseEndsAt;
+  const ev = tick(g, end).events;
+  assert.deepEqual(ev.map((e) => e.k), ['guess', 'phase']);
+  assert.deepEqual(ev[0], { k: 'guess', text: null, correct: false });
+  assert.equal(g.phase, 'answer'); assert.equal(g.phaseEndsAt, end + 10 * S);
+  assert.deepEqual(viewFor(g, 'p2').guess, { text: null, correct: false });
+  tick(g, end + 10 * S);
+  assert.equal(g.phase, 'result'); assert.equal(g.result.winner, 'citizens'); assert.equal(g.result.delta.p0, 0);
+});
+
+test('answer: tick 이 늦게 와도 answer 는 온전히 10초를 보여 준다(건너뛰지 않음)', () => {
+  const g = toGuessPhase();
+  const end = g.phaseEndsAt;
+  tick(g, end + 60 * S);
+  assert.equal(g.phase, 'answer'); assert.equal(g.phaseEndsAt, end + 70 * S);
+});
+
+test('answer: answer 중에는 guess·vote·judge·say 가 거절되고 상태가 안 바뀐다', () => {
+  const g = toGuessPhase();
+  act(g, { type: 'guess', by: 'p0', text: 'x', correct: false }, g.phaseStartedAt);
+  assert.equal(g.phase, 'answer');
+  const t = g.phaseStartedAt + S;
+  assert.equal(act(g, { type: 'guess', by: 'p0', text: '또', correct: true }, t).ok, false);
+  assert.equal(act(g, { type: 'vote', by: 'p1', target: 'p2' }, t).ok, false);
+  assert.equal(act(g, { type: 'judge', by: 'p1', v: 'yes' }, t).ok, false);
+  assert.equal(act(g, { type: 'say', by: 'p1', text: '글' }, t).ok, false);
+  assert.deepEqual(g.guess, { text: 'x', correct: false });
+});
+
+test('answer: notice 방식도 10초, words.liar 는 null', () => {
+  const g = toGuessPhase({ liarMode: 'notice' });
+  assert.equal(FIXED_TIMES.answerNotice, 10);
+  const t = g.phaseStartedAt + S;
+  act(g, { type: 'guess', by: 'p0', text: '도서관', correct: true }, t);
+  assert.equal(g.phase, 'answer'); assert.equal(g.phaseEndsAt, t + 10 * S);
+  assert.deepEqual(viewFor(g, 'p1').words, { citizen: '도서관', liar: null });
+  assert.deepEqual(viewFor(g, 'p0').words, { citizen: '도서관', liar: null });
+  tick(g, g.phaseEndsAt); assert.equal(g.phase, 'result');
+});
+
+test('answer: 지목 실패(unmask.id null)도 guess 뒤 answer 를 거친다', () => {
+  const g = make(4, { liarIdx: 0 }); toDiscuss(g); tick(g, g.phaseEndsAt);
+  assert.equal(g.phase, 'unmask'); tick(g, g.phaseEndsAt);
+  act(g, { type: 'guess', by: 'p0', text: '도서관', correct: true }, g.phaseStartedAt);
+  assert.equal(g.phase, 'answer');
+  tick(g, g.phaseEndsAt);
+  assert.deepEqual([g.result.reason, g.result.winner, g.result.delta.p0], ['noVotes', 'liar', 3]);
+});
+
+test('answer: 라이어가 unmask·guess 중 빠지면 answer 없이 바로 result(오답)', () => {
+  let g = make(4, { liarIdx: 0 }); toJudge(g, 'p1'); judgeAll(g, 'p1', 'yes'); pastJudge(g); tick(g, g.phaseEndsAt);
+  assert.equal(g.phase, 'unmask');
+  let r = act(g, { type: 'drop', by: 'p0' }, g.phaseStartedAt + S);
+  assert.ok(r.ok); assert.equal(g.phase, 'result');
+  assert.deepEqual(r.events.map((e) => e.k), ['guess', 'phase']);
+  assert.equal(g.result.guessed, false); assert.equal(g.result.delta.p0, 0);
+  g = toGuessPhase();
+  r = act(g, { type: 'drop', by: 'p0' }, g.phaseStartedAt + S);
+  assert.ok(r.ok); assert.equal(g.phase, 'result'); assert.equal(g.result.reason, 'executedLiar');
+  assert.equal(g.result.guessed, false); assert.equal(wakeAt(g), null);
+});
+
+test('answer: answer 중 빠져도 판을 무효로 하지 않고 끝까지 보여 준 뒤 result', () => {
+  // 라이어가 빠짐: 점수 0, 결과는 정상(liarLeft 아님)
+  let g = toGuessPhase();
+  act(g, { type: 'guess', by: 'p0', text: '도서관', correct: true }, g.phaseStartedAt);
+  let r = act(g, { type: 'drop', by: 'p0' }, g.phaseStartedAt + S);
+  assert.ok(r.ok); assert.equal(g.phase, 'answer');
+  tick(g, g.phaseEndsAt);
+  assert.equal(g.phase, 'result'); assert.equal(g.result.reason, 'executedLiar'); assert.equal(g.result.guessed, true);
+  assert.equal(g.result.delta.p0, 0);
+  // 시민이 빠져 3명 미만이 되어도 tooFew 가 아니다
+  g = toGuessPhase({}, 3);
+  act(g, { type: 'guess', by: 'p0', text: '도서관', correct: false }, g.phaseStartedAt);
+  r = act(g, { type: 'drop', by: 'p1' }, g.phaseStartedAt + S);
+  assert.ok(r.ok); assert.equal(g.phase, 'answer');
+  tick(g, g.phaseEndsAt);
+  assert.equal(g.phase, 'result'); assert.notEqual(g.result.winner, 'void'); assert.equal(g.result.delta.p1, 0);
+});
+
+test('answer: 방장 end 는 answer 에서도 무효로 끝낼 수 있다', () => {
+  const g = toGuessPhase();
+  act(g, { type: 'guess', by: 'p0', text: '도서관', correct: true }, g.phaseStartedAt);
+  const r = act(g, { type: 'end', by: 'p0' }, g.phaseStartedAt + S);
+  assert.ok(r.ok); assert.equal(g.phase, 'result');
+  assert.deepEqual([g.result.winner, g.result.reason], ['void', 'hostEnded']);
+  assert.equal(g.result.delta.p0, 0);
+});
+
+test('answer: away/back 는 answer 시간을 바꾸지 않는다', () => {
+  const g = toGuessPhase();
+  act(g, { type: 'guess', by: 'p0', text: '도서관', correct: true }, g.phaseStartedAt);
+  const end = g.phaseEndsAt;
+  act(g, { type: 'away', by: 'p1' }, g.phaseStartedAt + S);
+  act(g, { type: 'back', by: 'p1' }, g.phaseStartedAt + 2 * S);
+  assert.equal(g.phaseEndsAt, end); assert.equal(g.phase, 'answer');
+});
+
+test('words 칸: 모든 단계·모든 사람(관전자 포함)에게 있고 answer·result 에서만 값, 그 전엔 null', () => {
+  const g = make(4, { liarIdx: 0 });
+  const viewers = ['p0', 'p1', 'p2', 'p3', 'zz'];
+  const seen = new Set();
+  const check = () => {
+    seen.add(g.phase);
+    for (const id of viewers) {
+      const v = viewFor(g, id);
+      assert.ok('words' in v, `${g.phase} ${id}: words 칸 없음`);
+      const keys = Object.keys(v);
+      assert.equal(keys[keys.indexOf('guess') + 1], 'words');
+      if (g.phase === 'answer' || g.phase === 'result') assert.deepEqual(v.words, { citizen: '도서관', liar: '놀이공원' }, `${g.phase} ${id}`);
+      else assert.equal(v.words, null, `${g.phase} ${id}`);
+    }
+  };
+  check();                                   // reveal
+  tick(g, g.phaseEndsAt); check();           // speak
+  let t = g.phaseStartedAt;
+  for (const id of g.order) { act(g, { type: 'say', by: id, text: '설명' }, t); t += SPEAK_HOLD * S; tick(g, t); }
+  check();                                   // discuss
+  for (const id of g.players) if (id !== 'p0') vote(g, id, 'p0', g.phaseStartedAt);
+  vote(g, 'p0', 'p1', g.phaseStartedAt);
+  tick(g, g.phaseEndsAt); check();           // defense
+  tick(g, g.phaseEndsAt); check();           // judge
+  judgeAll(g, 'p0', 'yes'); check();
+  pastJudge(g); check();                     // judged
+  tick(g, g.phaseEndsAt); check();           // unmask
+  tick(g, g.phaseEndsAt); check();           // guess
+  tick(g, g.phaseEndsAt); check();           // answer
+  tick(g, g.phaseEndsAt); check();           // result
+  for (const p of ['reveal', 'speak', 'discuss', 'defense', 'judge', 'judged', 'unmask', 'guess', 'answer', 'result']) assert.ok(seen.has(p), p);
+});
+
+test('answer 전(unmask·guess)에는 라이어의 view·알림 어디에도 시민 제시어가 없다', () => {
+  const g = make(4, { liarIdx: 0 });
+  const events = [];
+  const rec = (r) => events.push(...r.events);
+  toDiscuss(g);
+  for (const id of g.players) if (id !== 'p0') vote(g, id, 'p0', g.phaseStartedAt);
+  vote(g, 'p0', 'p1', g.phaseStartedAt);
+  rec(tick(g, g.phaseEndsAt));               // defense
+  rec(tick(g, g.phaseEndsAt));               // judge
+  judgeAll(g, 'p0', 'yes');
+  rec(tick(g, g.phaseEndsAt));               // judged
+  rec(tick(g, g.phaseEndsAt));               // unmask
+  for (const phase of ['unmask', 'guess']) {
+    assert.equal(g.phase, phase);
+    const s = JSON.stringify(viewFor(g, 'p0'));
+    assert.ok(!s.includes('도서관'), `${phase}: 라이어 view 에 시민 제시어`);
+    assert.equal(viewFor(g, 'p0').words, null);
+    assert.ok(s.includes('놀이공원'), `${phase}: 라이어 자기 제시어`);
+    rec(tick(g, g.phaseEndsAt));
+  }
+  assert.equal(g.phase, 'answer');
+  // answer 시작 알림(guess·phase)은 시민 제시어를 담지 않는다. 제시어는 view.words 로만 간다
+  assert.ok(!JSON.stringify(events).includes('도서관'));
 });

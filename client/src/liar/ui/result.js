@@ -1,4 +1,4 @@
-// 정답 맞히기(guess)와 결과(result) 화면. 약속: docs/team/CONTRACTS.md 0절·1절 result.
+// 정답 입력 칸(guess, 라이어만)과 결과(result) 화면. 약속: docs/team/CONTRACTS.md 0절·1절 result.
 // 맨 위에서는 document·window 를 만지지 않는다(순수 함수를 node 에서 시험한다).
 
 const MINUS = '−';
@@ -73,14 +73,7 @@ export function createResult(ctx) {
   const el = h('div', 'lg-rs-root');
   el.hidden = true;
 
-  // ---- guess ----
-  const gbox = h('div', 'lg-rs-guess'); gbox.hidden = true;
-  const gTitle = h('div', 'lg-rs-gtitle');
-  const gWait = h('div', 'lg-rs-gwait', '라이어가 정답을 고민하고 있습니다', 'guess-wait');
-  const gSecs = h('div', 'lg-rs-gsecs');
-  const gShown = h('div', 'lg-rs-gshown', null, 'guess-shown'); gShown.hidden = true;
-  gbox.append(gTitle, gWait, gSecs, gShown);
-
+  // ---- guess: 라이어의 입력 칸만 (안내 글·초·답 표시는 엔딩 모듈이 맡는다) ----
   const form = h('form', 'lg-rs-form'); form.hidden = true;
   const input = h('input', 'lg-rs-input', null, 'guess-input');
   input.type = 'text'; input.maxLength = (ctx.limits && ctx.limits.guess) || 30;
@@ -109,12 +102,11 @@ export function createResult(ctx) {
   const scroll = h('div', 'lg-rs-scroll');
   scroll.append(body, logBox);
   panel.append(champ, winner, scroll, foot);
-  el.append(gbox, panel);
+  el.append(panel);
   ctx.root.appendChild(el);
 
   let state = null;
   let sentKey = null; // 이 판에서 정답을 이미 보냈다
-  let lastSecs = -1;
   let shownKey = null;
 
   const nameOf = (id) => nameFor(state, id);
@@ -128,44 +120,15 @@ export function createResult(ctx) {
     return s;
   };
   const gKey = () => `${state.round}:${state.accuseNo}`;
-  const secsLeft = () => {
-    if (!state || state.phaseEndsAt == null) return 0;
-    return Math.max(0, Math.ceil((state.phaseEndsAt - ctx.now()) / 1000));
-  };
-
   function renderGuess() {
-    const you = state.you;
     const liarId = state.unmask ? state.unmask.liarId : null;
     const g = state.guess;
     const answered = !!(g && (g.text != null || g.correct != null));
-    const isLiar = liarId != null && liarId === you;
-    gbox.hidden = false;
-    gTitle.textContent = '정답 맞히기';
-    gSecs.textContent = '';
-    gWait.hidden = isLiar || answered;
-    gShown.hidden = !answered;
-    if (answered) {
-      gShown.textContent = '';
-      const who = h('span', 'lg-rs-gwho', '라이어의 답: ');
-      const ans = h('b', 'lg-rs-gans', g.text != null && g.text !== '' ? g.text : '(답하지 못했어요)');
-      const verdict = h('span', g.correct ? 'lg-rs-ok' : 'lg-rs-no', g.correct ? ' 맞음' : ' 틀림');
-      gShown.append(who, ans, verdict);
-    }
-    const showForm = isLiar && !answered;
-    form.hidden = !showForm;
+    const isLiar = liarId != null && liarId === state.you;
+    form.hidden = !(isLiar && !answered);
     if (shownKey !== gKey()) { shownKey = gKey(); input.value = ''; }
     const locked = sentKey === gKey();
     input.disabled = locked; sendBtn.disabled = locked;
-    lastSecs = -1; renderSecs();
-  }
-
-  function renderSecs() {
-    if (!state || state.phase !== 'guess' || gbox.hidden) return;
-    const answered = !!(state.guess && (state.guess.text != null || state.guess.correct != null));
-    const s = secsLeft();
-    if (s === lastSecs) return;
-    lastSecs = s;
-    gSecs.textContent = answered ? '' : `남은 시간 ${s}초`;
   }
 
   function renderResult() {
@@ -265,13 +228,13 @@ export function createResult(ctx) {
 
   function update(s) {
     state = s;
-    if (!s || (s.phase !== 'guess' && s.phase !== 'result')) {
-      el.hidden = true; gbox.hidden = true; panel.hidden = true; form.hidden = true;
+    if (!s || (s.phase !== 'guess' && s.phase !== 'result')) {   // answer 포함: 전부 숨김
+      el.hidden = true; panel.hidden = true; form.hidden = true;
       return;
     }
     el.hidden = false;
     if (s.phase === 'guess') { panel.hidden = true; renderGuess(); }
-    else { gbox.hidden = true; form.hidden = true; renderResult(); }
+    else { form.hidden = true; renderResult(); }
   }
 
   function submit() {
@@ -290,7 +253,7 @@ export function createResult(ctx) {
   return {
     el,
     update,
-    frame() { renderSecs(); },
+    frame() {},
     dispose() { el.remove(); form.remove(); },
   };
 }

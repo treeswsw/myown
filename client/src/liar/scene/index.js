@@ -62,8 +62,9 @@ export function createLiarScene() {
       if (disposed) return;
       rig.setView(view, cut);
       table.setCenterVisible(!rig.focusing);
-      // 정체 공개: 없는 id 면 table 과 같게(조명도 그대로)
-      if (rig.liar && view && view.mode === 'liar') reveal.look(view.id); else reveal.off();
+      // 정체 공개: 없는 id 면 table 과 같게(조명도 그대로). liar = 빨강, spot = 하양(빨강에서 이어서 바뀜)
+      if (rig.liar && view && (view.mode === 'liar' || view.mode === 'spot')) reveal.look(view.id, view.mode === 'spot' ? 'white' : 'red');
+      else reveal.off();
     },
     setVotes(votes) {   // state.votes 그대로 {찍은 사람: 찍힌 사람}. {}·null 이면 전부 지움
       if (disposed) return;
@@ -74,7 +75,7 @@ export function createLiarScene() {
       if (!disposed) judge.set(picks);
     },
     stats() {           // 시험용: 지금 장면에 켜져 있는 것
-      return { arrows: arrows.count, beam: reveal.beamVisible, beamOn: reveal.active, judge: judge.count, yes: judge.yes, no: judge.no };
+      return { arrows: arrows.count, beam: reveal.beamVisible, beamOn: reveal.active, light: reveal.hue, lightHex: reveal.lightHex, judge: judge.count, yes: judge.yes, no: judge.no };
     },
     screenPos(id) { return disposed ? null : seats.screenPos(id); },
     // 화면 점(CSS px) → 사람 id | null. 마네킹을 직접 맞히거나, 빗나가면 머리 중심 48px 안의 가장 가까운 사람
@@ -103,12 +104,12 @@ export function createLiarScene() {
       }
       return near;
     },
-    // 이름표 자리. 클로즈업된 사람이면 턱 바로 밑(below:true), 아니면 screenPos 와 같다
+    // 이름표 자리. 클로즈업(focus·liar·spot)된 사람이면 턱 바로 밑(below:true), 아니면 screenPos 와 같다
     tagPos(id) {
       if (disposed) return null;
       const e = seats.get(id);
       const view = rig.view;
-      if (e && rig.focusing && view.mode === 'focus' && view.id === id) {
+      if (e && rig.focusing && view.id === id) {   // focus·liar·spot 모두 얼굴 아래
         const p = project(e.face.x, e.face.y - e.body.userData.faceR * 1.3, e.face.z);
         if (p) return { x: p.x, y: p.y, below: true };
       }

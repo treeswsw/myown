@@ -14,6 +14,7 @@ import { BUILTINS, mySounds, playBuiltin, playDataUrl, prepareSound, setMediaMut
 const ICON = {
   camera: '<path d="M4 8h3l1.5-2.5h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  reload: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',
 };
 const JPEG = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
 const AUDIO = /^data:audio\/[\w.+-]+;base64,[A-Za-z0-9+/=]+$/;
@@ -244,7 +245,12 @@ export function createEmotePanel({ onEmote, onPhoto, onSoundAdd, onSound, getAnc
   };
   for (const [k, b] of Object.entries(tabBtns)) { b.setAttribute('role', 'tab'); b.onclick = () => show(k); }
   tabs.append(...Object.values(tabBtns));
-  const el = h('div', 'ep', tabs, msg, emotePane, soundPane);
+  // small page-reload button at the bottom corner (home-screen web apps have no browser reload)
+  const reloadBtn = btn('ep-reload', icon('reload'));
+  reloadBtn.setAttribute('aria-label', '새로고침');
+  reloadBtn.title = '새로고침';
+  reloadBtn.onclick = () => { if (!reloadBtn.dataset.test) location.reload(); };
+  const el = h('div', 'ep', tabs, msg, emotePane, soundPane, h('div', 'ep-foot', reloadBtn));
   show(tab);
   renderRecent();
   renderSounds();

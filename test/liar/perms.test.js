@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chatBlocked, mediaBlocked, chatKind } from '../../server/liar/perms.js';
 
-const PHASES = ['lobby', 'reveal', 'speak', 'discuss', 'revote', 'defense', 'judge', 'judged', 'unmask', 'guess', 'result'];
+const PHASES = ['lobby', 'reveal', 'speak', 'discuss', 'revote', 'defense', 'judge', 'judged', 'unmask', 'guess', 'answer', 'result'];
 const ROLES = { normal: { id: 'a', spectating: false }, speaker: { id: 's', spectating: false }, accused: { id: 'x', spectating: false }, spectator: { id: 'p', spectating: true } };
 const KINDS = ['emote', 'pemote', 'snd', 'sndAdd'];
 const g = (phase) => ({ phase, speaker: 's', accused: 'x' });
@@ -13,10 +13,10 @@ function chatOk(phase, role) {
   if (role === 'spectator') return false;
   if (phase === 'reveal' || phase === 'discuss' || phase === 'revote') return true;
   if (phase === 'defense' || phase === 'judge' || phase === 'judged') return role === 'accused';
-  return false; // speak, unmask, guess
+  return false; // speak, unmask, guess, answer
 }
 function mediaOk(phase, role, kind) {
-  if (phase === 'unmask') return false;
+  if (phase === 'unmask' || phase === 'answer') return false;
   if (phase === 'lobby' || phase === 'result') return true;
   if (kind === 'emote') return true;
   if (role === 'spectator') return false;

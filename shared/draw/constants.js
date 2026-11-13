@@ -46,7 +46,8 @@ export const DELTA_MAX = 1600; // pt 차이값 범위 -1600..1600
 // 선 보내기·그리기 (6-3절, 10-1절)
 export const MAX_NUMS_PER_MSG = 128; // 한 메시지에 숫자 128개 = 64점
 export const MAX_POINTS_PER_MSG = 64;
-export const SEND_INTERVAL_MS = 60;
+export const SEND_INTERVAL_MS = 30; // 첫 점은 누르는 즉시 보내고, 그 뒤 30ms마다 모아 보낸다(초당 최대 약 33번)
+export const SEND_PER_SEC = 50; // 그림판이 보내는 그림 요청 상한(어느 1초 구간이든). 서버 한도(server/rooms.js DR_RATE_LIMIT 100)의 절반
 export const MIN_POINT_GAP = 2; // 800 기준 px, 이보다 가까운 점은 버림
 export const SMOOTH_FINGER = 0.65; // 새 점 = 앞 점 35% + 손 65%
 export const SMOOTH_PEN = 1; // 펜슬은 보정 없음

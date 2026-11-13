@@ -108,6 +108,22 @@ test('rate limit: a message disguised as dr (duplicate "t" key) still hits the n
   assert.equal(c.sock.raw.length - before, 19); // 1 login + 19 answered, not 40
 });
 
+test('rate limit: dr drawing ops get 100/s, other dr requests (kick, settings...) share the normal 20/s', async () => {
+  const { hub, clock } = await setup();
+  const c = await login(hub, 'drsp');
+  const count = async (raw, n) => {
+    const b = c.sock.raw.length;
+    for (let i = 0; i < n; i++) c.conn.message(raw);
+    await c.conn.queue;
+    return c.sock.raw.length - b;
+  };
+  const drawing = await count('{"t":"dr","a":"pt","p":[1,1]}', 150);
+  clock.advance(1000);
+  const other = await count('{"t":"dr","a":"kick","id":"x"}', 150);
+  assert.equal(drawing, 100, 'drawing ops reach 100');
+  assert.equal(other, 20, 'non-drawing dr requests are limited like normal ones');
+});
+
 test('room codes, capacity and host rules', async () => {
   const { hub } = await setup();
   const { cs, code } = await lobby(hub, 'bluff', ['aa1', 'bb1', 'cc1', 'dd1']);

@@ -71,7 +71,9 @@ export function parseMessage(raw) {
   switch (m.t) {
     case 'login': {
       const id = normalizeId(m.id);
-      return id ? good({ t: 'login', ...id }) : bad('아이디는 2~12자의 한글, 영문, 숫자, _ 만 쓸 수 있습니다.');
+      // pw is only looked at for the reserved admin ID (SPEC 21-1); anything but a short string is dropped.
+      const pw = typeof m.pw === 'string' && m.pw.length <= 32 ? m.pw : undefined;
+      return id ? good({ t: 'login', ...id, pw }) : bad('아이디는 2~12자의 한글, 영문, 숫자, _ 만 쓸 수 있습니다.');
     }
     case 'reset':
       return m.confirm === true ? good({ t: 'reset' }) : bad('초기화 확인이 필요합니다.');
@@ -84,6 +86,8 @@ export function parseMessage(raw) {
       const code = typeof m.code === 'string' ? m.code.trim().toUpperCase() : '';
       return CODE_RE.test(code) ? good({ t: 'join', code }) : bad('방 코드가 올바르지 않습니다.');
     }
+    case 'adm':
+      return ['bot+', 'bot-', 'skip'].includes(m.a) ? good({ t: 'adm', a: m.a }) : bad('알 수 없는 요청입니다.');
     case 'leave':
     case 'start':
     case 'liar':

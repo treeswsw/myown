@@ -7,6 +7,7 @@ import { createYachtRoom } from './yacht/room.js';
 import { createDrawRoom } from './draw/room.js';
 import { createGskRoom } from './gsk/room.js';
 import { parseMessage, RESET_ID } from './protocol.js';
+import { createAdmin, ADMIN_ID } from './admin/bots.js';
 
 export const DEFAULT_TIMING = {
   grace: 60_000, // a disconnected player is auto-played (if on turn) and removed after this
@@ -27,7 +28,8 @@ const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 export const REPLACED_CODE = 4001;
 const RESET_WINDOW = 60_000; // a reset needs a resetAsk this recent, and runs at most once per window
 const RATE_LIMIT = 20;
-const DR_RATE_LIMIT = 40; // {t:'dr'} is counted apart so a drawer's strokes (about 16/s) are never dropped
+const DR_RATE_LIMIT = 100; // {t:'dr'} is counted apart so a drawer's strokes are never dropped (board sends at most SEND_PER_SEC=50 per 1s, 2x margin for network bunching)
+const DR_DRAW_OPS = new Set(['st', 'pt', 'cx', 'rm', 'undo', 'redo', 'clear']);
 const MAX_ROOM_SOUNDS = 24;
 const MAX_ACCOUNT_SOUNDS = 8;
 const CHAT_LOG = 30; // messages remembered per room
@@ -455,7 +457,7 @@ class Room {
 }
 
 export function createHub({
-  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', gsk = 'off',
+  store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, liar = 'off', yacht = 'off', draw = 'off', gsk = 'off', adminKey,
 }) {
   const hub = {
     store, rng, now, timers, timing: { ...DEFAULT_TIMING, ...timing },
@@ -486,7 +488,8 @@ export function createHub({
       session.conn?.send(obj);
     },
     sendMe(...sessions) {
-      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, gsk: hub.gsk });
+      // admin: true only for the admin session; nobody else gets the field.
+      for (const s of sessions) hub.send(s, { t: 'me', user: publicUser(s.user), liar: hub.liar, yacht: hub.yacht, draw: hub.draw, gsk: hub.gsk, ...(s.admin ? { admin: true } : {}) });
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
@@ -526,6 +529,7 @@ export function createHub({
       hub.rooms.clear();
       hub.roomsSig = '[]';
       hub.sessions.clear();
+      hub.conns.forEach((c) => { if (c.session?.bot) hub.conns.delete(c); });
       for (const c of hub.conns) c.session = null;
       try {
         await store.clear();
@@ -538,6 +542,7 @@ export function createHub({
     },
     // Resolves once pending saves finished. Rooms get one flush() first (liar scores -> totals), but not on a reset (it wipes everything).
     close() {
+      hub.admin.closeAll();
       if (hub.roomsTimer !== null) timers.clearTimeout(hub.roomsTimer);
       hub.roomsTimer = null;
       if (!hub.resetting) {
@@ -556,6 +561,7 @@ export function createHub({
       return Promise.allSettled([...hub.pendingSaves]);
     },
   };
+  hub.admin = createAdmin(hub, adminKey ?? '9975');
   return hub;
 }
 
@@ -593,7 +599,8 @@ function createConn(hub, sock) {
       } else if (++conn.count > RATE_LIMIT) return Promise.resolve();
       const parsed = parseMessage(raw);
       // A duplicate "t" key makes the real type differ from the prefix: such a disguised message also uses the normal limit.
-      if (isDr && parsed.ok && parsed.msg.t !== 'dr' && ++conn.count > RATE_LIMIT) return Promise.resolve();
+      // Only drawing ops (DR_DRAW_OPS) ride the high limit; other dr requests (settings, kick, pick, ...) also count against the normal one.
+      if (isDr && parsed.ok && (parsed.msg.t !== 'dr' || !DR_DRAW_OPS.has(parsed.msg.a)) && ++conn.count > RATE_LIMIT) return Promise.resolve();
       if (!parsed.ok) {
         conn.send({ t: 'error', msg: parsed.error });
         return Promise.resolve();
@@ -635,6 +642,10 @@ async function login(hub, conn, msg) {
     conn.send({ t: 'resetAsk' });
     return null;
   }
+  if (msg.key === ADMIN_ID) {
+    const denied = hub.admin.checkLogin(msg.pw);
+    if (denied) return denied;
+  }
   if (conn.session) {
     if (conn.session.id !== msg.key) return '이미 로그인되어 있습니다.';
     return null;
@@ -649,6 +660,7 @@ async function login(hub, conn, msg) {
     session = hub.sessions.get(msg.key) ?? { id: msg.key, user, conn: null, room: null, chatTimes: [], editTimes: [], lastSent: {} };
     hub.sessions.set(msg.key, session);
   }
+  if (msg.key === ADMIN_ID) session.admin = true;
   const old = session.conn;
   if (old && old !== conn) {
     old.session = null; // so its close does not mark the seat as disconnected
@@ -747,8 +759,10 @@ async function dispatch(hub, conn, msg) {
     case 'join': {
       if (room) return '이미 방에 있습니다.';
       const r = hub.rooms.get(msg.code);
-      return r ? r.join(session) : '존재하지 않는 방입니다.';
+      if (!r) return '존재하지 않는 방입니다.';
+      return hub.admin.refuseHuman(r, session) ?? r.join(session);
     }
+    case 'adm': return hub.admin.handle(session, room, msg);
     default:
   }
   if (!room) return '방에 들어가 있지 않습니다.';

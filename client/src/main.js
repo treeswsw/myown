@@ -9,6 +9,7 @@ import { createWheel } from './ui/wheel.js';
 import { createBluff } from './ui/bluff.js';
 import { createLobby } from './ui/lobby.js';
 import { createChat } from './ui/chat.js';
+import { createAdmin } from './ui/admin.js';
 import { createEmotePanel } from './ui/emotePanel.js';
 import { h, updateScale, view } from './ui/dom.js';
 import { createAnimator } from './anim/events.js';
@@ -83,9 +84,10 @@ document.body.append(chat.el, chat.button);
 chat.button.hidden = true;
 
 let pendingAvatar = null;
+let loginPw = null; // admin password typed on the login screen; remembered with the ID once the server accepts
 let loginId = null; // remembered only once the server accepts it (the reserved reset ID is never accepted)
 const lobby = createLobby({
-  onLogin: (id, avatar) => { pendingAvatar = avatar; loginId = id; send({ t: 'login', id }); },
+  onLogin: (id, avatar, pw) => { pendingAvatar = avatar; loginId = id; loginPw = pw ?? null; send(pw ? { t: 'login', id, pw } : { t: 'login', id }); },
   onResetConfirm: () => send({ t: 'reset', confirm: true }),
   onAvatar: (data) => send({ t: 'avatar', data }),
   onCreate: (mode) => send({ t: 'create', mode }),
@@ -93,10 +95,11 @@ const lobby = createLobby({
   onMode: (mode) => send({ t: 'mode', mode }),
   onStart: () => send({ t: 'start' }),
   onLeave: () => send({ t: 'leave' }),
-  onLogout: () => { saved.del('gs.lastId'); location.reload(); },
+  onLogout: () => { saved.del('gs.lastId'); saved.del('gs.adminPw'); location.reload(); },
   onRank: () => send({ t: 'lg', a: 'rank' }),
 });
 document.body.append(lobby.el);
+const admin = createAdmin({ send, getRoom: () => state.room });
 
 const toast = (msg) => {
   const t = h('div', 'toast', msg);
@@ -347,7 +350,10 @@ function handle(msg) {
   switch (msg.t) {
     case 'me':
       if (loginId) { saved.set('gs.lastId', loginId); loginId = null; }
+      if (loginPw && msg.admin === true) saved.set('gs.adminPw', loginPw);
+      loginPw = null;
       state.me = msg.user;
+      admin.setAdmin(msg.admin === true);
       lobby.setUser(msg.user);
       lobby.setLiar(msg.liar === 'on' || (msg.liar === 'test' && new URLSearchParams(location.search).get('liar') === '1'));
       lobby.setYacht(msg.yacht === 'on' || (msg.yacht === 'test' && new URLSearchParams(location.search).get('yacht') === '1'));
@@ -360,6 +366,7 @@ function handle(msg) {
       // One room's chat log must never show in another (the server resends chatLog on join).
       if (msg.state?.code !== state.room?.code) { chat.setLog([]); emotePanel.clearRoom(); }
       state.room = msg.state;
+      admin.refresh();
       if ((msg.state?.mode === 'liar' && !liarShown) || (msg.state?.mode === 'yacht' && !yachtShown) || (msg.state?.mode === 'draw' && !drawShown) || (msg.state?.mode === 'gsk' && !gskShown)) { animator.flush(); special.skipAll(); }
       if (msg.state?.mode === 'liar' || msg.state?.mode === 'yacht' || msg.state?.mode === 'draw' || msg.state?.mode === 'gsk' || !animator.busy()) applyRoom(msg.state);
       break;
@@ -369,7 +376,9 @@ function handle(msg) {
       saved.del('gs.lastId');
       animator.flush();
       special.skipAll();
+      saved.del('gs.adminPw');
       state.me = null;
+      admin.setAdmin(false);
       state.room = null;
       emotePanel.clearRoom();
       chat.setLog([]);
@@ -445,7 +454,26 @@ function handle(msg) {
       else if (msg.e.k === 'chatLog') chat.setLog(msg.e.items, state.room?.you);
       else { wheel.update(null, null, false); animator.push(msg.e); }
       break;
+    case 'admOk': admin.ok(msg); break;
     case 'error':
+      if (msg.code === 'adm_pw' || msg.code === 'adm_lock') { // admin login refused (SPEC 21-1)
+        if (msg.code === 'adm_pw') saved.del('gs.adminPw');
+        loginId = null; loginPw = null;
+        if (state.me) { // the server session is not an admin one: always fall back to the login screen
+          animator.flush();
+          special.skipAll();
+          state.me = null;
+          admin.setAdmin(false);
+          state.room = null;
+          emotePanel.clearRoom();
+          chat.setLog([]);
+          applyRoom(null);
+          lobby.setUser(null);
+        }
+        lobby.setError(msg.msg);
+        break;
+      }
+      if (admin.error(msg)) break;
       emotePanel.handleError(msg.msg);
       if (typeof msg.code === 'string' && msg.code.startsWith('dr_')) {
         withDraw((d) => d.error(msg));

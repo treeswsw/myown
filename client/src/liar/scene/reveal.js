@@ -1,9 +1,10 @@
-// 정체 공개: 장면을 어둡게 하고 한 사람 위에 빨간 빛기둥. 시안 rvLook·stepReveal 과 빛기둥(rvBeam·rvCones)을 옮김.
+// 정체 공개: 장면을 어둡게 하고 한 사람 위에 빨간(또는 하얀) 빛기둥. 시안 rvLook·stepReveal 과 빛기둥(rvBeam·rvCones)을 옮김.
 // 카메라 클로즈업은 camera.js 의 'liar' 구도. 여기는 조명과 기둥만.
 import * as THREE from 'three';
 
 const RV_H = 3.6;
-const RED = 0xff2a22;
+const RED = 0xff2a22, WHITE = 0xffffff;
+const COLORS = { red: RED, white: WHITE };
 const FACE_DIM = 0.02, FACE_LIT = 0.5;
 
 // ctx: { scene, spot, hemi (table.js 의 조명), seats }
@@ -31,6 +32,8 @@ export function createReveal({ scene, spot, hemi, seats }) {
   let target = null;                // 기둥이 선 사람 id
   let goal = { spot: base.spot, hemi: base.hemi, light: 0, cone: 0, rate: 2.2 };
   let disposed = false;
+  let hue = 'red';                  // 지금 목표 색 이름
+  const goalColor = new THREE.Color(RED);
 
   const faceMat = (e) => e.body.userData.face?.material || null;
   function settled() {
@@ -40,7 +43,8 @@ export function createReveal({ scene, spot, hemi, seats }) {
 
   return {
     // 켜기. 없는 id 면 false (아무것도 바꾸지 않는다)
-    look(id) {
+    // color: 'red'(기본) | 'white'. 이미 켜져 있으면 같은 자리에서 색만 천천히 바뀐다(빨강→하양)
+    look(id, color = 'red') {
       if (disposed) return false;
       const e = seats.get(id);
       if (!e) return false;
@@ -50,13 +54,15 @@ export function createReveal({ scene, spot, hemi, seats }) {
       light.target.position.set(e.slot.x, 1.0, e.slot.z);
       beam.visible = true;
       on = true; target = id;
-      goal = { spot: 0.5, hemi: 0.07, light: 90, cone: 0.2, rate: 9 };   // 빨간 빛은 탁 켜지고
+      hue = color === 'white' ? 'white' : 'red';
+      goalColor.setHex(COLORS[hue]);
+      goal = { spot: 0.5, hemi: 0.07, light: 90, cone: 0.2, rate: 9 };   // 빛은 탁 켜지고
       return true;
     },
     // 끄기: 조명을 원래대로 천천히 되돌린다
     off() {
       if (disposed || !on) return;
-      on = false; target = null;
+      on = false; target = null; hue = 'red';
       goal = { spot: base.spot, hemi: base.hemi, light: 0, cone: 0, rate: 2.2 };
     },
     step(dt) {
@@ -66,6 +72,11 @@ export function createReveal({ scene, spot, hemi, seats }) {
       spot.intensity += (goal.spot - spot.intensity) * a;
       hemi.intensity += (goal.hemi - hemi.intensity) * a;
       light.intensity += (goal.light - light.intensity) * a;
+      if (on) {   // 색은 켜진 동안만 따라간다(끌 때는 어두워지며 사라지므로 색을 건드리지 않는다)
+        const ac = reduce ? 1 : 1 - Math.exp(-dt * 3);
+        light.color.lerp(goalColor, ac);
+        cones.forEach((m) => m.material.color.lerp(goalColor, ac));
+      }
       cones.forEach((m) => { m.material.opacity += (goal.cone * m.userData.w - m.material.opacity) * a; });
       for (const id of seats.order) {
         const e = seats.get(id), m = e && faceMat(e);
@@ -77,10 +88,13 @@ export function createReveal({ scene, spot, hemi, seats }) {
       if (!on && settled()) {
         beam.visible = false;
         spot.intensity = base.spot; hemi.intensity = base.hemi; light.intensity = 0;
+        light.color.setHex(RED); cones.forEach((m) => m.material.color.setHex(RED));
         for (const id of seats.order) { const m = seats.get(id) && faceMat(seats.get(id)); if (m && faceBase.has(m)) m.emissiveIntensity = faceBase.get(m); }
       }
     },
     get active() { return on; },
+    get hue() { return on ? hue : null; },                 // 목표 색 이름(시험용)
+    get lightHex() { return light.color.getHex(); },       // 지금 실제 색(시험용)
     get beamVisible() { return beam.visible; },
     dispose() {
       if (disposed) return;

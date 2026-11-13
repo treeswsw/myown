@@ -50,6 +50,12 @@
 .ep-switch[aria-checked=true] i { background: #3ecf5a; }
 .ep-switch[aria-checked=true] i::after { transform: translateX(18px); }
 
+/* page reload: small, bottom-right, far from the panel's close/tab controls */
+.ep-foot { display: flex; justify-content: flex-end; margin-top: 10px; }
+.ep-reload { width: max(32px, calc(32px / var(--k, 1))); height: max(32px, calc(32px / var(--k, 1))); border-radius: 50%; background: rgba(255, 255, 255, .1); display: flex; align-items: center; justify-content: center; opacity: .75; }
+.ep-reload:active { background: rgba(255, 255, 255, .26); opacity: 1; }
+.ep-reload svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
 /* floating photo / sound label above a player's pin */
 .ep-layer { position: fixed; inset: 0; z-index: 35; pointer-events: none; overflow: hidden; }
 .ep-slot { position: absolute; left: 0; top: 0; pointer-events: none; visibility: hidden; }

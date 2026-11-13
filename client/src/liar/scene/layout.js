@@ -35,9 +35,12 @@ export function seatSlots(n) {
   return out;
 }
 
-// 단계별 카메라. speak 이고 speaker 있음 → 발언자. defense·judge·judged → 지목된 사람. 그 밖은 전체 보기.
+// 단계별 카메라. guess·answer 이고 unmask.liarId 가 있으면 라이어 클로즈업 유지(spot, 하얀 조명). speak 이고 speaker 있음 → 발언자. defense·judge·judged → 지목된 사람. 그 밖은 전체 보기.
 export function cameraFor(state) {
   if (!state) return { mode: 'table' };
+  if ((state.phase === 'guess' || state.phase === 'answer') && state.unmask && state.unmask.liarId) {
+    return { mode: 'spot', id: state.unmask.liarId };
+  }
   if (state.phase === 'speak' && state.speaker) return { mode: 'focus', id: state.speaker };
   if ((state.phase === 'defense' || state.phase === 'judge' || state.phase === 'judged') && state.accused) {
     return { mode: 'focus', id: state.accused };

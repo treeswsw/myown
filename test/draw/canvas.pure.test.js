@@ -125,6 +125,17 @@ test('decideDown: 손바닥·펜슬 규칙', () => {
   assert.equal(P.decideDown({ ...base, type: 'mouse', width: 1, height: 1 }), 'start');
 });
 
+test('staleActive: 끝 알림을 못 받은 앞 누름 알아보기', () => {
+  const pen = { id: 3, type: 'pen' };
+  assert.equal(P.staleActive(pen, { id: 3, type: 'pen', isPrimary: true }), true); // 같은 번호가 다시 눌림
+  assert.equal(P.staleActive(pen, { id: 4, type: 'pen', isPrimary: true }), true); // 펜은 하나뿐
+  assert.equal(P.staleActive(pen, { id: 5, type: 'touch', isPrimary: true }), false); // 펜 긋는 중 손가락(손바닥)
+  const finger = { id: 7, type: 'touch' };
+  assert.equal(P.staleActive(finger, { id: 8, type: 'touch', isPrimary: false }), false); // 둘째 손가락: 무시 규칙 그대로
+  assert.equal(P.staleActive(finger, { id: 8, type: 'touch', isPrimary: true }), true); // 다른 닿음 없음 = 앞 손가락은 떨어짐
+  assert.equal(P.staleActive(null, { id: 1, type: 'mouse', isPrimary: true }), false);
+});
+
 test('confirmedSegments·tailSegment: 꼬리를 뺀 확정 조각만', () => {
   const a = [0, 0, 10, 0, 10, 10, 0, 10];
   assert.equal(P.confirmedSegments(a, 0, 4).length, 3); // 0,1,2 번 (3 번이 꼬리)
@@ -154,4 +165,20 @@ test('finalPoint: 뗀 자리를 마지막 점으로(간격 규칙 지킴)', () =
   const sm = P.smoothToward(last, { x: 200, y: 100 }, 0.65);
   assert.ok(sm.x < 200);
   assert.deepEqual(P.finalPoint(sm, { x: 200, y: 100 }), { x: 200, y: 100 });
+});
+
+test('cancelWaitMs: 손가락 취소만 150ms 기다린다(손바닥 → 펜슬)', () => {
+  assert.equal(P.cancelWaitMs('touch'), 150);
+  assert.equal(P.cancelWaitMs('pen'), 0);
+  assert.equal(P.cancelWaitMs('mouse'), 0);
+});
+
+test('손바닥 방지 꺼짐(palm:false): 어떤 닿음이든 바로 시작, 기다림 없음', () => {
+  const base = { penSeen: true, activeType: 'touch', type: 'touch', button: 0, width: 80, height: 80 };
+  assert.equal(P.decideDown(base), 'ignore'); // 켜짐(기본)
+  assert.equal(P.decideDown({ ...base, palm: true }), 'ignore');
+  assert.equal(P.decideDown({ ...base, palm: false }), 'start'); // 꺼짐: 펜슬 우선·넓은 닿음·둘째 접촉 무시 모두 끔
+  assert.equal(P.decideDown({ ...base, palm: false, type: 'mouse', button: 2 }), 'ignore');
+  assert.equal(P.cancelWaitMs('touch', false), 0);
+  assert.equal(P.cancelWaitMs('touch', true), 150);
 });
