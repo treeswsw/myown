@@ -71,7 +71,10 @@ function segmented(onPick, initKeys = BASE_KEYS) {
     // 3 or fewer: one row. 4+: two rows (top row gets the extra one), each row centred on a 6-column grid.
     const n = keys.length, top = n > 3 ? Math.ceil(n / 2) : n;
     const span = 6 / top, m = n - top;
-    btns.forEach((b, i) => { b.style.gridColumn = i === top && m ? `${1 + (6 - m * span) / 2} / span ${span}` : `span ${span}`; });
+    if (n > 6) { // 7+: rows of 3, the leftover row centred (7 = 3/3/1)
+      const full = n - (n % 3 || 3);
+      btns.forEach((b, i) => { b.style.gridColumn = i === full ? `${1 + (6 - (n - full) * 2) / 2} / span 2` : 'span 2'; });
+    } else btns.forEach((b, i) => { b.style.gridColumn = i === top && m ? `${1 + (6 - m * span) / 2} / span ${span}` : `span ${span}`; });
     el.classList.toggle('lb-seg-2row', n > 3);
     el.replaceChildren(...btns);
   }
