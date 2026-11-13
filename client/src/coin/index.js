@@ -2,6 +2,7 @@
 // createCoin({send, root}) -> { onMe(me), onMsg(msg), open(kind) }
 // ctx.on(type, fn) -> 끄기. type: 't' 값('coin' | 'pin' | 'error' | 'me') 또는 'coin:<a>'(예 'coin:draw'), 'pin:<a>'.
 //   'error' 는 code 가 coin_ / shop_ / pin_ 로 시작하는 것만 온다. 'me' 는 wallet 이 바뀔 때마다(fn(wallet)).
+import { item } from '../../../shared/coin/shop.js';
 import './coin.css';
 import './look.css';
 import './titlefx.css';
@@ -12,6 +13,8 @@ const WINDOWS = {
   draw: () => import('./gacha.js').then((m) => m.openGacha),
   shop: () => import('./shop.js').then((m) => m.openShop),
   pin: () => import('./pin.js').then((m) => m.openPin),
+  cap: () => import('./capsule.js').then((m) => m.openCapsule),
+  look: () => import('./lookwin.js').then((m) => m.openLook),
 };
 
 const EMPTY = { coins: 0, total: 0, pity: 0, owned: [], equip: {}, hasPin: false };
@@ -66,6 +69,7 @@ export function createCoin({ send, root }) {
     const w = me && me.wallet;
     if (!w || typeof w !== 'object') return;
     wallet = {
+      ...w, // stock·free·pool·shard·cpity·pos 같은 새 칸도 그대로 넘긴다
       coins: Number(w.coins) || 0,
       total: Number(w.total) || 0,
       pity: Number(w.pity) || 0,
@@ -86,7 +90,8 @@ export function createCoin({ send, root }) {
       } else if (msg.a === 'news') {
         const name = String(msg.name ?? '');
         const chips = Number(msg.chips) || 0;
-        flash('news', `${name}님이 뽑기에서 ${chips.toLocaleString('ko-KR')}칩에 당첨!`, 3000);
+        if (msg.item) flash('news', `${name}님이 캡슐에서 ${(item(msg.item)?.name ?? '희귀 아이템')}을(를) 뽑았습니다!`, 3000);
+        else flash('news', `${name}님이 뽑기에서 ${chips.toLocaleString('ko-KR')}칩에 당첨!`, 3000);
       }
       emit('coin', msg);
       if (msg.a) emit('coin:' + msg.a, msg);
