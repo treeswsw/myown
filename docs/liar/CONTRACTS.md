@@ -284,3 +284,16 @@ roundStats(result, playerIds) → { [id]: { games, wins, liarGames, liarWins } }
 - **hud**: `chatLockFor(state) → { locked, hint, hot }`. 내 첫 설명 차례·내 최후 변론(변론·찬반·판정)에는 `locked: false`, `hint`에 안내 글, `hot: true`. 역할(`state.my`)은 보지 않는다.
 - **진행자 chat**: `chat.setLock(locked, note, hot)` — 잠기지 않았어도 `note`가 있으면 안내 글로 쓴다. `chat.setMode('liar')`, `chat.push(msg, { mine, bubble })`. 없는 진행자(gamemine host)에서도 깨지지 않게 index.js 는 더 넘기기만 한다.
 - **index.js**: 토론·투표·재투표 중 캔버스를 누르면 `scene.pick?.(x, y)` → `mods.vote.pick?.(id)`.
+
+## 10. v0.14 덧붙임 (2026-11-13 마지막 단계 개편. GDD 14절, 계획 docs/liar/ENDING.md. 위 절과 다르면 이 절이 우선)
+
+- **엔딩 모듈** `client/src/liar/anim/ending.js` (`.lg-ed-`, 과제 E): `createEnding(ctx, { onStage, onTick }) → { el, update(state), event(), frame(dt), dispose(), get busy }`, 순수 함수 `endingPlan(state, liarName) → { total, steps, marks }`.
+  보이는 때: `phase` 가 `guess`·`answer` 이고 `unmask.liarId` 가 있을 때. 읽는 값: `unmask.liarId`, `players`, `you`, `guess`, `words`, `phaseEndsAt`(`my`·`result` 는 읽지 않는다). 규칙은 0절 그대로.
+  `answer` 의 총 길이는 `FIXED_TIMES.answer`(10, notice 도 10).
+- **`data-lg`**: `ending`(+ `data-stage`: `ask` → `hush` → `word` → `mismatch` → `answer` → `verdict` → `hold`; 0절 사용자 결정으로 `hush` 정적은 길이 0, `word`·`mismatch` 는 시작과 동시), `ed-title`, `ed-secs`, `ed-wait`, `ed-word`, `ed-mismatch`, `ed-answer`, `ed-verdict`(+ `data-ok="1|0"`), `ed-bubble`.
+  `onStage(stage, info)`: `'ask'`, `'hush'`, `'answer'`(`info.id` = 라이어), `'verdict'`(`info.correct`), `'end'`. `onTick(big)`: 글자 하나가 찍힐 때.
+- **z-index**: 엔딩 28 (이름표 10 · 상단 표시 20 < 엔딩 28 < 조작 줄 30). 라이어의 입력 칸을 가리지 않는다. 뿌리는 `pointer-events: none`.
+- **장면**: `cameraFor`: `guess`·`answer` 이고 `unmask.liarId` 가 있으면 `{mode:'spot', id}`. `spot` = `liar` 와 같은 구도(이미 `liar` 였으면 다시 밀고 들어가지 않음) + 하얀 조명·빛기둥 `reveal.look(id, 'white')`. `tagPos` 는 `liar`·`spot` 에서도 얼굴 아래(`below:true`). `stats()` 에 조명 색 표시.
+- **result 모듈**: `guess` 에서는 라이어의 입력 칸(`guess-input`·`guess-send`)만, `answer` 에서는 전부 숨김. **hud**: `guess`·`answer` 에서는 맨 위 작은 줄만 남기고, `chatLockFor`: `answer` → 잠김 "정답 공개 중에는 글을 쓸 수 없어요", "이 판 끝내기" 숨김.
+- **조립**: 정체 공개 `onStage('end')` 에서 단계가 아직 `unmask` 면 카메라를 테이블로 돌리지 않는다. `soundForEvent` 의 `guess` → 소리 없음, 엔딩 `onStage('verdict', {correct})` 에서 `guessOk`/`guessNo`. 새 소리 없음.
+- **3절 표본**: `words: null` 칸을 더하고, `phase:'answer'` 표본은 `words: { citizen, liar }`(notice 는 `liar: null`), `guess: { text, correct }` 를 채운다.
