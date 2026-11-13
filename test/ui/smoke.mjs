@@ -436,6 +436,138 @@ async function runContext(browser, server, name, cfg) {
       await press('.lb-actions .lb-danger');
       await visible('button:has-text("방 만들기")');
     });
+
+    /* ---------- yacht game (server YACHT=on) ---------- */
+    const CATS = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'choice', 'fourKind', 'fullHouse', 'smallStraight', 'largeStraight', 'yacht'];
+    const yBot = new Bot(server.url, uid('yb'), { autoplay: false });
+    await yBot.connect();
+    await yBot.login();
+    // the bot rolls and then scores the first empty row on its own turn, 700 ms apart (so its turn can be seen)
+    let yKey = '';
+    yBot.waiters.push(() => {
+      const st = yBot.state;
+      if (st?.mode !== 'yacht' || st.phase !== 'playing' || st.turn !== st.you || st.waiting) return;
+      const key = `${st.gameNo}:${st.round}:${st.rollNo}`;
+      if (key === yKey) return;
+      yKey = key;
+      setTimeout(() => {
+        if (!st.dice) yBot.send({ t: 'yt', a: 'roll' });
+        else {
+          const mine = st.cols.find((c) => c.id === st.you);
+          yBot.send({ t: 'yt', a: 'score', cat: CATS.find((c) => mine.scores[c] == null) });
+        }
+      }, 700);
+    });
+    const yEvent = (pred, label) => { const q = yBot.waitMsg((m) => m.t === 'event' && pred(m.e), T, label); q.catch(() => {}); return q; };
+    const ytBarOnTop = async (state) => {
+      await page.waitForTimeout(150);
+      const bad = await page.evaluate(() => [...document.querySelectorAll('.ytbar-btn')].filter((el) => !el.hidden && el.offsetParent !== null).filter((el) => {
+        const r = el.getBoundingClientRect();
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return !(top && (top === el || el.contains(top)));
+      }).map((el) => el.textContent));
+      check(`yacht top bar on top: ${state}`, bad.length === 0, bad.join(','));
+    };
+    await step('yacht: lobby shows 요트다이스 as a game choice', async () => {
+      await visible('.lb-seg-item:has-text("요트다이스")');
+    });
+    await step('yacht: pick 요트다이스, create a room, the bot joins, score sheet + bar show', async () => {
+      await press('.lb-seg-item:has-text("요트다이스")');
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.ytbar-code');
+      const r = await openRoom('yacht');
+      await yBot.join(r.code);
+      await visible('[data-yt="sheet"]');
+      await visible('[data-yt="bar-start"]');
+    });
+    await ytBarOnTop('yacht room (waiting)');
+    await occlusion('yacht room (waiting)');
+    await step('yacht: lobby hidden inside the room, liar bar absent', async () => {
+      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root') && !document.querySelector('.lb-root').hidden, lg: !document.querySelector('.lgbar').hidden }));
+      if (r.lobby || r.lg) throw new Error(`lobby=${r.lobby} liarBar=${r.lg}`);
+    });
+    await step('yacht: 시작 → my turn comes (cup button)', async () => {
+      await press('[data-yt="bar-start"]');
+      await visible('[data-yt="cup"]');
+    });
+    await ytBarOnTop('yacht my turn');
+    await step('yacht: hold the cup and release → the bot receives ytRoll', async () => {
+      const p = yEvent((e) => e.k === 'ytRoll', 'ytRoll event');
+      const b = await loc('[data-yt="cup"]').boundingBox();
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(600);
+      await page.mouse.up();
+      await p;
+      await visible('[data-yt="die-0"]');
+    });
+    await step('yacht: tap a die → the bot receives ytKeep and the die sits in slot-0', async () => {
+      const p = yEvent((e) => e.k === 'ytKeep', 'ytKeep event');
+      await press('[data-yt="die-0"]');
+      await p;
+      await visible('[data-yt="slot-0"][data-v]');
+    });
+    await ytBarOnTop('yacht after rolling');
+    await occlusion('yacht after rolling');
+    let cat = '';
+    await step('yacht: first press on a row → ytPick only; second press → ytScore', async () => {
+      const row = loc('[data-yt^="row-"]');
+      await row.first().waitFor({ state: 'visible', timeout: 8000 });
+      cat = (await row.first().getAttribute('data-yt')).slice(4);
+      const h = (await row.first().boundingBox()).height;
+      if (h < 44) throw new Error(`row height ${h}px < 44`);
+      const pick = yEvent((e) => e.k === 'ytPick' && e.cat === cat, 'ytPick event');
+      const from = yBot.messages.length;
+      await row.first().click();
+      await pick;
+      await page.waitForTimeout(400);
+      if (yBot.messages.slice(from).some((m) => m.t === 'event' && m.e.k === 'ytScore')) throw new Error('ytScore after a single press');
+      await page.locator(`[data-yt="row-${cat}"][aria-pressed="true"]`).waitFor({ state: 'visible', timeout: T });
+      const sc = yEvent((e) => e.k === 'ytScore' && e.cat === cat, 'ytScore event');
+      await page.locator(`[data-yt="row-${cat}"]`).click();
+      await sc;
+    });
+    await step('yacht: 390x844 shows #rotate over the cup, back to landscape hides it', async () => {
+      // (the turn already passed to the bot after the score, so only the rotate overlay is checked here)
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(200);
+      const shown = await page.evaluate(() => getComputedStyle(document.getElementById('rotate')).display !== 'none' && document.elementFromPoint(195, 420)?.closest('#rotate') != null);
+      if (!shown) throw new Error('#rotate does not cover the portrait screen');
+      await page.setViewportSize(cfg.viewport);
+      await page.waitForTimeout(200);
+      const hidden = await page.evaluate(() => getComputedStyle(document.getElementById('rotate')).display === 'none');
+      if (!hidden) throw new Error('#rotate still visible in landscape');
+    });
+    await step('yacht: on the bot\'s turn I have no cup / row buttons', async () => {
+      await page.waitForFunction(() => /차례/.test(document.querySelector('[data-yt="turn"]')?.textContent || '') && !/내 차례/.test(document.querySelector('[data-yt="turn"]')?.textContent || ''), null, { timeout: T }).catch(() => {});
+      const n = await page.locator('[data-yt="cup"], [data-yt^="row-"]').count();
+      if (n) throw new Error(`${n} buttons on the bot's turn`);
+    });
+    await ytBarOnTop('yacht bot turn');
+    await occlusion('yacht bot turn');
+    await step('yacht: sound button toggles', async () => {
+      const before = await loc('[data-yt="bar-sound"]').getAttribute('aria-label');
+      await press('[data-yt="bar-sound"]');
+      const after = await loc('[data-yt="bar-sound"]').getAttribute('aria-label');
+      if (before === after) throw new Error('label did not change');
+      await press('[data-yt="bar-sound"]');
+    });
+    await step('yacht: 나가기 returns to the lobby, bar and board disappear', async () => {
+      await press('[data-yt="bar-leave"]');
+      await visible('button:has-text("방 만들기")');
+      await gone('.ytbar-code');
+      await page.waitForFunction(() => document.querySelector('.yt-root')?.hidden !== false);
+    });
+    yBot.close();
+    await step('poker still works after yacht: create a hold\'em room', async () => {
+      await press('.lb-seg-item:has-text("홀덤")');
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.lb-actions .lb-danger');
+    });
+    await step('poker after yacht: leave the room', async () => {
+      await press('.lb-actions .lb-danger');
+      await visible('button:has-text("방 만들기")');
+    });
   } catch (e) {
     if (!(e instanceof StepFailed)) check('unexpected error', false, String(e.stack || e).split('\n').slice(0, 3).join(' | '));
     const shot = path.join(os.tmpdir(), `smoke-fail-${name}.png`);
@@ -450,7 +582,7 @@ async function runContext(browser, server, name, cfg) {
 let server;
 let browser;
 try {
-  server = await startServer({ LIAR: 'on', ROOM_LIST_MS: '100', RESULT_MS: '60', RESULT_FOLD_MS: '60', STREET_MS: '30', REVEAL_MS: '80' });
+  server = await startServer({ LIAR: 'on', YACHT: 'on', ROOM_LIST_MS: '100', RESULT_MS: '60', RESULT_FOLD_MS: '60', STREET_MS: '30', REVEAL_MS: '80' });
   browser = await chromium.launch();
   for (const [name, cfg] of Object.entries(CONTEXTS)) await runContext(browser, server, name, cfg);
 } catch (e) {
@@ -495,6 +627,42 @@ try {
 } catch (e) {
   results.push({ ctx: 'gate', what: 'gate setup', ok: false, detail: String(e.message || e) });
   console.log(`FAIL gate setup - ${e.message || e}`);
+}
+/* ---------- YACHT switch: off hides the choice, test only with ?yacht=1 ---------- */
+async function yachtGate(browser, env, query, expectVisible, label) {
+  const srv = await startServer({ ROOM_LIST_MS: '100', ...env });
+  const ctx = await browser.newContext({ viewport: { width: 844, height: 390 } });
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(T);
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  let ok = false;
+  let detail = '';
+  try {
+    await page.goto(`${srv.http}/?nogl=1${query}`);
+    await page.fill('.lb-field', uid('yg'));
+    await page.click('button.lb-primary:has-text("입장")');
+    await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
+    await page.waitForTimeout(300);
+    const pick = await page.evaluate(() => [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('요트다이스') && e.offsetParent !== null));
+    ok = pick === expectVisible && errors.length === 0;
+    detail = JSON.stringify({ pick, errors });
+  } catch (e) { detail = String(e.message || e).split('\n')[0]; }
+  results.push({ ctx: 'gate', what: label, ok, detail });
+  console.log(`${ok ? 'PASS' : 'FAIL'} [gate] ${label}${detail ? ` - ${detail}` : ''}`);
+  await ctx.close().catch(() => {});
+  await srv.stop().catch(() => {});
+}
+try {
+  const yb = await chromium.launch();
+  await yachtGate(yb, { YACHT: 'off' }, '', false, 'YACHT=off: no 요트다이스 choice');
+  await yachtGate(yb, { YACHT: 'test' }, '', false, 'YACHT=test without ?yacht=1: hidden');
+  await yachtGate(yb, { YACHT: 'test' }, '&yacht=1', true, 'YACHT=test with ?yacht=1: visible');
+  await yb.close();
+} catch (e) {
+  results.push({ ctx: 'gate', what: 'yacht gate setup', ok: false, detail: String(e.message || e) });
+  console.log(`FAIL yacht gate setup - ${e.message || e}`);
 }
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed in ${((Date.now() - t0) / 1000).toFixed(1)} s`);

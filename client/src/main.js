@@ -15,7 +15,7 @@ import { createAnimator } from './anim/events.js';
 import { createSpecialFX } from './anim/special/index.js';
 import { connect, send, useTransport } from './net.js';
 import { state, saved } from './state.js';
-import { sfx } from './audio.js';
+import { sfx, isMuted, setMuted } from './audio.js';
 import { TY } from './scene/room.js';
 
 document.body.append(h('div', 'buildtag', `v${__BUILD__}`));
@@ -31,10 +31,16 @@ const stage = createStage(document.getElementById('cv'));
 
 /* liar game: loaded on first use (separate chunk, so poker-only players never download it) */
 let liar = null;
-let liarQ = Promise.resolve(); // keeps liar calls in message order while the module loads
+let liarQ = Promise.resolve(); // one queue for liar AND yacht: keeps their calls in message order while the modules load (stage.use is a single slot)
 const withLiar = (fn) => { liarQ = liarQ.then(async () => { if (liar) fn(liar); }).catch((e) => console.error(e)); };
 const inLiar = () => state.room?.mode === 'liar';
 const liarAnchor = (id) => (liar && inLiar() ? liar.anchorOf(id) : null);
+/* yacht game: same idea, own chunk */
+let yacht = null;
+const withYacht = (fn) => { liarQ = liarQ.then(async () => { if (yacht) fn(yacht); }).catch((e) => console.error(e)); };
+const inYacht = () => state.room?.mode === 'yacht';
+const yachtAnchor = (id) => (yacht && inYacht() ? yacht.anchorOf(id) : null);
+const anchorOf = (id) => (inLiar() ? liarAnchor(id) : inYacht() ? yachtAnchor(id) : pins.anchor(id));
 
 const table = createTable(stage);
 table.reset();
@@ -50,7 +56,7 @@ const emotePanel = createEmotePanel({
   onSoundRename: (sid, name) => send({ t: 'sndRename', sid, name }),
   getName: (id) => state.room?.players.find((p) => p.id === id)?.name ?? '',
   isHost: () => state.room?.hostId === state.room?.you,
-  getAnchor: (id) => (inLiar() ? liarAnchor(id) : pins.anchor(id)),
+  getAnchor: (id) => anchorOf(id),
   getSelf: () => state.me?.id ?? null,
   onClose: () => { hud.closePanel(); closeLiarPanel(); },
 });
@@ -61,7 +67,7 @@ const bluff = createBluff(ui, send);
 
 const chat = createChat({
   onSend: (text) => send(liar && inLiar() ? liar.chatMsg(text) : { t: 'chat', text }),
-  getAnchor: (id) => (inLiar() ? liarAnchor(id) : pins.anchor(id)),
+  getAnchor: (id) => anchorOf(id),
 });
 document.body.append(chat.el, chat.button);
 chat.button.hidden = true;
@@ -102,7 +108,27 @@ const lgStart = lgBtn('lgbar-btn main', '시작', () => send({ t: 'start' }));
 const lgBar = h('div', 'lgbar', lgCode, h('span', 'lgbar-sp'), lgEmote, lgStart, lgBtn('lgbar-btn', '나가기', () => send({ t: 'leave' })));
 lgBar.hidden = true;
 ui.append(lgBar);
-document.addEventListener('pointerdown', (e) => { if (liarPanel && !liarPanel.contains(e.target) && !lgEmote.contains(e.target)) closeLiarPanel(); });
+
+/* yacht room top bar (.ytbar, style.css): room code / sound / emote / start / leave. Sits to the right of the score sheet (--yt-sheet-w) */
+const ytCode = h('span', 'ytbar-code');
+const ytSound = lgBtn('ytbar-btn', '', () => { setMuted(!isMuted()); syncYtSound(); });
+ytSound.dataset.yt = 'bar-sound';
+function syncYtSound() { ytSound.textContent = isMuted() ? '🔇' : '🔊'; ytSound.setAttribute('aria-label', isMuted() ? '소리 켜기' : '소리 끄기'); }
+syncYtSound();
+const ytEmote = lgBtn('ytbar-btn', '이모티콘', () => {
+  if (liarPanel) { closeLiarPanel(); return; }
+  liarPanel = h('div', 'hpanel lgpanel', emotePanel.el);
+  ui.append(liarPanel);
+});
+ytEmote.dataset.yt = 'bar-emote';
+const ytStart = lgBtn('ytbar-btn main', '시작', () => send({ t: 'start' }));
+ytStart.dataset.yt = 'bar-start';
+const ytLeave = lgBtn('ytbar-btn', '나가기', () => send({ t: 'leave' }));
+ytLeave.dataset.yt = 'bar-leave';
+const ytBar = h('div', 'ytbar', ytCode, h('span', 'ytbar-sp'), ytSound, ytEmote, ytStart, ytLeave);
+ytBar.hidden = true;
+ui.append(ytBar);
+document.addEventListener('pointerdown', (e) => { if (liarPanel && !liarPanel.contains(e.target) && !lgEmote.contains(e.target) && !ytEmote.contains(e.target)) closeLiarPanel(); });
 
 /* special animations: the host supplies seat geometry and the camera shake */
 const seatInfo = (id) => {
@@ -122,6 +148,7 @@ let shown = null; // what the screen currently reflects
 let wasMyTurn = false;
 let emphasized = false; // showdown emphasis is on screen
 let liarShown = false; // the screen currently shows a liar room (poker parts are cleared)
+let yachtShown = false; // the screen currently shows a yacht room (poker parts are cleared)
 function applyLiarRoom(room) {
   shown = room;
   if (!liarShown) {
@@ -146,7 +173,39 @@ function applyLiarRoom(room) {
   }
   withLiar((l) => l.applyRoom(state.room));
 }
+function applyYachtRoom(room) {
+  shown = room;
+  if (!yachtShown) {
+    yachtShown = true;
+    table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.setVisible(false); hud.update(null);
+    cluster.update(null, false); wheel.update(null, null, false); bluff.update(null, false, false);
+    wasMyTurn = false;
+  }
+  lobby.hide();
+  ytBar.hidden = false;
+  ytCode.textContent = `방 ${room.code}`;
+  ytStart.hidden = room.hostId !== room.you || (room.phase !== 'lobby' && room.phase !== 'result');
+  syncYtSound();
+  chat.setEnabled(true);
+  chat.button.hidden = false;
+  chat.setMode('game');
+  if (!yacht) {
+    liarQ = liarQ.then(async () => {
+      if (yacht) return;
+      const { mountYacht } = await import('./yacht/index.js');
+      yacht = mountYacht({ ui, stage, send, getMe: () => state.me, chat, toast, emotePanel });
+    }).catch((e) => console.error(e));
+  }
+  withYacht((y) => y.applyRoom(state.room));
+}
 function applyRoom(room) {
+  if (room?.mode === 'yacht') { applyYachtRoom(room); return; }
+  if (yachtShown) {
+    yachtShown = false;
+    ytBar.hidden = true;
+    closeLiarPanel();
+    withYacht((y) => y.applyRoom(null));
+  }
   if (room?.mode === 'liar') { applyLiarRoom(room); return; }
   if (liarShown) {
     liarShown = false;
@@ -200,6 +259,7 @@ function handle(msg) {
       state.me = msg.user;
       lobby.setUser(msg.user);
       lobby.setLiar(msg.liar === 'on' || (msg.liar === 'test' && new URLSearchParams(location.search).get('liar') === '1'));
+      lobby.setYacht(msg.yacht === 'on' || (msg.yacht === 'test' && new URLSearchParams(location.search).get('yacht') === '1'));
       if (pendingAvatar && !msg.user.avatar) send({ t: 'avatar', data: pendingAvatar });
       pendingAvatar = null;
       break;
@@ -207,8 +267,8 @@ function handle(msg) {
       // One room's chat log must never show in another (the server resends chatLog on join).
       if (msg.state?.code !== state.room?.code) { chat.setLog([]); emotePanel.clearRoom(); }
       state.room = msg.state;
-      if (msg.state?.mode === 'liar' && !liarShown) { animator.flush(); special.skipAll(); }
-      if (msg.state?.mode === 'liar' || !animator.busy()) applyRoom(msg.state);
+      if ((msg.state?.mode === 'liar' && !liarShown) || (msg.state?.mode === 'yacht' && !yachtShown)) { animator.flush(); special.skipAll(); }
+      if (msg.state?.mode === 'liar' || msg.state?.mode === 'yacht' || !animator.busy()) applyRoom(msg.state);
       break;
     case 'resetAsk': loginId = null; lobby.showResetConfirm(); break;
     case 'resetDone':
@@ -230,6 +290,19 @@ function handle(msg) {
       else lobby.showRank({ top: msg.top, mine: msg.mine });
       break;
     case 'event':
+      if (inYacht()) { // yacht rooms never use the poker animator either
+        const e = msg.e;
+        if (e.k === 'pemote') emotePanel.showPhoto(e.id, e.data);
+        else if (e.k === 'snd') emotePanel.playSound(e.id, e.sid);
+        else if (e.k === 'sndAdd') emotePanel.addRoomSound(e);
+        else if (e.k === 'sndList') { emotePanel.setRoomSounds(e.items); emotePanel.syncMine(); }
+        else if (e.k === 'sndDel') emotePanel.removeRoomSound(e.sid);
+        else if (e.k === 'sndRename') emotePanel.renameRoomSound(e.sid, e.name);
+        else if (e.k === 'chat') chat.push(e, { mine: e.id === state.room?.you });
+        else if (e.k === 'chatLog') chat.setLog(e.items, state.room?.you);
+        else withYacht((y) => y.handleEvent(e)); // includes emote
+        break;
+      }
       if (inLiar()) { // liar rooms never use the poker animator
         const e = msg.e;
         if (e.k === 'pemote') emotePanel.showPhoto(e.id, e.data);
@@ -257,14 +330,14 @@ function handle(msg) {
       break;
     case 'error':
       emotePanel.handleError(msg.msg);
-      if (inLiar() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
+      if (inLiar() || inYacht() || msg.msg.includes('채팅') || (state.room && state.room.phase !== 'lobby')) toast(msg.msg); else lobby.setError(msg.msg);
       break;
     default: break;
   }
 }
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { animator.flush(); applyRoom(state.room); } });
-stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); emotePanel.update(); liar?.frame(dt / 1000); }); // onFrame is ms, liar takes seconds
+stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); emotePanel.update(); liar?.frame(dt / 1000); yacht?.frame(dt / 1000); }); // onFrame is ms, the games take seconds
 
 const mock = new URLSearchParams(location.search).get('mock');
 if (mock) {

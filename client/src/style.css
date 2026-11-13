@@ -248,6 +248,17 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .lgbar-btn { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); font-weight: 700; }
 .lgbar-btn.main { background: #ea3a3d; }
 .lgbar-btn[hidden] { display: none; }
+/* 요트다이스 방 상단 줄 (방 코드 · 소리 · 이모티콘 · 시작 · 나가기). 점수표(--yt-sheet-w, yacht/index.js 가 잰다) 오른쪽에만, 높이 54px.
+   채팅 버튼(오른쪽 위 고정)은 이 줄 바로 아래(top 56px)라 겹치지 않는다 */
+.ytbar { position: fixed; left: var(--yt-sheet-w, 0px); right: 0; top: 0; z-index: 32; height: 54px; display: flex; gap: 5px; align-items: center; padding: 6px 8px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); box-sizing: border-box; pointer-events: none; }
+.ytbar[hidden] { display: none; }
+.ytbar > * { pointer-events: auto; }
+.ytbar-code { font-weight: 700; font-size: 13px; padding: 0 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ytbar-sp { flex: 1; min-width: 0; pointer-events: none !important; }
+.ytbar-btn { flex: none; min-height: 40px; min-width: 40px; padding: 0 9px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); font-weight: 700; font-size: 13px; white-space: nowrap; }
+.ytbar-btn.main { background: #ea3a3d; }
+.ytbar-btn[hidden] { display: none; }
+@media (max-height: 719px) { .ytbar { right: calc(22px + 34px * var(--k, 1)); } } /* 낮은 화면(휴대폰 가로): 채팅 버튼이 이 줄 안(top 56k)에 들어오므로 그 자리를 비운다 */
 /* 라이어 화면 자리 맞춤(진행자 쪽). client/src/liar 는 gamemine 과 같게 두므로 여기서 덮는다(test/css.test.js CROSS_FILE_ALLOW).
    "이 판 끝내기"는 상단 줄(54px) 아래, 방 대기 설정 창은 상단 줄과 조작 줄("전체 랭킹" 40px)·붙은 채팅(--chat-docked-h, chat.css) 사이 */
 .lg-root .lg-hud-endbox { top: calc(env(safe-area-inset-top, 0px) + 54px + max(6px, calc(12px * var(--lg-k, 1)))); }

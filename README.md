@@ -29,7 +29,8 @@ npm start          # http://localhost:8080 (PORT 환경 변수로 변경)
 | `npm run test:ui` | 화면 스모크 테스트 (`test/ui/smoke.mjs`) |
 | `npm run check` | 빌드 → 단위 → UI 스모크 순서로 실행, 처음 실패에서 중단. **머지 게이트** |
 | `node test/ui/liar-round.mjs` | 라이어게임 한 판 스모크(창 3개, 약 90초). `npm test` 에 포함 |
-| `npm test` | 전체 스위트(단위 + e2e + 라이어 한 판, 약 5분). main 배포 전에 실행 |
+| `node test/ui/yacht-round.mjs` | 요트다이스 한 판 스모크(창 3개, 약 30초). `npm test` 에 포함 |
+| `npm test` | 전체 스위트(단위 + e2e + 라이어·요트 한 판, 약 5분). main 배포 전에 실행 |
 
 화면 오른쪽 아래의 작은 `v커밋` 글자는 빌드된 커밋(Render의 `RENDER_GIT_COMMIT`, 없으면 git, 그것도 없으면 `dev`)이다.
 
@@ -50,6 +51,7 @@ PLAYWRIGHT_MODULE=/경로/playwright node test/ui/click.e2e.mjs phone    # 하�
 |---|---|
 | `PORT` | 서버 포트 (기본 8080) |
 | `LIAR` | 라이어게임 스위치: `off`(기본, 화면·서버 모두 흔적 없음) / `test`(주소에 `?liar=1` 이 있을 때만 버튼이 보임) / `on`(모두에게 보임). 그 밖의 값은 `off` |
+| `YACHT` | 요트다이스 스위치: `off` / `test`(주소에 `?yacht=1` 이 있을 때만 버튼이 보임, 값이 없을 때도 `test`) / `on`(모두에게 보임) |
 | `DATABASE_URL` | PostgreSQL 연결 문자열. 있으면 `users` 테이블을 자동 생성해 사용 |
 | `GRACE_MS` `ROOM_GC_MS` `RESULT_MS` `RESULT_FOLD_MS` `TIE_EXTRA_MS` `BLUFF_RESULT_MS` `BUST_EXTRA_MS` `STREET_MS` `REVEAL_MS` `ROOM_LIST_MS` | 타이머 조정(밀리초). 테스트용이며 기본값은 SPEC대로 |
 

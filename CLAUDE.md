@@ -14,9 +14,11 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 이모티콘·사운드: client/src/ui/emotePanel.*, client/src/media.js, audio.js
 - 게임 UI: client/src/ui/hud.js, cluster.js, wheel.js, bluff.js, pins.js
 - 라이어게임: shared/liar/, server/liar/, client/src/liar/, test/liar/, scripts/build-words.mjs, docs/liar/ (한 과제는 그 안의 한 모듈만. 구역 나눔·모듈 접두사는 docs/liar/GDD.md 와 gamemine CLAUDE.md 의 요약대로: 설정 .lg-st-, 첫 발언 .lg-fs-, 상단 표시 .lg-hud-, 역할 .lg-role-, 투표 .lg-vt-, 결과 .lg-rs-, 랭킹 .lg-rk-, 규칙 .lg-rule-, 이모티콘 .lg-em-, 정체 공개 .lg-um-. 라이어 CSS 클래스는 전부 `.lg-`)
+- 요트다이스: shared/yacht/, server/yacht/, client/src/yacht/, test/yacht/, docs/yacht/ (한 과제는 그 안의 한 모듈만. 모듈·접두사는 docs/YACHT-PLAN.md 1절:
+  규칙 shared/yacht/{constants,score,game,protocol}.js, 굴림 계산기 shared/yacht/sim.js, 점수표 .yt-sc-, 결과 .yt-rs-, 판 .yt-bd-, 연출 .yt-fx-, 3D 모델 client/src/yacht/scene/. 요트 CSS 클래스는 전부 `.yt-`)
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
 - UI 시험: test/ui/, client/src/mock.js
-- 통합(한 번에 한 에이전트만): client/src/main.js, style.css, ui/dom.js, index.html,
+- 통합(한 번에 한 에이전트만): client/src/yacht/index.js, yacht.css, client/src/main.js, style.css, ui/dom.js, index.html,
   net.js, state.js, vite.config.js, package.json, README.md, docs/, CLAUDE.md, .claude/
 - 통신 메시지가 바뀌면 먼저 SPEC 7절에 모양을 적고, 그다음 서버·화면을 병렬로 띄운다.
 - docs/SYNC.md는 관리자만 쓴다.
@@ -38,6 +40,18 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - main.js 의 라이어 연결: `import('./liar/index.js')` 로 따로 불러온다(포커만 하는 사람은 받지 않는다). 상단 줄은 `.lgbar`(style.css).
 - `npm test` 는 라이어 한 판(test/ui/liar-round.mjs)을 포함한다. 새 라이어 화면이 생기면 거기에도 클릭 한 줄을 추가한다.
 - 복사해 온 라이어 폴더는 gamemine 과 같게 유지한다. 라이어 모듈 안의 버그는 고치지 말고 보고(총괄이 정한다).
+
+## 요트다이스 (같은 사이트 안의 세 번째 게임)
+- 스위치 환경 변수 `YACHT`: `off` / `test`(주소에 `?yacht=1` 일 때만 버튼 보임, 설정이 없을 때의 값) / `on`. render.yaml 은 `test`. 사용자 실기기 확인 뒤 `on`.
+  규칙은 docs/yacht/GDD.md, 통신은 SPEC 19절.
+- 반드시 지킬 약속: 눈·seed·차례 순서는 서버가 crypto 난수로만(요트 폴더에 Math.random 금지). 화면은 서버가 준 눈과 멈춘 자리로 끝낸다.
+  모든 사람(관전자 포함)이 같은 트레이·같은 주사위 자리·같은 움직임을 본다. 움직이는 것은 주사위와 컵뿐. 차례인 사람만 조작(화면에 버튼이 없고 서버도 거절).
+  점수 칸은 두 번 눌러 기록하고 첫 누름(선택)은 방 전체에 보인다. 차례 시간 제한 없음(자동 굴림·기록 없음). 끊긴 사람 차례는 멈추고 기다리며, 끊긴 지 60초(GRACE_MS)면 기권.
+  가로 전용(세로는 사이트 #rotate 안내, 세로 배치 없음). 휴대폰 가로는 점수표 두 덩어리. 시간은 서버가 잰다. 사용자 글자는 textContent 로만.
+- 요트 전용 요청은 전부 `{t:'yt', a: 종류, ...}`. 요트 방 상태에는 프로필 사진을 넣지 않는다(`faces` 알림).
+- main.js 의 요트 연결: `import('./yacht/index.js')` 로 따로 불러온다. 상단 줄은 `.ytbar`(style.css). 라이어와 같은 대기 줄(`liarQ`)을 쓴다(stage.use 는 하나).
+- `npm test` 는 요트 한 판(test/ui/yacht-round.mjs)을 포함한다. 새 요트 화면이 생기면 smoke.mjs 와 거기에 클릭 한 줄을 추가한다.
+- 3D 주사위·컵·소리·저사양 폰은 항상 "미확인(실기기 확인 필요)"으로 보고한다. `?nogl=1` 은 2D 판으로 끝까지 된다.
 
 ## CSS
 - 접두사: 로비 .lb-, 채팅 .chat-, 이모티콘·사운드 .ep-. 새 모듈은 새 접두사.
