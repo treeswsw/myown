@@ -267,3 +267,30 @@ for (const N of [3, 8]) {
     });
   }
 }
+
+// ---- 정답 공개(answer) 개편: 라이어가 답을 쓰기 전에는 시민 제시어를 받지 않는다 ----
+for (const N of [3, 8]) {
+  test(`[${N}명] unmask·guess 동안 라이어의 view·알림에 시민 제시어가 없고 words 는 모두에게 null, answer 부터 공개`, () => {
+    const g = make(N, 1);
+    const events = [];
+    const push = (r) => events.push(...r.events);
+    push(tick(g, g.phaseEndsAt));
+    for (const id of g.order) push(sayT(g, id, `${id}: 설명`, g.phaseStartedAt));
+    push(tick(g, g.phaseEndsAt));        // 표 없음 → 지목 실패
+    for (const phase of ['unmask', 'guess']) {
+      assert.equal(g.phase, phase);
+      for (const id of g.players) {
+        const v = viewFor(g, id);
+        assert.ok('words' in v, `${phase} ${id}: words 칸`);
+        assert.equal(v.words, null, `${phase} ${id}`);
+      }
+      assert.ok(!JSON.stringify(viewFor(g, 'p1')).includes(DRAW.citizenWord), `${phase}: 라이어 view`);
+      push(tick(g, g.phaseEndsAt));
+    }
+    assert.equal(g.phase, 'answer');
+    // answer 시작까지 나온 모든 알림(guess·phase 포함)에 제시어가 없다 — 제시어는 상태의 words 로만 간다
+    assert.ok(!JSON.stringify(events).includes(DRAW.citizenWord));
+    assert.ok(!JSON.stringify(events).includes(DRAW.liarWord));
+    for (const id of g.players) assert.deepEqual(viewFor(g, id).words, { citizen: DRAW.citizenWord, liar: DRAW.liarWord });
+  });
+}
