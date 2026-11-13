@@ -32,6 +32,17 @@ const wins = [];
 async function openPage(browser, url, who, viewport) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  // 받은 drSt(새 선 시작) 개수를 센다(빠르게 연속으로 그은 선이 다 오는지 보는 단계용)
+  await ctx.addInitScript(() => {
+    const WS = window.WebSocket;
+    window.__drSt = 0;
+    window.WebSocket = class extends WS {
+      constructor(...a) {
+        super(...a);
+        this.addEventListener('message', (ev) => { if (typeof ev.data === 'string' && ev.data.includes('"k":"drSt"')) window.__drSt++; });
+      }
+    };
+  });
   const page = await ctx.newPage();
   page.setDefaultTimeout(T);
   const errors = [];
@@ -237,6 +248,43 @@ try {
     await redo.click();
     await waitInk(drawer, (n) => n > 50, '다시 하기 뒤 그린 사람 화면');
     for (const g of guessers) await waitInk(g, (n) => n > 50, '다시 하기가 전해지지 않음');
+  });
+
+  // 실기기 버그: 펜을 떼고 곧바로 다시 대면 새 선이 씹힘. 쉬지 않고 짧은 선 10개를 그어 보는 사람 모두에게 drSt 10개가 오는지.
+  await step('1번째 문제: 마우스·터치로 짧은 선을 쉬지 않고 10개씩 → 보는 사람 모두에게 선 10개씩 도착', async () => {
+    const { drawer, guessers } = q1;
+    const box = await drawer.page.locator('.dr-cv-paper').boundingBox();
+    const at = (fx, fy) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy });
+    const counts = () => Promise.all(guessers.map((g) => g.page.evaluate(() => window.__drSt || 0)));
+    const waitCounts = async (want, what) => {
+      const end = Date.now() + 5000;
+      let got = [];
+      while (Date.now() < end) { got = await counts(); if (got.every((n, i) => n >= want[i])) return; await drawer.page.waitForTimeout(80); }
+      throw new Error(`${what}: 받은 drSt ${got} (기대 ${want})`);
+    };
+    const base0 = await counts();
+    for (let k = 0; k < 10; k++) { // 마우스: 누름 → 두 번 움직임 → 뗌, 바로 다음 선
+      const a = at(0.1 + k * 0.08, 0.62);
+      await drawer.page.mouse.move(a.x, a.y);
+      await drawer.page.mouse.down();
+      await drawer.page.mouse.move(a.x + 8, a.y + 20);
+      await drawer.page.mouse.move(a.x + 14, a.y + 40);
+      await drawer.page.mouse.up();
+    }
+    await waitCounts(base0.map((n) => n + 10), '마우스 10선');
+    const base1 = await counts();
+    const cdp = await drawer.page.context().newCDPSession(drawer.page);
+    const touch = (type, p) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: p ? [{ x: p.x, y: p.y, id: 1, radiusX: 4, radiusY: 4 }] : [] });
+    for (let k = 0; k < 10; k++) { // 터치: 손가락을 떼자마자 다시 댄다
+      const a = at(0.1 + k * 0.08, 0.82);
+      await touch('touchStart', a);
+      await touch('touchMove', { x: a.x + 8, y: a.y + 15 });
+      await touch('touchMove', { x: a.x + 14, y: a.y + 30 });
+      await touch('touchEnd', null);
+    }
+    await waitCounts(base1.map((n) => n + 10), '터치 10선');
+    await cdp.detach().catch(() => {});
+    noErrors('rapid strokes');
   });
 
   await step('1번째 문제: 맞히는 사람 한 명이 정답을 입력 → 정답 표시, 두 번째도 맞히면 정답 공개', async () => {

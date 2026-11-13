@@ -125,6 +125,17 @@ test('decideDown: 손바닥·펜슬 규칙', () => {
   assert.equal(P.decideDown({ ...base, type: 'mouse', width: 1, height: 1 }), 'start');
 });
 
+test('staleActive: 끝 알림을 못 받은 앞 누름 알아보기', () => {
+  const pen = { id: 3, type: 'pen' };
+  assert.equal(P.staleActive(pen, { id: 3, type: 'pen', isPrimary: true }), true); // 같은 번호가 다시 눌림
+  assert.equal(P.staleActive(pen, { id: 4, type: 'pen', isPrimary: true }), true); // 펜은 하나뿐
+  assert.equal(P.staleActive(pen, { id: 5, type: 'touch', isPrimary: true }), false); // 펜 긋는 중 손가락(손바닥)
+  const finger = { id: 7, type: 'touch' };
+  assert.equal(P.staleActive(finger, { id: 8, type: 'touch', isPrimary: false }), false); // 둘째 손가락: 무시 규칙 그대로
+  assert.equal(P.staleActive(finger, { id: 8, type: 'touch', isPrimary: true }), true); // 다른 닿음 없음 = 앞 손가락은 떨어짐
+  assert.equal(P.staleActive(null, { id: 1, type: 'mouse', isPrimary: true }), false);
+});
+
 test('confirmedSegments·tailSegment: 꼬리를 뺀 확정 조각만', () => {
   const a = [0, 0, 10, 0, 10, 10, 0, 10];
   assert.equal(P.confirmedSegments(a, 0, 4).length, 3); // 0,1,2 번 (3 번이 꼬리)

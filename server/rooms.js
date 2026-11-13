@@ -26,7 +26,7 @@ const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 export const REPLACED_CODE = 4001;
 const RESET_WINDOW = 60_000; // a reset needs a resetAsk this recent, and runs at most once per window
 const RATE_LIMIT = 20;
-const DR_RATE_LIMIT = 40; // {t:'dr'} is counted apart so a drawer's strokes (about 16/s) are never dropped
+const DR_RATE_LIMIT = 100; // {t:'dr'} is counted apart so a drawer's strokes are never dropped (board sends at most SEND_PER_SEC=50 per 1s, 2x margin for network bunching)
 const MAX_ROOM_SOUNDS = 24;
 const MAX_ACCOUNT_SOUNDS = 8;
 const CHAT_LOG = 30; // messages remembered per room

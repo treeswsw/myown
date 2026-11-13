@@ -1,13 +1,13 @@
-// 그림판 입구 (GDD 6, 10-5, 11-2). createBoard(parent, ctx) → { el, update, event, dispose, local, stop }
+// 그림판 입구 (GDD 6, 10-5, 11-2). createBoard(parent, ctx) → { el, update, event, dispose, local, stop, history, snapshot }
 //   local(a)  a='undo'|'redo'|'clear' : 그리는 사람 자신의 되돌리기 등을 내 화면에 즉시 반영. 도구 칸이 send 직전에 부른다
 //             (긋는 중이면 그 선을 먼저 끝내 보내므로, 반드시 send 보다 먼저).
 //   stop()    : 긋던 선을 멈춘다(dr_canvas_full 오류를 받았을 때 index.js 가 부른다. drSync 는 event 가 알아서 처리).
 //   history   : { get() → {canUndo, canRedo}, on(fn) → off }  내 로컬 그림 상태 기준(긋는 중이면 canRedo false). 바뀔 때만 fn({canUndo,canRedo}) 호출.
-// ctx: { send, meId, now, layout, tool:{get()}, onFull?() }  — onFull 은 내 화면에서 한도가 찼을 때 선택적으로 불린다.
-import { MAX_NUMS_PER_MSG, SEND_INTERVAL_MS, SMOOTH_FINGER, SMOOTH_PEN } from '../../../../shared/draw/constants.js';
+// ctx: { send, meId, now, layout, tool:{get()}, onFull?(), clock?() }  — onFull 은 내 화면에서 한도가 찼을 때 선택적으로 불린다. clock 은 보내기 한도용 시계(ms, 없으면 performance.now).
+import { SEND_INTERVAL_MS, SEND_PER_SEC, SMOOTH_FINGER, SMOOTH_PEN } from '../../../../shared/draw/constants.js';
 import {
   createDrawing, apply, st as opSt, pt as opPt, cx as opCx, rm as opRm, undo as opUndo, redo as opRedo, clear as opClear,
-  visibleStrokes, importSync, absPoints, canUndo, canRedo,
+  visibleStrokes, importSync, exportSync, absPoints, canUndo, canRedo,
 } from '../../../../shared/draw/ops.js';
 import { createRenderer, absOf } from './render.js';
 import { createInput } from './input.js';
@@ -36,7 +36,29 @@ export function createBoard(parent, ctx) {
   let size = { w: 0, h: 0 };
   let disposed = false;
 
-  const sendDr = (a, body) => ctx.send({ t: 'dr', a, ...body });
+  // ---- 보내기: 어느 1초 구간에도 SEND_PER_SEC 개 이하(서버가 한도를 넘은 요청을 조용히 버려 선이 어긋나지 않게) ----
+  // 한도에 닿으면 버리지 않고 줄(outbox)에 세워 순서대로 보낸다. 긋는 중의 묶음은 한도에 닿으면 미뤄 다음 묶음과 합친다.
+  const mono = ctx.clock || (() => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()));
+  const outbox = [];
+  const sentAt = []; // 최근 1초 안에 보낸 시각
+  let outTimer = 0;
+  function budget(t) {
+    while (sentAt.length && t - sentAt[0] >= 1000) sentAt.shift();
+    return SEND_PER_SEC - sentAt.length;
+  }
+  function drain(force) {
+    const t = mono();
+    while (outbox.length && (force || budget(t) > 0)) { sentAt.push(t); ctx.send(outbox.shift()); }
+    if (outbox.length && !outTimer) {
+      outTimer = setTimeout(() => { outTimer = 0; if (!disposed) drain(false); }, Math.max(4, Math.ceil(1000 - (t - sentAt[0])) + 1));
+    }
+  }
+  function dropOutbox() {
+    outbox.length = 0;
+    if (outTimer) { clearTimeout(outTimer); outTimer = 0; }
+  }
+  const canSendNow = () => !outbox.length && budget(mono()) > 0;
+  const sendDr = (a, body) => { outbox.push({ t: 'dr', a, ...body }); drain(false); };
 
   // ---- 되돌리기 상태 알림 ----
   const listeners = new Set();
@@ -74,7 +96,7 @@ export function createBoard(parent, ctx) {
     if (!live) return;
     const n = live.a.length >> 1;
     if (live.shown < n) {
-      const next = Math.min(n, live.shown + Math.max(1, Math.ceil((n - live.shown) / 3)));
+      const next = Math.min(n, live.shown + Math.max(1, Math.ceil((n - live.shown) / 2))); // 묶음이 30ms마다 오므로 2번에 나눠 바로 따라잡는다
       rd.drawGrowth(live, live.a, live.shown, next);
       live.shown = next;
     }
@@ -188,9 +210,49 @@ export function createBoard(parent, ctx) {
     g.drawn = n;
   }
 
+  // 긋는 중에 drSync(서버가 내 요청을 버렸다)를 받음: 서버 그림을 받아들이되 손에 든 선은 끊지 않는다(GDD 15절).
+  // 펜·정밀 지우개: 서버의 긋던 선을 없던 것으로(cx) 하고, 내 선 전체를 새 st 로 다시 보낸다 → 서버·보는 사람·내 화면이 다시 같아진다.
+  // 획 지우개: 문지르기를 그대로 이어 간다(새 묶음부터 보냄).
+  function adoptKeepingGesture(next) {
+    const mine = g.mode !== 'strokeErase' && g.cur && state.cur ? absPoints(state.cur.p) : null;
+    state = next;
+    synced = true;
+    const stopHere = (r) => {
+      g.dead = true;
+      g.sendOff = true;
+      endTimer();
+      if (r && r.error === 'full' && ctx.onFull) ctx.onFull();
+      fullRedraw();
+      kick();
+    };
+    if (g.mode === 'strokeErase') {
+      g.rmLocal = false; g.rmSent = false; g.rmQueue = [];
+      fullRedraw();
+      kick();
+      return;
+    }
+    if (state.cur) { opCx(state); sendDr('cx', {}); }
+    if (!mine) { stopHere(null); return; }
+    const r = opSt(state, { c: g.c, w: g.w, e: g.e, p: [mine[0], mine[1]] });
+    if (!r.ok) { stopHere(r); return; }
+    const pts = [{ x: mine[0], y: mine[1] }];
+    for (let i = 2; i < mine.length; i += 2) {
+      const q = opPt(state, { p: [mine[i] - mine[i - 2], mine[i + 1] - mine[i - 1]] });
+      if (!q.ok) { opCx(state); stopHere(q); return; }
+      pts.push({ x: mine[i], y: mine[i + 1] });
+    }
+    g.q = pts;
+    g.lastSent = null;
+    g.sendOff = false;
+    fullRedraw();
+    kick();
+    if (canSendNow()) flushPen(false);
+  }
+
   const input = createInput(canvas, {
     enabled: () => canDraw,
     down(cx, cy, type) {
+      if (g) finishGesture(); // 앞 선이 아직 열려 있으면(끝 알림을 못 받음) 정상으로 끝내고 새 선
       const t = (ctx.tool && ctx.tool.get && ctx.tool.get()) || { tool: 'pen', color: 0, penW: 10, eraseW: 24 };
       const rect = canvas.getBoundingClientRect();
       const p = toLogical(cx, cy, rect);
@@ -220,8 +282,9 @@ export function createBoard(parent, ctx) {
         g.drawn = 1;
         flushLive();
         rd.drawGrowth(g, absPoints(state.cur.p), 0, 1);
+        if (canSendNow()) flushPen(false); // 첫 점은 바로 보낸다(보는 사람 화면에 선이 곧바로 시작)
       }
-      g.timer = setInterval(() => { if (g) flush(false); }, SEND_INTERVAL_MS);
+      g.timer = setInterval(() => { if (g && canSendNow()) flush(false); }, SEND_INTERVAL_MS);
       return true;
     },
     move(list) {
@@ -256,6 +319,7 @@ export function createBoard(parent, ctx) {
   // ---- 바깥에서 부르는 것 ----
   function local(a) {
     if (g) { input.release(); finishGesture(); } // 긋던 선을 먼저 끝내 보낸다(send 보다 앞서야 서버 순서가 맞다)
+    drain(true); // 줄에 남은 것도 지금 보낸다(도구 칸의 send 가 그 뒤에 가야 한다)
     const fn = a === 'undo' ? opUndo : a === 'redo' ? opRedo : a === 'clear' ? opClear : null;
     if (!fn) return;
     const r = fn(state);
@@ -283,6 +347,8 @@ export function createBoard(parent, ctx) {
     if (e.k === 'drSync') {
       const r = importSync(e);
       if (!r.ok) return;
+      dropOutbox(); // 아직 안 보낸 것은 서버에 없다: 서버 그림을 받아들이는 순간 함께 버린다(둘이 같아진다)
+      if (g && canDraw && !g.dead) { adoptKeepingGesture(r.state); return; }
       if (g) { input.release(); cancelGesture(false); }
       state = r.state;
       synced = true;
@@ -291,6 +357,7 @@ export function createBoard(parent, ctx) {
       return;
     }
     if (e.k === 'drNew') {
+      dropOutbox();
       if (g) { input.release(); cancelGesture(false); }
       state = createDrawing();
       synced = true;
@@ -337,9 +404,11 @@ export function createBoard(parent, ctx) {
     if (ro) ro.disconnect();
     if (raf) cancelAnimationFrame(raf);
     endTimer();
+    dropOutbox();
     input.dispose();
     el.remove();
   }
 
-  return { el, update, event, dispose, local, stop, history };
+  // snapshot(): 지금 내 화면 그림 상태(exportSync 모양). 시험·점검용
+  return { el, update, event, dispose, local, stop, history, snapshot: () => exportSync(state) };
 }
