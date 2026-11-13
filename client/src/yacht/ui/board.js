@@ -87,7 +87,7 @@ export function createBoard({ host, stage, send, getFace, onBusy } = {}) {
       sig = '';
       if (state) redraw(); else view.draw({ dice: null, shaking: false, cupHasDice: true });
       layout();
-    }).catch(() => { if (flat) flat.style.visibility = ''; });   // 3D 를 못 쓰면 2D 로 계속
+    }).catch(() => { try { stage.use(null); } catch {} if (flat) flat.style.visibility = ''; });   // 3D 를 못 쓰면 2D 로 계속
   }
 
   const tall = () => (typeof window !== 'undefined' ? window.innerHeight >= 720 : true);

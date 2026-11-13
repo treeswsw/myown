@@ -131,7 +131,9 @@ export function createDiceView({ host, stage, clock, scene: givenScene, reduced 
     }
     setMarks();
     const slow = reduced ?? (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
-    const player = createRollPlayer({ seed, thrown, dice, start, reduced: !!slow });
+    let player;
+    try { player = createRollPlayer({ seed, thrown, dice, start, reduced: !!slow }); }
+    catch { draw({ dice }); return Promise.resolve(); }     // 재생기를 못 만들면 끝 모습으로 그리고 바로 끝낸다
     return new Promise((resolve) => {
       roll = { player, t0: now(), at: 0, resolve };
       apply(player.poseAt(0));
