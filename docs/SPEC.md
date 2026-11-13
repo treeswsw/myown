@@ -645,3 +645,27 @@ design/   시안
 - `shared/coin/protocol.js`: `parseCoin(msg) -> {ok, msg}|{ok:false, code}`, `parsePin(msg)` 같은 모양. `PIN_RE = /^\d{4}$/`.
 - 화면: `client/src/coin/index.js` 가 `export function createCoin({ send, root }) -> { onMe(me), onMsg(msg), open(kind) }` 를 내보낸다. `kind`: `'swap'|'draw'|'shop'|'rank'|'pin'`. `send(obj)` 는 net 의 보내기. `root` 는 창을 붙일 요소(#ui). 각 창 모듈은 `open{Swap,Rank}(ctx)`(wallet.js), `openGacha(ctx)`(gacha.js), `openShop(ctx)`(shop.js), `openPin(ctx)`(pin.js), `ctx = { send, root, wallet(), on(type, fn) -> 끄기 }`.
 - 로비: `createLobby` 옵션에 `onCoin(kind)` 콜백 추가, 로그인 콜백은 기존 `onLogin(id, avatar, pw)` 에 네 번째 인자 `{pin, newPin}` 추가(없으면 undefined). 초기화 확인 콜백은 `onResetConfirm(pw)`. 로비는 `me.wallet.coins` 로 잔액을 보인다.
+
+### 22-15. 카드 뽑기 (2026-11-13 사용자 시안 반영, 22-4를 대체)
+- 사용자 시안: 상점 = "딜러의 테이블", 뽑기 = 카드 뒤집기. 확률은 화면에 보이지 않는다(나올 수 있는 카드와 칩만).
+- 1장 5코인(500칩 값), 10장 50코인. 꽝 없음. 결과는 서버가 `hub.rng`로 정하고 바로 칩에 더한다.
+
+| 등급 tier | 이름 | 칩 | 가중치(100,000 중) | 색 |
+|---|---|---|---|---|
+| 0 | 동 | 200 | 58,000 | #8d7b68 |
+| 1 | 은 | 500 | 30,000 | #c0c8d4 |
+| 2 | 금 | 1,000 | 9,000 | #f2c444 |
+| 3 | 대박 | 2,500 | 2,400 | #ff453a |
+| 4 | 잭팟 | 10,000 | 500 | #7fd4ff |
+| 5 | 갱식 잭팟 | 금고 전부 | 100 | 무지개 |
+
+- **금고**: 서버 전체에 하나. 10,000칩에서 시작하고, 누가 뽑든 1장마다 +20칩(무료 뽑기 포함). 갱식 잭팟이 나오면 그 사람이 금고 전부를 받고 금고는 10,000으로 돌아간다. 금고 값은 저장소에 저장해 재시작에도 남는다(`store.getMeta/setMeta('pool')`, Postgres 는 `meta(k text primary key, v jsonb)` 표). 초기화하면 10,000.
+- **천장**: 대박 이상이 안 나온 장을 센다(`gear.pity`). 59장 연속 안 나오면 60장째는 대박 이상 확정(자연히 더 높으면 그대로). 화면에 "대박 확정까지 N장".
+- **10장 보장**: 10장 중 금 이상이 하나도 없으면 마지막 장을 금(1,000)으로 바꾼다(천장 계산 뒤).
+- 모의 실행 평균: 1장 약 509칩(+2%), 10장 약 526칩/장(+5%).
+- **무료 뽑기**: 2시간마다 1장 충전, 최대 2장 쌓임. 서버 시계 기준(`gear.free = {n, at}`). 무료 1장은 5코인 1장과 같은 규칙(천장 포함). 요청 `{t:'coin', a:'draw', n:1, free:true}`.
+- **전체 알림**: 잭팟 이상은 접속한 모두, 대박은 로비에 있는 사람에게 `{t:'coin', a:'news'}`.
+- **전용 보상**: 갱식 잭팟 당첨자에게 칭호 `title.jackpot`("잭팟의 주인")을 자동 지급(이미 있으면 그대로). 상점에서는 팔지 않는다(`shop:false`).
+- **기록**: 최근 뽑기 50건을 `{t:'coin', a:'hist'}` → `{t:'coin', a:'hist', list:[{at, n, chips, best}]}` (장부 coin_log 에서 읽음).
+- 결과 메시지: `{t:'coin', a:'draw', pulls:[{chips, tier}], chips, pity, pool, free:{n, at}}`. `me.wallet` 에 `free:{n, next}`(next = 다음 충전까지 ms, 가득이면 null), 상태로 `pool`(금고)을 함께 보낸다.
+- 연출: 카드가 깔리고, 뒤집기 전 테두리 빛으로 등급을 암시한다. 10장은 한 장씩 뒤집고 가장 높은 카드를 마지막에. [한 번에 다 뒤집기]·건너뛰기 언제나. 화면 디자인은 사용자 시안(상점 "딜러의 테이블", 뽑기 첫 화면·10장 결과).
