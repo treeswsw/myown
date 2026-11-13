@@ -138,7 +138,7 @@ async function runContext(browser, server, name, cfg) {
   const meId = uid('ui');
   let holdemCode = null;
   try {
-    await page.goto(`${server.http}/?nogl=1`);
+    await page.goto(`${server.http}/?nogl=1&draw=1`);
 
     /* ---------- login ---------- */
     await step('login screen shows', () => visible('.lb-field'));
@@ -436,6 +436,36 @@ async function runContext(browser, server, name, cfg) {
       await press('.lb-actions .lb-danger');
       await visible('button:has-text("방 만들기")');
     });
+
+    /* ---------- draw game 갱식마인드 (server DRAW=test, page ?draw=1) ---------- */
+    await step('draw: lobby shows the 갱식마인드 choice with its caption', async () => {
+      await press('.lb-seg-item:has-text("갱식마인드")');
+      await page.waitForSelector('.lb-cap:has-text("2~8명 · 그림 보고 단어 맞히기")', { state: 'attached', timeout: T }); // phone landscape hides the caption by design
+    });
+    await occlusion('home lobby (draw on)');
+    await step('draw: create a room → waiting room (settings, start button)', async () => {
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.dr-st-code');
+      await visible('[data-dr="st-start"]');
+      await visible('.lgbar-code');
+    });
+    await barOnTop('draw room (waiting)');
+    await occlusion('draw room (waiting)');
+    await step('draw: lobby and poker/liar parts are hidden inside the draw room', async () => {
+      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root') && !document.querySelector('.lb-root').hidden, chatBtn: !!document.querySelector('.chat-btn') && !document.querySelector('.chat-btn').hidden }));
+      if (r.lobby) throw new Error('lobby is visible in the draw room');
+      if (r.chatBtn) throw new Error('site chat button is visible in the draw room');
+    });
+    await step('draw: pick an order option (출제 순서) and it turns on', async () => {
+      await press('[data-dr="st-order"]', 1);
+      await page.waitForFunction(() => document.querySelectorAll('[data-dr="st-order"]')[1]?.getAttribute('aria-pressed') === 'true', null, { timeout: T });
+    });
+    await step('draw: 나가기 returns to the lobby, bar disappears', async () => {
+      await press('button.lgbar-btn:has-text("나가기")');
+      await visible('button:has-text("방 만들기")');
+      await gone('.lgbar-code');
+      await gone('.dr-root');
+    });
   } catch (e) {
     if (!(e instanceof StepFailed)) check('unexpected error', false, String(e.stack || e).split('\n').slice(0, 3).join(' | '));
     const shot = path.join(os.tmpdir(), `smoke-fail-${name}.png`);
@@ -450,7 +480,7 @@ async function runContext(browser, server, name, cfg) {
 let server;
 let browser;
 try {
-  server = await startServer({ LIAR: 'on', ROOM_LIST_MS: '100', RESULT_MS: '60', RESULT_FOLD_MS: '60', STREET_MS: '30', REVEAL_MS: '80' });
+  server = await startServer({ LIAR: 'on', DRAW: 'test', ROOM_LIST_MS: '100', RESULT_MS: '60', RESULT_FOLD_MS: '60', STREET_MS: '30', REVEAL_MS: '80' });
   browser = await chromium.launch();
   for (const [name, cfg] of Object.entries(CONTEXTS)) await runContext(browser, server, name, cfg);
 } catch (e) {
@@ -461,7 +491,7 @@ try {
   await server?.stop().catch(() => {});
 }
 /* ---------- LIAR switch: off (default) hides everything, test only with ?liar=1 ---------- */
-async function gateCheck(browser, env, query, expectVisible, label) {
+async function gateCheck(browser, env, query, expectVisible, label, expectDraw = false) {
   const srv = await startServer({ ROOM_LIST_MS: '100', ...env });
   const ctx = await browser.newContext({ viewport: { width: 844, height: 390 } });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
@@ -477,8 +507,8 @@ async function gateCheck(browser, env, query, expectVisible, label) {
     await page.click('button.lb-primary:has-text("입장")');
     await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
     await page.waitForTimeout(300);
-    const seen = await page.evaluate(() => ({ rank: !!document.querySelector('.lb-rank-btn') && !document.querySelector('.lb-rank-btn').hidden && document.querySelector('.lb-rank-btn').offsetParent !== null, pick: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('라이어게임') && e.offsetParent !== null) }));
-    ok = seen.rank === expectVisible && seen.pick === expectVisible && errors.length === 0;
+    const seen = await page.evaluate(() => ({ rank: !!document.querySelector('.lb-rank-btn') && !document.querySelector('.lb-rank-btn').hidden && document.querySelector('.lb-rank-btn').offsetParent !== null, pick: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('라이어게임') && e.offsetParent !== null), draw: [...document.querySelectorAll('.lb-seg-item')].some((e) => e.textContent.includes('갱식마인드') && e.offsetParent !== null) }));
+    ok = seen.rank === expectVisible && seen.pick === expectVisible && seen.draw === expectDraw && errors.length === 0;
     detail = JSON.stringify({ ...seen, errors });
   } catch (e) { detail = String(e.message || e).split('\n')[0]; }
   results.push({ ctx: 'gate', what: label, ok, detail });
@@ -491,6 +521,9 @@ try {
   await gateCheck(gb, {}, '', false, 'LIAR unset: no 라이어 choice, no 랭킹 button');
   await gateCheck(gb, { LIAR: 'test' }, '', false, 'LIAR=test without ?liar=1: hidden');
   await gateCheck(gb, { LIAR: 'test' }, '&liar=1', true, 'LIAR=test with ?liar=1: visible');
+  await gateCheck(gb, {}, '&draw=1', false, 'DRAW unset: no 갱식마인드 choice');
+  await gateCheck(gb, { DRAW: 'test' }, '', false, 'DRAW=test without ?draw=1: hidden');
+  await gateCheck(gb, { DRAW: 'test' }, '&draw=1', false, 'DRAW=test with ?draw=1: visible', true);
   await gb.close();
 } catch (e) {
   results.push({ ctx: 'gate', what: 'gate setup', ok: false, detail: String(e.message || e) });
