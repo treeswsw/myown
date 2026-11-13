@@ -6,8 +6,10 @@ export function createBrain(bot) {
   let state = null; // latest room state this bot received
   let planned = false; // a move is already scheduled; newer states do not schedule a second one
 
-  // Always a legal choice; mostly passive, sometimes a small raise, rarely fold / all-in.
-  const pick = (o) => {
+  // Always a legal choice: check when free, otherwise call; raises about 10% of the time (when legal) and folds
+  // only against a big bet (more than a third of its chips, about 30%). No voluntary all-in: a call that needs
+  // every chip is the all-in the rules allow.
+  const pick = (o, stack) => {
     const r = bot.rng();
     const canRaise = o.minRaiseTo > 0;
     const raise = () => {
@@ -15,10 +17,9 @@ export function createBrain(bot) {
       const extra = span > 0 ? Math.floor((bot.rng() * Math.min(span, 300)) / 50) * 50 : 0;
       return { a: 'raise', amount: Math.min(o.minRaiseTo + extra, o.maxRaiseTo) };
     };
-    if (o.toCall === 0) return canRaise && r < 0.2 ? raise() : { a: 'check' };
-    if (r < 0.12) return { a: 'fold' };
-    if (canRaise && r < 0.3) return raise();
-    if (canRaise && r < 0.33) return { a: 'allin' };
+    if (o.toCall === 0) return canRaise && r < 0.1 ? raise() : { a: 'check' };
+    if (o.toCall * 3 > stack && r < 0.3) return { a: 'fold' };
+    if (canRaise && o.toCall * 3 <= stack && bot.rng() < 0.1) return raise();
     return { a: 'call' };
   };
 
@@ -30,7 +31,8 @@ export function createBrain(bot) {
     bot.later(500 + Math.floor(bot.rng() * 1000), () => {
       planned = false;
       if (!myTurn(state)) return; // the turn moved on while waiting
-      bot.send({ t: 'act', ...pick(state) });
+      const stack = state.players?.find((p) => p.id === bot.id)?.stack ?? 0;
+      bot.send({ t: 'act', ...pick(state, stack) });
     });
   };
 

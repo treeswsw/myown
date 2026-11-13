@@ -81,3 +81,35 @@ test('skip ends the result wait at once; nothing to skip while betting', async (
   assert.ok(s.phase === 'playing' || s.phase === 'lobby', `phase ${s.phase}`);
   env.close();
 });
+
+// Frequencies over many seeded decisions: SPEC 21-3 (check/call, ~10% raise, fold only vs big bets, no voluntary all-in).
+test('bot decision frequencies: ~10% raise, folds only against big bets, no voluntary all-in', async () => {
+  const { createBrain } = await import('../../server/admin/games/holdem.js');
+  const { seeded } = await import('../helpers.js');
+  const decide = (opts, n) => {
+    const counts = {};
+    const rng = seeded(42);
+    for (let i = 0; i < n; i++) {
+      const queue = [];
+      let sent = null;
+      const brain = createBrain({ id: 'b', name: 'b', rng, send: (m) => { sent = m; }, later: (ms, fn) => queue.push(fn) });
+      brain.onMsg({ t: 'room', state: { mode: 'holdem', phase: 'playing', turn: 'b', you: 'b', players: [{ id: 'b', stack: 1000 }], ...opts } });
+      queue.forEach((fn) => fn());
+      counts[sent.a] = (counts[sent.a] ?? 0) + 1;
+    }
+    return counts;
+  };
+  const N = 4000;
+  const free = decide({ toCall: 0, minRaiseTo: 20, maxRaiseTo: 1000 }, N);
+  assert.ok(free.raise / N > 0.07 && free.raise / N < 0.13, `free raise ${free.raise}`);
+  assert.equal(free.check + free.raise, N);
+  const small = decide({ toCall: 50, minRaiseTo: 100, maxRaiseTo: 1000 }, N);
+  assert.equal(small.fold ?? 0, 0);
+  assert.ok(small.raise / N > 0.07 && small.raise / N < 0.13, `small raise ${small.raise}`);
+  assert.equal(small.allin ?? 0, 0);
+  const big = decide({ toCall: 600, minRaiseTo: 0, maxRaiseTo: 0 }, N);
+  assert.ok(big.fold / N > 0.25 && big.fold / N < 0.35, `big fold ${big.fold}`);
+  assert.equal(big.fold + big.call, N);
+  const noRaise = decide({ toCall: 50, minRaiseTo: 0, maxRaiseTo: 0 }, N);
+  assert.deepEqual(Object.keys(noRaise), ['call']);
+});

@@ -2,6 +2,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setupAdmin } from './helpers.js';
+import { seeded } from '../helpers.js';
+import { createBrain } from '../../server/admin/games/liar.js';
+import { createGame, tick, act, viewFor } from '../../shared/liar/game.js';
 
 // Wraps the liar brain so every error message a bot receives is collected.
 async function withErrorCapture(fn) {
@@ -115,4 +118,50 @@ test('skip ends the pending phase now; nothing to skip in the lobby or the resul
   r = await env.adm('skip');
   assert.equal(r.ok, false);
   env.close();
+});
+
+// Leak promise: in the "different word" mode the liar must not know it is the liar before the unmask, so the
+// bot (which only reads what the server sends it) must send identical requests at identical times either way.
+test('bot behaves identically as citizen or as the different-word liar until the unmask', () => {
+  const ME = 'bot';
+  const run = (botIsLiar) => {
+    const players = ['a', 'b', ME];
+    const g = createGame({
+      players, settings: { liarMode: 'word' }, draw: { topic: '음식', citizenWord: '사과', liarWord: '배' },
+      rng: (n) => Math.floor(seeded(5)() * n), now: 0,
+    });
+    g.liarId = botIsLiar ? ME : 'a'; // same order/seats/timings in both runs; only the bot's own secret differs
+    const sent = [];
+    const queue = [];
+    let t = 0;
+    const brain = createBrain({
+      id: ME, name: '봇', rng: seeded(99),
+      send: (msg) => { sent.push({ t, msg }); act(g, { type: msg.a, by: ME, text: msg.text, target: msg.target, v: msg.v }, t); },
+      later: (ms, fn) => queue.push({ at: t + ms, fn }),
+    });
+    const phases = [];
+    let ownWord = null;
+    for (; t < 400_000; t += 250) {
+      tick(g, t);
+      if (g.phase === 'unmask' || g.phase === 'result') break;
+      // others play the same way in both runs: the speaker writes, 'b' votes for 'a'
+      if (g.phase === 'speak' && viewFor(g, 'a').speaker === 'a') act(g, { type: 'say', by: 'a', text: '설명' }, t);
+      if (g.phase === 'judge') act(g, { type: 'judge', by: 'b', v: 'yes' }, t);
+      if (g.phase === 'discuss' || g.phase === 'revote') act(g, { type: 'vote', by: 'b', target: 'a' }, t);
+      const v = viewFor(g, ME);
+      ownWord = v.my.word;
+      if (phases.at(-1) !== g.phase) phases.push(g.phase);
+      assert.equal(v.my.role, null, 'role is hidden before the unmask');
+      brain.onMsg({ t: 'room', state: { mode: 'liar', you: ME, players: players.map((id) => ({ id, spectating: false })), ...v } });
+      for (const q of queue.filter((x) => x.at <= t)) { queue.splice(queue.indexOf(q), 1); q.fn(); }
+    }
+    return { sent, phases, ownWord };
+  };
+  const citizen = run(false);
+  const liar = run(true);
+  assert.notEqual(citizen.ownWord, liar.ownWord); // the two runs really differ in the bot's own state
+  assert.deepEqual(liar.phases, citizen.phases);
+  assert.ok(citizen.phases.length >= 3, `phases ${citizen.phases}`);
+  assert.ok(citizen.sent.length >= 1, 'the bot sent something before the unmask');
+  assert.deepEqual(liar.sent, citizen.sent);
 });
