@@ -1,12 +1,54 @@
-// Admin bot for the holdem room: stub. A later task fills in the brain and skip().
+// Admin bot for the holdem room (SPEC 21-3): simple legal moves from the state the server sends a player.
 // bot = { id, name, rng(), send(msg), later(ms, fn) }; onMsg gets every server message the bot receives.
-export function createBrain(bot) { // eslint-disable-line no-unused-vars
+// The bot only reads its own view: state.turn === state.you means it may act; toCall / minRaiseTo / maxRaiseTo
+// say what is legal (minRaiseTo 0 = raising is not allowed right now).
+export function createBrain(bot) {
+  let state = null; // latest room state this bot received
+  let planned = false; // a move is already scheduled; newer states do not schedule a second one
+
+  // Always a legal choice; mostly passive, sometimes a small raise, rarely fold / all-in.
+  const pick = (o) => {
+    const r = bot.rng();
+    const canRaise = o.minRaiseTo > 0;
+    const raise = () => {
+      const span = o.maxRaiseTo - o.minRaiseTo;
+      const extra = span > 0 ? Math.floor((bot.rng() * Math.min(span, 300)) / 50) * 50 : 0;
+      return { a: 'raise', amount: Math.min(o.minRaiseTo + extra, o.maxRaiseTo) };
+    };
+    if (o.toCall === 0) return canRaise && r < 0.2 ? raise() : { a: 'check' };
+    if (r < 0.12) return { a: 'fold' };
+    if (canRaise && r < 0.3) return raise();
+    if (canRaise && r < 0.33) return { a: 'allin' };
+    return { a: 'call' };
+  };
+
+  const myTurn = (s) => !!s && s.mode === 'holdem' && s.phase === 'playing' && s.turn != null && s.turn === s.you;
+
+  const plan = () => {
+    if (planned) return;
+    planned = true;
+    bot.later(500 + Math.floor(bot.rng() * 1000), () => {
+      planned = false;
+      if (!myTurn(state)) return; // the turn moved on while waiting
+      bot.send({ t: 'act', ...pick(state) });
+    });
+  };
+
   return {
-    onMsg(msg) {}, // eslint-disable-line no-unused-vars
+    onMsg(msg) {
+      if (!msg || msg.t !== 'room' || !msg.state) return;
+      state = msg.state;
+      if (myTurn(state)) plan();
+    },
   };
 }
 
-// Sets the remaining time of the current phase to 0. true = skipped, false = nothing to skip.
-export function skip(room) { // eslint-disable-line no-unused-vars
-  return false;
+// Makes the hand-result display (the only timed wait of a holdem room) end now: the next hand starts,
+// or the champion lobby when a bust left one player. The room's own timer is cancelled and its callback is run.
+export function skip(room) {
+  if (room.mode !== 'holdem' || room.phase !== 'result' || room.timers.next === null) return false;
+  const busted = (room.result?.busted?.length ?? 0) > 0;
+  room.clearTimer('next');
+  room.hub.guard(() => room.afterResult(busted))();
+  return true;
 }
