@@ -3,7 +3,7 @@ import { openAvatarCrop } from './avatarCrop.js';
 import { h, svg, avatar, fmt } from './dom.js';
 import { GAME_NAME as DRAW_NAME } from '../../../shared/draw/name.js';
 
-// createLobby({onLogin(id, avatarDataUrl|null), onAvatar(dataUrl), onCreate(mode), onJoin(code),
+// createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code),
 //              onMode(mode), onStart(), onLeave(), onLogout()})
 // -> { el, setUser(user|null), setRoom(roomState|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setLiar(visible), setYacht(visible), setDraw(visible), showRank({top, mine}) }
 // onRank() -> ask the server for the liar ranking, then call showRank.
@@ -105,6 +105,16 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
   idInput.spellcheck = false;
   idInput.setAttribute('aria-label', '아이디');
   idInput.value = (() => { try { return localStorage.getItem(LAST_ID_KEY) || ''; } catch { return ''; } })();
+  // admin (SPEC 21-1): the password field only exists while the ID is exactly 관리자
+  const pwInput = h('input', 'lb-field');
+  pwInput.type = 'password';
+  pwInput.inputMode = 'numeric';
+  pwInput.autocomplete = 'current-password';
+  pwInput.placeholder = '비밀번호';
+  pwInput.maxLength = 32;
+  pwInput.setAttribute('aria-label', '관리자 비밀번호');
+  pwInput.hidden = true;
+  const syncPw = () => { pwInput.hidden = idInput.value.trim() !== '관리자'; };
   const outErr = err();
   function submitLogin() {
     const id = idInput.value.trim();
@@ -115,13 +125,18 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onMode, onSta
     }
     outErr.textContent = '';
     try { localStorage.setItem(LAST_ID_KEY, id); } catch { /* ignore */ }
-    onLogin(id, pendingAvatar);
+    syncPw();
+    onLogin(id, pendingAvatar, !pwInput.hidden && pwInput.value ? pwInput.value : undefined);
   }
   idInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
+  pwInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
+  pwInput.addEventListener('input', () => { outErr.textContent = ''; });
+  idInput.addEventListener('input', syncPw);
+  syncPw();
   const outInfo = h('p', 'lb-cap lb-center');
   idInput.addEventListener('input', () => { outErr.textContent = ''; outInfo.textContent = ''; });
   const form = h('div', 'lb-stack');
-  form.append(outInfo, idInput, outErr);
+  form.append(outInfo, idInput, pwInput, outErr);
   out.append(brand('lb-large'), outPhoto, form, button('입장', 'lb-primary', submitLogin));
   renderOutPhoto();
 
