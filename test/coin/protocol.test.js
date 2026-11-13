@@ -22,15 +22,16 @@ test('draw', () => {
 });
 
 test('buy', () => {
-  assert.deepEqual(parseCoin({ t: 'coin', a: 'buy', id: 'title.rookie' }).msg, { t: 'coin', a: 'buy', id: 'title.rookie' });
+  assert.deepEqual(parseCoin({ t: 'coin', a: 'buy', id: 'title.jotbyin' }).msg, { t: 'coin', a: 'buy', id: 'title.jotbyin' });
   for (const id of ['', 'x'.repeat(41), 5, null, undefined, {}]) badc({ t: 'coin', a: 'buy', id });
   assert.equal(parseCoin({ t: 'coin', a: 'buy', id: 'x'.repeat(40) }).ok, true);
 });
 
 test('equip', () => {
-  assert.deepEqual(parseCoin({ t: 'coin', a: 'equip', slot: 'frame', id: 'frame.gold' }).msg, { t: 'coin', a: 'equip', slot: 'frame', id: 'frame.gold' });
+  assert.deepEqual(parseCoin({ t: 'coin', a: 'equip', slot: 'frame', id: 'frame.platinum' }).msg, { t: 'coin', a: 'equip', slot: 'frame', id: 'frame.platinum' });
   assert.deepEqual(parseCoin({ t: 'coin', a: 'equip', slot: 'suit', id: null }).msg, { t: 'coin', a: 'equip', slot: 'suit', id: null });
-  badc({ t: 'coin', a: 'equip', slot: 'hat', id: null });
+  assert.equal(parseCoin({ t: 'coin', a: 'equip', slot: 'hat', id: null }).ok, true);
+  badc({ t: 'coin', a: 'equip', slot: 'wing', id: null });
   badc({ t: 'coin', a: 'equip', id: 'a' });
   badc({ t: 'coin', a: 'equip', slot: 'title' });
   badc({ t: 'coin', a: 'equip', slot: 'title', id: '' });
@@ -46,6 +47,21 @@ test('rank 와 잘못된 봉투, 여분 칸 제거', () => {
   badc(null);
   badc('coin');
   badc([]);
+});
+
+test('cap / craft / pos', () => {
+  assert.deepEqual(parseCoin({ t: 'coin', a: 'cap', n: 10, x: 1 }), { ok: true, msg: { t: 'coin', a: 'cap', n: 10 } });
+  assert.equal(parseCoin({ t: 'coin', a: 'cap', n: 1 }).ok, true);
+  for (const n of [0, 2, 11, '1', null, undefined]) badc({ t: 'coin', a: 'cap', n });
+  assert.deepEqual(parseCoin({ t: 'coin', a: 'craft', id: 'hat.crown' }).msg, { t: 'coin', a: 'craft', id: 'hat.crown' });
+  for (const id of ['', 5, null, undefined, 'x'.repeat(41)]) badc({ t: 'coin', a: 'craft', id });
+  const p = { t: 'coin', a: 'pos', id: 'face.mustache', x: 0.1, y: -0.5, s: 2, r: 180 };
+  assert.deepEqual(parseCoin({ ...p, junk: 1 }), { ok: true, msg: p });
+  assert.equal(parseCoin({ ...p, x: -0.5, y: 0.5, s: 0.3, r: -180 }).ok, true);
+  for (const k of ['x', 'y']) for (const v of [0.51, -0.51, NaN, Infinity, '0', null, undefined]) badc({ ...p, [k]: v });
+  for (const v of [0.29, 2.01, NaN, '1', null, undefined]) badc({ ...p, s: v });
+  for (const v of [181, -181, NaN, -Infinity, '0', undefined]) badc({ ...p, r: v });
+  badc({ ...p, id: '' });
 });
 
 test('pin set / clear / forget', () => {

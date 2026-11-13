@@ -257,12 +257,12 @@ test('shop: buy, shop_own, shop_no, coin_low, equip, shop_not, unequip', async (
   const { hub, store } = await setup({ coinSeed: 25 });
   const a = await login(hub, 'aaa');
   const u = sess(hub, 'aaa').user;
-  await a.send({ t: 'coin', a: 'buy', id: 'title.rookie' }); // price 20
+  await a.send({ t: 'coin', a: 'buy', id: 'title.jotbyin' }); // price 20
   assert.equal(u.coins, 5);
-  assert.deepEqual(u.gear.owned, ['title.rookie']);
-  assert.deepEqual(msgs(a, 'coin', 'buy').at(-1), { t: 'coin', a: 'buy', id: 'title.rookie' });
-  assert.equal(store.ledger().find((x) => x.kind === 'buy').note.item, 'title.rookie');
-  await a.send({ t: 'coin', a: 'buy', id: 'title.rookie' });
+  assert.deepEqual(u.gear.owned, ['title.jotbyin']);
+  assert.deepEqual(msgs(a, 'coin', 'buy').at(-1), { t: 'coin', a: 'buy', id: 'title.jotbyin' });
+  assert.equal(store.ledger().find((x) => x.kind === 'buy').note.item, 'title.jotbyin');
+  await a.send({ t: 'coin', a: 'buy', id: 'title.jotbyin' });
   assert.equal(lastErr(a).code, 'shop_own');
   await a.send({ t: 'coin', a: 'buy', id: 'nothing.here' });
   assert.equal(lastErr(a).code, 'shop_no');
@@ -272,9 +272,9 @@ test('shop: buy, shop_own, shop_no, coin_low, equip, shop_not, unequip', async (
   assert.equal(lastErr(a).code, 'shop_not');
   await a.send({ t: 'coin', a: 'equip', slot: 'title', id: 'frame.silver' });
   assert.equal(lastErr(a).code, 'shop_no');
-  await a.send({ t: 'coin', a: 'equip', slot: 'title', id: 'title.rookie' });
-  assert.deepEqual(u.gear.equip, { title: 'title.rookie' });
-  assert.deepEqual(msgs(a, 'me').at(-1).wallet.equip, { title: 'title.rookie' });
+  await a.send({ t: 'coin', a: 'equip', slot: 'title', id: 'title.jotbyin' });
+  assert.deepEqual(u.gear.equip, { title: 'title.jotbyin' });
+  assert.deepEqual(msgs(a, 'me').at(-1).wallet.equip, { title: 'title.jotbyin' });
   await a.send({ t: 'coin', a: 'equip', slot: 'title', id: null });
   assert.deepEqual(u.gear.equip, {});
   await a.send({ t: 'create', mode: 'bluff' });
