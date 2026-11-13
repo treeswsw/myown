@@ -143,11 +143,19 @@ function mountLiarInner({ ui, stage, send, getMe, chat, toast, emotePanel, scene
   }
   if (!nogl || sceneFactory) loadScene();
 
+  // 사이트 채팅 기록(.chat-feed)은 chat.js 소유라 CSS 를 건드리지 않고 인라인 visibility 로만 가린다
+  function setFeedHidden(v) {
+    const f = chat?.el?.querySelector?.('.chat-feed');
+    if (f) f.style.visibility = v ? 'hidden' : '';
+  }
+
   function applyRoom(s) {
     if (!s) {
       state = null;
       prevPhase = null;
       root.hidden = true;
+      root.dataset.ed = '';
+      setFeedHidden(false);
       lobbyBox.hidden = true;
       each((m) => m.update(null));
       chat.setLock(false);
@@ -160,6 +168,10 @@ function mountLiarInner({ ui, stage, send, getMe, chat, toast, emotePanel, scene
     if (typeof s.now === 'number') offset = s.now - Date.now();
     state = s;
     root.hidden = false;
+    // 답 입력·정답 공개 동안: 가운데 큰 글을 가리지 않게 규칙·첫 발언 버튼과 채팅 기록을 숨긴다 (ending.css)
+    const endingNow = s.phase === 'guess' || s.phase === 'answer';
+    root.dataset.ed = endingNow ? '1' : '';
+    setFeedHidden(endingNow);
     lobbyBox.hidden = s.phase !== 'lobby';
     each((m) => m.update(s));
     syncScene(s);
@@ -211,6 +223,7 @@ function mountLiarInner({ ui, stage, send, getMe, chat, toast, emotePanel, scene
     },
     dispose() {
       disposed = true;
+      setFeedHidden(false);
       document.removeEventListener('click', onCanvasClick);
       removeEventListener('pointerdown', unlock, { capture: true });
       each((m) => m.dispose?.());

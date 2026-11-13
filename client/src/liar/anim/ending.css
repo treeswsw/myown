@@ -15,7 +15,7 @@
 .lg-ed-nogl .lg-ed-beam { display: block; }
 .lg-ed-col {
   position: absolute; left: 0; right: 0; z-index: 1; text-align: center; box-sizing: border-box;
-  top: calc(env(safe-area-inset-top, 0px) + max(34px, calc(46px * var(--lg-k, 1))));
+  top: calc(env(safe-area-inset-top, 0px) + 58px); /* 상단 줄(.lgbar 54px) 아래 */
   padding: 0 var(--lg-gutter, 16px);
 }
 .lg-ed-col p { margin: 0; }
@@ -67,3 +67,5 @@
 .lg-ed-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
 @keyframes lg-ed-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .lg-ed-root, .lg-ed-root * { transition: none !important; animation: none !important; } }
+/* 답 입력·정답 공개 동안 큰 글을 가리는 규칙·첫 발언 버튼을 숨긴다 (index.js 가 .lg-root 에 data-ed 를 붙인다) */
+[data-ed="1"] [data-lg="rule-open"], [data-ed="1"] [data-lg="fs-open"] { visibility: hidden; }

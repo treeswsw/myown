@@ -342,6 +342,7 @@ try {
       if (!/^\d+초$/.test(secs.trim())) throw new Error(`${w.who}: 큰 초 글이 이상함 "${secs}"`);
     }
     await occAll('guess');
+    if (process.env.LG_ED_SHOT) await liarWin.page.screenshot({ path: process.env.LG_ED_SHOT.replace(/(\.\w+)?$/, '-guess$1') });
     // 답을 내기 전: 라이어 창 어디에도 시민 제시어가 없다 (라이어가 받은 제시어와 시민 제시어가 다를 때)
     const citizen = wins.filter((w) => w !== liarWin).map((w) => wordOf[w.who]).find(Boolean);
     const own = wordOf[liarWin.who];
