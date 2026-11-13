@@ -300,3 +300,87 @@ design/   시안
 - 통신은 7-1절. 라이어 방에서는 포커 방 화면(테이블·HUD·휠·블러핑)을 쓰지 않고 `client/src/liar/`의 화면을 쓴다. 상단 줄(방 코드·이모티콘·시작·나가기)만 main.js 가 그린다. 채팅·이모티콘·사운드는 이 사이트의 것을 그대로 쓴다(채팅 글 앞 `*`/`**`/`***` 크기 표시는 포커 방에도 적용).
 - 누적 점수는 `users.stats.liar`(새 표 없음). 랭킹은 점수 큰 순 → 판 수 적은 순 → 이름 순, 0점 제외, 상위 20명.
 - 시험: `npm run check`(라이어 로비 칸·랭킹 버튼·방·채팅 잠금·이모티콘 포함), `npm test`(+ `test/ui/liar-round.mjs` 한 판). 3D 모양·연출·소리·iPad/Safari 는 실기기 확인이 필요하다.
+
+## 19. 요트다이스
+
+- 주사위 5개로 하는 세 번째 게임(2~4명). 규칙·화면·시간·점수는 `docs/yacht/GDD.md`를 따른다(요트다이스에 한해 GDD 가 앞 절보다 우선). 과제 나눔은 `docs/YACHT-PLAN.md`.
+- 같은 아이디·프로필 사진·로비·채팅·이모티콘·사운드를 쓴다. 포커 칩과는 연결이 없다. 전적은 `users.stats.yacht = {games, wins, best}`(새 표 없음, `newUser` 는 그대로).
+- 요트 방에서는 포커·라이어 화면을 쓰지 않고 `client/src/yacht/`의 화면을 쓴다. 상단 줄(`.ytbar`: 방 코드·이모티콘·시작·나가기)만 main.js 가 그린다. 화면 코드는 `import('./yacht/index.js')`로 따로 불러온다.
+
+### 19-1. 스위치
+
+환경 변수 `YACHT`: `off`(화면·서버에 흔적 없음) / `test`(주소에 `?yacht=1`이 있을 때만 로비에 버튼) / `on`(모두에게).
+값이 없거나 그 밖의 값이면 `test`(`LIAR` 와 같은 방식). `render.yaml` 은 `test`. `LIAR` 와 서로 영향을 주지 않는다.
+화면: `보임 = yacht==='on' || (yacht==='test' && 주소에 ?yacht=1)`. `test`는 숨김이지 잠금이 아니다.
+
+### 19-2. 화면 → 서버
+
+| 메시지 | 필드 | 누가·언제 | 설명 |
+|---|---|---|---|
+| `create` | `mode: 'yacht'` | 로비 | 요트 방 만들기. 칩 0이어도 된다. `YACHT=off`면 거절 |
+| `join` `leave` `chat` `emote` `pemote` `snd` `sndAdd` `sndDel` `sndRename` `avatar` | 사이트 공통 | | 그대로. 요트 방은 이모티콘·사운드를 막지 않는다 |
+| `start` | | 방장, `lobby`·`result` | 새 판. 접속 중 2명 이상 |
+| `yt` `shake` | `on: true\|false` | 차례인 사람, 남은 굴림 1 이상 | 컵 흔들기 시작/끝 알림. 1초에 4번 초과분은 조용히 버린다 |
+| `yt` `roll` | | 차례인 사람, 남은 굴림 1 이상, 보관 안 한 주사위 1개 이상 | 보관 안 한 주사위를 전부 굴린다. 선택(`pick`)이 지워진다 |
+| `yt` `keep` | `i: 0..4`, `on: true\|false` | 차례인 사람, 한 번 이상 굴렸고 남은 굴림 1 이상 | 주사위 `i`를 보관/빼기. 이미 그 상태면 아무 일 없음. 선택이 지워진다 |
+| `yt` `pick` | `cat: 칸 이름 \| null` | 차례인 사람, 한 번 이상 굴린 뒤 | 칸 선택(첫 번째 누름)·바꾸기·해제(`null`). 방 전체에 `ytPick` 과 방 상태로 알린다. 같은 값이면 아무 일 없음. 1초에 8번 초과분은 조용히 버린다 |
+| `yt` `score` | `cat: 칸 이름` | 차례인 사람, 한 번 이상 굴린 뒤 | 빈칸에 기록하고 차례를 끝낸다 |
+
+- 요트 전용 요청은 전부 `{t:'yt', a: 글자 1~20자, ...}` 봉투. `server/protocol.js` 는 봉투만 보고(`lg` 와 같은 검사), 속은 `shared/yacht/protocol.js` 가 검사한다.
+- 칸 이름(표 위→아래): `ones twos threes fours fives sixes choice fourKind fullHouse smallStraight largeStraight yacht`.
+- 거절 문구는 GDD 9절 표. 요트 방에서 `mode`·`act`·`play`·`liar` → `'지금은 할 수 없습니다.'`, `lg` → `'알 수 없는 요청입니다.'`.
+  포커·라이어 방에서 `yt` → `'알 수 없는 요청입니다.'`. 포커 방에서 `{t:'mode', mode:'yacht'}` → `'요트다이스는 방을 새로 만들어 주세요.'`
+
+### 19-3. 서버 → 화면
+
+- `{t:'me', user, liar, yacht:'off'|'test'|'on'}` — `me`에 `yacht` 칸 하나 추가. `user.stats.yacht` 는 한 판이라도 끝낸 뒤에 생긴다(없으면 0으로 본다).
+- `{t:'rooms', list}` 항목에 `mode:'yacht'`, `max:4`, `phase:'lobby'|'playing'|'result'`.
+- `{t:'room', state}` — `state.mode==='yacht'`이면 아래 모양. 프로필 사진은 없다(`faces` 알림).
+
+```js
+{
+  code, mode: 'yacht', hostId, you,
+  now,                                   // 서버 시각(ms)
+  phase: 'lobby' | 'playing' | 'result',
+  gameNo,                                // 이 방의 몇 번째 판(시작 전 0)
+  players: [{ id, name, connected, awayUntil: epochMs | null, spectating }],   // 방에 있는 사람 전부(들어온 순서)
+  cols: [{ id, name, left,               // 점수표의 줄. playing·result: 이 판 참가자(차례 순서, 기권자 포함 left:true)
+           scores: { ones: n | null, ... 12칸 },   //   lobby: 접속 중인 사람들의 빈 줄(들어온 순서)
+           upper, bonus: 0 | 35, total }],
+  round, rounds: 12,                     // round: 1..12 (lobby 0, result 12)
+  turn: id | null, turnEndsAt: epochMs | null,
+  rollsLeft: 0..3,                       // 차례 시작 3
+  rollNo,                                // 이 판에서 지금까지 굴린 횟수(연출 중복 방지용)
+  shaking: bool,                         // 차례인 사람이 컵을 흔드는 중
+  dice: null | [{ v: 1..6,               // null = 이번 차례에 아직 안 굴림(5개 모두 컵 안)
+                  slot: null | 0..4,     // 보관 칸 번호(왼쪽부터). null = 트레이에 있음
+                  x, z, yaw }],          // 트레이에서 멈춘 자리(GDD 4절 좌표, 소수 3자리). 보관 중이면 마지막 자리
+  preview: null | { 칸: 점수 },           // 차례인 사람에게만: 그 사람의 빈칸마다 지금 주사위로 받을 점수. 그 밖에는 null
+  pick: null | 칸,                        // 차례인 사람이 선택해 둔 칸. 모두에게 보낸다. 굴림·보관·차례 끝에 null
+  last: null | { id, cat, score, auto }, // 가장 최근 기록(강조 표시용). 판이 시작되면 null
+  result: null | { reason: 'done' | 'alone',
+                   ranks: [{ id, name, total, rank }],   // 기권자 제외, 합계 큰 순. 동점은 같은 rank
+                   winners: [id] },
+}
+```
+
+- `preview` 말고는 모든 사람이 같은 값을 받는다(`you` 제외).
+- `event.e` (요트 방)
+
+| k | 필드 | 언제 |
+|---|---|---|
+| `faces` | `items: [{id, avatar}]` | 입장·재접속 때 전원 것, 누가 들어오거나 사진을 바꾸면 그 사람 것(라이어와 같은 모양) |
+| `chat` `chatLog` `emote` `pemote` `snd` `sndAdd` `sndDel` `sndRename` `sndList` | 사이트 공통 | `chatLog` 는 최근 30개 |
+| `joined` / `left` | `id, name` | 들어옴 / 나감(기권 포함) |
+| `away` / `back` | `id` | 끊김 / 돌아옴 |
+| `ytStart` | `gameNo, order: [id]` | 판 시작 |
+| `ytTurn` | `id, round` | 차례 시작 |
+| `ytShake` | `id, on` | 컵 흔들기 시작/끝 |
+| `ytRoll` | `id, seed, thrown: [i], dice: [{v, slot, x, z, yaw} ×5], rollsLeft, rollNo, combo, auto` | 굴림. `seed`: 0..2³²−1 정수, `thrown`: 이번에 굴린 주사위 번호(오름차순), `dice`: 굴린 뒤 상태, `combo`: `null`\|`'yacht'`\|`'largeStraight'`\|`'fourKind'`\|`'fullHouse'`\|`'smallStraight'`, `auto`: 시간 초과로 서버가 굴림 |
+| `ytKeep` | `id, i, on, slot \| null, x, z, yaw` | 보관(`slot` = 들어간 칸) / 빼기(`x,z,yaw` = 돌아간 자리) |
+| `ytPick` | `id, cat \| null` | 칸 선택이 생기거나 옮겨 가거나 풀림(굴림·보관으로 풀릴 때도 보낸다) |
+| `ytScore` | `id, cat, score, auto, bonus, total` | 기록. `bonus`: 이 기록으로 보너스 35를 새로 받았는가 |
+| `ytEnd` | `reason, ranks, winners` | 판 끝(`result` 와 같은 값) |
+
+- 화면은 `ytRoll` 의 `seed`·`thrown` 으로 `shared/yacht/sim.js` 를 돌려 움직임을 재생하고, 끝은 `dice` 의 자리와 눈으로 맞춘다. 눈은 서버 값만 쓴다.
+- 시험: `npm run check`(로비 요트 칸·방·컵·보관·두 번 눌러 기록 포함), `npm test`(+ `test/yacht/`, `test/ui/yacht-round.mjs` 한 판). 3D 모양·연출·소리·iPad/Safari 는 실기기 확인이 필요하다.
