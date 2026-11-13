@@ -140,6 +140,7 @@ export function createTools(parent, ctx) {
   });
   on(track, 'pointermove', (e) => { if (dragging) fromPointer(e); });
   const endDrag = () => { dragging = false; };
+  on(track, 'lostpointercapture', endDrag);
   on(track, 'pointerup', endDrag);
   on(track, 'pointercancel', endDrag);
 
@@ -152,6 +153,9 @@ export function createTools(parent, ctx) {
   el.append(pal, tools, under, give);
 
   // ---- 동작 ----
+  function states(t = tool()) {
+    return buttonStates(state, t, ctx.meId(), ctx.history && ctx.history.get ? ctx.history.get() : null);
+  }
   function tool() { return normalizeTool(ctx.tool && ctx.tool.get && ctx.tool.get()); }
   function setTool(patch) {
     if (!buttonStates(state, tool(), ctx.meId()).visible) return;
@@ -168,7 +172,7 @@ export function createTools(parent, ctx) {
   }
   // 누르면 서버에 알린다. 그리는 사람 화면의 즉시 반영은 그림판 몫이라, 있으면 ctx.localAct 로 먼저 알려 준다.
   function act(a) {
-    const bs = buttonStates(state, tool(), ctx.meId());
+    const bs = states();
     if (!bs.visible) return;
     if (a === 'undo' && !bs.undo) return;
     if (a === 'redo' && !bs.redo) return;
@@ -200,7 +204,7 @@ export function createTools(parent, ctx) {
     el.classList.toggle('dr-tb-phone', lay === 'phone');
     el.classList.toggle('dr-tb-wide', lay === 'wide');
     const t = tool();
-    const bs = buttonStates(state, t, ctx.meId());
+    const bs = states(t);
     el.hidden = !bs.visible;
     if (!bs.visible) {
       if (popOpen) { popOpen = false; document.removeEventListener('pointerdown', onOutside, true); }
@@ -221,8 +225,6 @@ export function createTools(parent, ctx) {
     }
     undoB.disabled = !bs.undo;
     redoB.disabled = !bs.redo;
-    undoB.classList.toggle('dim', !bs.undo);
-    redoB.classList.toggle('dim', !bs.redo);
 
     const w = currentWidth(t);
     const qi = quickIndex(w);
@@ -240,7 +242,7 @@ export function createTools(parent, ctx) {
     pop.hidden = !popOpen;
     if (popOpen && w != null) {
       const erasing = t.tool === 'erase';
-      prev.classList.toggle('erase', erasing);
+      prev.classList.toggle('dr-tb-erase', erasing);
       prevDot.style.width = prevDot.style.height = `${w}px`;
       prevDot.style.background = erasing ? PAPER : COLORS[t.color].value;
       num.textContent = String(w);
@@ -263,6 +265,7 @@ export function createTools(parent, ctx) {
       return;
     }
     e.preventDefault();
+    if (e.repeat && (a.a === 'undo' || a.a === 'redo')) return;
     if (a.a === 'tool') setTool({ tool: a.tool });
     else if (a.a === 'quick') applyWidth(WIDTH_QUICK[a.i]);
     else if (a.a === 'step') stepBy(a.d);
@@ -275,6 +278,9 @@ export function createTools(parent, ctx) {
   let offTool = null;
   if (ctx.tool && typeof ctx.tool.on === 'function') offTool = ctx.tool.on(render);
 
+  let offHist = null;
+  if (ctx.history && typeof ctx.history.on === 'function') offHist = ctx.history.on(render);
+
   render();
 
   return {
@@ -286,6 +292,7 @@ export function createTools(parent, ctx) {
       if (disposed) return;
       disposed = true;
       if (typeof offTool === 'function') offTool();
+      if (typeof offHist === 'function') offHist();
       document.removeEventListener('pointerdown', onOutside, true);
       offs.forEach((f) => f());
       el.remove();

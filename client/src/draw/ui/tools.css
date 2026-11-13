@@ -68,9 +68,9 @@
   width: 44px; height: 44px; flex: none; border-radius: 50%; background: var(--dr-tb-paper);
   display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
-.dr-tb-prev.erase { background: #c9c9ce; }
+.dr-tb-prev.dr-tb-erase { background: #c9c9ce; }
 .dr-tb-prev i { display: block; border-radius: 50%; flex: none; }
-.dr-tb-prev.erase i { box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+.dr-tb-prev.dr-tb-erase i { box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
 .dr-tb-num { font-size: 17px; font-weight: 700; min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
 .dr-tb-step { width: 36px; height: 36px; border-radius: 50%; background: var(--dr-tb-fill2); font-size: 20px; font-weight: 700; flex: none; line-height: 1; }
 .dr-tb-step:disabled { opacity: .35; }

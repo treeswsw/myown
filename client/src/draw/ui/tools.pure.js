@@ -59,13 +59,13 @@ export function toolsVisible(state, meId) {
   return !!state && state.phase === 'draw' && state.drawerId != null && state.drawerId === meId;
 }
 
-// 버튼 켜고 끄기
-export function buttonStates(state, t, meId) {
+// 버튼 켜고 끄기. hist = ctx.history.get() 결과({canUndo, canRedo}). 없으면(history 없음) 켜 둔다.
+export function buttonStates(state, t, meId, hist) {
   const visible = toolsVisible(state, meId);
   return {
     visible,
-    undo: visible && !!state.canUndo,
-    redo: visible && !!state.canRedo,
+    undo: visible && (hist ? !!hist.canUndo : true),
+    redo: visible && (hist ? !!hist.canRedo : true),
     sizes: visible && t.tool !== 'strokeErase',
   };
 }

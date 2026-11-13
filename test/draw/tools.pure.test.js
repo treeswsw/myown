@@ -57,11 +57,12 @@ test('보이는 때: 내가 그리는 사람 + draw 단계', () => {
   assert.equal(toolsVisible({ phase: 'draw', drawerId: null }, null), false);
 });
 
-test('buttonStates: undo/redo 는 state 따라, 획 지우개면 굵기 끔', () => {
-  const s = { phase: 'draw', drawerId: 'a', canUndo: true, canRedo: false };
+test('buttonStates: undo/redo 는 history 따라(없으면 켬), 획 지우개면 굵기 끔', () => {
+  const s = { phase: 'draw', drawerId: 'a', canUndo: false, canRedo: false };
   const pen = normalizeTool({});
-  assert.deepEqual(buttonStates(s, pen, 'a'), { visible: true, undo: true, redo: false, sizes: true });
-  assert.equal(buttonStates(s, normalizeTool({ tool: 'strokeErase' }), 'a').sizes, false);
+  assert.deepEqual(buttonStates(s, pen, 'a', { canUndo: true, canRedo: false }), { visible: true, undo: true, redo: false, sizes: true });
+  assert.deepEqual(buttonStates(s, pen, 'a'), { visible: true, undo: true, redo: true, sizes: true });
+  assert.equal(buttonStates(s, normalizeTool({ tool: 'strokeErase' }), 'a', null).sizes, false);
   assert.deepEqual(buttonStates(s, pen, 'b'), { visible: false, undo: false, redo: false, sizes: false });
 });
 
