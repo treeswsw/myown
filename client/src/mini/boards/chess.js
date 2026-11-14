@@ -1,21 +1,27 @@
 // 체스 8×8 — 수 {from,to,promo?}. y=0 이 8랭크. seat 1(흑)은 판을 뒤집어 본다.
-// 말은 직접 그린 간단한 SVG(100×100 기준) — 외부 그림·글꼴 없음.
-import { same, frame, hit, squares, lastCells, moveFx } from './util.js';
+// 말은 직접 그린 입체감 있는 SVG(100×100 기준) — 외부 그림·글꼴 없음.
+import { same, frame, hit, squares, lastCells, moveFx, finish, hop } from './util.js';
 
 const M = 5, W = 80 + M * 2;
-const BASE = 'M24 89v-6q0-6 6-6h40q6 0 6 6v6z';
-const SKIRT = 'M38 60C38 68 35 72 31 77H69C65 72 62 68 62 60z';
+// 말 몸통은 왼쪽 빛·오른쪽 그늘 그라디언트, 목·받침에 띠를 둘러 깎은 나무 말처럼 보이게 한다.
+const BASE = '<path d="M30 78q0-5 5-5h30q5 0 5 5z"/><path d="M22 90v-5q0-6 6-6h44q6 0 6 6v5z"/>';
+const SKIRT = 'M39 60C39 67 36 70 33 74H67C64 70 61 67 61 60z';
+const band = (x, y, w) => `<rect x="${x}" y="${y}" width="${w}" height="6" rx="3"/>`;
 const SHAPE = {
-  P: `<circle cx="50" cy="32" r="11.5"/><path d="M50 40C41 52 35 62 32 77H68C65 62 59 52 50 40z"/>`,
-  R: `<path d="M28 46V22h9v8h8v-8h10v8h8v-8h9v24z"/><path d="M33 46L30 77H70L67 46z"/>`,
-  N: `<path d="M33 77C33 61 45 56 43 45L31 52L23 43L37 26L39 14L47 22C63 22 71 40 69 77z"/><circle class="mn-ch-eye" cx="40" cy="32" r="2.2"/>`,
-  B: `<circle cx="50" cy="13" r="4.5"/><path d="M50 17C63 29 66 42 58 52H42C34 42 37 29 50 17z"/><path class="mn-ch-cut" d="M55 27L48 38"/><path d="M42 52C41 64 37 70 32 77H68C63 70 59 64 58 52z"/>`,
-  Q: `<path d="M24 32L36 60H64L76 32L63 48L50 24L37 48z"/><circle cx="24" cy="30" r="4.5"/><circle cx="50" cy="21" r="4.5"/><circle cx="76" cy="30" r="4.5"/><path d="${SKIRT}"/>`,
-  K: `<path d="M46.5 8h7v7h7v7h-7v9h-7v-9h-7v-7h7z"/><path d="M50 31C68 31 74 46 62 60H38C26 46 32 31 50 31z"/><path d="${SKIRT}"/>`,
+  P: `<path d="M50 40C42 51 37 61 34 74H66C63 61 58 51 50 40z"/>${band(37, 40, 26)}<circle cx="50" cy="29" r="12"/>`,
+  R: `<path d="M34 46L32 74H68L66 46z"/><path d="M28 43V20h9v8h8v-8h10v8h8v-8h9v23z"/>${band(29, 42, 42)}`,
+  N: `<path d="M33 74C33 60 45 55 43 44L31 51L23 42L37 25L39 13L47 21C63 21 71 39 68 74z"/><path fill="none" stroke="@" opacity=".5" d="M52 26C60 32 63 44 62 58"/><circle fill="@" stroke="none" cx="40" cy="31" r="2.4"/>`,
+  B: `<path d="M43 52C42 62 38 68 34 74H66C62 68 58 62 57 52z"/><path d="M50 16C63 28 66 41 58 51H42C34 41 37 28 50 16z"/><path fill="none" stroke="@" d="M55 26L48 37"/>${band(38, 49, 24)}<circle cx="50" cy="12" r="4.8"/>`,
+  Q: `<path d="${SKIRT}"/><path d="M24 31L36 59H64L76 31L63 47L50 23L37 47z"/>${band(34, 56, 32)}<circle cx="24" cy="29" r="4.6"/><circle cx="50" cy="20" r="4.6"/><circle cx="76" cy="29" r="4.6"/>`,
+  K: `<path d="${SKIRT}"/><path d="M46.5 7h7v7h7v7h-7v9h-7v-9h-7v-7h7z"/><path d="M50 30C68 30 74 45 62 59H38C26 45 32 30 50 30z"/>${band(34, 56, 32)}`,
 };
+const INK = { w: ['#4a3724', '#4a3724'], b: ['#0a0807', '#e9dfcd'] }; // [윤곽선, 눈·홈 같은 세부 선]
 
-const piece = (code, x, y) =>
-  `<g class="mn-ch-${code[0]}" transform="translate(${x - 0.9} ${y - 1}) scale(.118)">${SHAPE[code[1]]}<path d="${BASE}"/></g>`;
+const piece = (code, x, y) => {
+  const [line, detail] = INK[code[0]];
+  return `<g transform="translate(${x - 0.9} ${y - 1}) scale(.118)" fill="url(#mn-g-p${code[0]})" stroke="${line}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">` +
+    `<ellipse cx="52" cy="89" rx="33" ry="6" fill="#000" stroke="none" opacity=".3"/>${SHAPE[code[1]].replace(/@/g, detail)}${BASE}</g>`;
+};
 
 export function view(c) {
   const { board, last, turn, check } = c.state;
@@ -23,21 +29,21 @@ export function view(c) {
   const px = (v) => M + (c.flip ? 7 - v : v) * 10;
   const { sel, promo } = c.ui;
   const fx = moveFx(c, (v) => (v[0] === 'w' ? 0 : 1));
-  let s = frame(W, W, M, 'mn-sq-l') + squares(M);
+  let s = frame(W, W, M, 'mn-sq-l') + squares(M) + finish(M, M, 80, 80, 'grain', .6);
   for (let i = 0; i < 8; i++) {
     s += `<text class="mn-ch-lb" x="${px(i) + 5}" y="${W - 1.5}">${'abcdefgh'[i]}</text>` +
       `<text class="mn-ch-lb" x="2.5" y="${px(i) + 6}">${8 - i}</text>`;
   }
   for (const p of lastCells(last)) s += `<rect class="mn-sq-last" x="${px(p.x)}" y="${px(p.y)}" width="10" height="10"/>`;
   if (sel) s += `<rect class="mn-sq-sel" x="${px(sel.x)}" y="${px(sel.y)}" width="10" height="10"/>`;
-  if (fx) for (const g of fx.gone) s += `<g class="mn-gone">${piece(g.v, px(g.x), px(g.y))}</g>`;
+  if (fx) for (const g of fx.gone) s += `<g class="mn-bd-gone">${piece(g.v, px(g.x), px(g.y))}</g>`;
   const king = (turn ? 'b' : 'w') + 'K';
   let top = '';
   for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
     const v = board[y][x];
     if (!v) continue;
     if (check && v === king) s += `<rect class="mn-sq-check" x="${px(x)}" y="${px(y)}" width="10" height="10"/>`;
-    if (fx && same(fx.to, { x, y })) top = `<g class="mn-slide" style="--mn-dx:${fx.dx * 10 * k}px;--mn-dy:${fx.dy * 10 * k}px">${piece(v, px(x), px(y))}</g>`;
+    if (fx && same(fx.to, { x, y })) top = hop(piece(v, px(x), px(y)), fx.dx * 10 * k, fx.dy * 10 * k);
     else s += piece(v, px(x), px(y));
   }
   s += top;

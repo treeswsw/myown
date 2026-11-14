@@ -1,0 +1,47 @@
+/* 보드판 움직임 — 클래스는 전부 .mn-bd- . transform·opacity 만 쓴다(가벼움).
+   다시 그릴 때는 클래스가 붙지 않아 다시 돌지 않는다. 길이를 바꾸면 index.js 의 소리 시각도 같이 맞춘다. */
+.mn-bd-land > .mn-bd-b, .mn-bd-land > .mn-bd-s, .mn-bd-fo, .mn-bd-fi, .mn-bd-lift, .mn-bd-gone {
+  transform-box: fill-box; transform-origin: center;
+}
+
+/* 놓기(오목·리버시): 위에서 살짝 내려앉고, 그림자는 넓고 옅었다가 모인다 */
+.mn-bd-land > .mn-bd-b { animation: mn-bd-land .28s cubic-bezier(.3, .6, .4, 1) backwards; }
+.mn-bd-land > .mn-bd-s { animation: mn-bd-shade .28s ease-out backwards; }
+@keyframes mn-bd-land {
+  from { transform: translateY(-1.8px) scale(1.18); opacity: 0; }
+  60% { transform: translateY(0) scale(.96); opacity: 1; }
+}
+@keyframes mn-bd-shade { from { transform: scale(1.6); opacity: 0; } }
+
+/* 커넥트포: 점점 빨라지며 떨어지고 바닥에서 한 번 작게 튄다 */
+.mn-bd-fall { animation: mn-bd-fall .42s linear backwards; }
+@keyframes mn-bd-fall {
+  from { transform: translateY(var(--mn-dy, 0)); animation-timing-function: cubic-bezier(.5, 0, 1, .55); }
+  68% { transform: translateY(0); animation-timing-function: ease-out; }
+  84% { transform: translateY(-1.3px); animation-timing-function: ease-in; }
+}
+
+/* 리버시 뒤집기: 세워지며 얇아졌다가(앞면) 반대 색으로 눕는다(뒷면). 칸마다 시차는 JS 가 준다 */
+.mn-bd-fo { opacity: 0; animation: mn-bd-fo .17s ease-in backwards; }
+.mn-bd-fi { animation: mn-bd-fi .22s ease-out backwards; }
+@keyframes mn-bd-fo { from { opacity: 1; } to { opacity: 1; transform: scale(0, 1.12); } }
+@keyframes mn-bd-fi { from { transform: scale(0, 1.12); } 65% { transform: scale(1.05, 1.03); } }
+
+/* 말 이동(체커·체스): 옮겨 가는 동안 살짝 들렸다 놓인다(그림자도 같이 커졌다 줄어든다) */
+.mn-bd-hop { animation: mn-bd-hop .34s cubic-bezier(.35, .1, .3, 1) backwards; }
+.mn-bd-lift { animation: mn-bd-lift .34s ease-in-out backwards; }
+@keyframes mn-bd-hop { from { transform: translate(var(--mn-dx, 0), var(--mn-dy, 0)); } }
+@keyframes mn-bd-lift { 45% { transform: translateY(-.9px) scale(1.16); } 88% { transform: scale(.98); } }
+
+/* 잡힌 말: 움직인 말이 닿을 즈음 작아지며 사라진다 */
+.mn-bd-gone { opacity: 0; animation: mn-bd-gone .3s ease-in .1s backwards; }
+@keyframes mn-bd-gone { from { opacity: 1; } to { opacity: 0; transform: scale(.45); } }
+
+/* 이긴 줄: 은은한 빛이 차례로 흐른다 */
+.mn-bd-glow { fill: rgba(255, 236, 160, .16); stroke: #fff6cf; stroke-width: 1.1; opacity: 0; animation: mn-bd-glow 1.5s ease-in-out .3s infinite; }
+@keyframes mn-bd-glow { 0%, 60%, 100% { opacity: 0; } 25% { opacity: .85; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mn-bd-land > .mn-bd-b, .mn-bd-land > .mn-bd-s, .mn-bd-fall, .mn-bd-fo, .mn-bd-fi,
+  .mn-bd-hop, .mn-bd-lift, .mn-bd-gone, .mn-bd-glow { animation: none; }
+}
