@@ -106,7 +106,7 @@ export function createRoomFrame(deps) {
       cur.wait.update(s, cur.schema, (name) => safe(() => g?.waitPart?.(name) ?? null));
     } else {
       bar.update(s, cur.entry);
-      chat.setMode(r?.own && safe(() => r.own(s), false) ? 'own' : r?.layout === 'inline' ? 'inline' : 'game');
+      chat.setMode(r?.own && safe(() => r.own(s), false) ? 'own' : r?.layout === 'inline' && !showingResult ? 'inline' : 'game'); // 결과 화면에서는 가운데 입력 줄이 버튼을 가리지 않게 채팅 버튼으로
     }
     // 채팅을 게임이 맡는 게임(등록표 chat: null, 갱식마인드)은 게임 중 관전자 채팅을 서버가 막는다: 화면도 잠근다
     const specMute = watching && !s.wait && cur.schema?.chat === null;
