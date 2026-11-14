@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   fmtPts, secondsLeft, clockText, nameOf, viewMode, pickCards, pickMessage,
-  waitPickText, whyText, revealView, finalView,
+  waitPickText, whyText, revealView,
 } from '../../client/src/draw/ui/result.pure.js';
 import { checkDr } from '../../shared/draw/protocol.js';
 
@@ -40,7 +40,7 @@ test('viewMode: 누가 무엇을 보나', () => {
   assert.equal(viewMode({ phase: 'lobby' }, 'a').kind, 'none');
   assert.equal(viewMode({ phase: 'reveal', reveal: null }, 'a').kind, 'none');
   assert.equal(viewMode({ phase: 'reveal', reveal: {} }, 'a').kind, 'reveal');
-  assert.equal(viewMode({ phase: 'final', ranking: [] }, 'a').kind, 'final');
+  assert.equal(viewMode({ phase: 'final', ranking: [] }, 'a').kind, 'none'); // 최종 순위는 공통 결과 화면
   assert.equal(viewMode(null, 'a').kind, 'none');
 });
 
@@ -112,26 +112,3 @@ test('정답 공개: 맞힌 순서대로, 그린 사람 점수, 다음 사람', 
   assert.equal(revealView({ phase: 'reveal' }), null);
 });
 
-test('최종 순위: 공동 순위·단상 배치', () => {
-  const st = {
-    phase: 'final', hostId: 'a', players,
-    ranking: [
-      { id: 'c', name: '민수', rank: 1, score: 1120, correct: 9 },
-      { id: 'a', name: '강식', rank: 2, score: 960, correct: 8 },
-      { id: 'b', name: '지호', rank: 2, score: 960, correct: 8 },
-      { id: 'd', name: '태양', rank: 4, score: 720, correct: 7 },
-    ],
-  };
-  const f = finalView(st, 'b');
-  assert.deepEqual(f.podium.map((r) => r.name), ['강식', '민수', '지호']);
-  assert.deepEqual(f.rows.map((r) => r.rank), [1, 2, 2, 4]);
-  assert.deepEqual(f.rest.map((r) => r.name), ['태양']);
-  assert.equal(f.rows.find((r) => r.id === 'b').isYou, true);
-  // rank 칸이 없으면 직접: 점수 → 맞힌 횟수, 같으면 공동
-  const g = finalView({ ranking: [{ id: 'x', name: 'x', score: 5, correct: 1 }, { id: 'y', name: 'y', score: 9, correct: 0 }, { id: 'z', name: 'z', score: 5, correct: 1 }] }, 'x');
-  assert.deepEqual(g.rows.map((r) => [r.id, r.rank]), [['y', 1], ['x', 2], ['z', 2]]);
-  assert.equal(finalView({ ranking: [{ id: 'x', name: 'x', rank: 1, score: 1, correct: 0 }] }, 'x').podium.length, 1);
-  assert.deepEqual(finalView(null, 'x').rows, []);
-  // 나간 사람(이름이 ranking 에만 있음)도 그대로
-  assert.equal(finalView({ players: [], ranking: [{ id: 'q', name: '나간이', rank: 1, score: 1, correct: 1 }] }, 'x').rows[0].name, '나간이');
-});

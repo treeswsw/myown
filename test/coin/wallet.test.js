@@ -22,17 +22,17 @@ const msgs = (c, t, a) => c.sock.msgs.filter((m) => m.t === t && (a === undefine
 const lastErr = (c) => c.sock.msgs.filter((m) => m.t === 'error').at(-1);
 const sess = (hub, id) => hub.sessions.get(id.toLowerCase());
 
-test('award: amounts, ledger, got + me', async () => {
+test('award: amounts, ledger, me, returns the gain map', async () => {
   const { hub, store } = await setup();
   const a = await login(hub, 'aaa');
   await login(hub, 'bbb');
   await a.send({ t: 'create', mode: 'bluff' });
   const room = [...hub.rooms.values()][0];
-  hub.award(room, 'yacht', [{ id: 'aaa', won: true, opp: 3 }, { id: 'bbb', won: false, opp: 3 }]);
+  const gain = hub.award(room, 'yacht', [{ id: 'aaa', won: true, opp: 3 }, { id: 'bbb', won: false, opp: 3 }]);
+  assert.deepEqual(gain, { aaa: 15, bbb: 3 });
   assert.equal(sess(hub, 'aaa').user.coins, 15);
   assert.equal(sess(hub, 'aaa').user.coinsTotal, 15);
   assert.equal(sess(hub, 'bbb').user.coins, 3);
-  assert.deepEqual(msgs(a, 'coin', 'got').at(-1), { t: 'coin', a: 'got', n: 15, mode: 'yacht', win: true });
   assert.equal(msgs(a, 'me').at(-1).wallet.coins, 15);
   const l = store.ledger().filter((x) => x.kind === 'earn');
   assert.equal(l.length, 2);
@@ -48,14 +48,13 @@ test('award: min gap per user per mode', async () => {
   const row = [{ id: 'aaa', won: false, opp: 3 }];
   hub.award(room, 'bluff', row);
   clock.advance(29_000);
-  hub.award(room, 'bluff', row);
+  assert.deepEqual(hub.award(room, 'bluff', row), { aaa: 0 }, '간격 안에 막힌 판은 0');
   assert.equal(sess(hub, 'aaa').user.coins, 1);
   hub.award(room, 'draw', row); // other mode has its own gap
   assert.equal(sess(hub, 'aaa').user.coins, 3);
   clock.advance(2_000);
   hub.award(room, 'bluff', row);
   assert.equal(sess(hub, 'aaa').user.coins, 4);
-  assert.equal(msgs(a, 'coin', 'got').length, 4, '간격 안에 막힌 판도 "코인 없음" 알림');
 });
 
 test('award: holdem, unknown mode, not logged in give nothing', async () => {
@@ -63,11 +62,11 @@ test('award: holdem, unknown mode, not logged in give nothing', async () => {
   const a = await login(hub, 'aaa');
   await a.send({ t: 'create', mode: 'bluff' });
   const room = [...hub.rooms.values()][0];
-  hub.award(room, 'holdem', [{ id: 'aaa', won: true, opp: 3 }]);
-  hub.award(room, 'nope', [{ id: 'aaa', won: true, opp: 3 }]);
-  hub.award(room, 'bluff', [{ id: 'ghost', won: true, opp: 3 }]);
+  assert.deepEqual(hub.award(room, 'holdem', [{ id: 'aaa', won: true, opp: 3 }]), {});
+  assert.deepEqual(hub.award(room, 'nope', [{ id: 'aaa', won: true, opp: 3 }]), {});
+  assert.deepEqual(hub.award(room, 'bluff', [{ id: 'ghost', won: true, opp: 3 }]), {});
   assert.equal(sess(hub, 'aaa').user.coins, 0);
-  assert.equal(msgs(a, 'coin', 'got').length, 0);
+  assert.ok(!msgs(a, 'coin').length);
 });
 
 test('award: room with a bot gives nothing', async () => {

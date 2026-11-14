@@ -74,3 +74,34 @@
 /* ---- 머리 위 기본 이모티콘(2초) */
 .rm-em { position: fixed; z-index: 40; transform: translate(-50%, -100%); font-size: 44px; line-height: 1; pointer-events: none; animation: rm-em-pop .4s cubic-bezier(.3, 1.8, .5, 1); }
 @keyframes rm-em-pop { from { transform: translate(-50%, -100%) scale(.2); opacity: 0; } }
+
+/* ---- 공통 결과 화면(room/result.js): 게임 판 위, 판은 뒤에 흐리게. 대기실과 같은 유리판 · 금색(--accent) */
+.rm-rs-root.rm-rs-root { z-index: 33; pointer-events: auto; padding: 12px; background: rgba(8, 8, 10, .5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.rm-rs-root[hidden] { display: none; }
+.rm-rs-panel.rm-rs-panel { width: min(760px, 100%); min-height: 0; max-height: 100%; gap: 14px; }
+.rm-rs-head { display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; flex: none; }
+.rm-rs-title.rm-rs-title { font-size: 28px; color: var(--accent); word-break: keep-all; }
+.rm-rs-sub { margin: 0; font-size: 14px; color: var(--ink2); word-break: keep-all; }
+.rm-rs-rows { flex: 0 1 auto; }
+.rm-rs-row.rm-rs-row { min-height: 58px; gap: 12px; }
+.rm-rs-top.rm-rs-top { min-height: 72px; background: linear-gradient(90deg, rgba(242, 196, 68, .2), rgba(242, 196, 68, 0) 70%); }
+.rm-rs-rank { width: 26px; flex: none; text-align: center; font-size: 17px; font-weight: 700; color: var(--ink2); }
+.rm-rs-top .rm-rs-rank { color: var(--accent); font-size: 22px; }
+.rm-rs-me .rm-rs-who { font-weight: 700; }
+.rm-rs-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 16px; font-weight: 500; }
+.rm-rs-who small { font-size: 12.5px; color: var(--ink2); font-weight: 400; }
+.rm-rs-score { flex: none; min-width: 52px; text-align: right; font-size: 16px; font-weight: 600; color: var(--ink2); }
+.rm-rs-gain { flex: none; min-width: 120px; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.rm-rs-gain b { font-size: 24px; font-weight: 800; color: var(--accent); letter-spacing: -.01em; white-space: nowrap; }
+.rm-rs-gain small { font-size: 12px; color: var(--ink2); white-space: nowrap; }
+.rm-rs-zero b { color: var(--ink3); font-weight: 600; }
+.rm-rs-down b { color: var(--red); }
+.rm-rs-part { flex: none; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.rm-rs-part[hidden] { display: none; }
+.rm-rs-why { margin: 0; font-size: 13px; text-align: right; color: var(--accent); }
+.rm-rs-why:empty { display: none; }
+.rm-rs-foot { display: flex; align-items: center; gap: 10px; flex: none; }
+.rm-rs-sp { flex: 1; }
+.rm-rs-guest.rm-rs-guest { padding: 0 8px; }
+.rm-rs-peek.rm-rs-peek { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; align-items: flex-end; justify-content: flex-end; padding: 16px; }
+.rm-rs-back.rm-rs-back { pointer-events: auto; box-shadow: 0 8px 24px rgba(0, 0, 0, .45); }

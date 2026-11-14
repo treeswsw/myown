@@ -220,10 +220,10 @@ test('시작: 방장만(dm_host), canStart 이유, 진행 중이면 dm_now, 성�
 test('wait.why: 대기 중에만, canStart 결과 그대로', async () => {
   const r = await setup(1);
   const [a] = r.cs;
-  assert.deepEqual(a.state.wait, { can: false, why: { msg: '2명이 필요합니다.', code: 'dm_need2' }, set: { speed: 1 }, own: {} });
+  assert.deepEqual(a.state.wait, { can: false, why: { msg: '2명이 필요합니다.', code: 'dm_need2' }, set: { speed: 1 }, own: {}, result: null });
   const b = await r.login('bob1');
   await b.send({ t: 'join', code: 'DUMY' });
-  assert.deepEqual(a.state.wait, { can: true, why: null, set: { speed: 1 }, own: {} });
+  assert.deepEqual(a.state.wait, { can: true, why: null, set: { speed: 1 }, own: {}, result: null });
 });
 
 test('강퇴: 방장·대기 중·자기 아님·멤버. 대상은 dm_kicked 다음 room:null', async () => {
@@ -271,7 +271,7 @@ test('set/pick: set 은 방장+대기, pick 은 본인+대기, 게임 검사 오
   assert.equal(lastErr(b).code, 'dm_now');
 });
 
-test('판 끝: 결과도 대기 상태(바로 시작), finish -> award 한 번(두 번째는 무시)', async () => {
+test('판 끝: 결과도 대기 상태(바로 시작), finish -> award 한 번(두 번째는 무시), 공통 결과 wait.result', async () => {
   const r = await setup(2);
   const [a, b] = r.cs;
   await a.send({ t: 'start' });
@@ -284,14 +284,24 @@ test('판 끝: 결과도 대기 상태(바로 시작), finish -> award 한 번(�
   } finally {
     console.error = origErr;
   }
-  const got = (c) => c.sock.msgs.filter((m) => m.t === 'coin' && m.a === 'got');
-  assert.deepEqual(got(b).map((m) => [m.n, m.mode, m.win]), [[2, 'bluff', true]]);
-  assert.deepEqual(got(a).map((m) => [m.n, m.win]), [[1, false]]);
   assert.equal(logged.length, 1, '두 번째 finish 는 console.error');
   assert.equal(a.state.phase, 'end');
   assert.equal(a.state.wait.can, true, '결과 화면도 대기');
+  // 방 전원에게 같은 결과: 순위 순서, 이름, 점수, 모든 사람의 코인(지급 결과 그대로)
+  const want = {
+    rows: [{ id: 'bob1', name: 'bob1', rank: 1, score: 10 }, { id: 'ann1', name: 'ann1', rank: 2, score: 3 }],
+    gain: { bob1: 2, ann1: 1 }, unit: 'coin',
+  };
+  assert.deepEqual(a.state.wait.result, want);
+  assert.deepEqual(b.state.wait.result, want);
+  assert.equal(r.hub.sessions.get('bob1').user.coins, 2);
+  assert.ok(!a.sock.msgs.some((m) => m.t === 'coin'), '판 끝 코인 알림은 따로 없다(결과 화면이 보인다)');
   await a.send({ t: 'start' });
   assert.equal(a.state.phase, 'play', '결과에서 바로 다시 시작');
+  assert.equal(a.state.wait, null);
+  await b.send({ t: 'yt', a: 'endWithSpecs' });
+  assert.deepEqual(a.state.wait.result.rows.map((x) => x.score), [undefined, undefined], '다음 판 결과는 새로(이전 판 결과는 시작 때 사라짐)');
+  assert.deepEqual(a.state.wait.result.gain, { ann1: 0, bob1: 0 }, '지급 간격 안: 0 도 결과에 보인다');
 });
 
 test('요청 분배: 다른 게임 글자는 dm_now / dm_bad, 자기 봉투는 onAction', async () => {
@@ -520,10 +530,11 @@ test('관전 계정: 판 코인은 받지 않는다(게임이 줄에 넣어도 S
   await s.send({ t: 'join', code: 'DUMY' });
   await a.send({ t: 'start' });
   await b.send({ t: 'yt', a: 'endWithSpecs' });
-  const got = (c) => c.sock.msgs.filter((m) => m.t === 'coin' && m.a === 'got');
-  assert.equal(got(b).length, 1);
-  assert.equal(got(a).length, 1);
-  assert.equal(got(s).length, 0, '관전자 코인 없음');
+  const res = s.state.wait.result;
+  assert.deepEqual(res.rows.map((x) => x.id), ['bob1', 'ann1'], '관전자도 결과를 받는다(줄에는 없음)');
+  assert.deepEqual(Object.keys(res.gain).sort(), ['ann1', 'bob1'], '관전자 코인 없음');
+  assert.equal(r.hub.sessions.get('관전1').user.coins ?? 0, 0);
+  assert.deepEqual(a.state.wait.result, res);
 });
 
 test('관전 계정: 끊기면 유예 뒤 나간다(게임 훅 없음), 다시 붙으면 그대로', async () => {

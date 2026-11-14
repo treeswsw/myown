@@ -35,17 +35,17 @@ export function makeDummy(ctx, opt = {}) {
         case 'end': // 판 끝: 코인 한 번 + 결과(대기 상태)
           if (phase !== 'play') return ctx.err('dm_now');
           phase = 'end';
-          ctx.finish(ctx.members().map((m) => ({ id: m.id, won: m.id === session.id, opp: ctx.members().length - 1 })));
+          ctx.finish(ctx.members().map((m) => ({ id: m.id, rank: m.id === session.id ? 1 : 2, score: m.id === session.id ? 10 : 3, won: m.id === session.id, opp: ctx.members().length - 1 })));
           ctx.push([{ k: 'over', by: session.id }]);
           return null;
         case 'endWithSpecs': // 판 끝인데 관전자 줄까지 넣어 본다(Shell 이 걸러야 한다)
           if (phase !== 'play') return ctx.err('dm_now');
           phase = 'end';
-          ctx.finish([...ctx.members().map((m) => m.id), ...ctx.specIds()].map((id) => ({ id, won: id === session.id, opp: 1 })));
+          ctx.finish([...ctx.members().map((m) => m.id), ...ctx.specIds()].map((id) => ({ id, rank: id === session.id ? 1 : 2, won: id === session.id, opp: 1 })));
           ctx.push();
           return null;
         case 'finishAgain':
-          ctx.finish([{ id: session.id, won: true, opp: 1 }]);
+          ctx.finish([{ id: session.id, rank: 1, won: true, opp: 1 }]);
           return null;
         case 'drop':
           ctx.drop(msg.id, 'away');

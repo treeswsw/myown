@@ -35,7 +35,7 @@ const faces = { get: () => ({ avatar: null, look: null }), onChange: () => () =>
 const clock = { now: () => Date.now(), sync() {}, left: () => 0 };
 const ctx = {
   root: document.getElementById('ui'), ui: document.getElementById('ui'), stage, send: (m) => h.sent.push(m), me: () => null,
-  faces, clock, sound, profile, toast: () => {}, toWait: () => h.sent.push({ toWait: true }),
+  faces, clock, sound, profile, toast: () => {}, ready: () => {},
 };
 h.liar = mount(ctx, { sceneFactory: new URLSearchParams(location.search).has('fake') ? fakeScene : undefined });
 h.calls = calls;

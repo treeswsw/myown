@@ -1,32 +1,6 @@
-// 정답 입력 칸(guess, 라이어만)과 결과(result) 화면. 약속: docs/team/CONTRACTS.md 0절·1절 result.
+// 정답 입력 칸(guess, 라이어만)과 공통 결과 화면의 라이어 칸(라이어·제시어·라이어의 답·우승·투표 내역).
+// 순위·점수·코인·버튼은 공통 결과 화면(client/src/room/result.js)이 그린다. 제목은 winnerText 를 index.js 가 resultTitle 로 준다.
 // 맨 위에서는 document·window 를 만지지 않는다(순수 함수를 node 에서 시험한다).
-
-const MINUS = '−';
-
-export function fmtDelta(n) {
-  const v = Number(n) || 0;
-  return v > 0 ? `+${v}` : v < 0 ? `${MINUS}${-v}` : '0';
-}
-
-/** 결과 표 줄: 방 점수 높은 순, 같으면 이름순. delta 포함. 관전자는 점수 변화가 있을 때만. */
-export function rankRows(state) {
-  if (!state || !Array.isArray(state.players)) return [];
-  const delta = (state.result && state.result.delta) || {};
-  const liarId = state.result ? state.result.liarId : null;
-  const rows = state.players
-    .filter((p) => !p.spectating || delta[p.id] !== undefined)
-    .map((p) => ({
-      id: p.id, name: p.name, color: p.color, score: p.score || 0,
-      delta: delta[p.id] || 0, isYou: p.id === state.you, isLiar: p.id === liarId,
-    }));
-  rows.sort((a, b) => b.score - a.score || String(a.name).localeCompare(String(b.name), 'ko'));
-  let prev = null, rank = 0;
-  rows.forEach((r, i) => {
-    if (prev === null || r.score !== prev) rank = i + 1;
-    r.rank = rank; prev = r.score;
-  });
-  return rows;
-}
 
 /** 이긴 쪽 글 {title, sub}. */
 export function winnerText(result) {
@@ -70,9 +44,6 @@ export function createResult(ctx) {
     return e;
   };
 
-  const el = h('div', 'lg-rs-root');
-  el.hidden = true;
-
   // ---- guess: 라이어의 입력 칸만 (안내 글·초·답 표시는 엔딩 모듈이 맡는다) ----
   const form = h('form', 'lg-rs-form'); form.hidden = true;
   const input = h('input', 'lg-rs-input', null, 'guess-input');
@@ -84,27 +55,12 @@ export function createResult(ctx) {
   form.append(input, sendBtn);
   ctx.action.appendChild(form);
 
-  // ---- result ----
-  const panel = h('div', 'lg-rs-panel', null, 'result'); panel.hidden = true;
-  const champ = h('div', 'lg-rs-champ'); champ.hidden = true;
-  const winner = h('div', 'lg-rs-winner', null, 'result-winner');
-  const wTitle = h('div', 'lg-rs-wtitle'), wSub = h('div', 'lg-rs-wsub');
-  winner.append(wTitle, wSub);
+  // ---- 공통 결과 화면의 게임 칸 ----
+  const part = h('div', 'lg-rs-part', null, 'result');
+  const champ = h('div', 'lg-rs-champ');
   const info = h('div', 'lg-rs-info');
-  const rankBox = h('div', 'lg-rs-rank');
-  const body = h('div', 'lg-rs-body');
-  body.append(info, rankBox);
   const logBox = h('div', 'lg-rs-log');
-  const foot = h('div', 'lg-rs-foot');
-  const nextBtn = h('button', 'lg-rs-btn lg-rs-send', '다음 판', 'next'); nextBtn.type = 'button';
-  const nextWait = h('div', 'lg-rs-nextwait', '방장이 다음 판을 시작하기를 기다리는 중');
-  const toWaitBtn = h('button', 'lg-rs-btn', '대기실로', 'to-wait'); toWaitBtn.type = 'button'; // 설정을 바꾸러 대기실로(D5)
-  foot.append(toWaitBtn, nextBtn, nextWait);
-  const scroll = h('div', 'lg-rs-scroll');
-  scroll.append(body, logBox);
-  panel.append(champ, winner, scroll, foot);
-  el.append(panel);
-  ctx.root.appendChild(el);
+  part.append(champ, info, logBox);
 
   let state = null;
   let sentKey = null; // 이 판에서 정답을 이미 보냈다
@@ -132,13 +88,10 @@ export function createResult(ctx) {
     input.disabled = locked; sendBtn.disabled = locked;
   }
 
-  function renderResult() {
-    const r = state.result;
-    if (!r) { panel.hidden = true; return; }
-    panel.hidden = false;
-    const wt = winnerText(r);
-    wTitle.textContent = wt.title; wSub.textContent = wt.sub;
-    winner.dataset.winner = r.winner;
+  function renderPart(s) {
+    state = s;
+    const r = s.result;
+    if (!r) return null;
 
     champ.textContent = '';
     const ch = Array.isArray(r.champions) && r.champions.length ? r.champions : null;
@@ -164,24 +117,6 @@ export function createResult(ctx) {
       v.append(h('b', null, g && g.text != null && g.text !== '' ? g.text : '(답 없음)'),
         h('span', (r.guessed || (g && g.correct)) ? 'lg-rs-ok' : 'lg-rs-no', (r.guessed || (g && g.correct)) ? ' 맞음' : ' 틀림'));
       line('라이어의 답', v);
-    }
-
-    rankBox.textContent = '';
-    for (const row of rankRows(state)) {
-      const d = h('div', 'lg-rs-row' + (row.isYou ? ' lg-rs-me' : ''), null, 'result-row');
-      d.dataset.id = row.id;
-      const nm = h('span', 'lg-rs-rname');
-      nm.append(h('span', 'lg-rs-rk', String(row.rank)));
-      const n = h('span', 'lg-rs-name', row.name + (row.isYou ? ' (나)' : ''));
-      if (row.color) n.style.color = row.color;
-      nm.append(n);
-      if (row.isLiar) nm.append(h('span', 'lg-rs-tag', '라이어'));
-      const dl = h('span', 'lg-rs-delta' + (row.delta > 0 ? ' lg-rs-up' : row.delta < 0 ? ' lg-rs-down' : ''), fmtDelta(row.delta));
-      dl.dataset.part = 'delta';
-      const sc = h('span', 'lg-rs-score', String(row.score));
-      sc.dataset.part = 'score';
-      d.append(nm, dl, sc);
-      rankBox.append(d);
     }
 
     logBox.textContent = '';
@@ -221,21 +156,13 @@ export function createResult(ctx) {
       }
       logBox.append(det);
     }
-
-    const isHost = state.hostId === state.you;
-    nextBtn.hidden = !isHost;
-    nextWait.hidden = isHost;
+    return part;
   }
 
   function update(s) {
     state = s;
-    if (!s || (s.phase !== 'guess' && s.phase !== 'result')) {   // answer 포함: 전부 숨김
-      el.hidden = true; panel.hidden = true; form.hidden = true;
-      return;
-    }
-    el.hidden = false;
-    if (s.phase === 'guess') { panel.hidden = true; renderGuess(); }
-    else { form.hidden = true; renderResult(); }
+    if (s && s.phase === 'guess') renderGuess();
+    else form.hidden = true;
   }
 
   function submit() {
@@ -249,13 +176,11 @@ export function createResult(ctx) {
   sendBtn.addEventListener('click', submit);
   form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
-  nextBtn.addEventListener('click', () => ctx.send({ t: 'start' }));
-  toWaitBtn.addEventListener('click', () => ctx.toWait?.());
 
   return {
-    el,
     update,
+    part: renderPart,
     frame() {},
-    dispose() { el.remove(); form.remove(); },
+    dispose() { form.remove(); },
   };
 }

@@ -378,7 +378,8 @@ test('비밀: 해골을 놓은 사람 외 모든 소켓(다른 두 명·관전�
 test('비밀: 대기실 값(wait)에는 색·이름 말고 판 안의 것이 없다', async () => {
   const t = await table(3);
   const w = t.st('a1').wait;
-  assert.deepEqual(Object.keys(w).sort(), ['can', 'own', 'set', 'why']);
+  assert.deepEqual(Object.keys(w).sort(), ['can', 'own', 'result', 'set', 'why']);
+  assert.equal(w.result, null, '판 끝 공통 결과는 판이 끝난 뒤에만');
   for (const o of Object.values(w.own)) assert.deepEqual(Object.keys(o), ['color']);
 });
 

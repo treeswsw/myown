@@ -3,7 +3,6 @@
 // ctx.on(type, fn) -> 끄기. type: 't' 값('coin' | 'pin' | 'error' | 'me') 또는 'coin:<a>'(예 'coin:draw'), 'pin:<a>'.
 //   'error' 는 code 가 coin_ / shop_ / pin_ 로 시작하는 것만 온다. 'me' 는 wallet 이 바뀔 때마다(fn(wallet)).
 import { item } from '../../../shared/coin/shop.js';
-import { toast } from '../ui/kit/toast.js';
 import './coin.css';
 import './look.css';
 import './titlefx.css';
@@ -42,11 +41,9 @@ export function createCoin({ send, root }) {
   const ctx = { send, root, wallet: () => wallet, on, me: () => meUser, open: (kind) => open(kind) };
 
   // ---------- 알림 ----------
-  // 코인 글('+N 코인', '이번 판 코인 +1')은 공용 알림(ui/kit/toast.js)에 쌓는다: 다른 글은 함께 보이고 같은 글은 한 번만.
-  // 소식(뽑기 당첨)은 위쪽 한 줄.
+  // 소식(뽑기 당첨)은 위쪽 한 줄. 판 끝 코인은 공통 결과 화면(room/result.js)이 보인다.
   let newsEl = null, newsTimer = 0;
-  function flash(kind, text, ms) {
-    if (kind !== 'news') { toast(text, { kind: 'coin', ms }); return; }
+  function news(text, ms) {
     let el = newsEl;
     if (!el) {
       el = document.createElement('div');
@@ -85,19 +82,11 @@ export function createCoin({ send, root }) {
   function onMsg(msg) {
     if (!msg || typeof msg !== 'object') return false;
     if (msg.t === 'coin') {
-      if (msg.a === 'stake') { // 미니 베팅 정산: 이긴 사람 +N, 진 사람 -N
-        const n = Number(msg.n) || 0;
-        if (n !== 0) flash('toast', `${n > 0 ? '+' : '−'}${Math.abs(n)} 코인`, 3000);
-      } else if (msg.a === 'got') {
-        const n = Number(msg.n) || 0;
-        // 판 끝 알림(모든 게임 공용): 0 이어도 짧게 알린다. why:'gap' = 같은 게임을 너무 빨리 또 했을 때.
-        if (n > 0) flash('toast', `이번 판 코인 +${n}`, 2500);
-        else flash('toast', msg.why === 'gap' ? '이번 판은 코인 없음 (너무 자주 해서)' : '이번 판은 코인 없음', 2500);
-      } else if (msg.a === 'news') {
+      if (msg.a === 'news') {
         const name = String(msg.name ?? '');
         const chips = Number(msg.chips) || 0;
-        if (msg.item) flash('news', `${name}님이 캡슐에서 ${(item(msg.item)?.name ?? '희귀 아이템')}을(를) 뽑았습니다!`, 3000);
-        else flash('news', `${name}님이 뽑기에서 ${chips.toLocaleString('ko-KR')}칩에 당첨!`, 3000);
+        if (msg.item) news(`${name}님이 캡슐에서 ${(item(msg.item)?.name ?? '희귀 아이템')}을(를) 뽑았습니다!`, 3000);
+        else news(`${name}님이 뽑기에서 ${chips.toLocaleString('ko-KR')}칩에 당첨!`, 3000);
       }
       emit('coin', msg);
       if (msg.a) emit('coin:' + msg.a, msg);

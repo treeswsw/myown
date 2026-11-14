@@ -30,7 +30,6 @@ async function lobby(hub, mode, names) {
   return cs;
 }
 const coins = (hub, id) => hub.sessions.get(id)?.user.coins ?? 0;
-const got = (c) => c.sock.msgs.filter((m) => m.t === 'coin' && m.a === 'got');
 
 // ---------- bluff ----------
 
@@ -56,8 +55,8 @@ test('bluff: winner 1+1*opp, eliminated-in-game finisher 1, leaver 0, spectator 
   assert.equal(coins(hub, 'ann1'), 1, 'shot in game still finished');
   assert.equal(coins(hub, 'cat1'), 0, 'leaver');
   assert.equal(coins(hub, 'dan1'), 0, 'spectator');
-  assert.equal(got(cs[1]).length, 1);
-  clock.advance(6000);
+  clock.advance(6000); // 우승 표시 뒤 대기실: 공통 결과(wait.result)에 모든 사람의 코인
+  assert.deepEqual(cs[1].state.wait.result.gain, { ann1: 1, bob1: 3 });
 });
 
 // ---------- yacht ----------
@@ -91,7 +90,7 @@ test('yacht: 3 players finish: 3 each, winner +4 per opponent; spectator 0', asy
     assert.equal(coins(hub, id), 3 + (r.winners.includes(id) ? 4 * 2 : 0), id);
   }
   assert.equal(coins(hub, 'dan1'), 0);
-  assert.equal(got(spec).length, 0);
+  assert.ok(!('dan1' in spec.state.wait.result.gain), '관전자는 결과를 보지만 gain 이 없다');
 });
 
 test('yacht: a forfeiter gets 0, opponents still count the leaver', async () => {
@@ -242,8 +241,8 @@ test('bluff: the last one standing after the others leave gets nothing', async (
   assert.equal(cs[0].state.phase, 'result');
   assert.equal(cs[0].state.winnerId, 'ann1');
   assert.equal(coins(hub, 'ann1'), 0);
-  assert.equal(got(cs[0]).length, 0);
   clock.advance(6000);
+  assert.deepEqual(cs[0].state.wait.result.gain, { ann1: 0 }, '결과는 보이고 코인은 0');
 });
 
 test('yacht: everyone else left (reason alone) pays nobody', async () => {

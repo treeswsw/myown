@@ -1,6 +1,4 @@
-/* 정답·결과 (.lg-rs-). 모양은 design/mockup-table.html 의 판·버튼·글꼴. */
-.lg-rs-root { position: absolute; inset: 0; pointer-events: none; z-index: 60; color: var(--lg-ink, #efe6d8); font-family: var(--lg-sans, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif); }
-.lg-rs-root[hidden], .lg-rs-root [hidden] { display: none !important; }
+/* 정답 칸과 공통 결과 화면(room/result.js)의 라이어 칸 (.lg-rs-). 모양은 design/mockup-table.html 의 판·버튼·글꼴. */
 
 .lg-rs-ok { color: var(--lg-gold, #d9b26a); font-weight: 700; }
 .lg-rs-no { color: var(--lg-red, #ea3a3d); font-weight: 700; }
@@ -25,45 +23,15 @@
 .lg-rs-btn:focus-visible { outline: 2px solid var(--lg-ink, #efe6d8); outline-offset: 2px; }
 .lg-rs-send { background: var(--lg-red-deep, #6f1216); border-color: var(--lg-red, #ea3a3d); color: #fff; }
 
-/* 결과 판 */
-.lg-rs-panel {
-  /* 아래 조작 줄(.lg-action: 전체 랭킹 등, 약 12px*k + 48px)을 가리지 않게 그 위 공간의 가운데에 둔다 */
-  position: absolute; left: 50%; top: calc(50% - (12px * var(--lg-k, 1) + 48px) / 2); transform: translate(-50%, -50%); pointer-events: auto; box-sizing: border-box;
-  width: min(calc(100% - 24px), calc(720px * var(--lg-k, 1))); max-height: calc(100% - 16px - 12px * var(--lg-k, 1) - 48px); overflow: hidden; display: flex; flex-direction: column;
-  padding: calc(12px * var(--lg-k, 1)) calc(16px * var(--lg-k, 1)); background: var(--lg-panel-solid, #141012);
-  border: 1px solid var(--lg-line, rgba(239,230,216,.16)); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.6);
-  font-size: max(13px, calc(15px * var(--lg-k, 1)));
-}
-.lg-rs-champ { text-align: center; padding: 6px; margin-bottom: 8px; border: 1px solid var(--lg-gold, #d9b26a); border-radius: 6px; color: var(--lg-gold, #d9b26a); font-family: var(--lg-serif, "Noto Serif KR", serif); font-weight: 900; font-size: max(16px, calc(20px * var(--lg-k, 1))); }
-.lg-rs-winner { text-align: center; margin-bottom: 8px; }
-.lg-rs-wtitle { font-family: var(--lg-serif, "Noto Serif KR", serif); font-weight: 900; font-size: max(22px, calc(34px * var(--lg-k, 1))); letter-spacing: .06em; }
-.lg-rs-winner[data-winner="liar"] .lg-rs-wtitle { color: var(--lg-red, #ea3a3d); }
-.lg-rs-winner[data-winner="citizens"] .lg-rs-wtitle { color: var(--lg-gold, #d9b26a); }
-.lg-rs-winner[data-winner="void"] .lg-rs-wtitle { color: var(--lg-ink-dim, #a39a8f); }
-.lg-rs-wsub { color: var(--lg-ink-dim, #a39a8f); margin-top: 2px; }
-.lg-rs-champ, .lg-rs-winner, .lg-rs-foot { flex: none; }
-.lg-rs-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.lg-rs-body { display: flex; gap: 14px; flex-wrap: wrap; }
-.lg-rs-info { flex: 1 1 200px; min-width: 0; }
-.lg-rs-rank { flex: 1 1 240px; min-width: 0; }
+/* 공통 결과 화면 안의 라이어 칸 */
+.lg-rs-part { display: flex; flex-direction: column; gap: 8px; }
+.lg-rs-champ { text-align: center; padding: 6px; border: 1px solid var(--lg-gold, #d9b26a); border-radius: 6px; color: var(--lg-gold, #d9b26a); font-family: var(--lg-serif, "Noto Serif KR", serif); font-weight: 900; font-size: 18px; }
+.lg-rs-info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
 .lg-rs-line { display: flex; gap: 8px; padding: 3px 0; align-items: baseline; flex-wrap: wrap; overflow-wrap: anywhere; }
 .lg-rs-label { color: var(--lg-ink-dim, #a39a8f); flex: none; min-width: 5.5em; }
 .lg-rs-val { font-family: var(--lg-serif, "Noto Serif KR", serif); }
 .lg-rs-name { font-weight: 700; overflow-wrap: anywhere; }
-.lg-rs-row { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-bottom: 1px solid var(--lg-line, rgba(239,230,216,.16)); }
-.lg-rs-me { background: rgba(239,230,216,.07); }
-.lg-rs-rname { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; }
-.lg-rs-rk { color: var(--lg-ink-dim, #a39a8f); min-width: 1.4em; font-variant-numeric: tabular-nums; }
-.lg-rs-tag { font-size: .8em; color: #fff; background: var(--lg-red-deep, #6f1216); border: 1px solid var(--lg-red, #ea3a3d); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
-.lg-rs-delta { min-width: 2.4em; text-align: right; font-variant-numeric: tabular-nums; color: var(--lg-ink-dim, #a39a8f); }
-.lg-rs-up { color: var(--lg-gold, #d9b26a); font-weight: 700; }
-.lg-rs-down { color: var(--lg-red, #ea3a3d); font-weight: 700; }
-.lg-rs-score { min-width: 2.4em; text-align: right; font-family: var(--lg-serif, "Noto Serif KR", serif); font-weight: 900; font-variant-numeric: tabular-nums; }
-.lg-rs-log { margin-top: 8px; }
 .lg-rs-sum { cursor: pointer; color: var(--lg-ink-dim, #a39a8f); padding: 4px 0; min-height: 28px; }
 .lg-rs-entry { padding: 4px 0 4px 10px; border-left: 2px solid var(--lg-line, rgba(239,230,216,.16)); margin-bottom: 4px; overflow-wrap: anywhere; }
 .lg-rs-evotes, .lg-rs-epicks { color: var(--lg-ink-dim, #a39a8f); font-size: .92em; }
-.lg-rs-foot { margin-top: 6px; padding: 8px 0 2px; background: var(--lg-panel-solid, #141012); display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px; }
-.lg-rs-foot .lg-rs-btn { min-width: calc(160px * var(--lg-k, 1)); }
-.lg-rs-nextwait { color: var(--lg-ink-dim, #a39a8f); padding: 6px 0; text-align: center; }
 .lg-rs-form[hidden] { display: none !important; }

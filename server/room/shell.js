@@ -23,6 +23,7 @@ export function createRoomShell(hub, code, entry, opt = {}) {
   let hostId = null;
   let joinSeq = 0;
   let finished = false; // 이번 판에 finish 를 이미 받았나
+  let result = null; // 지난 판 공통 결과(ctx.finish). 다음 판 시작 때 지운다
   const leaving = new Set();
   const timers = new Map(); // 게임 타이머 name -> handle
   let gc = null;
@@ -70,14 +71,29 @@ export function createRoomShell(hub, code, entry, opt = {}) {
       log.add({ ...item });
       emit([{ k: 'chat', ...item }]);
     },
-    // 판 끝 코인: 판마다 한 번만(D4). 두 번째는 무시.
-    finish(rows) {
+    // 판 끝(D4, 판마다 한 번, 두 번째는 무시): 코인 지급 + 공통 결과 화면 wait.result (COMMON-CONTRACT 1-3).
+    // rows [{id, rank, won?, opp?, score?, note?}]: 코인은 opp 가 있는 줄만. info {unit?: 'coin'|'chip', add?: {label?, by: {id: n}}}
+    // add = 지급 말고 더할 증감(홀덤 칩, 미니 베팅). label 이 있으면 화면이 "판 코인 +a · <label> +b" 로 나눠 보인다.
+    finish(rows, info = {}) {
       if (finished) {
         console.error(`room ${code}: finish called twice in one round`);
         return;
       }
       finished = true;
-      if (entry.coin) hub.award(shell, entry.coin, rows.filter((r) => member(r.id))); // 관전자는 판 코인 없음
+      const here = rows.filter((r) => member(r.id)); // 관전자·나간 사람은 판 코인 없음
+      const pay = here.filter((r) => r.opp !== undefined);
+      const paid = entry.coin && pay.length ? hub.award(shell, entry.coin, pay) ?? {} : {};
+      const by = info.add?.by ?? {};
+      const gain = {};
+      for (const r of here) gain[r.id] = (paid[r.id] ?? 0) + (by[r.id] ?? 0);
+      result = {
+        rows: here.map((r) => ({
+          id: r.id, name: member(r.id).session.user.name, rank: r.rank,
+          ...(r.score !== undefined ? { score: r.score } : {}), ...(r.note ? { note: r.note } : {}),
+        })).sort((a, b) => a.rank - b.rank),
+        gain, unit: info.unit ?? 'coin',
+        ...(info.add?.label ? { add: { label: info.add.label, by: { ...by } } } : {}),
+      };
     },
     drop(id, reason) {
       if ((member(id) || spec(id)) && !leaving.has(id)) shell.leave(id, reason);
@@ -250,6 +266,7 @@ export function createRoomShell(hub, code, entry, opt = {}) {
       const bad = shell.impl.onStart(by);
       if (bad) return bad;
       finished = false;
+      result = null;
       shell.push();
       return null;
     },
@@ -294,7 +311,7 @@ export function createRoomShell(hub, code, entry, opt = {}) {
       let wait = null;
       if (impl.isWaiting()) {
         const why = impl.canStart();
-        wait = { can: !why, why: why ?? null, ...(impl.waitInfo?.() ?? { set: {}, own: {} }) };
+        wait = { can: !why, why: why ?? null, ...(impl.waitInfo?.() ?? { set: {}, own: {} }), result };
       }
       const specRows = specs.map((m) => ({ id: m.id, name: m.session.user.name, connected: m.connected }));
       return { ...v, code, mode: entry.mode, hostId, you: id, now: hub.now(), phase: impl.phase(), players, wait, specs: specRows };

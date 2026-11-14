@@ -81,9 +81,8 @@ export function makeYachtGame(ctx) {
       hub.persist(m.session.user);
       hub.sendMe(m.session);
     }
-    if (r.reason === 'alone') return; // 모두 나가고 한 명만 남은 판: 코인 없음(SPEC 22-2)
-    const opp = g.cols.length - 1;
-    ctx.finish(r.ranks.filter((row) => ctx.member(row.id)).map((row) => ({ id: row.id, won: r.winners.includes(row.id), opp })));
+    const opp = r.reason === 'alone' ? undefined : g.cols.length - 1; // 모두 나가고 한 명만 남은 판: 결과만, 코인 없음(SPEC 22-2)
+    ctx.finish(r.ranks.map((row) => ({ id: row.id, rank: row.rank, score: row.total, won: r.winners.includes(row.id), opp })));
   }
 
   // 기권하는 순간 games + 1
