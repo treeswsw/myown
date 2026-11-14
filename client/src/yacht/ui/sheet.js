@@ -11,6 +11,7 @@ const NAME = {
 };
 const PIP = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
 import { createWho } from './who.js';
+import { nameTag } from '../../ui/kit/avatar.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 
@@ -182,7 +183,11 @@ export function createSheet({ host, send, who = createWho() }) {
       const away = !!player && player.connected === false && !c.left;
       const col = (cls) => cls + (on || win ? ' yt-sc-on' : '') + (c.left ? ' yt-sc-off' : '');
       refs.head[i].className = col('yt-sc-pc');
-      refs.nameEl[i].textContent = c.name || '';
+      const nk = (c.name || '') + '|' + JSON.stringify(who.look(c.id));
+      if (refs.nameEl[i].dataset.k !== nk) { // 칭호 배지 위, 이름 아래(공용 nameTag)
+        refs.nameEl[i].dataset.k = nk;
+        refs.nameEl[i].replaceChildren(nameTag({ name: c.name || '', look: who.look(c.id) }));
+      }
       refs.away[i].hidden = !away;
       refs.drop[i].hidden = !c.left;
       refs.crown[i].style.display = win ? '' : 'none';
