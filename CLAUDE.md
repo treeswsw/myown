@@ -83,6 +83,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 방 만들기는 `{t:'create', mode:'mini', game}`. 방 상태에 프로필 사진을 넣지 않는다(`faces` 알림).
 - 화면 연결: 공용 방 틀이 `import('./mini/index.js')` 의 `mount(ctx)` 를 부른다. 상단 줄·채팅·이모티콘은 공용, 종목 고르기는 대기실 설정(`set`).
 - 봇전: 공통 방 + 봇 자리(`vs:'bot'`, 사람 1명, 대기실 없이 바로 시작). 계산은 사람 기기(client/src/mini/bots/ → `{t:'mn',a:'bot'}`), 코인은 `minibot_easy/mid/hard`(SPEC 22-2). 규칙 docs/mini/PLAN.md 5절.
+- 체스 퍼즐(혼자 퀴즈 풀기, `vs:'puzzle'`): server/mini/puzzleRun.js·puzzles.js, 코인 `puzzle_*`(하루 상한 100은 coin_log 합), 레이팅 `users.puzzle`. 정답 수순은 실패·정답 보기 뒤에만 보낸다(test/mini/puzzle.test.js). 규칙 docs/mini/PLAN.md 6절.
 - test/ui/smoke.mjs 에 미니게임 한 판(커넥트포) 클릭이 있다. 판 모양·소리·터치 느낌은 "미확인(실기기 확인 필요)".
 
 ## CSS

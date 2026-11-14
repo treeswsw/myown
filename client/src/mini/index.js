@@ -3,7 +3,7 @@
 // 이 모듈은 게임 판만 그린다. 글자는 textContent 로만. 판 그림은 boards/index.js(renderBoard).
 import './mini.css';
 import { renderBoard } from './boards/index.js';
-import { NAMES } from '../../../shared/mini/index.js';
+import { NAMES, GAMES } from '../../../shared/mini/index.js';
 import { createBetPart } from './bet.js';
 
 // 선(seat 0)과 후(seat 1)의 이름·색
@@ -60,7 +60,24 @@ export function mount(ctx) {
   resignBtn.dataset.mn = 'resign';
   bottom.append(status, resignBtn);
 
-  root.append(top, boardWrap, bottom);
+  // 체스 퍼즐(혼자 퀴즈 풀기, docs/mini/PLAN.md 6절): 위 줄 대신 안내 + 숫자 넷, 아래 줄에 힌트·정답 보기·다음 문제
+  const pz = el('div', 'mn-pz');
+  pz.hidden = true;
+  const pzHead = el('div', 'mn-pz-head');
+  const pzStats = el('div', 'mn-pz-stats');
+  const pzStat = (k) => { const e = el('span', 'mn-pz-stat'); e.dataset.pz = k; pzStats.append(e); return e; };
+  const pzRate = pzStat('rate'), pzLevel = pzStat('level'), pzStreak = pzStat('streak'), pzCoin = pzStat('coin');
+  pz.append(pzHead, pzStats);
+  const pzBtns = el('div', 'mn-pz-btns');
+  const hintBtn = btn('mn-act', '힌트', () => send({ t: 'mn', a: 'hint' }));
+  const revealBtn = btn('mn-act', '정답 보기', () => send({ t: 'mn', a: 'reveal' }));
+  const nextBtn = btn('mn-act mn-pz-next', '다음 문제', () => send({ t: 'mn', a: 'next' }));
+  hintBtn.dataset.mn = 'hint'; revealBtn.dataset.mn = 'reveal'; nextBtn.dataset.mn = 'next';
+  pzBtns.append(hintBtn, revealBtn, nextBtn);
+  pzBtns.hidden = true;
+  bottom.append(pzBtns);
+
+  root.append(top, pz, boardWrap, bottom);
 
   let room = null;
   let botKey = null; // 봇 수를 구하는 중인 판 모습 (같은 판 모습으로는 한 번만)
@@ -109,6 +126,13 @@ export function mount(ctx) {
     const between = rm.phase === 'between';
     const end = rm.phase === 'end';
     const series = (rm.match?.len ?? 1) > 1;
+    if (rm.puzzle) {
+      resignBtn.hidden = true;
+      renderPuzzle(rm);
+      return;
+    }
+    stopReplay();
+    pz.hidden = true; pzBtns.hidden = true; top.hidden = false; status.hidden = false;
 
     for (let i = 0; i < 2; i++) {
       const [col] = sideOf(rm.game, i);
@@ -154,6 +178,70 @@ export function mount(ctx) {
     } else status.textContent = '';
   }
 
+  // 틀리거나 정답을 본 뒤: 서버가 준 정답 수순을 이 기기에서 한 수씩 보여 준다 (서버 상태는 그대로)
+  let replay = null; // { key, timers }
+  const stopReplay = () => { if (replay) replay.timers.forEach(clearTimeout); replay = null; };
+  const FILES = 'abcdefgh';
+  const uci = (u) => ({ from: { x: FILES.indexOf(u[0]), y: 8 - Number(u[1]) }, to: { x: FILES.indexOf(u[2]), y: 8 - Number(u[3]) }, ...(u[4] ? { promo: u[4].toUpperCase() } : {}) });
+  function startReplay(rm) {
+    const key = JSON.stringify([rm.puzzle.solution, rm.mn.board]);
+    if (replay?.key === key) return;
+    stopReplay();
+    const timers = [];
+    replay = { key, timers };
+    let st = rm.mn;
+    rm.puzzle.solution.forEach((u, i) => {
+      timers.push(setTimeout(() => {
+        const next = GAMES.chess.apply(st, uci(u));
+        if (!next || !alive) return;
+        st = next;
+        renderBoard(boardEl, 'chess', st, { mySeat: rm.puzzle.seat, onMove: null });
+      }, 900 * (i + 1)));
+    });
+  }
+
+  function renderPuzzle(rm) {
+    const q = rm.puzzle;
+    const play = q.status === 'play';
+    pz.hidden = false;
+    top.hidden = true;
+    const col = q.seat === 0 ? '백' : '흑';
+    pzHead.textContent = play ? `${col} 차례 — 최선의 수를 찾으세요${rm.mn.check ? ' (체크!)' : ''}` : q.status === 'solved' ? '정답이에요!' : q.status === 'failed' ? '아쉬워요, 정답 수순을 보여 드려요' : '정답 수순을 보여 드려요';
+    const d = q.me.delta;
+    pzRate.textContent = `내 레이팅 ${q.me.r ?? ''}${d == null ? '' : ` (${d > 0 ? '+' : ''}${d})`}`;
+    pzRate.classList.toggle('mn-pz-up', d > 0);
+    pzRate.classList.toggle('mn-pz-down', d < 0);
+    pzLevel.textContent = `문제 난이도 ${q.rating}`;
+    pzStreak.textContent = `연속 정답 ${q.me.streak}`;
+    pzCoin.textContent = `오늘 코인 ${q.coin.today ?? '…'}/${q.coin.cap}`;
+    if (!play && q.status !== 'solved' && q.solution) startReplay(rm); else stopReplay();
+    if (replay === null) {
+      renderBoard(boardEl, 'chess', rm.mn, { mySeat: q.seat, onMove: play && rm.mySeat >= 0 ? (move) => send({ t: 'mn', a: 'move', move }) : null });
+      // 힌트: 움직일 말이 선 칸을 표시 (판 그림 좌표: 여백 5, 칸 10)
+      const h = play && q.hint;
+      if (h) {
+        const px = (v) => 5 + (q.seat === 1 ? 7 - v : v) * 10;
+        boardEl.querySelector('svg')?.insertAdjacentHTML('beforeend', `<rect class="mn-pz-hint" x="${px(h.x)}" y="${px(h.y)}" width="10" height="10"/>`);
+      }
+    }
+    const mine = rm.mySeat >= 0;
+    pzBtns.hidden = !mine;
+    hintBtn.hidden = revealBtn.hidden = !play;
+    nextBtn.hidden = play;
+    let line = '';
+    if (play) line = q.hint ? '힌트: 표시된 칸의 말을 움직이세요 (이 문제는 코인 없음)' : '';
+    else if (q.status === 'solved') line = q.hinted ? '풀었어요 (힌트를 써서 코인 없음)' : coinLine(q);
+    else line = '코인 없음';
+    status.textContent = line;
+    status.hidden = !line;
+  }
+  function coinLine(q) {
+    const c = q.coin;
+    if (c.gain == null) return '정답이에요!';
+    if (c.gain > 0) return `정답! 코인 +${c.gain}${c.bonus ? ` (5연속 보너스 +${c.bonus})` : ''}${c.capped ? ' · 오늘 상한에 도달' : ''}`;
+    return c.capped ? '정답! 오늘 코인 다 받음 (레이팅은 올랐어요)' : '정답!';
+  }
+
   const offFaces = ctx.faces.onChange(() => render());
 
   return {
@@ -180,7 +268,7 @@ export function mount(ctx) {
 
     // 판 중 자리에 앉아 있으면 안내. 결과 화면은 틀이 확인 없이 나가게 한다
     leaveNote(s) {
-      return (s?.phase === 'play' || s?.phase === 'between') && s.mySeat >= 0 ? '나가면 기권 처리돼요' : null;
+      return !s?.puzzle && (s?.phase === 'play' || s?.phase === 'between') && s.mySeat >= 0 ? '나가면 기권 처리돼요' : null;
     },
 
     // 대기실 개인 칸: 코인 베팅
@@ -190,6 +278,7 @@ export function mount(ctx) {
 
     unmount() {
       offFaces();
+      stopReplay();
       alive = false;
       room = null;
       boardEl.textContent = '';

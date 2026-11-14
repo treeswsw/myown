@@ -2,11 +2,25 @@ import pg from 'pg';
 
 export const START_BANK = 10_000;
 
+// 체스 퍼즐 기록 (docs/mini/PLAN.md 6절): r 레이팅, n 푼 문제 수, streak 연속 정답, best 최고 연속, recent 최근 문제 id(최대 200)
+export const PUZZLE_START = 1500;
+export const PUZZLE_RECENT = 200;
+export const newPuzzle = () => ({ r: PUZZLE_START, n: 0, streak: 0, best: 0, recent: [] });
+function normalizePuzzle(p) {
+  const q = p && typeof p === 'object' && !Array.isArray(p) ? p : {};
+  const int = (v, d) => (Number.isInteger(v) && v >= 0 ? v : d);
+  return {
+    r: Number.isInteger(q.r) && q.r > 0 ? q.r : PUZZLE_START, n: int(q.n, 0), streak: int(q.streak, 0), best: int(q.best, 0),
+    recent: Array.isArray(q.recent) ? q.recent.filter((x) => typeof x === 'string').slice(-PUZZLE_RECENT) : [],
+  };
+}
+
 export function newUser(id, name) {
   return {
     id, name, bank: START_BANK, avatar: null,
     stats: { hands: 0, wins: 0, biggestWin: 0, bluffGames: 0, bluffWins: 0 },
     coins: 0, coinsTotal: 0, gear: { pity: 0, owned: [], equip: {}, shard: 0, cpity: 0, pos: {} }, pin: null,
+    puzzle: newPuzzle(),
   };
 }
 
@@ -20,6 +34,7 @@ export function normalizeUser(u) {
     cpity: Number.isInteger(g.cpity) && g.cpity >= 0 ? g.cpity : 0,
     pos: g.pos && typeof g.pos === 'object' && !Array.isArray(g.pos) ? g.pos : {} };
   u.pin = u.pin ?? null;
+  u.puzzle = normalizePuzzle(u.puzzle);
   return u;
 }
 
@@ -74,6 +89,10 @@ function createMemoryStore() {
       if (ledger.length > LEDGER_MAX) ledger = ledger.slice(-LEDGER_MAX);
     },
     ledger() { return structuredClone(ledger); }, // memory store only (tests)
+    // 그날(day) 이 mode 로 받은 코인 합 (note.mode, note.day). 하루 상한 셈에 쓴다.
+    async earnedOn(uid, mode, day) {
+      return ledger.filter((e) => e.uid === uid && e.kind === 'earn' && e.note?.mode === mode && e.note?.day === day).reduce((n, e) => n + e.delta, 0);
+    },
     async exists(id) { return users.has(id); },
     async topCoin(n) {
       return coinList(users).slice(0, n).map((u) => ({ name: u.name, total: u.coinsTotal }));
@@ -104,7 +123,7 @@ function createMemoryStore() {
   };
 }
 
-const USER_COLS = 'id, name, bank, avatar, stats, coins, coins_total, gear, pin';
+const USER_COLS = 'id, name, bank, avatar, stats, coins, coins_total, gear, pin, puzzle';
 const COIN_TOP_SQL = `SELECT name, coins_total AS total FROM users
   WHERE coins_total > 0 AND id <> $2 ORDER BY coins_total DESC, name COLLATE "C" ASC LIMIT $1`;
 const COIN_RANK_SQL = `SELECT u.coins_total AS total, CASE WHEN u.coins_total > 0 THEN t.rank END AS rank
@@ -134,7 +153,7 @@ function createPgStore(url) {
   const storedAvatar = new Map();
   const rowToUser = (r) => normalizeUser({
     id: r.id, name: r.name, bank: r.bank, avatar: r.avatar, stats: r.stats,
-    coins: r.coins, coinsTotal: r.coins_total, gear: r.gear, pin: r.pin,
+    coins: r.coins, coinsTotal: r.coins_total, gear: r.gear, pin: r.pin, puzzle: r.puzzle,
   });
   // Queue a statement behind pending writes; the returned promise carries its result/failure, the chain survives failure.
   const queue = (fn) => {
@@ -156,6 +175,7 @@ function createPgStore(url) {
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS coins_total integer NOT NULL DEFAULT 0');
       await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS gear jsonb NOT NULL DEFAULT '{}'");
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS pin jsonb');
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS puzzle jsonb');
       await pool.query(`CREATE TABLE IF NOT EXISTS coin_log (
         id bigserial PRIMARY KEY,
         at timestamptz NOT NULL DEFAULT now(),
@@ -193,8 +213,8 @@ function createPgStore(url) {
       }
       const fresh = newUser(id, name);
       await pool.query(
-        'INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (id) DO NOTHING',
-        [id, name, fresh.bank, null, fresh.stats, 0, 0, fresh.gear, null],
+        'INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin, puzzle) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO NOTHING',
+        [id, name, fresh.bank, null, fresh.stats, 0, 0, fresh.gear, null, fresh.puzzle],
       );
       const { rows } = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = $1`, [id]);
       return rowToUser(rows[0]);
@@ -203,15 +223,15 @@ function createPgStore(url) {
       const u = normalizeUser(structuredClone(user));
       const avatar = u.avatar ?? null;
       const upsert = () => pool.query(
-        `INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-         ON CONFLICT (id) DO UPDATE SET name = $2, bank = $3, avatar = $4, stats = $5, coins = $6, coins_total = $7, gear = $8, pin = $9`,
-        [u.id, u.name, u.bank, u.avatar, u.stats, u.coins, u.coinsTotal, u.gear, u.pin],
+        `INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin, puzzle) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         ON CONFLICT (id) DO UPDATE SET name = $2, bank = $3, avatar = $4, stats = $5, coins = $6, coins_total = $7, gear = $8, pin = $9, puzzle = $10`,
+        [u.id, u.name, u.bank, u.avatar, u.stats, u.coins, u.coinsTotal, u.gear, u.pin, u.puzzle],
       ).then((res) => { storedAvatar.set(u.id, avatar); return res; });
       return queue(async () => {
         if (!storedAvatar.has(u.id) || storedAvatar.get(u.id) !== avatar) return upsert();
         const res = await pool.query(
-          'UPDATE users SET name = $2, bank = $3, stats = $4, coins = $5, coins_total = $6, gear = $7, pin = $8 WHERE id = $1',
-          [u.id, u.name, u.bank, u.stats, u.coins, u.coinsTotal, u.gear, u.pin],
+          'UPDATE users SET name = $2, bank = $3, stats = $4, coins = $5, coins_total = $6, gear = $7, pin = $8, puzzle = $9 WHERE id = $1',
+          [u.id, u.name, u.bank, u.stats, u.coins, u.coinsTotal, u.gear, u.pin, u.puzzle],
         );
         return res.rowCount > 0 ? res : upsert(); // the row is gone (wiped): write it whole
       });
@@ -238,6 +258,13 @@ function createPgStore(url) {
       await writes.catch(() => {});
       const { rows } = await pool.query(COIN_RANK_SQL, [id, RANK_EXCLUDED_ID]);
       return rows[0] ? { rank: rows[0].rank === null ? null : Number(rows[0].rank), total: Number(rows[0].total) } : { rank: null, total: 0 };
+    },
+    async earnedOn(uid, mode, day) {
+      await writes.catch(() => {});
+      const { rows } = await pool.query(
+        "SELECT COALESCE(SUM(delta), 0) AS n FROM coin_log WHERE uid = $1 AND kind = 'earn' AND note->>'mode' = $2 AND (note->>'day') = $3", [uid, mode, String(day)],
+      );
+      return Number(rows[0]?.n ?? 0);
     },
     async clearPin(id) {
       const { rowCount } = await queue(() => pool.query('UPDATE users SET pin = NULL WHERE id = $1', [id]));

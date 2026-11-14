@@ -260,7 +260,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
     row.append(...bs.map((x) => x[1]));
     return { row, sync: () => bs.forEach(([v, b]) => b.setAttribute('aria-checked', String(v === get()))) };
   };
-  const vsSeg = seg('상대', [['friend', '친구와 하기'], ['bot', '봇과 하기']], () => pickedVs, (v) => { pickedVs = v; });
+  const vsSeg = seg('상대', [['friend', '친구와 하기'], ['bot', '봇과 하기'], ['puzzle', '혼자 퀴즈 풀기']], () => pickedVs, (v) => { pickedVs = v; });
   const levelSeg = seg('봇 난이도', [['easy', '초급'], ['mid', '중급'], ['hard', '고급']], () => pickedLevel, (v) => { pickedLevel = v; });
   const sideSeg = seg('내 순서', [[0, '선(먼저)'], [1, '후']], () => pickedSide, (v) => { pickedSide = v; });
   vsSeg.row.dataset.lb = 'mini-vs';
@@ -271,6 +271,8 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   function syncMini() {
     miniBox.hidden = pickedMode !== 'mini';
     const m = pickedMode === 'mini';
+    if (pickedVs === 'puzzle' && pickedMini !== 'chess') pickedVs = 'friend'; // 퀴즈 풀기는 체스만
+    vsSeg.row.querySelector('[data-v="puzzle"]').hidden = pickedMini !== 'chess';
     vsSeg.row.hidden = !m;
     levelSeg.row.hidden = !m || pickedVs !== 'bot';
     sideSeg.row.hidden = levelSeg.row.hidden;
@@ -278,7 +280,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
     miniBtns.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mini === pickedMini)));
   }
   syncMini();
-  const createBtn = button('방 만들기', 'lb-primary', () => { homeErr.textContent = ''; onCreate(pickedMode, pickedMode === 'mini' ? pickedMini : undefined, pickedMode === 'mini' && pickedVs === 'bot' ? { vs: 'bot', level: pickedLevel, side: pickedSide } : undefined); });
+  const createBtn = button('방 만들기', 'lb-primary', () => { homeErr.textContent = ''; onCreate(pickedMode, pickedMode === 'mini' ? pickedMini : undefined, pickedMode === 'mini' && pickedVs === 'bot' ? { vs: 'bot', level: pickedLevel, side: pickedSide } : pickedMode === 'mini' && pickedVs === 'puzzle' ? { vs: 'puzzle' } : undefined); });
   const createNote = h('p', 'lb-cap');
   const isBroke = () => user != null && (user.chips ?? user.bank) === 0;
   function updateCreate() {

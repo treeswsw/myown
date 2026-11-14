@@ -56,6 +56,6 @@ test('기본값 표', () => {
   assert.deepEqual(COIN_RULES.bluff, { finish: 8, win: 4, gapMs: 30000 });
   assert.deepEqual(COIN_RULES.liar, { finish: 4, win: 2, gapMs: 45000 });
   assert.deepEqual(COIN_RULES.mini, { finish: 1, win: 2, gapMs: 60000 });
-  assert.deepEqual(Object.keys(COIN_RULES), ['bluff', 'liar', 'draw', 'yacht', 'mini', 'minibot_easy', 'minibot_mid', 'minibot_hard', 'gsk']);
+  assert.deepEqual(Object.keys(COIN_RULES), ['bluff', 'liar', 'draw', 'yacht', 'mini', 'minibot_easy', 'minibot_mid', 'minibot_hard', 'puzzle_1', 'puzzle_2', 'puzzle_3', 'puzzle_5', 'puzzle_streak', 'puzzle_cap', 'gsk']);
   assert.deepEqual(COIN_RULES.minibot_mid, COIN_RULES.mini); // 중급 = 사람전과 같다
 });

@@ -178,6 +178,17 @@ export function installWallet(hub) {
     return gain;
   };
 
+  // 정해진 양을 바로 준다 (체스 퍼즐처럼 양을 방이 정할 때). 봇 있는 방·봇 계정은 0. 돌려주는 값 = 실제로 준 코인.
+  hub.grant = (room, id, n, note = {}) => {
+    const session = hub.sessions.get(id);
+    if (!room || hasBot(room) || !session || session.bot || String(id).startsWith('~bot') || !Number.isInteger(n) || n <= 0) return 0;
+    const u = session.user;
+    u.coins = (u.coins ?? 0) + n;
+    u.coinsTotal = (u.coinsTotal ?? 0) + n;
+    changed(session, { kind: 'earn', delta: n, bal: u.coins, note });
+    return n;
+  };
+
   // ---- Escrow for a two-sided bet (mini match, SPEC 22-20). ----
   // stake(key, rows, info): takes rows [{id, n}] off the players' coins and holds them under `key` (any unique object; the
   // game passes its own ctx). Everything or nothing: checked for every row first, then taken. The held amount is also written

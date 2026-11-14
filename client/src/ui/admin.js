@@ -48,7 +48,7 @@ export function createAdmin({ send, getRoom }) {
   }
 
   // ---- 세부 설정 (SPEC 21-7): 게임별 코인, 교환 시세 ----
-  const gameName = (key) => Object.values(GAMES).find((g) => g.coin === key)?.name ?? (key.startsWith('minibot_') ? `미니게임 봇전 (${{ easy: '초급', mid: '중급', hard: '고급' }[key.slice(8)] ?? key})` : key);
+  const gameName = (key) => Object.values(GAMES).find((g) => g.coin === key)?.name ?? (key.startsWith('puzzle_') ? ({ puzzle_1: '체스 퍼즐 (난이도 1200 미만) 맞힌 코인', puzzle_2: '체스 퍼즐 (1200~1800) 맞힌 코인', puzzle_3: '체스 퍼즐 (1800~2200) 맞힌 코인', puzzle_5: '체스 퍼즐 (2200 이상) 맞힌 코인', puzzle_streak: '체스 퍼즐 5연속 보너스 (완주 칸에 적기)', puzzle_cap: '체스 퍼즐 하루 상한 (완주 칸에 적기)' }[key] ?? key) : key.startsWith('minibot_') ? `미니게임 봇전 (${{ easy: '초급', mid: '중급', hard: '고급' }[key.slice(8)] ?? key})` : key);
   const numInput = (value, label) => {
     const i = el('input', 'adm-input adm-num');
     i.type = 'text'; i.inputMode = 'numeric'; i.maxLength = 8; i.autocomplete = 'off';

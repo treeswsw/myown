@@ -103,6 +103,7 @@ export function parseMessage(raw) {
     case 'mode':
       if (m.t === 'create' && m.mode === 'mini') {
         const game = GAME_IDS.includes(m.game) ? m.game : 'gomoku';
+        if (m.vs === 'puzzle' && game === 'chess') return good({ t: 'create', mode: 'mini', game, vs: 'puzzle' });
         if (m.vs !== 'bot') return good({ t: 'create', mode: 'mini', game });
         return good({ t: 'create', mode: 'mini', game, vs: 'bot', level: LEVELS.includes(m.level) ? m.level : 'mid', side: m.side === 1 ? 1 : 0 });
       }

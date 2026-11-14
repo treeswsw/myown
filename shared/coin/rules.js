@@ -10,6 +10,14 @@ export const COIN_RULES = {
   minibot_easy: { finish: 0, win: 2, gapMs: 60000 }, // 이김 2 / 짐 0
   minibot_mid: { finish: 1, win: 2, gapMs: 60000 }, // 이김 3 / 짐 1 (사람전 mini 와 같음)
   minibot_hard: { finish: 1, win: 9, gapMs: 60000 }, // 이김 10 / 짐 1
+  // 체스 퍼즐(혼자 퀴즈 풀기, docs/mini/PLAN.md 6절). 줄마다 finish 만 쓴다: puzzle_<난이도 구간> = 첫 시도에 맞힌 코인
+  // (1200 미만 1 / 1200~1800 2 / 1800~2200 3 / 2200 이상 5), puzzle_streak = 5연속마다 더하는 코인, puzzle_cap = 하루(한국 시간) 상한
+  puzzle_1: { finish: 1, win: 0, gapMs: 0 },
+  puzzle_2: { finish: 2, win: 0, gapMs: 0 },
+  puzzle_3: { finish: 3, win: 0, gapMs: 0 },
+  puzzle_5: { finish: 5, win: 0, gapMs: 0 },
+  puzzle_streak: { finish: 2, win: 0, gapMs: 0 },
+  puzzle_cap: { finish: 100, win: 0, gapMs: 0 },
   gsk: { finish: 10, win: 4, gapMs: 120000 },
 };
 

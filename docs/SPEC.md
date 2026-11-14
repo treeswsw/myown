@@ -549,6 +549,7 @@ design/   시안
 - 장부 `coin_log(id bigserial PRIMARY KEY, at timestamptz NOT NULL DEFAULT now(), uid text NOT NULL, kind text NOT NULL, delta integer NOT NULL, bal integer NOT NULL, chips integer NOT NULL DEFAULT 0, note jsonb)`. 덧붙이기만 한다(수정·삭제 요청 없음). `kind`: `earn`·`swap`·`draw`·`buy`. `note` 예: `{mode:'yacht', win:true}`, `{pulls:[500,2000]}`, `{item:'title.rookie'}`.
   `store.log(entry)`는 저장과 같은 줄(writes)에 세워 순서를 지키고, 실패해도 게임은 계속한다(콘솔 기록).
 - 새 저장소 함수: `log`, `exists(id)`, `topCoin(n)`, `coinRank(id)`, `clearPin(id)`(접속 안 한 아이디용, 있으면 true). 메모리 저장소도 같은 함수·같은 결과(장부는 배열, 최근 10,000줄).
+- `users.puzzle jsonb`(체스 퍼즐 기록 `{r:레이팅 1500 시작, n, streak, best, recent:[최근 200문제 id]}`, 옛 행은 기본값). `newUser`·`rowToUser`·`save`·`getOrCreate`·메모리 저장소 모두 다룬다. 퍼즐 코인은 `hub.grant(room, id, n, {mode:'puzzle', day: 한국 날짜 번호, win:true})` 로 주고, 하루 합은 `store.earnedOn(uid, 'puzzle', day)`(coin_log note 합, 메모리도 같은 결과)로 센다.
 - 초기화: `TRUNCATE users, coin_log`. 메모리는 둘 다 비움.
 
 ### 22-2. 적립
@@ -560,6 +561,7 @@ design/   시안
 | 요트다이스 `yacht` | 3 | +4 | 15 | 4분 |
 | 미니게임 `mini` (2026-11-13) | 0 | 판에서 이긴 사람 1 (기권·나가기·무승부 0) | 1 | 1분 |
 | 미니게임 봇전 `minibot_easy/mid/hard` (2026-11-14, 사람 1명 + 봇 자리) | 0 / 1 / 1 | 이기면 2 / 2 / 9 (이김 2·3·10) | | 1분 |
+| 미니게임 체스 퍼즐 `puzzle_1/2/3/5` (2026-11-14, 혼자 퀴즈 풀기, docs/mini/PLAN.md 6절) | 첫 시도에 맞힌 문제만: 난이도 1200 미만 1 / 1200~1800 2 / 1800~2200 3 / 2200 이상 5 (`finish`만 쓴다, `win` 0) | `puzzle_streak`: 5연속 정답마다 +2. `puzzle_cap`: 하루(한국 시간) 상한 100 (`finish` 칸이 상한). 모두 관리자 세부 설정에서 바뀜 | | 없음 |
 | 홀덤 `holdem` | 없음 | 없음 | 0 | |
 
 - 표는 `shared/coin/rules.js`의 `COIN_RULES` 한 곳. 받는 코인 = `finish + (이겼으면 win × 상대 수)`.

@@ -9,7 +9,7 @@
 export const GAME_OPTS = [['gomoku', '오목'], ['reversi', '리버시'], ['checkers', '체커'], ['chess', '체스'], ['connect4', '커넥트포']];
 export const KINDS = ['fixed', 'random', 'order'];
 export const LENS = [1, 3, 5];
-export const VSS = ['friend', 'bot'];
+export const VSS = ['friend', 'bot', 'puzzle']; // puzzle = 체스 퍼즐 혼자 풀기 (docs/mini/PLAN.md 6절, 로비에서만 고른다)
 export const LEVELS = ['easy', 'mid', 'hard'];
 export const LEVEL_NAMES = { easy: '초급', mid: '중급', hard: '고급' };
 export const botName = (level) => `봇 (${LEVEL_NAMES[level] ?? LEVEL_NAMES.mid})`;
@@ -29,5 +29,5 @@ export const SETTINGS = [
   { type: 'info', group: '게임', rows: [['인원', '2명이 겨루고 나머지는 구경']] },
 ];
 export const OWN = [
-  { k: 'bet', label: '코인 베팅', type: 'custom', part: 'mn-bet', when: (s) => s.vs !== 'bot' },
+  { k: 'bet', label: '코인 베팅', type: 'custom', part: 'mn-bet', when: (s) => s.vs !== 'bot' && s.vs !== 'puzzle' },
 ];

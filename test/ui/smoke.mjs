@@ -872,6 +872,22 @@ async function runContext(browser, server, name, cfg) {
       await press('.ui-mbtn.ui-danger');
       await visible('button:has-text("방 만들기")');
     });
+    await step('mini: 체스 → 혼자 퀴즈 풀기 → 문제 판 → 정답 보기 → 다음 문제 → 나가기', async () => {
+      await press('.lb-mini-item:has-text("체스")');
+      await press('[data-lb="mini-vs"] [data-v="puzzle"]');
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.mn-root .mn-board');
+      await visible('[data-pz="rate"]:has-text("내 레이팅")');
+      await visible('[data-pz="coin"]:has-text("/100")');
+      await press('[data-mn="reveal"]');
+      await visible('[data-mn="next"]');
+      await press('[data-mn="next"]');
+      await visible('[data-mn="reveal"]');
+      await press('[data-rm="bar-leave"]');
+      await press('.ui-mbtn.ui-danger');
+      await visible('button:has-text("방 만들기")');
+      await page.waitForFunction(() => !document.querySelector('.mn-root'));
+    });
     mBot.close();
   } catch (e) {
     if (!(e instanceof StepFailed)) check('unexpected error', false, String(e.stack || e).split('\n').slice(0, 3).join(' | '));
