@@ -1,0 +1,103 @@
+/* 2048 판 — 클래스는 전부 .so-g2- . 나무 쟁반 + 안쪽 무광 홈 + 광택 있는 타일. transform·opacity 만 움직인다. */
+.so-g2-wrap {
+  position: relative; width: 100%; height: 100%; container-type: size;
+  display: flex; align-items: center; justify-content: center;
+  touch-action: none; -webkit-user-select: none; user-select: none; pointer-events: auto;
+}
+.so-g2 {
+  --so-g2-s: min(100cqw, 100cqh); --so-g2-pad: calc(var(--so-g2-s) * .026);
+  position: relative; width: var(--so-g2-s); height: var(--so-g2-s); container-type: size;
+  box-sizing: border-box; padding: var(--so-g2-pad); border-radius: 3.2cqw;
+  background:
+    repeating-linear-gradient(92deg, rgba(255, 220, 160, .05) 0 .5cqw, transparent .5cqw 1.7cqw),
+    linear-gradient(160deg, #7a5532 0%, #5a3b21 55%, #43290f 100%);
+  box-shadow: inset 0 .5cqw 0 rgba(255, 230, 180, .22), inset 0 -.7cqw 0 rgba(0, 0, 0, .35), 0 2.4cqw 5cqw rgba(0, 0, 0, .55), 0 0 0 .5cqw #21150a;
+}
+.so-g2-wells, .so-g2-tiles { position: absolute; inset: var(--so-g2-pad); }
+.so-g2-wells { display: grid; grid-template: repeat(4, 1fr) / repeat(4, 1fr); }
+.so-g2-wells > i { position: relative; display: block; }
+.so-g2-wells > i::before {
+  content: ""; position: absolute; inset: 4.5%; border-radius: 1.6cqw;
+  background: linear-gradient(#2a1a0d, #3a2514); box-shadow: inset 0 .5cqw 1cqw rgba(0, 0, 0, .65), 0 .3cqw 0 rgba(255, 220, 170, .12);
+}
+
+.so-g2-tile {
+  position: absolute; left: 0; top: 0; width: 25%; height: 25%;
+  transform: translate(calc(var(--x, 0) * 100%), calc(var(--y, 0) * 100%));
+  transition: transform .12s ease-out; will-change: transform;
+}
+.so-g2-t {
+  position: absolute; inset: 4.5%; border-radius: 1.6cqw; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "Black Han Sans", "Noto Sans KR", sans-serif; font-weight: 900; line-height: 1;
+  color: var(--tc, #fff); background: linear-gradient(170deg, var(--t1) 0%, var(--t2) 100%);
+  box-shadow: inset 0 .45cqw 0 rgba(255, 255, 255, .45), inset 0 -.8cqw 0 rgba(0, 0, 0, .22), 0 .8cqw 1.4cqw rgba(0, 0, 0, .45);
+  text-shadow: 0 .25cqw 0 rgba(0, 0, 0, .18);
+}
+.so-g2-t::before { /* 위쪽 밝은 띠 */
+  content: ""; position: absolute; left: 7%; right: 7%; top: 4%; height: 26%; border-radius: 1.2cqw 1.2cqw 50% 50% / 1.2cqw 1.2cqw 30% 30%;
+  background: linear-gradient(rgba(255, 255, 255, .34), rgba(255, 255, 255, 0)); pointer-events: none;
+}
+.so-g2-d1, .so-g2-d2 { font-size: 10.5cqw; }
+.so-g2-d3 { font-size: 8.6cqw; }
+.so-g2-d4 { font-size: 7cqw; }
+.so-g2-d5 { font-size: 5.6cqw; }
+
+.so-g2-v2 { --t1: #f7ead0; --t2: #e8d3a8; --tc: #5b4128; text-shadow: 0 .25cqw 0 rgba(255, 255, 255, .5); }
+.so-g2-v4 { --t1: #f1d9a8; --t2: #deba76; --tc: #5b4128; text-shadow: 0 .25cqw 0 rgba(255, 255, 255, .4); }
+.so-g2-v8 { --t1: #f6b366; --t2: #e98d34; }
+.so-g2-v16 { --t1: #f39b4f; --t2: #e0702a; }
+.so-g2-v32 { --t1: #ee7f4a; --t2: #d9532a; }
+.so-g2-v64 { --t1: #e8603c; --t2: #c9371f; }
+.so-g2-v128 { --t1: #efd36e; --t2: #d9b032; box-shadow: inset 0 .45cqw 0 rgba(255, 255, 255, .5), inset 0 -.8cqw 0 rgba(0, 0, 0, .2), 0 .8cqw 1.4cqw rgba(0, 0, 0, .45), 0 0 2.4cqw rgba(255, 210, 90, .3); }
+.so-g2-v256 { --t1: #efcb55; --t2: #d6a61e; box-shadow: inset 0 .45cqw 0 rgba(255, 255, 255, .5), inset 0 -.8cqw 0 rgba(0, 0, 0, .2), 0 .8cqw 1.4cqw rgba(0, 0, 0, .45), 0 0 3cqw rgba(255, 205, 80, .4); }
+.so-g2-v512 { --t1: #eac23c; --t2: #cf9b10; box-shadow: inset 0 .45cqw 0 rgba(255, 255, 255, .5), inset 0 -.8cqw 0 rgba(0, 0, 0, .2), 0 .8cqw 1.4cqw rgba(0, 0, 0, .45), 0 0 3.6cqw rgba(255, 200, 70, .5); }
+.so-g2-v1024 { --t1: #e8ba28; --t2: #c58f06; box-shadow: inset 0 .45cqw 0 rgba(255, 255, 255, .5), inset 0 -.8cqw 0 rgba(0, 0, 0, .2), 0 .8cqw 1.4cqw rgba(0, 0, 0, .45), 0 0 4.2cqw rgba(255, 196, 60, .6); }
+.so-g2-v2048 { --t1: #ffe27a; --t2: #ffb90f; --tc: #4a2c06; text-shadow: 0 .25cqw 0 rgba(255, 255, 255, .55); box-shadow: inset 0 .45cqw 0 rgba(255, 255, 255, .6), inset 0 -.8cqw 0 rgba(0, 0, 0, .18), 0 .8cqw 1.4cqw rgba(0, 0, 0, .45), 0 0 5cqw rgba(255, 210, 80, .85); }
+.so-g2-vx { --t1: #3c2c1c; --t2: #1c130a; --tc: #ffd45a; box-shadow: inset 0 .45cqw 0 rgba(255, 220, 140, .3), inset 0 -.8cqw 0 rgba(0, 0, 0, .4), 0 .8cqw 1.4cqw rgba(0, 0, 0, .45), 0 0 4cqw rgba(255, 200, 70, .55); }
+
+/* 새 타일: 작게 → 제 크기 / 합쳐진 타일: 살짝 커졌다 돌아옴. 이동(120ms)이 끝날 즈음 시작 */
+.so-g2-sp { animation: so-g2-sp .18s ease-out .1s backwards; }
+.so-g2-pop { animation: so-g2-pop .2s ease-out backwards; z-index: 2; }
+@keyframes so-g2-sp { from { transform: scale(.2); opacity: 0; } }
+@keyframes so-g2-pop { 0% { transform: scale(.7); opacity: 0; } 50% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
+
+/* 안 되는 방향: 쟁반이 그쪽으로 살짝 밀렸다 돌아온다 */
+.so-g2-n0 { animation: so-g2-n0 .16s ease-out; } .so-g2-n1 { animation: so-g2-n1 .16s ease-out; }
+.so-g2-n2 { animation: so-g2-n2 .16s ease-out; } .so-g2-n3 { animation: so-g2-n3 .16s ease-out; }
+@keyframes so-g2-n0 { 40% { transform: translateY(-.9cqw); } }
+@keyframes so-g2-n1 { 40% { transform: translateX(.9cqw); } }
+@keyframes so-g2-n2 { 40% { transform: translateY(.9cqw); } }
+@keyframes so-g2-n3 { 40% { transform: translateX(-.9cqw); } }
+
+/* 점수 증가 "+n" */
+.so-g2-plus {
+  position: absolute; right: 4%; top: 1%; z-index: 4; pointer-events: none;
+  font-family: "Black Han Sans", "Noto Sans KR", sans-serif; font-size: 6cqw; color: #ffd45a; text-shadow: 0 .4cqw 0 #3a2208, 0 0 2cqw rgba(0, 0, 0, .6);
+  animation: so-g2-plus .65s ease-out forwards;
+}
+@keyframes so-g2-plus { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-7cqw); } }
+
+/* 2048 달성 알림 */
+.so-g2-toast {
+  position: absolute; left: 50%; top: 50%; z-index: 5; pointer-events: none; white-space: nowrap;
+  padding: 2cqw 4.5cqw; border-radius: 99px; font-size: 4.2cqw; font-weight: 700; color: #3a2208;
+  background: linear-gradient(#ffe27a, #ffb90f); box-shadow: 0 1.4cqw 3cqw rgba(0, 0, 0, .5);
+  opacity: 0; transform: translate(-50%, -30%) scale(.9); transition: opacity .25s, transform .25s;
+}
+.so-g2-toast.so-g2-on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* 조작 막힘(카운트다운·끝난 뒤): 판을 살짝 가린다 */
+.so-g2-lock .so-g2 { filter: saturate(.7) brightness(.82); }
+.so-g2-lock { cursor: default; }
+
+.so-g2-rm .so-g2-sp, .so-g2-rm .so-g2-pop, .so-g2-rm .so-g2-n0, .so-g2-rm .so-g2-n1, .so-g2-rm .so-g2-n2, .so-g2-rm .so-g2-n3 { animation: none; }
+.so-g2-rm .so-g2-toast { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .so-g2-sp, .so-g2-pop, .so-g2-plus, .so-g2-n0, .so-g2-n1, .so-g2-n2, .so-g2-n3 { animation: none; }
+}
+
+/* 휴대폰 가로: 쟁반 테두리를 얇게 */
+@media (max-height: 430px) {
+  .so-g2 { --so-g2-pad: calc(var(--so-g2-s) * .02); border-radius: 2.4cqw; }
+}
