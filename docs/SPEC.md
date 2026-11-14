@@ -832,6 +832,6 @@ design/   시안
 - 옷장에서 저장한 겉모습(낀 품목 + 스티커 자리 `pos`)이 **내 프로필이 나오는 모든 곳에 똑같이** 나온다. 다른 것은 크기뿐.
 - 데이터 길 하나: 방 안 사람들에게는 공용 `faces` 알림의 `look` 으로 간다(따로 `looks` 메시지는 만들지 않는다). 모양: `look = {title?,hat?,acc?,face?,frame?,color?, pos?:{품목id:{x,y,s,r}}}` (낀 품목 중 저장된 pos 만, 없으면 `pos` 키 생략). 로비의 내 것은 `me.wallet.equip` + `me.wallet.pos`.
   방 안에서 장착·위치가 바뀌면 그 방에 `faces` 를 다시 보낸다.
-- 그리는 함수 하나(화면, `client/src/coin/look.js` 를 공용 부품 `client/src/ui/kit/avatar.js` 가 감쌈): 프사 = `playerAvatar({id,name,face,look,size})`, 이름 = `nameTag({name,look})`(칭호 배지는 이름 위, 이름 색). 3D 텍스처·그림 합성용으로 `lookToCanvas({face, name, look, size, inner=0.7}) -> Promise<HTMLCanvasElement>`(look.js): size×size 투명 캔버스 가운데에 지름 size×inner 의 동그란 프사 + 테두리·모자·악세·페이셜(pos 적용)을 그린다. 움직이는 효과는 없다.
+- 그리는 함수 하나(화면, `client/src/coin/look.js` 를 공용 부품 `client/src/ui/kit/avatar.js` 가 감쌈): 프사 = `playerAvatar({id,name,face,look,size})`, 이름 = `nameTag({name,look})`(칭호 배지는 이름 위, 이름 색). 3D 장면(라이어 마네킹 머리)·그림 합성(갱스껄 해골 원판)에는 합성하지 않고, 같은 `playerAvatar` 를 **판때기처럼 위에 겹쳐** 붙인다(3D 는 머리 위치를 화면 좌표로 옮겨 매 프레임 따라감). 그래서 효과까지 똑같이 보인다.
 - 적용: 로비 내 프로필, 대기실·결과(이미 공용), 포커 자리, 라이어(이름 칭호 + 3D 마네킹 머리 텍스처), 요트 점수표 이름, 갱식마인드(이미 공용), 갱스껄 이름표 + 해골 원판 속 사진, 미니게임 이름, 대기실 관전자 줄.
 - 제외: 채팅 이름, 랭킹 목록, 한 줄짜리 좁은 글("○○ 차례", 투표 요약, 발언자 줄, 승리 연출 글자). 작은 프사(24~32px)도 치장을 전부 그린다.
