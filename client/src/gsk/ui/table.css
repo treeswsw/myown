@@ -35,8 +35,9 @@
 .gk-tb-tag.gk-tb-red { border-color: rgba(214, 84, 70, .95); z-index: 2; }
 .gk-tb-tag.gk-tb-out { opacity: .5; }
 .gk-tb-sm .gk-tb-tag { gap: 6px; padding: 3px 10px 3px 3px; }
-.gk-tb-av { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; display: block; background: #1c1410; }
-.gk-tb-sm .gk-tb-av { width: 24px; height: 24px; }
+.gk-tb-av { display: flex; flex: none; }
+.gk-tb-nm .gk-tb-nmbox, .gk-tb-nm .gk-tb-tagbox, .gk-tb-nm .gk-tb-ttl { max-width: none; overflow: visible; }
+.gk-tb-nm .gk-tb-tagbox { gap: 1px; }
 .gk-tb-nm { font-size: 14px; font-weight: 500; line-height: 18px; color: #efe6d2; display: flex; align-items: center; gap: 6px; }
 .gk-tb-sm .gk-tb-nm { font-size: 12px; line-height: 16px; }
 .gk-tb-nm span { max-width: 96px; overflow: hidden; text-overflow: ellipsis; }

@@ -7,8 +7,10 @@
 // 좌표는 시안 크기(PC 1280x720 / 휴대폰 844x390) 기준이고, 실제 화면 크기에 맞추는 것은 부모(index.js)가 상자째 scale 한다.
 // 사용자 글자(이름)는 textContent 로만 넣는다.
 import './table.css';
+import { playerAvatar, nameTag } from '../../ui/kit/avatar.js';
+import { lookKey, skullFace } from '../face.js';
 import { requestFor } from '../actions.js';
-import { COLORS, discBackUrl, discFlowerUrl, discSkullUrl, matUrl, setSkullImg } from '../art.js';
+import { COLORS, discBackUrl, discFlowerUrl, matUrl, setSkullImg } from '../art.js';
 import {
   LAYOUTS, tintOf, seatGeom, pileModel, badgePos, rowLayout, reconcileRow, isFlipStep, midModel, chipFor, ringFor, orderSeats,
 } from './table.pure.js';
@@ -76,12 +78,10 @@ export function createTable(parent, ctx) {
 
     const tag = el('div', 'gk-tb-tag');
     tag.dataset.gkSeat = id;
-    const av = el('img', 'gk-tb-av');
-    av.alt = '';
-    av.draggable = false;
+    const av = el('span', 'gk-tb-av');
     const col = el('div', 'gk-tb-info');
     const nm = el('div', 'gk-tb-nm');
-    const nmText = el('span');
+    const nmText = el('span', 'gk-tb-nmbox');
     const dot = el('i', 'gk-tb-dot');
     const chip = el('span', 'gk-tb-chip');
     chip.hidden = true;
@@ -97,17 +97,16 @@ export function createTable(parent, ctx) {
     col.append(nm, meta);
     tag.append(av, col);
     tagLayer.append(tag);
-    return { id, seat, ring, board, pile, pileBox: null, tag, av, nmText, dot, chip, meta, pip1, pip2, icon, discs, pick, sigPile: '', sigBoard: '', sigAv: '' };
+    return { id, seat, ring, board, pile, pileBox: null, tag, av, nmText, dot, chip, meta, pip1, pip2, icon, discs, pick, sigPile: '', sigBoard: '', sigAv: '', sigNm: '' };
   }
 
-  function skullSrc(img, c, faceUrl) {
-    setSkullImg(img, c, faceUrl);
-  }
+  const lookOf = (id) => (ctx.look ? ctx.look(id) : null);
 
   function drawPile(rec, s, hold, L, geo, colorIdx) {
     const m = pileModel(s, hold, L);
     const face = ctx.face ? ctx.face(s.id) : null;
-    const sig = `${L.kind}|${colorIdx}|${m.backs}|${m.skulls}|${face ? face.length : 0}`;
+    const look = lookOf(s.id);
+    const sig = `${L.kind}|${colorIdx}|${m.backs}|${m.skulls}|${face ? face.length : 0}|${lookKey(look)}`;
     rec.pile.style.transform = `rotate(${-geo.rot}deg)`;
     if (sig === rec.sigPile) return;
     rec.sigPile = sig;
@@ -120,8 +119,9 @@ export function createTable(parent, ctx) {
       const img = el('img');
       img.alt = '';
       img.draggable = false;
-      if (d.kind === 'B') { img.src = discBackUrl(colorIdx); img.style.transform = `rotate(${d.rot}deg)`; } else skullSrc(img, colorIdx, face);
+      if (d.kind === 'B') { img.src = discBackUrl(colorIdx); img.style.transform = `rotate(${d.rot}deg)`; } else setSkullImg(img, colorIdx, face);
       dk.append(img);
+      if (d.kind !== 'B') skullFace(dk, { id: s.id, name: s.name, face, look });
       rec.pile.append(dk);
     }
     const hi = el('i', 'gk-tb-hi');
@@ -197,10 +197,24 @@ export function createTable(parent, ctx) {
       rec.tag.classList.toggle('gk-tb-red', ring === 'red');
       rec.tag.classList.toggle('gk-tb-out', !!s.out);
       const face = ctx.face ? ctx.face(s.id) : null;
-      const asig = `${colorIdx}|${face ? face.length : 0}|${face ? face.slice(-24) : ''}`;
-      if (asig !== rec.sigAv) { rec.sigAv = asig; rec.av.src = face || discSkullUrl(colorIdx); }
-      rec.av.style.boxShadow = `0 0 0 1.5px ${tintOf(s.color)}`;
-      rec.nmText.textContent = s.isMe ? `${s.name} (나)` : s.name;
+      const look = lookOf(s.id);
+      const lk = lookKey(look);
+      const label = s.isMe ? `${s.name} (나)` : s.name;
+      const avSize = L.kind === 'phone' ? 24 : 36;
+      const asig = `${avSize}|${s.color}|${s.name}|${face ? face.length : 0}|${face ? face.slice(-24) : ''}|${lk}`;
+      if (asig !== rec.sigAv) {
+        rec.sigAv = asig;
+        rec.av.replaceChildren(playerAvatar({ id: s.id, name: s.name, face, look, color: tintOf(s.color), size: avSize }));
+      }
+      const nsig = `${label}|${lk}`;
+      if (nsig !== rec.sigNm) {
+        rec.sigNm = nsig;
+        const tg = nameTag({ name: label, look });
+        tg.classList.add('gk-tb-tagbox');
+        const ttl = tg.querySelector('.lk-title');
+        if (ttl) ttl.classList.add('gk-tb-ttl');
+        rec.nmText.replaceChildren(tg);
+      }
       rec.dot.style.background = tintOf(s.color);
       rec.dot.hidden = s.color == null;
       const chip = lobby ? null : chipFor(s, v);

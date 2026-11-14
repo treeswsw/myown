@@ -11,6 +11,7 @@
 // 자리는 ctx.anchor(kind, id) 가 주는 DOM 요소의 화면 위치로 잰다. 이 층은 눌리지 않는다(pointer-events: none).
 // 무작위 없음: 꽃잎·반짝임 배치는 고정 계산(fx.pure.js) → 모든 사람이 같은 모습.
 import './fx.css';
+import { skullFace } from '../face.js';
 import { createAudio } from '../audio.js';
 import { discBackUrl, discFlowerUrl, discSkullUrl, matUrl, setSkullImg } from '../art.js';
 import {
@@ -275,6 +276,8 @@ export function createFx(parent, ctx = {}) {
         faceIn.then((url) => { if (url) face.src = url; }, () => { face.src = disc === 'S' ? discSkullUrl(color) : discFlowerUrl(color); });
       }
       f.append(face);
+      // 치장은 사진 위에 판때기로 겹친다(원판과 함께 뒤집히고 커진다)
+      if (disc === 'S' && !info.face && ctx.who && e.p) skullFace(f, ctx.who(e.p));
       inn.append(img('gk-fx-b', back), f);
       per.append(inn);
       trem.append(per);

@@ -13,3 +13,7 @@
 .gk-stage { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(var(--gk-s, 1)); transform-origin: 50% 50%; }
 .gk-stage[data-lay="pc"] { width: 1280px; height: 720px; }
 .gk-stage[data-lay="phone"] { width: 844px; height: 390px; }
+
+/* 해골 원판 속 사진 자리 위에 겹치는 공용 프사 판때기(SPEC 22-21) */
+.gk-pf-ov { position: absolute; left: 50%; top: 50%; width: 0; height: 0; display: block; pointer-events: none; z-index: 1; }
+.gk-pf-ov > * { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); }
