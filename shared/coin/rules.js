@@ -19,6 +19,12 @@ export const COIN_RULES = {
   puzzle_streak: { finish: 2, win: 0, gapMs: 0 },
   puzzle_cap: { finish: 100, win: 0, gapMs: 0 },
   gsk: { finish: 10, win: 4, gapMs: 120000 },
+  // 혼자 놀기(docs/solo/PLAN.md 3절). 줄마다 finish 만 쓴다: solo_<종목> = 한 판 최대 코인(넘은 점수 문턱 수가 실제 코인, 문턱은 shared/solo/<id>.js),
+  // solo_cap = 혼자 놀기 전체 하루(한국 시간) 상한. 새 종목은 solo_<id> 한 줄을 더한다.
+  solo_g2048: { finish: 10, win: 0, gapMs: 0 },
+  solo_apple: { finish: 7, win: 0, gapMs: 0 },
+  solo_suika: { finish: 8, win: 0, gapMs: 0 },
+  solo_cap: { finish: 60, win: 0, gapMs: 0 },
 };
 
 // 갱식마인드 finish 의 기준 문제 수

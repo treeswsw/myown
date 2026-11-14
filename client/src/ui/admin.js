@@ -3,6 +3,7 @@
 import './admin.css';
 import { listFx } from '../admin/fx.js';
 import { GAMES } from '../../../shared/games.js';
+import { NAMES } from '../../../shared/solo/index.js';
 
 const MODE_NAMES = { holdem: '홀덤', bluff: '블러핑', liar: '라이어', yacht: '요트', draw: '갱식마인드' };
 const RECENT_MS = 2000; // 관리자 요청 직후 도착한 오류는 이 패널의 것으로 본다
@@ -48,7 +49,9 @@ export function createAdmin({ send, getRoom }) {
   }
 
   // ---- 세부 설정 (SPEC 21-7): 게임별 코인, 교환 시세 ----
-  const gameName = (key) => Object.values(GAMES).find((g) => g.coin === key)?.name ?? (key.startsWith('puzzle_') ? ({ puzzle_1: '체스 퍼즐 (난이도 1200 미만) 맞힌 코인', puzzle_2: '체스 퍼즐 (1200~1800) 맞힌 코인', puzzle_3: '체스 퍼즐 (1800~2200) 맞힌 코인', puzzle_5: '체스 퍼즐 (2200 이상) 맞힌 코인', puzzle_streak: '체스 퍼즐 5연속 보너스 (완주 칸에 적기)', puzzle_cap: '체스 퍼즐 하루 상한 (완주 칸에 적기)' }[key] ?? key) : key.startsWith('minibot_') ? `미니게임 봇전 (${{ easy: '초급', mid: '중급', hard: '고급' }[key.slice(8)] ?? key})` : key);
+  // 혼자 놀기 줄: solo_<종목> = 판당 최대, solo_cap = 하루 상한 (종목 이름은 shared/solo 표에서)
+  const soloName = (key) => (key === 'solo_cap' ? '혼자 놀기 하루 상한 (완주 칸에 적기)' : `혼자 놀기 · ${NAMES[key.slice(5)] ?? key.slice(5)} 판당 최대 (완주 칸에 적기)`);
+  const gameName = (key) => Object.values(GAMES).find((g) => g.coin === key)?.name ?? (key.startsWith('solo_') ? soloName(key) : key.startsWith('puzzle_') ? ({ puzzle_1: '체스 퍼즐 (난이도 1200 미만) 맞힌 코인', puzzle_2: '체스 퍼즐 (1200~1800) 맞힌 코인', puzzle_3: '체스 퍼즐 (1800~2200) 맞힌 코인', puzzle_5: '체스 퍼즐 (2200 이상) 맞힌 코인', puzzle_streak: '체스 퍼즐 5연속 보너스 (완주 칸에 적기)', puzzle_cap: '체스 퍼즐 하루 상한 (완주 칸에 적기)' }[key] ?? key) : key.startsWith('minibot_') ? `미니게임 봇전 (${{ easy: '초급', mid: '중급', hard: '고급' }[key.slice(8)] ?? key})` : key);
   const numInput = (value, label) => {
     const i = el('input', 'adm-input adm-num');
     i.type = 'text'; i.inputMode = 'numeric'; i.maxLength = 8; i.autocomplete = 'off';
