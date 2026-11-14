@@ -25,7 +25,7 @@ STYLE (keep identical across every image)
 - Front-facing or 3/4 front view, consistent light from top-left, same line weight and scale logic in every cell.
 - Rarity feel by tier (do not draw frames or badges, just quality of detail): tier 0 junk = cheap, scruffy materials; tier 1 common = clean everyday; tier 2 concept = bolder, more character; tier 3 legend = rich gold/glow accents, sparkle highlights; tier 4 mythic = most spectacular, rainbow or divine glow.
 
-HATS (cells 1–20): drawn as if worn on top of an invisible round head seen from the front; the bottom edge of each hat is where the head would be (a gentle upward curve). Hats must be WIDE and LOW so they read on a small circle.
+HATS (items 1–20): drawn as if worn on top of an invisible round head seen from the front; the bottom edge of each hat is where the head would be (a gentle upward curve). Hats must be WIDE and LOW so they read on a small circle.
 1. (tier 0) Korean military winter field cap, olive drab quilted "kkalkkali" liner style, slightly crumpled.
 2. (tier 0) Korean reserve-forces patrol cap, faded digital camo, slightly too small.
 3. (tier 0) A black plastic grocery bag worn as a hat, handles sticking up like ears.
@@ -47,7 +47,7 @@ HATS (cells 1–20): drawn as if worn on top of an invisible round head seen fro
 19. (tier 4) Floating golden angel halo ring, divine glow, small light rays.
 20. (tier 4) "Gangsik boss" hat: luxurious black-and-gold mafia fedora, gold band with a small gem, a poker chip tucked into the band, aura of wealth.
 
-ACCESSORIES (cells 21–42). Draw each object alone, sized so it can be attached to the side or bottom edge of a round avatar, or placed on a face as a sticker:
+ACCESSORIES (items 21–42). Draw each object alone, sized so it can be attached to the side or bottom edge of a round avatar, or placed on a face as a sticker:
 21. (tier 0) A lit cigarette with a thin wisp of smoke, horizontal.
 22. (tier 0) A wooden toothpick, slightly chewed, horizontal.
 23. (tier 0) A rolled-up white tissue plug for a nostril, with a tiny red spot.
