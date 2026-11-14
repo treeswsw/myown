@@ -1093,11 +1093,15 @@ async function coinCheck(browser) {
     });
     await step('capsule: title draw 1', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');
-      await page.click('.sh-swap:has-text("칭호 뽑기")');
-      await visible2(page, '.cp-sheet');
-      await page.click('.cp-sheet .cn-primary >> nth=0');
-      await page.waitForSelector('.cp-row', { timeout: T });
+      await page.locator('button:has-text("치장 뽑기"), button:has-text("칭호 뽑기")').first().click(); // 상점 안의 치장 뽑기 입구
+      await visible2(page, '.cp-ov');
+      await page.click('.cp-go >> nth=0'); // 1개
+      await page.waitForSelector('.cp-ov[data-mode="done"] .cp-res', { timeout: T + 3000 });
+      await page.click('.cp-row2 button:has-text("조각 교환")'); // 조각 교환 창이 열리고 닫힌다
+      await visible2(page, '.cp-cpn');
       await page.keyboard.press('Escape');
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('.cp-ov', { state: 'detached', timeout: T });
     });
     await step('shop: buy then equip', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');
