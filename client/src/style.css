@@ -259,4 +259,3 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .lg-root .lg-action { bottom: calc(12px * var(--lg-k, 1) + var(--chat-docked-h, 0px)); }
 /* 라이어 방에서 여는 이모티콘 창: 라이어 화면 층(이름표 등) 위, 상단 줄 아래 */
 .hpanel.lgpanel { z-index: 35; top: calc(56px * var(--k)); }
-.pl.dim .lk-layer, .pl .pav.dead ~ .lk-layer { filter: grayscale(1) brightness(.5); } /* 폴드·탈락 자리의 꾸미기도 흐리게 (SPEC 22-21) */
