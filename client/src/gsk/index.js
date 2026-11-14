@@ -13,7 +13,7 @@
 //
 // 화면 구성: .gk-root(나무 바닥 + 비네팅) > .gk-stage(시안 크기 상자를 창 크기에 맞게 scale) > 모듈들.
 // 모듈 약속: createXxx(parent, ctx) → { el, update(view), event(e), dispose() }.
-//   ctx = { send, meId(), now(), face(id), layout()('pc'|'phone'), anchor(kind, id), fx, busy(), stage, scale() }
+//   ctx = { send, meId(), now(), face(id), look(id), who(id), layout()('pc'|'phone'), anchor(kind, id), fx, busy(), stage, scale() }
 //   anchor(kind, id) → DOM 요소 | null
 //     'mat'(id=자리 주인) 개인판 · 'stack'(id) 더미 맨 위 칸 · 'tag'(id) 이름표 · 'center' 가운데 덩어리
 //     'row' 펼친 줄 틀 · 'rowSlot'(id=0부터 센 칸 번호, 줄 왼쪽·윗줄부터) · 'handDock' 손이 접혀 있을 때 놓이는 자리
@@ -23,6 +23,7 @@
 import './gsk.css';
 import { toView } from './model.js';
 import { floorUrl, preload } from './art.js';
+import { gskLook } from './face.js';
 import { createTable } from './ui/table.js';
 import { LAYOUTS, layoutFor } from './ui/table.pure.js';
 import { createHand } from './ui/hand.js';
@@ -79,6 +80,8 @@ export function mount({ root: host, send, me: getMe, faces, ready }) {
     meId,
     now: () => Date.now() + offset,
     face: (id) => faces.get(id)?.avatar || null,
+    look: (id) => gskLook(faces.get(id)?.look), // 겉모습(모자 제외) — 신원 정보일 뿐
+    who: (id) => ({ id, name: '', face: ctx.face(id), look: ctx.look(id) }),
     layout: () => lay,
     anchor: (kind, id) => mods.table?.anchor(kind, id) || null,
     fx: null,

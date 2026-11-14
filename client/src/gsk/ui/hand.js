@@ -2,6 +2,7 @@
 // ctx 에서 쓰는 것: send, meId, face(id), anchor('stack', meId) / anchor('handDock'), fx.sound?.('place').
 // 1280×720 무대를 화면에 맞춰 줄여(--k) 쓴다. 사용자 글자는 쓰지 않는다(고정 문구만).
 import './hand.css';
+import { lookKey, skullFace } from '../face.js';
 import { requestFor } from '../actions.js';
 import { discBackUrl, discFlowerUrl, discSkullUrl, skullPhotoUrl } from '../art.js';
 import { plan, normalizeLocal, slot, W } from './hand.pure.js';
@@ -97,7 +98,7 @@ export function createHand(parent, ctx) {
     if (!m) return;
     let face = null;
     try { face = ctx.face && ctx.face(m.id); } catch (e) { face = null; }
-    const key = `${m.color}|${face || ''}`;
+    const key = `${m.color}|${face || ''}|${lookKey(ctx.look ? ctx.look(m.id) : null)}`;
     if (key === skullKey) return;
     skullKey = key;
     skullUrl = discSkullUrl(m.color || 0);
@@ -111,8 +112,9 @@ export function createHand(parent, ctx) {
     }
   };
   const applySkull = () => {
-    for (const d of discEls) if (d.kind === 'S') d.img.src = skullUrl;
+    for (const d of discEls) if (d.kind === 'S') { d.img.src = skullUrl; skullFace(d.img.parentNode, myWho()); }
   };
+  const myWho = () => { const m = me(); return m && ctx.who ? ctx.who(m.id) : null; };
   const faceSrc = (kind) => (kind === 'S' ? skullUrl || discSkullUrl(color()) : discFlowerUrl(color()));
 
   // ---- 동작 ----
@@ -156,6 +158,7 @@ export function createHand(parent, ctx) {
     img.alt = '';
     img.src = faceSrc(kind);
     f.append(img);
+    if (kind === 'S') skullFace(f, myWho());
     const b = el('img', 'gk-hd-b');
     b.alt = '';
     b.src = discBackUrl(color());
@@ -269,6 +272,7 @@ export function createHand(parent, ctx) {
       img.alt = '';
       img.src = faceSrc(kind);
       face.append(img);
+      if (kind === 'S') skullFace(face, myWho());
       const dc = el('span', 'gk-hd-dcap', kind === 'S' ? '해골' : '꽃');
       b.append(face, dc);
       b.setAttribute('aria-label', (kind === 'S' ? '해골' : '꽃') + ' 원판');

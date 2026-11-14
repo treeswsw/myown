@@ -2,6 +2,7 @@
 // createResult(parent, ctx) → { el, update(view), event(e), dispose() }
 // ctx 에서 쓰는 것: send, meId, face, busy
 import './result.css';
+import { skullFace } from '../face.js';
 import { requestFor } from '../actions.js';
 import { discFlowerUrl, discSkullUrl, setSkullImg } from '../art.js';
 import { penaltyPlan } from './result.pure.js';
@@ -77,6 +78,7 @@ export function createResult(parent, ctx) {
       const i = img(skull ? discSkullUrl(color) : discFlowerUrl(color), 'gk-rs-discimg');
       if (skull) setSkullImg(i, color, ctx.face && ctx.face(ctx.meId()), () => !disposed);
       b.append(i);
+      if (skull && ctx.who) skullFace(b, ctx.who(ctx.meId()));
       b.append(h('span', 'gk-rs-cnt', `×${c.count}`));
       b.setAttribute('aria-label', skull ? '해골 원판' : '꽃 원판');
       b.append(h('span', 'gk-rs-kind', skull ? '해골' : '꽃'));
