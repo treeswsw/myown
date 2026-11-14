@@ -380,7 +380,7 @@ export function installWallet(hub) {
         const c = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
         (g.pos ?? (g.pos = {}))[it.id] = { x: c(m.x, -0.5, 0.5), y: c(m.y, -0.5, 0.5), s: c(m.s, 0.3, 2), r: c(m.r, -180, 180) };
         changed(session, null);
-        session.room?.faceChanged(session, session.user.avatar);
+        if (Object.values(g.equip).includes(it.id)) session.room?.faceChanged(session, session.user.avatar); // 낀 스티커일 때만 방에 다시 보냄(검토)
         return null;
       }
       case 'hist': {
