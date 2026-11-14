@@ -2,6 +2,7 @@
 
 쓰는 법 (품질 우선으로 나눔: 한 장에 10~11개, 4×3 칸)
 - 프롬프트 2개를 **한 대화에서 차례로** 쓴다. 프롬프트 1을 붙여 넣으면 1장째가 나오고, `next` 를 보낼 때마다 다음 장(총 4장). 그다음 같은 대화에 프롬프트 2를 붙여 넣고 `next` 한 번(총 2장). 모두 6장, 같은 대화라 그림체가 맞춰진다.
+- 받을 때는 깔끔한 기본 모습만(빛·반짝임·무지개 효과 없음). 효과는 받은 뒤 내가 코드로 붙인다.
 - 그림 방식은 품목마다 다르게: [REAL] 실사, [SEMI] 게임 아이템풍, [TOON] 과장된 카툰·밈(표정 있음). 웃긴 건 확실히 웃기게, 현실적인 건 진짜처럼.
 - 배경 투명 PNG 가 되면 제일 좋고, 안 되면 흰 배경도 괜찮다(내가 잘라서 배경을 지운다).
 - 받은 그림 파일을 그대로 보내 주면 칸을 잘라 다듬어서 바로 적용한다. 칸 순서 = 왼쪽 위부터 오른쪽으로, 번호 순서.
@@ -28,7 +29,7 @@ STYLE — MIXED RENDERING, CHOSEN PER ITEM (this is the most important rule)
   [TOON] = full cartoon / meme: exaggerated shapes, bold outline, and where it is funny give the object its own comic face or attitude (angry eyebrows, smug grin, crying eyes, rage veins, sweat drops). Example: a national-flag headband can be wildly exaggerated and flapping dramatically; a flaming head can have an angry face in the fire.
 - Humour first: funny items must be laugh-out-loud funny and over the top; realistic items must be genuinely convincing. Pick the details that make each item recognisable and memorable — variety across items is wanted.
 - What keeps the set together: every item cleanly cut out, centred, same scale logic, consistent light from the top-left, a subtle soft contact shadow under the object only, no background.
-- Rarity by tier (shown through detail and glow, no frames or badges): tier 0 junk = cheap, scruffy; tier 1 common = clean everyday; tier 2 concept = bolder, more character; tier 3 legend = rich gold/glow accents and sparkles; tier 4 mythic = most spectacular, rainbow or divine glow.
+- CLEAN BASE ART ONLY: draw just the plain item itself. NO glow, NO sparkles, NO light rays, NO lens flares, NO auras, NO rainbow effects, NO motion lines or particle effects (I add all effects myself afterwards). Gold items are simply gold-coloured material with normal reflections. Tier numbers only tell you how cheap or fancy the item itself looks (tier 0 cheap and scruffy → tier 4 luxurious), never add effects for them.
 
 HATS (items 1–20) and ACCESSORIES (items 21–42) below as a series of sprite-sheet images, all in exactly the same style. Make ONE image now with items 1–10; when I reply "next", make the next image with the next 10–11 items (11–20, then 21–31, then 32–42).
 
@@ -60,11 +61,11 @@ HATS (items 1–20): drawn as if worn on top of an invisible round head seen fro
 13. [REAL] (tier 2) A hair-loss wig with realistic individual hair strands, but obviously fake: too shiny, too thick, slightly crooked.
 14. [SEMI] (tier 2) A bald shiny skinhead top: just a glossy skin-toned dome cap with a big comedic shine highlight.
 15. [SEMI] (tier 2) Prison cap, striped grey/white, with a blank number patch.
-16. [REAL] (tier 3) Royal golden crown, jewels (ruby, sapphire, emerald), strong light reflections and sparkles.
-17. [REAL] (tier 3) Military combat helmet with night-vision goggles flipped down, green lens glow.
-18. [TOON] (tier 3) Burning head: a crown of orange-yellow flames shaped like a hairdo, glowing, with a furious cartoon face formed in the flames.
-19. [SEMI] (tier 4) Floating golden angel halo ring, divine glow, small light rays.
-20. [REAL] (tier 4) "Gangsik boss" hat: luxurious black-and-gold mafia fedora, gold band with a small gem, a poker chip tucked into the band, aura of wealth.
+16. [REAL] (tier 3) Royal golden crown with jewels (ruby, sapphire, emerald), realistic metal.
+17. [REAL] (tier 3) Military combat helmet with night-vision goggles flipped down (plain dark-green lenses).
+18. [TOON] (tier 3) Burning head: a crown of orange-yellow cartoon flames shaped like a hairdo, with a furious cartoon face formed in the flames (flat colours, no glow).
+19. [SEMI] (tier 4) Angel halo: a plain solid golden ring seen slightly from above (no glow).
+20. [REAL] (tier 4) "Gangsik boss" hat: luxurious black-and-gold mafia fedora, gold band with a small gem, a poker chip tucked into the band.
 
 ACCESSORIES (items 21–42). Draw each object alone, sized so it can be attached to the side or bottom edge of a round avatar, or placed on a face as a sticker:
 21. [REAL] (tier 0) A lit cigarette with a thin wisp of smoke, horizontal.
@@ -83,12 +84,12 @@ ACCESSORIES (items 21–42). Draw each object alone, sized so it can be attached
 34. [REAL] (tier 2) Hospital IV drip bag on a pole with tube.
 35. [REAL] (tier 2) Electronic ankle monitor (black strap with a small box and green LED).
 36. [REAL] (tier 2) Steel handcuffs, linked, shiny.
-37. [TOON] (tier 3) Pair of red laser-beam eyes: two glowing red eye shapes with short laser streaks (just the glow, no face).
+37. [TOON] (tier 3) Pair of cartoon red robot-like eye lenses (two solid red eye shapes only, no beams, no glow).
 38. [SEMI] (tier 3) A fan of Korean-won-style banknotes spread like a hand fan (generic money, no real banknote designs or text).
-39. [SEMI] (tier 3) A glowing golden aura RING — a thin circular halo of light meant to surround a round avatar (draw it as an empty ring of golden light).
+39. [SEMI] (tier 3) A thin plain golden ring outline, meant to surround a round avatar (just the empty ring shape, no light effects).
 40. [REAL] (tier 3) Police mugshot placard: black board with blank white number lines (no readable text) — framed as if held at chest height.
-41. [TOON] (tier 4) "Money-counting eyes": two eyes whose pupils are spinning gold coin / ₩ symbols, glowing.
-42. [TOON] (tier 4) A black crow perched (side view) as if standing on top of a head, smug judging expression, little gold glint.
+41. [TOON] (tier 4) "Money-counting eyes": two cartoon eyes whose pupils are gold coins with the ₩ symbol.
+42. [TOON] (tier 4) A black crow perched (side view) as if standing on top of a head, smug judging expression.
 
 Output per image: high resolution (at least 2048×1536), crisp edges, 4×3 cells as specified. Start now with items 1–10.
 ```
@@ -110,7 +111,7 @@ HOW TO DRAW THEM (very important)
 - "STICKER" items: a single compact element (e.g. only the moustache), centred in the cell, filling ~60%.
 - "FULL-FACE" items: the complete makeup pattern spread over the whole invisible face area (eye marks + mouth + cheeks, etc.), filling ~85% of the cell, so it can be laid over a round photo.
 
-STYLE: same MIXED RENDERING rule as before — [REAL] items photorealistic (real hair strands, real skin-makeup texture, real metal), [SEMI] stylised game-item render, [TOON] exaggerated cartoon/meme (comic, over the top). Funny ones must be really funny; realistic ones must be convincing. Rarity: tier 0 scruffy → tier 4 spectacular glow.
+STYLE: same MIXED RENDERING rule as before — [REAL] items photorealistic (real hair strands, real skin-makeup texture, real metal), [SEMI] stylised game-item render, [TOON] exaggerated cartoon/meme (comic, over the top). Funny ones must be really funny; realistic ones must be convincing. CLEAN BASE ART ONLY: no glow, sparkles, light rays, auras or rainbow effects (I add effects later). Tier = how cheap or fancy the item looks, nothing more.
 
 ITEMS
 1. [REAL] (tier 0, sticker) Patchy, sparse, pathetic stubble beard — scattered short black hairs around a mouth area.
@@ -129,12 +130,12 @@ ITEMS
 14. [REAL] (tier 2, full-face) Military camouflage face paint: green/brown/black stripes across the whole face area.
 15. [TOON] (tier 2, full-face) Classic circus clown makeup: white-face shape outline, red nose ball, blue diamond eyes, big red smile.
 16. [SEMI] (tier 2, sticker) A diagonal knife scar with stitch marks across one cheek.
-17. [SEMI] (tier 3, full-face) Villain "joker" makeup (original design, not any specific film character): smeared dark eye sockets, wide red cut-smile, pale streaks, with a faint gold glint.
-18. [REAL] (tier 3, sticker) A grin with one shiny gold tooth that sparkles.
-19. [SEMI] (tier 3, sticker) Two streams of blood tears running from two eye positions, dark red, dramatic glow.
-20. [REAL] (tier 3, full-face) Full-face tribal/ornamental tattoo pattern in black ink with subtle gold accents, symmetrical.
-21. [REAL] (tier 4, full-face) Golden face: a full face-shaped mask of polished gold (only the mask, with eye holes and mouth slit), divine glow and sparkles.
-22. [SEMI] (tier 4, full-face) Skull makeup (Day-of-the-Dead inspired but original): white skull face paint shape, black eye sockets, stitched-teeth mouth, with rainbow-ish glowing accents.
+17. [SEMI] (tier 3, full-face) Villain "joker" makeup (original design, not any specific film character): smeared dark eye sockets, wide red cut-smile, pale streaks, .
+18. [REAL] (tier 3, sticker) A grin with one gold tooth.
+19. [SEMI] (tier 3, sticker) Two streams of blood tears running from two eye positions, dark red, dramatic.
+20. [REAL] (tier 3, full-face) Full-face tribal/ornamental tattoo pattern in black ink, symmetrical.
+21. [REAL] (tier 4, full-face) Golden face: a full face-shaped mask of polished gold (only the mask, with eye holes and mouth slit).
+22. [SEMI] (tier 4, full-face) Skull makeup (Day-of-the-Dead inspired but original): white skull face paint shape, black eye sockets, stitched-teeth mouth, a few colourful flower accents.
 
 Output per image: high resolution (at least 2048×1536), crisp edges, 4×3 cells. Start now with items 1–11.
 ```
