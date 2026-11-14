@@ -85,7 +85,7 @@ test('coin 은 COIN_RULES 에 있고, COIN_RULES 의 키는 모두 어떤 게임
     assert.ok(Object.hasOwn(COIN_RULES, g.coin), `${k}.coin '${g.coin}' 이 COIN_RULES 에 없음`);
     used.add(g.coin);
   }
-  for (const r of Object.keys(COIN_RULES)) assert.ok(used.has(r) || r.startsWith('minibot_') || r.startsWith('puzzle_'), `COIN_RULES.${r} 를 쓰는 게임이 없음`); // minibot_* = 미니게임 봇전 줄, puzzle_* = 체스 퍼즐 줄(예외 표)
+  for (const r of Object.keys(COIN_RULES)) assert.ok(used.has(r) || r.startsWith('minibot_') || r.startsWith('puzzle_') || r.startsWith('solo_'), `COIN_RULES.${r} 를 쓰는 게임이 없음`); // minibot_* = 미니게임 봇전 줄, puzzle_* = 체스 퍼즐 줄, solo_* = 혼자 놀기 줄(예외 표)
 });
 
 test('서버 항목: make 가 있고, bot 은 false 또는 {createBrain, skip}', () => {

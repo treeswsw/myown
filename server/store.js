@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { isSpectatorId } from '../shared/spectator.js';
 
 export const START_BANK = 10_000;
 
@@ -15,12 +16,27 @@ function normalizePuzzle(p) {
   };
 }
 
+// 혼자 놀기 기록 (docs/solo/PLAN.md 4-1): { [종목 id]: { best, at, n, wk, wbest, wat } }
+// best 최고 점수, at 그 기록을 세운 시각(ms), n 끝낸 판 수, wk 주 번호(shared/solo/coin.js weekOf), wbest·wat 그 주의 최고와 시각.
+export const newSolo = () => ({});
+const SOLO_ID_RE = /^[a-z0-9][a-z0-9_]{0,23}$/; // __proto__ 같은 키는 걸러진다
+function normalizeSolo(s) {
+  const out = {};
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return out;
+  const int = (v) => (Number.isInteger(v) && v >= 0 ? v : 0);
+  for (const [id, r] of Object.entries(s)) {
+    if (!SOLO_ID_RE.test(id) || !r || typeof r !== 'object' || Array.isArray(r)) continue;
+    out[id] = { best: int(r.best), at: int(r.at), n: int(r.n), wk: int(r.wk), wbest: int(r.wbest), wat: int(r.wat) };
+  }
+  return out;
+}
+
 export function newUser(id, name) {
   return {
     id, name, bank: START_BANK, avatar: null,
     stats: { hands: 0, wins: 0, biggestWin: 0, bluffGames: 0, bluffWins: 0 },
     coins: 0, coinsTotal: 0, gear: { pity: 0, owned: [], equip: {}, shard: 0, cpity: 0, pos: {} }, pin: null,
-    puzzle: newPuzzle(),
+    puzzle: newPuzzle(), solo: newSolo(),
   };
 }
 
@@ -35,6 +51,7 @@ export function normalizeUser(u) {
     pos: g.pos && typeof g.pos === 'object' && !Array.isArray(g.pos) ? g.pos : {} };
   u.pin = u.pin ?? null;
   u.puzzle = normalizePuzzle(u.puzzle);
+  u.solo = normalizeSolo(u.solo);
   return u;
 }
 
@@ -58,6 +75,20 @@ function liarList(users) {
 function coinList(users) {
   return [...users.values()].filter((u) => u.id !== RANK_EXCLUDED_ID && (u.coinsTotal ?? 0) > 0).sort((a, b) =>
     b.coinsTotal - a.coinsTotal || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
+// 혼자 놀기 순위 (docs/solo/PLAN.md 4-1): 점수 내림차순, 같으면 먼저 세운 사람(at 오름차순), 그래도 같으면 아이디. 0점·관리자·관전 계정은 뺀다.
+// week 를 주면 wk === week 인 사람의 wbest/wat 로, 없으면 best/at 으로.
+function soloEntry(u, game, week) {
+  const r = u.solo?.[game];
+  if (!r) return { score: 0, at: 0 };
+  if (week === null || week === undefined) return { score: r.best, at: r.at };
+  return r.wk === week ? { score: r.wbest, at: r.wat } : { score: 0, at: 0 };
+}
+function soloList(users, game, week) {
+  return [...users.values()].filter((u) => u.id !== RANK_EXCLUDED_ID && !isSpectatorId(u.id))
+    .map((u) => ({ u, ...soloEntry(u, game, week) })).filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.at - b.at || (a.u.id < b.u.id ? -1 : a.u.id > b.u.id ? 1 : 0));
 }
 
 function createMemoryStore() {
@@ -114,6 +145,16 @@ function createMemoryStore() {
       const i = liarList(users).findIndex((u) => u.id === id);
       return { rank: i < 0 ? null : i + 1, score: users.has(id) ? liarScore(users.get(id)) : 0 };
     },
+    // 혼자 놀기 순위. topSolo -> [{name, score, at}], soloRank -> {rank|null, score, at, n(순위에 오른 사람 수)}
+    async topSolo(game, n, week = null) {
+      return soloList(users, game, week).slice(0, n).map((x) => ({ name: x.u.name, score: x.score, at: x.at }));
+    },
+    async soloRank(id, game, week = null) {
+      const list = soloList(users, game, week);
+      const i = list.findIndex((x) => x.u.id === id);
+      const me = users.has(id) ? soloEntry(users.get(id), game, week) : { score: 0, at: 0 };
+      return { rank: i < 0 ? null : i + 1, score: me.score, at: me.at, n: list.length };
+    },
     async clear() {
       users.clear();
       ledger = [];
@@ -123,7 +164,7 @@ function createMemoryStore() {
   };
 }
 
-const USER_COLS = 'id, name, bank, avatar, stats, coins, coins_total, gear, pin, puzzle';
+const USER_COLS = 'id, name, bank, avatar, stats, coins, coins_total, gear, pin, puzzle, solo';
 const COIN_TOP_SQL = `SELECT name, coins_total AS total FROM users
   WHERE coins_total > 0 AND id <> $2 ORDER BY coins_total DESC, name COLLATE "C" ASC LIMIT $1`;
 const COIN_RANK_SQL = `SELECT u.coins_total AS total, CASE WHEN u.coins_total > 0 THEN t.rank END AS rank
@@ -141,6 +182,19 @@ const LIAR_RANK_SQL = `SELECT score, CASE WHEN score > 0 THEN rank END AS rank F
     row_number() OVER (ORDER BY ${LIAR_SCORE} DESC, ${LIAR_GAMES} ASC, name COLLATE "C" ASC) AS rank
   FROM users WHERE id <> $2) t WHERE id = $1`;
 
+// 혼자 놀기 순위 SQL: $1 종목 id, $2 제외 계정(관리자), $3 주 번호(null 이면 전체). 사용자 수가 적어 색인 없이.
+const SOLO_RE = '^관전[0-9]+$';
+const SOLO_BASE = `SELECT id, name,
+    CASE WHEN $3::bigint IS NULL THEN COALESCE((solo->$1::text->>'best')::bigint, 0)
+         WHEN (solo->$1::text->>'wk')::bigint = $3::bigint THEN COALESCE((solo->$1::text->>'wbest')::bigint, 0) ELSE 0 END AS score,
+    CASE WHEN $3::bigint IS NULL THEN COALESCE((solo->$1::text->>'at')::bigint, 0)
+         ELSE COALESCE((solo->$1::text->>'wat')::bigint, 0) END AS at
+  FROM users WHERE id <> $2 AND id !~ '${SOLO_RE}'`;
+const SOLO_TOP_SQL = `SELECT name, score, at FROM (${SOLO_BASE}) t WHERE score > 0 ORDER BY score DESC, at ASC, id COLLATE "C" ASC LIMIT $4`;
+const SOLO_RANK_SQL = `SELECT id, score, at, CASE WHEN score > 0 THEN rank END AS rank, n FROM (
+  SELECT id, score, at, row_number() OVER (ORDER BY score DESC, at ASC, id COLLATE "C" ASC) AS rank,
+    count(*) FILTER (WHERE score > 0) OVER () AS n FROM (${SOLO_BASE}) b) t WHERE id = $4`;
+
 function createPgStore(url) {
   const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
   const pool = new pg.Pool({ connectionString: url, ssl: local ? false : true });
@@ -153,7 +207,7 @@ function createPgStore(url) {
   const storedAvatar = new Map();
   const rowToUser = (r) => normalizeUser({
     id: r.id, name: r.name, bank: r.bank, avatar: r.avatar, stats: r.stats,
-    coins: r.coins, coinsTotal: r.coins_total, gear: r.gear, pin: r.pin, puzzle: r.puzzle,
+    coins: r.coins, coinsTotal: r.coins_total, gear: r.gear, pin: r.pin, puzzle: r.puzzle, solo: r.solo,
   });
   // Queue a statement behind pending writes; the returned promise carries its result/failure, the chain survives failure.
   const queue = (fn) => {
@@ -176,6 +230,7 @@ function createPgStore(url) {
       await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS gear jsonb NOT NULL DEFAULT '{}'");
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS pin jsonb');
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS puzzle jsonb');
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS solo jsonb');
       await pool.query(`CREATE TABLE IF NOT EXISTS coin_log (
         id bigserial PRIMARY KEY,
         at timestamptz NOT NULL DEFAULT now(),
@@ -213,8 +268,8 @@ function createPgStore(url) {
       }
       const fresh = newUser(id, name);
       await pool.query(
-        'INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin, puzzle) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO NOTHING',
-        [id, name, fresh.bank, null, fresh.stats, 0, 0, fresh.gear, null, fresh.puzzle],
+        'INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin, puzzle, solo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT (id) DO NOTHING',
+        [id, name, fresh.bank, null, fresh.stats, 0, 0, fresh.gear, null, fresh.puzzle, fresh.solo],
       );
       const { rows } = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = $1`, [id]);
       return rowToUser(rows[0]);
@@ -223,15 +278,15 @@ function createPgStore(url) {
       const u = normalizeUser(structuredClone(user));
       const avatar = u.avatar ?? null;
       const upsert = () => pool.query(
-        `INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin, puzzle) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         ON CONFLICT (id) DO UPDATE SET name = $2, bank = $3, avatar = $4, stats = $5, coins = $6, coins_total = $7, gear = $8, pin = $9, puzzle = $10`,
-        [u.id, u.name, u.bank, u.avatar, u.stats, u.coins, u.coinsTotal, u.gear, u.pin, u.puzzle],
+        `INSERT INTO users (id, name, bank, avatar, stats, coins, coins_total, gear, pin, puzzle, solo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         ON CONFLICT (id) DO UPDATE SET name = $2, bank = $3, avatar = $4, stats = $5, coins = $6, coins_total = $7, gear = $8, pin = $9, puzzle = $10, solo = $11`,
+        [u.id, u.name, u.bank, u.avatar, u.stats, u.coins, u.coinsTotal, u.gear, u.pin, u.puzzle, u.solo],
       ).then((res) => { storedAvatar.set(u.id, avatar); return res; });
       return queue(async () => {
         if (!storedAvatar.has(u.id) || storedAvatar.get(u.id) !== avatar) return upsert();
         const res = await pool.query(
-          'UPDATE users SET name = $2, bank = $3, stats = $4, coins = $5, coins_total = $6, gear = $7, pin = $8, puzzle = $9 WHERE id = $1',
-          [u.id, u.name, u.bank, u.stats, u.coins, u.coinsTotal, u.gear, u.pin, u.puzzle],
+          'UPDATE users SET name = $2, bank = $3, stats = $4, coins = $5, coins_total = $6, gear = $7, pin = $8, puzzle = $9, solo = $10 WHERE id = $1',
+          [u.id, u.name, u.bank, u.stats, u.coins, u.coinsTotal, u.gear, u.pin, u.puzzle, u.solo],
         );
         return res.rowCount > 0 ? res : upsert(); // the row is gone (wiped): write it whole
       });
@@ -280,6 +335,18 @@ function createPgStore(url) {
       await writes.catch(() => {});
       const { rows } = await pool.query(LIAR_RANK_SQL, [id, RANK_EXCLUDED_ID]);
       return rows[0] ? { rank: rows[0].rank === null ? null : Number(rows[0].rank), score: Number(rows[0].score) } : { rank: null, score: 0 };
+    },
+    // 혼자 놀기 순위 (읽기 전용, 저장 줄 뒤에 읽어 방금 저장을 본다).
+    async topSolo(game, n, week = null) {
+      await writes.catch(() => {});
+      const { rows } = await pool.query(SOLO_TOP_SQL, [game, RANK_EXCLUDED_ID, week, n]);
+      return rows.map((r) => ({ name: r.name, score: Number(r.score), at: Number(r.at) }));
+    },
+    async soloRank(id, game, week = null) {
+      await writes.catch(() => {});
+      const { rows } = await pool.query(SOLO_RANK_SQL, [game, RANK_EXCLUDED_ID, week, id]);
+      const r = rows[0];
+      return r ? { rank: r.rank === null ? null : Number(r.rank), score: Number(r.score), at: Number(r.at), n: Number(r.n) } : { rank: null, score: 0, at: 0, n: 0 };
     },
     // Queued behind pending saves so none of them can land after the wipe.
     clear() {
