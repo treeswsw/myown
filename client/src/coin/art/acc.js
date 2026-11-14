@@ -1,1 +1,26 @@
-export default {};
+// 기타 악세 그림 자리표 (SPEC 22-17). 그림 파일은 client/public/coin/art/<id>.webp (256x256, 투명 배경).
+// w = 그림 한 변 ÷ 프사 지름, dx·dy = 그림 중심이 프사 중심에서 떨어진 정도(위쪽이 −), fx = 움직임(.lk-fx-<이름>, art.css).
+export default {
+  'acc.cigarette': { src: '/coin/art/acc.cigarette.webp', w: 0.468, dx: 0.5, dy: 0.2 },
+  'acc.toothpick': { src: '/coin/art/acc.toothpick.webp', w: 0.416, dx: 0.45, dy: 0.25 },
+  'acc.tissue': { src: '/coin/art/acc.tissue.webp', w: 0.208, dx: 0.04, dy: 0.1 },
+  'acc.bandaid': { src: '/coin/art/acc.bandaid.webp', w: 0.321, dx: 0.22, dy: 0.08 },
+  'acc.drool': { src: '/coin/art/acc.drool.webp', w: 0.234, dx: 0.08, dy: 0.45 },
+  'acc.sunglasses': { src: '/coin/art/acc.sunglasses.webp', w: 0.832, dx: 0, dy: -0.08 },
+  'acc.goldchain': { src: '/coin/art/acc.goldchain.webp', w: 0.728, dx: 0, dy: 0.5 },
+  'acc.chipbite': { src: '/coin/art/acc.chipbite.webp', w: 0.312, dx: 0, dy: 0.25 },
+  'acc.diceearring': { src: '/coin/art/acc.diceearring.webp', w: 0.29, dx: 0.5, dy: 0.2 },
+  'acc.soju': { src: '/coin/art/acc.soju.webp', w: 0.496, dx: 0.55, dy: 0.2 },
+  'acc.cigar': { src: '/coin/art/acc.cigar.webp', w: 0.52, dx: 0.48, dy: 0.25 },
+  'acc.pistol': { src: '/coin/art/acc.pistol.webp', w: 0.52, dx: 0.62, dy: -0.1, fx: 'recoil' },
+  'acc.megaphone': { src: '/coin/art/acc.megaphone.webp', w: 0.52, dx: 0.55, dy: 0.25, fx: 'waves' },
+  'acc.iv': { src: '/coin/art/acc.iv.webp', w: 0.542, dx: -0.55, dy: -0.05, fx: 'drip' },
+  'acc.anklet': { src: '/coin/art/acc.anklet.webp', w: 0.624, dx: 0, dy: 0.5, fx: 'led' },
+  'acc.handcuffs': { src: '/coin/art/acc.handcuffs.webp', w: 0.728, dx: 0, dy: 0.52, fx: 'rattle' },
+  'acc.laser': { src: '/coin/art/acc.laser.webp', w: 0.645, dx: 0, dy: -0.08, fx: 'laser' },
+  'acc.cashfan': { src: '/coin/art/acc.cashfan.webp', w: 0.832, dx: 0, dy: 0.5, fx: 'bills' },
+  'acc.aura': { src: '/coin/art/acc.aura.webp', w: 1.286, dx: 0, dy: 0, fx: 'aura' },
+  'acc.mugshot': { src: '/coin/art/acc.mugshot.webp', w: 1, dx: 0, dy: 0, fx: 'flash' },
+  'acc.moneyeye': { src: '/coin/art/acc.moneyeye.webp', w: 0.728, dx: 0, dy: -0.1, fx: 'coins' },
+  'acc.crow': { src: '/coin/art/acc.crow.webp', w: 0.46, dx: 0.15, dy: -0.661, fx: 'smug' },
+};

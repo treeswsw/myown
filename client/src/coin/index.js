@@ -6,6 +6,7 @@ import { item } from '../../../shared/coin/shop.js';
 import { toast } from '../ui/kit/toast.js';
 import './coin.css';
 import './look.css';
+import './art/art.css';
 import './titlefx.css';
 
 const WINDOWS = {

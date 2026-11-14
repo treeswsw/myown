@@ -3,7 +3,9 @@
 .lk-layer { position: absolute; pointer-events: none; }
 .lk-layer.lk-cover, .lk-layer.lk-ring { inset: 0; }
 .lk-layer.lk-cover { border-radius: 50%; overflow: hidden; }
-.lk-art, .lk-art > svg { width: 100%; height: 100%; display: block; }
+.lk-art, .lk-art > svg, .lk-img { width: 100%; height: 100%; display: block; }
+.lk-art { position: relative; }
+.lk-img { object-fit: contain; user-select: none; -webkit-user-drag: none; }
 .lk-cover .lk-art, .lk-cover .lk-q { position: absolute; inset: 0; }
 .lk-q {
   width: 100%; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
@@ -38,6 +40,8 @@
 /* 작은 그림 */
 .lk-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; vertical-align: middle; line-height: 0; }
 .lk-icon-title { height: auto !important; }
+/* 목록·뽑기의 작은 그림: 어두운 바탕에서 검은 그림(수염·문신)이 묻히지 않게 옅은 흰 테 */
+.lk-icon .lk-img { filter: drop-shadow(0 0 1px rgba(255, 255, 255, .85)) drop-shadow(0 0 2px rgba(255, 255, 255, .45)); }
 .lk-dot { display: block; width: 78%; height: 78%; border-radius: 50%; border: 2px solid var(--lk-gc, #9a9a9a); box-sizing: border-box; }
 .lk-dot-ring { background: transparent; border: 4px solid var(--lk-fc, #c0c8d4); }
 .lk-dot-suit { background: linear-gradient(90deg, var(--lk-su) 0 40%, var(--lk-ti) 40% 60%, var(--lk-su) 60%); }

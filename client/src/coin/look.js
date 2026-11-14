@@ -1,5 +1,8 @@
 // 공용 꾸미기 그리기 (SPEC 22-17). 프사에 모자·악세·페이셜·테두리를 겹치고, 칭호 배지·글자 색·아이콘을 만든다.
 // CSS(look.css)는 coin/index.js 가 불러온다(여기서 불러오면 node 시험이 깨진다).
+// 그림 항목(art/*.js)은 두 가지: { svg, w, dx, dy, fx? } 는 우리가 쓴 고정 svg 글자,
+// { src, w, dx, dy, fx? } 는 그림 파일 주소(예: '/coin/art/hat.crown.webp', 256x256 투명 배경)를 <img> 로 그린다.
+// fx 는 .lk-fx-<이름>(art/art.css). 효과가 그림 모양을 따라가도록 --lk-src 에 그림 주소를 넣어 둔다.
 import { item, GRADES } from '../../../shared/coin/shop.js';
 import hatArt from './art/hat.js';
 import accArt from './art/acc.js';
@@ -55,10 +58,21 @@ function qmark(it) {
   return d;
 }
 
-function svgBox(entry) {
+function artBox(entry) {
   const d = document.createElement('div');
   d.className = 'lk-art' + (entry.fx ? ' lk-fx-' + cls(entry.fx) : '');
-  d.innerHTML = entry.svg; // 우리가 쓴 고정 svg 글자 (사용자 글자 아님)
+  if (entry.src) {
+    const im = document.createElement('img');
+    im.className = 'lk-img';
+    im.alt = '';
+    im.draggable = false;
+    im.decoding = 'async';
+    im.src = entry.src;
+    d.appendChild(im);
+    if (entry.fx) d.style.setProperty('--lk-src', `url("${entry.src}")`);
+  } else {
+    d.innerHTML = entry.svg; // 우리가 쓴 고정 svg 글자 (사용자 글자 아님)
+  }
   return d;
 }
 
@@ -72,7 +86,7 @@ function itemLayer(it, pos) {
   const type = (it.art && it.art.type) || 'sticker';
   const entry = artOf(it);
   const l = layer('lk-' + type);
-  l.appendChild(entry ? svgBox(entry) : qmark(it));
+  l.appendChild(entry ? artBox(entry) : qmark(it));
   if (type === 'cover') return l;
   const base = entry || FALLBACK[(it.art && it.art.at) || 'sticker'] || FALLBACK.sticker;
   // size=1 이면 값이 곧 비율(0~1)이다.
@@ -180,7 +194,7 @@ export function itemIcon(id, size = 32) {
     c.style.setProperty('--lk-ti', hexCss(v.tie));
   } else {
     const e = artOf(it);
-    box.appendChild(e ? svgBox(e) : qmark(it));
+    box.appendChild(e ? artBox(e) : qmark(it));
   }
   const gc = gradeColor(it.g);
   if (gc !== 'rainbow') box.style.setProperty('--lk-gc', gc);

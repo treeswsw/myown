@@ -1,1 +1,26 @@
-export default {};
+// 페이셜 그림 자리표 (SPEC 22-17). 그림 파일은 client/public/coin/art/<id>.webp (256x256, 투명 배경).
+// w = 그림 한 변 ÷ 프사 지름, dx·dy = 그림 중심이 프사 중심에서 떨어진 정도(위쪽이 −), fx = 움직임(.lk-fx-<이름>, art.css).
+export default {
+  'face.stubble': { src: '/coin/art/face.stubble.webp', w: 0.832, dx: 0, dy: 0.18 },
+  'face.darkcircle': { src: '/coin/art/face.darkcircle.webp', w: 0.624, dx: 0, dy: -0.02 },
+  'face.nosebleed': { src: '/coin/art/face.nosebleed.webp', w: 0.233, dx: 0, dy: 0.2 },
+  'face.acne': { src: '/coin/art/face.acne.webp', w: 1, dx: 0, dy: 0 },
+  'face.pepper': { src: '/coin/art/face.pepper.webp', w: 0.416, dx: 0, dy: 0.27 },
+  'face.mustache': { src: '/coin/art/face.mustache.webp', w: 0.52, dx: 0, dy: 0.17 },
+  'face.goatee': { src: '/coin/art/face.goatee.webp', w: 0.319, dx: 0, dy: 0.32 },
+  'face.blackeye': { src: '/coin/art/face.blackeye.webp', w: 0.333, dx: 0.18, dy: -0.08 },
+  'face.tears': { src: '/coin/art/face.tears.webp', w: 0.624, dx: 0, dy: 0.12 },
+  'face.blush': { src: '/coin/art/face.blush.webp', w: 1, dx: 0, dy: 0 },
+  'face.bandit': { src: '/coin/art/face.bandit.webp', w: 0.884, dx: 0, dy: 0.2 },
+  'face.brow': { src: '/coin/art/face.brow.webp', w: 0.676, dx: 0, dy: -0.2, fx: 'brow' },
+  'face.lipstick': { src: '/coin/art/face.lipstick.webp', w: 0.375, dx: 0, dy: 0.27, fx: 'kiss' },
+  'face.camo': { src: '/coin/art/face.camo.webp', w: 1, dx: 0, dy: 0 },
+  'face.clown': { src: '/coin/art/face.clown.webp', w: 1, dx: 0, dy: 0, fx: 'boing' },
+  'face.scar': { src: '/coin/art/face.scar.webp', w: 0.346, dx: -0.2, dy: 0.08 },
+  'face.joker': { src: '/coin/art/face.joker.webp', w: 1, dx: 0, dy: 0, fx: 'grin' },
+  'face.goldtooth': { src: '/coin/art/face.goldtooth.webp', w: 0.437, dx: 0, dy: 0.27, fx: 'glint' },
+  'face.bloodtear': { src: '/coin/art/face.bloodtear.webp', w: 0.572, dx: 0, dy: 0.1, fx: 'bleed' },
+  'face.tattoo': { src: '/coin/art/face.tattoo.webp', w: 1, dx: 0, dy: 0, fx: 'ink' },
+  'face.goldface': { src: '/coin/art/face.goldface.webp', w: 1, dx: 0, dy: 0, fx: 'radiant' },
+  'face.skull': { src: '/coin/art/face.skull.webp', w: 1, dx: 0, dy: 0, fx: 'rainbow' },
+};
