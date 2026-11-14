@@ -185,5 +185,6 @@
 
 .lb-mini-pick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .lb-mini-pick[hidden]{display:none}
+.lb-mini-sub{margin-top:6px}
 .lb-mini-item{flex:1 1 auto;padding:0 10px;border-radius:8px;background:rgba(128,128,128,.15)}
 .lb-mini-item[aria-checked=true]{background:var(--accent,#ea3a3d);color:var(--on-accent,#fff)}

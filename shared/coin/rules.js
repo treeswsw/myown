@@ -6,6 +6,10 @@ export const COIN_RULES = {
   draw: { finish: 10, win: 2, gapMs: 120000, graded: true }, // finish = 8문제 기준. 실제 문제 수에 비례(info.scale)
   yacht: { finish: 10, win: 5, gapMs: 240000, graded: true },
   mini: { finish: 1, win: 2, gapMs: 60000 }, // 매치당: 이김 3 / 짐 1. 기권·나감·무승부는 지급 없음
+  // 미니게임 봇전(사람 1명 + 봇 자리): 난이도별 줄, mini 와 같은 규칙. 끝까지 두고 지면 finish, 이기면 finish + win. 기권·나감·무승부는 0 (SPEC 22-2)
+  minibot_easy: { finish: 0, win: 2, gapMs: 60000 }, // 이김 2 / 짐 0
+  minibot_mid: { finish: 1, win: 2, gapMs: 60000 }, // 이김 3 / 짐 1 (사람전 mini 와 같음)
+  minibot_hard: { finish: 1, win: 9, gapMs: 60000 }, // 이김 10 / 짐 1
   gsk: { finish: 10, win: 4, gapMs: 120000 },
 };
 

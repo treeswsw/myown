@@ -63,6 +63,19 @@ export function mount(ctx) {
   root.append(top, boardWrap, bottom);
 
   let room = null;
+  let botKey = null; // 봇 수를 구하는 중인 판 모습 (같은 판 모습으로는 한 번만)
+  let alive = true;
+
+  // 봇전: 봇 차례이고 내가 이 방의 사람이면 내 기기에서 수를 구해 서버에 낸다 (계산은 bots/, 서버는 합법 수만 받는다)
+  function askBot(rm) {
+    const key = `${rm.game}|${rm.match?.round}|${JSON.stringify(rm.mn)}`;
+    if (key === botKey) return;
+    botKey = key;
+    import('./bots/index.js')
+      .then((m) => m.botMove(rm.game, rm.mn, rm.bot.level))
+      .then((move) => { if (alive && botKey === key && move) send({ t: 'mn', a: 'bot', move }); })
+      .catch(() => { if (botKey === key) botKey = null; });
+  }
 
   const sideOf = (game, seat) => SIDES[game]?.[seat] ?? ['', '#888'];
   const countOf = (board, v) => board.reduce((n, row) => n + row.filter((x) => x === v).length, 0);
@@ -118,6 +131,9 @@ export function mount(ctx) {
       renderBoard(boardEl, rm.game, rm.mn, { mySeat: play && rm.mySeat >= 0 ? rm.mySeat : null, onMove: (move) => send({ t: 'mn', a: 'move', move }) });
     }
 
+    const botTurn = play && rm.bot && rm.mySeat >= 0 && rm.turn === '~bot';
+    if (botTurn) askBot(rm); else if (!play) botKey = null;
+
     resignBtn.hidden = !((play || between) && rm.mySeat >= 0);
     const head = series && rm.match && (play || between) ? `${rm.match.round - (between ? 1 : 0)}/${rm.match.len}판 · ` : '';
     if (between) {
@@ -130,6 +146,7 @@ export function mount(ctx) {
       let s;
       if (rm.waiting) s = `${rm.names[t] || col} 님이 연결을 기다리는 중`;
       else if (rm.mySeat < 0) s = `${rm.names[t] || col} (${col}) 차례 · 관전 중`;
+      else if (botTurn) s = `${rm.names[t]} 생각 중…`;
       else s = t === rm.mySeat ? `내 차례 (${col})` : `${rm.names[t] || col} (${col}) 차례`;
       if (rm.game === 'chess' && rm.mn.check) s += ' · 체크!';
       if (rm.game === 'gomoku' && rm.mn.rule === 'renju') s += ' · 렌주룰';
@@ -173,6 +190,7 @@ export function mount(ctx) {
 
     unmount() {
       offFaces();
+      alive = false;
       room = null;
       boardEl.textContent = '';
       boardEl._mn = null;

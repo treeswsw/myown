@@ -92,7 +92,7 @@ const lobby = createLobby({
   onResetConfirm: (pw) => { resetWait = true; send({ t: 'reset', confirm: true, pw }); },
   onCoin: (kind) => { if (coin) coin.open(kind); else { pendingCoin = kind; loadCoin(); } },
   onAvatar: (data) => send({ t: 'avatar', data }),
-  onCreate: (mode, game) => send(mode === 'mini' ? { t: 'create', mode, game } : { t: 'create', mode }),
+  onCreate: (mode, game, bot) => send(mode === 'mini' ? { t: 'create', mode, game, ...(bot ?? {}) } : { t: 'create', mode }),
   onJoin: (code) => send({ t: 'join', code }),
   onLogout: () => {
     send({ t: 'pin', a: 'forget' }); // server forgets this device's token first

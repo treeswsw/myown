@@ -2,6 +2,7 @@ import { checkEcon } from '../shared/coin/rules.js';
 import { parseCoin, parsePin } from '../shared/coin/protocol.js';
 // Validation of everything a client may send. Returns sanitized messages only.
 import { GAME_IDS } from '../shared/mini/index.js';
+import { LEVELS } from '../shared/mini/settings.js';
 import { GAMES } from '../shared/games.js';
 export const MAX_RAW = 70_000; // every message except sndAdd
 export const MAX_FRAME = 300_000; // WebSocket frame limit: room for sndAdd
@@ -100,7 +101,11 @@ export function parseMessage(raw) {
       return validAvatar(m.data) ? good({ t: 'avatar', data: m.data }) : bad('프로필 사진은 60KB 이하의 JPEG여야 합니다.');
     case 'create':
     case 'mode':
-      if (m.t === 'create' && m.mode === 'mini') return good({ t: 'create', mode: 'mini', game: GAME_IDS.includes(m.game) ? m.game : 'gomoku' });
+      if (m.t === 'create' && m.mode === 'mini') {
+        const game = GAME_IDS.includes(m.game) ? m.game : 'gomoku';
+        if (m.vs !== 'bot') return good({ t: 'create', mode: 'mini', game });
+        return good({ t: 'create', mode: 'mini', game, vs: 'bot', level: LEVELS.includes(m.level) ? m.level : 'mid', side: m.side === 1 ? 1 : 0 });
+      }
       return MODES.includes(m.mode) ? good({ t: m.t, mode: m.mode }) : bad('알 수 없는 게임입니다.');
     case 'join': {
       const code = typeof m.code === 'string' ? m.code.trim().toUpperCase() : '';

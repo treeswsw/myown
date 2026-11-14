@@ -352,7 +352,9 @@ async function dispatch(hub, conn, msg) {
       const code = newCode(hub);
       const r = createRoomShell(hub, code, { mode: msg.mode, ...g, ...entry }, msg); // coins: the game calls ctx.finish
       hub.rooms.set(code, r);
-      return r.join(session);
+      const bad = r.join(session);
+      if (!bad && msg.mode === 'mini' && msg.vs === 'bot') r.start(session.id); // 봇과 하기: 대기실 없이 바로 시작 (실패하면 대기실에 그대로)
+      return bad;
     }
     case 'join': {
       if (room) return '이미 방에 있습니다.';
