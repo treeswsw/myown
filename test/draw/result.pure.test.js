@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  fmtPts, secondsLeft, clockText, nameOf, initialOf, avatarColor, viewMode, pickCards, pickMessage,
-  waitPickText, whyText, revealView, finalView, finalActions,
+  fmtPts, secondsLeft, clockText, nameOf, viewMode, pickCards, pickMessage,
+  waitPickText, whyText, revealView, finalView,
 } from '../../client/src/draw/ui/result.pure.js';
 import { checkDr } from '../../shared/draw/protocol.js';
 
@@ -27,13 +27,10 @@ test('점수·시간 표시', () => {
   assert.equal(clockText(null), '');
 });
 
-test('이름·프로필 글자·색', () => {
+test('이름 찾기', () => {
   assert.equal(nameOf({ players }, 'c'), '민수');
   assert.equal(nameOf({ players }, 'zz'), '?');
   assert.equal(nameOf(null, 'a'), '?');
-  assert.equal(initialOf('강식'), '강');
-  assert.equal(initialOf(''), '?');
-  assert.equal(avatarColor('a'), avatarColor('a'));
 });
 
 test('viewMode: 누가 무엇을 보나', () => {
@@ -137,13 +134,4 @@ test('최종 순위: 공동 순위·단상 배치', () => {
   assert.deepEqual(finalView(null, 'x').rows, []);
   // 나간 사람(이름이 ranking 에만 있음)도 그대로
   assert.equal(finalView({ players: [], ranking: [{ id: 'q', name: '나간이', rank: 1, score: 1, correct: 1 }] }, 'x').rows[0].name, '나간이');
-});
-
-test('한 판 더는 방장만', () => {
-  assert.deepEqual(finalActions({ hostId: 'a' }, 'a'), { canRestart: true, restartMsg: { t: 'start' }, lobbyMsg: { t: 'dr', a: 'lobby' }, waitText: '' });
-  const o = finalActions({ hostId: 'a' }, 'b');
-  assert.equal(o.canRestart, false);
-  assert.equal(o.restartMsg, null);
-  assert.equal(o.lobbyMsg, null);
-  assert.ok(o.waitText);
 });

@@ -112,7 +112,7 @@ export function createPins(ui, stage, table) {
     if (showPot) {
       potLabel.textContent = fmt(room.pot);
       const [x, y] = stage.project(table.potPos());
-      potLabel.style.transform = `translate(${x - 0}px, ${y - 22}px) translate(-50%, -100%)`;
+      potLabel.style.transform = `translate(${x.toFixed(1)}px, ${y - 22}px) translate(-50%, -100%)`;
       potLabel.style.fontSize = `${26 * view.k}px`;
     }
   }

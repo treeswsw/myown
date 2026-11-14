@@ -1,4 +1,4 @@
-import { isMuted } from './audio.js';
+import { context, isMuted, unlock, playBuffer as corePlay } from './sound/core.js';
 
 // Photo/sound helpers for the emote panel: image shrinking, sound preparation, synthesised effects, playback.
 // data URL string lengths, kept just under the server's 40 * 1024 and 200 * 1024
@@ -35,39 +35,19 @@ export async function shrinkImage(file) {
   }
 }
 
-// ---- audio engine
-let ctx;
-let muted = false;
+// ---- audio engine: sound/core.js 하나 위에서 (COMMON-CONTRACT 4-1)
 let active = 0;
-export const setMediaMuted = (v) => { muted = v; };
+const audio = () => context();
 
-const audio = () => {
-  ctx ??= new (window.AudioContext || window.webkitAudioContext)();
-  if (ctx.state !== 'running') ctx.resume().catch(() => {});
-  return ctx;
-};
-
-// iOS only starts audio from inside a gesture: create the context and play a silent buffer on the first one.
-export function unlockAudio() {
-  const go = () => {
-    try { const c = audio(); const s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, c.sampleRate); s.connect(c.destination); s.start(); } catch { /* audio unavailable */ }
-    for (const e of ['pointerdown', 'touchend', 'keydown']) removeEventListener(e, go, true);
-  };
-  for (const e of ['pointerdown', 'touchend', 'keydown']) addEventListener(e, go, true);
-}
+// iOS only starts audio from inside a gesture: sound/core.js unlocks on the first one.
+export function unlockAudio() { unlock(); }
 
 function playBuffer(buf) {
-  if (muted || isMuted() || active >= 3) return;
-  const c = audio();
-  const src = c.createBufferSource();
-  const g = c.createGain();
-  g.gain.value = 0.9;
-  src.buffer = buf;
-  src.connect(g).connect(c.destination);
+  if (isMuted() || active >= 3) return;
+  const src = corePlay(buf, { gain: 0.9, maxSec: MAX_SECONDS });
+  if (!src) return;
   active++;
   src.onended = () => { active--; };
-  src.start();
-  src.stop(c.currentTime + MAX_SECONDS);
 }
 
 const decoded = new Map(); // data URL -> Promise<AudioBuffer>

@@ -44,7 +44,7 @@ test('holdem: a player only ever receives own hole cards, the board and showdown
       for (const sess of hub.sessions.values()) sess.user.bank = 10000;
       await cs[0].send({ t: 'start' });
     }
-    const { st } = room.hand;
+    const { st } = room.impl.hand;
     const hole = Object.fromEntries(st.seats.map((s) => [s.id, [...s.cards]]));
     const deckCards = new Set(st.deck);
     for (let guard = 0; room.phase === 'playing' && guard < 100; guard++) {
@@ -88,7 +88,7 @@ test('holdem: folded winner never reveals cards', async () => {
   const dealer = cs.find((c) => c.state.you === cs[0].state.turn);
   const other = cs.find((c) => c !== dealer);
   await dealer.send({ t: 'act', a: 'fold' });
-  const hole = room.hand.st.seats.find((s) => s.id === other.state.you).cards;
+  const hole = room.impl.hand.st.seats.find((s) => s.id === other.state.you).cards;
   for (const raw of dealer.sock.raw) for (const card of cardsIn(raw)) assert.ok(!hole.includes(card));
   assert.deepEqual(dealer.state.result.shown, {});
 });
@@ -127,7 +127,7 @@ test('bluff: myHand matches only the viewer\'s own cards', async () => {
   const { cs, room } = await table('bluff', ['ann1', 'bob1'], 34);
   await cs[0].send({ t: 'start' });
   for (const c of cs) {
-    const p = room.game.g.players.find((x) => x.id === c.state.you);
+    const p = room.impl.game.g.players.find((x) => x.id === c.state.you);
     assert.deepEqual(c.state.myHand, p.hand);
     assert.equal(c.state.players.find((x) => x.id === p.id).handCount, 5);
   }

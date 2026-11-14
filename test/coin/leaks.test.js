@@ -76,7 +76,7 @@ test('draw: no coin message and no wallet change before the final ranking', asyn
   }
   await cs[0].send({ t: 'create', mode: 'draw' });
   for (const c of cs.slice(1)) await c.send({ t: 'join', code: cs[0].state.code });
-  await cs[0].send({ t: 'dr', a: 'settings', rounds: 1, time: 60 });
+  await cs[0].send({ t: 'set', patch: { rounds: 1, time: 60 } });
   await cs[0].send({ t: 'start' });
   for (let n = 0; n < 600 && cs[0].state?.phase !== 'final'; n++) {
     for (const c of cs) {

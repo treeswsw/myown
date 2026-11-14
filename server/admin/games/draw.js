@@ -93,13 +93,8 @@ export function createBrain(bot) {
   };
 }
 
-// Makes the pending timed wait (pick, draw or reveal) end now. The room's game timer calls onTimer(), which ticks
-// the engine; we move the deadline to "now" and fire that timer ourselves. false = nothing to skip (lobby, final).
-export function skip(room) {
-  const g = room?.g;
-  if (!g || (g.phase !== 'pick' && g.phase !== 'draw' && g.phase !== 'reveal')) return false;
-  g.endsAt = room.hub.now();
-  room.clearTimer('game');
-  room.onTimer();
-  return true;
+// Makes the pending timed wait (pick, draw or reveal) end now. `game` is the room's game object (room.impl): it moves the
+// deadline to "now" and ticks the engine. false = nothing to skip (lobby, final).
+export function skip(game) {
+  return game?.skipNow?.() ?? false;
 }

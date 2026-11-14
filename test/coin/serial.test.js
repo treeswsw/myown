@@ -71,9 +71,9 @@ test('bluff end writes stats to the live session user, not the copy taken at gam
   const live = structuredClone(old); // as if the player re-logged-in and loaded a newer copy
   hub.userEpoch.set(live, hub.epoch);
   s.user = live;
-  room.game.g.phase = 'done';
-  room.game.g.winner = 'aaa';
-  room.afterBluff([]);
+  room.impl.game.g.phase = 'done';
+  room.impl.game.g.winner = 'aaa';
+  room.impl.afterBluff([]);
   assert.equal(live.stats.bluffGames, 1);
   assert.equal(live.stats.bluffWins, 1);
   assert.equal(old.stats.bluffGames, 0, 'stale copy untouched');

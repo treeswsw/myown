@@ -101,11 +101,13 @@ export function setConnected(s, id, connected, now) {
 }
 
 export function pickColor(s, id, c) {
-  if (s.phase !== 'lobby') return fail('gk_now');
+  // 대기실(lobby)과 결과 화면(result, 공통 대기실로 돌아와 다음 판 준비)에서만. 결과 화면에서는 관전이던 사람도 다음 판 참가자다.
+  const result = s.phase === 'result';
+  if (s.phase !== 'lobby' && !result) return fail('gk_now');
   const m = memberOf(s, id);
-  if (!m || m.spec) return fail('gk_now');
+  if (!m || (m.spec && !result)) return fail('gk_now');
   if (!Number.isInteger(c) || c < 0 || c >= COLORS.length) return fail('gk_bad');
-  if (s.members.some((o) => o.id !== id && !o.spec && o.color === c)) return fail('gk_color');
+  if (s.members.some((o) => o.id !== id && (result || !o.spec) && o.color === c)) return fail('gk_color');
   m.color = c;
   const fx = newFx();
   emit(fx, { k: 'gkColor', id, c });
@@ -210,7 +212,6 @@ export function act(s, id, msg, now, rnd) {
   if (!p.ok) return fail('gk_bad');
   s.now = now;
   const m = p.msg;
-  if (m.a === 'color') return pickColor(s, id, m.c);
   if (s.phase !== 'playing') return fail('gk_now');
   const seat = seatOf(s, id);
   if (!seat || seat.out) return fail('gk_now');

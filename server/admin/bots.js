@@ -3,7 +3,8 @@
 // so parsing, rate limit and the room's own rules apply to them like to a person. Nothing here knows a game.
 import crypto from 'node:crypto';
 import { newUser } from '../store.js';
-import { gameOf } from './games/index.js';
+import { defaultEcon, ECON_LIMITS } from '../../shared/coin/rules.js';
+import { gameOf, noBot } from './games/index.js';
 
 export const ADMIN_ID = '관리자';
 export const DEFAULT_ADMIN_KEY = '9975';
@@ -75,6 +76,14 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         hub.send(session, { t: 'admOk', a: 'pinclr' });
         return null;
       }
+      if (msg.a === 'econ' || msg.a === 'econSet' || msg.a === 'econReset') {
+        // 세부 설정(SPEC 21-7): 방과 상관없이 된다. 바꾸면 바로 적용·저장.
+        let cur = hub.econ();
+        if (msg.a === 'econSet') cur = await hub.setEcon(msg.econ);
+        else if (msg.a === 'econReset') cur = await hub.setEcon(defaultEcon());
+        hub.send(session, { t: 'admOk', a: 'econ', saved: msg.a !== 'econ', econ: cur, defaults: defaultEcon(), limits: ECON_LIMITS });
+        return null;
+      }
       if (msg.a === 'chips' || msg.a === 'coins') {
         // 관리자 칩·코인 추가(2026-11-13). 코인은 잔액만(랭킹용 번 합은 그대로), 장부 kind 'adm'. 접속 중이면 그 세션의 user, 아니면 저장소에서 읽는다.
         const live = hub.sessions.get(msg.id);
@@ -82,6 +91,7 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         if (!user) {
           if (!(await hub.store.exists(msg.id))) return admErr('adm_noid');
           user = await hub.store.getOrCreate(msg.id);
+          if (!user) return admErr('adm_noid');
           hub.userEpoch?.set(user, hub.epoch);
           user = hub.sessions.get(msg.id)?.user ?? user; // logged in meanwhile
         }
@@ -101,6 +111,7 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         return null;
       };
       if (msg.a === 'bot+') {
+        if (noBot(room.mode)) return { msg: '이 게임에는 봇이 없습니다.', code: 'adm_nobot' };
         const err = await admin.addBot(session, room);
         return err ?? done();
       }
@@ -110,7 +121,7 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         entry.bots.at(-1).leave();
         return done();
       }
-      if (msg.a === 'skip') return gameOf(room.mode).skip(room) ? done() : admErr('adm_noskip');
+      if (msg.a === 'skip') return gameOf(room.mode).skip(room.impl ?? room) ? done() : admErr('adm_noskip');
       return '알 수 없는 요청입니다.';
     },
 
@@ -167,8 +178,12 @@ function watchAdmin(admin, session) {
       if (v !== null && v !== undefined) return;
       // After the game code finished its own cleanup (it may still be walking its member list).
       queueMicrotask(() => {
-        for (const [r, entry] of [...admin.rooms]) {
-          if (entry.adminId === session.id && !r.members.some((m) => m.id === session.id)) admin.clearRoom(r);
+        try {
+          for (const [r, entry] of [...admin.rooms]) {
+            if (entry.adminId === session.id && !r.members.some((m) => m.id === session.id)) admin.clearRoom(r);
+          }
+        } catch (err) {
+          console.error('admin room cleanup failed:', err.stack);
         }
       });
     },
@@ -237,8 +252,12 @@ function createBot(hub, admin, room) {
       current = v;
       if (v !== null && v !== undefined) return;
       queueMicrotask(() => {
-        if (!bot.live || dead || !was || was.members.some((m) => m.id === id)) return;
-        bot.leave(true);
+        try {
+          if (!bot.live || dead || !was || was.members.some((m) => m.id === id)) return;
+          bot.leave(true);
+        } catch (err) {
+          console.error(`bot ${id} cleanup failed:`, err.stack);
+        }
       });
     },
   });

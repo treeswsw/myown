@@ -60,24 +60,16 @@ export function winCaption(info) {
   return info.reason === 'alone' ? '마지막까지 남았습니다' : '꽃만 두 번 뒤집었습니다';
 }
 
-// 방 대기: 색 6개의 상태. state = 'mine' | 'free' | 'taken'
-export function colorStates(view) {
-  const seats = (view && view.seats) || [];
-  const free = new Set((view && view.ranges && view.ranges.colorsFree) || []);
+// 대기실 개인 칸(waitPart 'gk-color'): 색 6개의 상태. state = 'mine' | 'free' | 'taken'
+// 값은 방 상태의 wait.own[사람] = { color: 0..5 | null } (서버가 줌). by = 그 색을 쓰는 사람 이름.
+export function colorStates(state) {
+  const own = (state && state.wait && state.wait.own) || {};
+  const me = state && state.you;
+  const names = new Map(((state && state.players) || []).map((p) => [p.id, p.name]));
   const out = [];
   for (let c = 0; c < 6; c++) {
-    const holder = seats.find((s) => s.color === c) || null;
-    let state = 'free';
-    if (holder && holder.isMe) state = 'mine';
-    else if (!free.has(c)) state = 'taken';
-    out.push({ c, key: `color-${c}`, state, by: holder ? holder.name : '' });
+    const holder = Object.keys(own).find((id) => own[id] && own[id].color === c) || null;
+    out.push({ c, state: !holder ? 'free' : holder === me ? 'mine' : 'taken', by: holder ? names.get(holder) || '' : '' });
   }
   return out;
-}
-
-export function waitInfo(view) {
-  const seats = (view && view.seats) || [];
-  const canStart = !!(view && view.ranges && view.ranges.canStart);
-  const isHost = !!(view && view.isHost);
-  return { count: seats.length, canStart, isHost, needMore: seats.length < 3 };
 }

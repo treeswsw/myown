@@ -8,7 +8,7 @@
 // 사용자 글자(이름)는 textContent 로만 넣는다.
 import './table.css';
 import { requestFor } from '../actions.js';
-import { COLORS, discBackUrl, discFlowerUrl, discSkullUrl, matUrl, skullPhotoUrl } from '../art.js';
+import { COLORS, discBackUrl, discFlowerUrl, discSkullUrl, matUrl, setSkullImg } from '../art.js';
 import {
   LAYOUTS, tintOf, seatGeom, pileModel, badgePos, rowLayout, reconcileRow, isFlipStep, midModel, chipFor, ringFor, orderSeats,
 } from './table.pure.js';
@@ -62,7 +62,6 @@ export function createTable(parent, ctx) {
   let row = [];
   let disposed = false;
   let lastView = null;
-  const photoUrls = new Map(); // `${c}|${face}` → 사진 해골 주소
 
   function makeSeat(id) {
     const seat = el('div', 'gk-tb-seat');
@@ -102,12 +101,7 @@ export function createTable(parent, ctx) {
   }
 
   function skullSrc(img, c, faceUrl) {
-    img.src = discSkullUrl(c);
-    if (!faceUrl) return;
-    const key = `${c}|${faceUrl}`;
-    const got = photoUrls.get(key);
-    if (got) { img.src = got; return; }
-    skullPhotoUrl(c, faceUrl).then((u) => { photoUrls.set(key, u); img.src = u; }).catch(() => {});
+    setSkullImg(img, c, faceUrl);
   }
 
   function drawPile(rec, s, hold, L, geo, colorIdx) {

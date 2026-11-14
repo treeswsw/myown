@@ -132,12 +132,13 @@ try {
     }
     await A.page.click('.lb-seg-item:has-text("요트다이스")');
     await A.page.click('button.lb-primary:has-text("방 만들기")');
-    await A.page.locator('.ytbar-code').waitFor({ state: 'visible' });
+    await A.page.locator('[data-rm="wait-start"]').waitFor({ state: 'visible' });
     await B.page.locator('.lb-room-row', { hasText: `${names.A}의 방` }).click();
-    await B.page.locator('.ytbar-code').waitFor({ state: 'visible' });
-    await A.page.locator('[data-yt^="head-"]').nth(1).waitFor({ state: 'visible' });
+    await B.page.locator('[data-rm="wait-leave"]').waitFor({ state: 'visible' });
+    await until(async () => (await count(A, '.wr-players li')) === 2, '공통 대기실에 참가자 2명');
     await shot(A, '1-room');
-    await A.page.click('[data-yt="bar-start"]');
+    await until(() => A.page.locator('[data-rm="wait-start"]').isEnabled(), '게임 시작 켜짐');
+    await A.page.click('[data-rm="wait-start"]');
     await until(() => shown(A, '[data-yt="turn"]'), '차례 표시');
   });
 
@@ -167,7 +168,7 @@ try {
         await C.page.click('button.lb-primary:has-text("입장")');
         await C.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
         await C.page.locator('.lb-room-row', { hasText: `${names.A}의 방` }).click();
-        await C.page.locator('.ytbar-code').waitFor({ state: 'visible' });
+        await C.page.locator('.rm-bar:not([hidden])').waitFor({ state: 'visible' });
         await sameDice('관전 창이 중간에 들어옴', [A, B, C]);
         await noButtons(C, '관전(들어온 직후)');
       }
@@ -229,11 +230,38 @@ try {
     if (await C.page.evaluate(() => window.__coinGot)) throw new Error('관전자에게 코인 알림이 감');
   });
 
-  await step('방장 시작 → 새 판: 관전자가 점수표 줄에 들어온다 (3줄)', async () => {
-    await A.page.click('[data-yt="bar-start"]');
+  await step('결과 → 대기실로 → 방장이 C 를 내보냄(강퇴) → C 다시 입장 → 대기실로', async () => {
+    for (const w of [A, B, C]) await w.page.click('[data-yt="result-wait"]');
+    for (const w of [A, B, C]) await w.page.locator('[data-rm="wait-leave"]').waitFor({ state: 'visible' });
+    await until(async () => (await count(A, '.wr-players li')) === 3, '대기실에 3명');
+    await A.page.locator('.wr-players li', { hasText: names.C }).locator('[data-rm="wait-kick"]').click();
+    await C.page.locator('button:has-text("방 만들기")').waitFor({ state: 'visible' });
+    await until(async () => (await count(A, '.wr-players li')) === 2, '내보낸 뒤 대기실 2명');
+    await C.page.locator('.lb-room-row', { hasText: `${names.A}의 방` }).click();
+    await C.page.locator('[data-yt="result-wait"]').click();
+    await C.page.locator('[data-rm="wait-leave"]').waitFor({ state: 'visible' });
+    await until(async () => (await count(A, '.wr-players li')) === 3, '다시 입장해 대기실에 3명');
+  });
+
+  await step('방장 시작 → 새 판(3줄), 상단 줄 왼쪽 = 점수표 폭', async () => {
+    await until(() => A.page.locator('[data-rm="wait-start"]').isEnabled(), '게임 시작 켜짐');
+    await A.page.click('[data-rm="wait-start"]');
     await until(async () => (await A.page.locator('[data-yt^="head-"]').count()) === 3 && !(await shown(A, '[data-yt="result"]')), '3줄 점수표·결과 창 닫힘', 10000);
-    await until(async () => (await C.page.locator('[data-yt^="head-"]').count()) === 3, '관전자였던 창에도 3줄');
+    await until(async () => (await C.page.locator('[data-yt^="head-"]').count()) === 3, '다시 들어온 창에도 3줄');
     await until(() => shown(A, '[data-yt="turn"]'), '새 판 차례 표시');
+    const r = await A.page.evaluate(() => ({ sheet: Math.round(document.querySelector('[data-yt="sheet"]').getBoundingClientRect().width), bar: Math.round(document.querySelector('.rm-bar').getBoundingClientRect().left) }));
+    if (Math.abs(r.sheet - r.bar) > 2) throw new Error(`점수표 ${r.sheet}px, 상단 줄 왼쪽 ${r.bar}px`);
+  });
+
+  await step('B 가 게임 중 나가기: "나가면 기권 처리돼요" 확인 → 취소하면 남고, 나가기하면 로비로', async () => {
+    await B.page.click('[data-rm="bar-leave"]');
+    await B.page.locator('.ui-confirm:has-text("나가면 기권 처리돼요")').waitFor({ state: 'visible' });
+    await B.page.click('.ui-mbtn:has-text("취소")');
+    await B.page.locator('[data-yt="sheet"]').waitFor({ state: 'visible' });
+    await B.page.click('[data-rm="bar-leave"]');
+    await B.page.click('.ui-mbtn.ui-danger');
+    await B.page.locator('button:has-text("방 만들기")').waitFor({ state: 'visible' });
+    await until(async () => (await A.page.locator('.yt-sc-badge:has-text("기권")').evaluateAll((l) => l.some((e) => !e.hidden))), 'A 점수표에 기권 표시');
   });
 
   await step('콘솔 오류 없음', async () => {

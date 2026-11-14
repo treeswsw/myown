@@ -1,31 +1,25 @@
-// mountDraw: 갱식마인드 화면 모듈 6개를 하나로 묶는다 (GDD 7절, 11-1, 11-2). 라이어 index.js(mountLiar)와 같은 방식.
-//   const draw = mountDraw({ ui, send, getMe, toast, isMuted?, leave?, openEmote? });
-//   휴대폰 가로·게임 진행 중에는 윗줄 왼쪽에 메뉴 버튼(≡): 나가기, (openEmote 가 있으면) 이모티콘. 방 코드도 작게 보인다.
-//   draw.room(state)   방 상태(10-4)가 올 때마다. 방을 나가면 room(null).
-//   draw.event(e)      event.e (10-5) 하나.
-//   draw.error(err)    {code, msg} 오류. dr_canvas_full 이면 긋던 선을 멈춘다.
-//   draw.dispose()     화면을 걷어낸다.
-//   draw.chatSlot      방 대기 화면 참가자 카드 아래 빈 칸(사이트 채팅을 붙이고 싶을 때). 쓰지 않아도 된다.
+// 갱식마인드 화면 모듈. 공통 방 틀(client/src/room/frame.js)이 mount(ctx) 로 불러 쓴다. 약속: docs/COMMON-CONTRACT.md 4-2, GDD 7·11절.
+// 대기실(참가자·설정·시작·방 코드)·상단 줄(방 코드/소리/이모티콘/나가기)·이모티콘/사진/사운드 표시·대기실 채팅은 틀이 한다.
+// 이 모듈은 게임 판만 그린다: 그림판·도구·문제 띠·플레이어 자리(말풍선)·단어 고르기/정답 공개/최종 순위.
+// 게임 중 채팅은 이 화면의 정답 입력칸이 한다(chatRule.own): 정답 판정과 정답자끼리 글 가리기가 서버 엔진 한 함수에 묶여 있다(D8).
 // 배치는 draw.css 가 루트 클래스(pure.js rootClasses)만 보고 한다. 이 파일은 DOM 을 만들고 모듈에 상태를 나눠 준다.
 import './draw.css';
 import './canvas/canvas.css';
 import './ui/tools.css';
 import './ui/hud.css';
 import './ui/players.css';
-import './ui/settings.css';
 import './ui/result.css';
 import { createBoard } from './canvas/board.js';
 import { createTools } from './ui/tools.js';
 import { createHud } from './ui/hud.js';
 import { createPlayers } from './ui/players.js';
-import { createSettings } from './ui/settings.js';
 import { createResult } from './ui/result.js';
 import { toolsVisible } from './ui/tools.pure.js';
 import { createAudio } from './audio.js';
-import { isMuted as siteMuted } from '../audio.js';
+import { CHAT } from '../../../shared/draw/constants.js';
 import {
   layoutFor, keyboardUp, createToolStore, routesFor, rootClasses,
-  soundForRoom, soundForEvent, tenSecondsKey, clockOffset, menuVisible, menuItems,
+  soundForRoom, soundForEvent, tenSecondsKey,
 } from './pure.js';
 
 export { layoutFor, createToolStore, routesFor, rootClasses, soundForRoom, soundForEvent, tenSecondsKey };
@@ -36,27 +30,17 @@ const el = (tag, cls) => {
   return e;
 };
 
-let current = null; // 이미 마운트된 인스턴스. 다시 마운트하면 먼저 정리해 화면이 하나만 남게 한다.
+const PLAYING = new Set(['pick', 'draw', 'reveal']);
 
-export function mountDraw(opts) {
-  current?.dispose();
-  const inst = mountDrawInner(opts);
-  const dispose = inst.dispose;
-  inst.dispose = () => { if (current === inst) current = null; dispose(); };
-  current = inst;
-  return inst;
-}
-
-function mountDrawInner({ ui, send, getMe, toast, isMuted, leave, openEmote }) {
+export function mount(ctx) {
   const root = el('div', 'dr-root');
   root.hidden = true;
-  const top = el('div', 'dr-top');          // 윗줄
+  const top = el('div', 'dr-top');          // 윗줄(문제 띠 제목·번호). 방 코드·버튼은 틀의 상단 줄이 그 위에 얹힌다
   const stage = el('div', 'dr-stage');      // 플레이어·그림판·도구 격자
-  const lobby = el('div', 'dr-lobby');      // 방 대기 화면
   const spare = el('div', 'dr-spare');      // 지금 배치에서 쓰지 않는 조각을 잠시 두는 곳(보이지 않음)
   spare.hidden = true;
-  root.append(top, stage, lobby, spare);
-  ui.append(root);
+  root.append(top, stage, spare);
+  ctx.root.append(root);
 
   // 칸(cell): 모듈이 내놓은 조각을 감싸 격자 자리를 주는 상자. 격자 규칙은 draw.css 가 이 상자의 클래스로만 쓴다.
   const cell = (cls) => el('div', `dr-c dr-c-${cls}`);
@@ -72,49 +56,46 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave, openEmote }) {
   const toolCells = [cPal, cTools, cUnder, cGive];
 
   let state = null;
-  let offset = 0;
   let layout = layoutFor(window.innerHeight);
   let kb = false;
   let disposed = false;
   let firedTen = null;
   let lastFull = 0;
-  const audio = createAudio({ isMuted: isMuted || siteMuted });
-  // 소리 장치가 실제로 풀릴 때까지 다음 터치마다 다시 시도한다(브라우저가 첫 터치에서 거절할 수 있다)
-  const unlock = () => {
-    if (audio.ready()) { removeEventListener('pointerdown', unlock, { capture: true }); return; }
-    audio.unlock();
-  };
-  addEventListener('pointerdown', unlock, { capture: true });
+  const audio = createAudio({ sound: ctx.sound });
+  ctx.sound.unlock(); // iPad: 첫 터치에서 소리 장치를 연다(공용 엔진)
 
-  const meId = () => state?.you ?? getMe?.()?.id ?? null;
+  const meId = () => state?.you ?? ctx.me()?.id ?? null;
   const mods = {};
   const tool = createToolStore();
-  const ctx = {
-    send: (m) => { if (!disposed && m) send(m); },
+  const dctx = {
+    send: (m) => { if (!disposed && m) ctx.send(m); },
     meId,
-    now: () => Date.now() + offset,
+    now: () => ctx.clock.now(),
     layout: () => layout,
     tool,
     localAct: (a) => mods.board?.local(a),
     history: null,
+    faces: ctx.faces,
+    profile: ctx.profile,
+    leave: () => ctx.leave(),
+    toWait: () => ctx.toWait(),
+    notice: (text) => ctx.toast(text, { key: 'dr-notice' }),
     onFull: () => {
       const t = Date.now();
       if (t - lastFull < 2000) return; // 한도가 찬 채로 계속 그으면 알림이 쌓이지 않게
       lastFull = t;
-      toast?.('그림이 너무 많아요');
+      ctx.toast('그림이 너무 많아요', { kind: 'error', key: 'dr_canvas_full' }); // 서버의 같은 안내와 한 알림으로
     },
   };
-  if (leave) ctx.leave = leave;
 
   // 그림판 → 도구 칸 순서(도구 칸이 ctx.history 를 읽는다)
-  mods.board = createBoard(bd, ctx);
-  ctx.history = mods.board.history;
+  mods.board = createBoard(bd, dctx);
+  dctx.history = mods.board.history;
   bd.append(cMeter);
-  mods.hud = createHud(spare, ctx);
-  mods.tools = createTools(spare, ctx);
-  mods.players = createPlayers(stage, ctx);
-  mods.settings = createSettings(lobby, ctx);
-  mods.result = createResult(bd, ctx);
+  mods.hud = createHud(spare, dctx);
+  mods.tools = createTools(spare, dctx);
+  mods.players = createPlayers(stage, dctx);
+  mods.result = createResult(bd, dctx);
 
   const hs = mods.hud.slots;
   const ts = mods.tools.slots;
@@ -127,51 +108,13 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave, openEmote }) {
   cGive.append(ts.give);
   stage.append(cPal, bd, cTools, cUnder);
 
-  // 휴대폰 가로 메뉴: 버튼(≡) + 작은 창(바깥을 누르면 닫힘). 사용자 글자 없음(방 코드는 textContent).
-  const menuBtn = el('button', 'dr-menu-btn');
-  menuBtn.type = 'button';
-  menuBtn.textContent = '\u2261';
-  menuBtn.setAttribute('aria-label', '메뉴');
-  menuBtn.dataset.dr = 'menu';
-  const menuBack = el('div', 'dr-menu-back');
-  const menuBox = el('div', 'dr-menu-box');
-  const menuCode = el('div', 'dr-menu-code');
-  menuBack.hidden = true;
-  menuBox.hidden = true;
-  const closeMenu = () => { menuBack.hidden = true; menuBox.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); };
-  const items = {
-    emote: ['이모티콘', 'menu-emote', () => { closeMenu(); openEmote?.(); }],
-    leave: ['나가기', 'menu-leave', () => { closeMenu(); (leave || (() => send({ t: 'leave' })))(); }],
-  };
-  menuBox.append(menuCode);
-  for (const name of menuItems(typeof openEmote === 'function')) {
-    const [label, dr, fn] = items[name];
-    const b = el('button', 'dr-menu-item');
-    b.type = 'button';
-    b.textContent = label;
-    b.dataset.dr = dr;
-    b.addEventListener('click', fn);
-    menuBox.append(b);
-  }
-  menuBtn.addEventListener('click', () => {
-    const open = menuBox.hidden;
-    menuCode.textContent = state?.code ? `방 ${state.code}` : '';
-    menuCode.hidden = !state?.code;
-    menuBack.hidden = !open;
-    menuBox.hidden = !open;
-    menuBtn.setAttribute('aria-expanded', String(open));
-  });
-  menuBack.addEventListener('pointerdown', closeMenu);
-  root.append(menuBack, menuBox);
-
   // 배치에 따라 윗줄과 격자에 조각을 나눠 담는다(휴대폰: 문제 띠·정답 입력·포기가 윗줄, PC·iPad: 격자 안).
   function place() {
     if (layout === 'phone') {
-      top.replaceChildren(menuBtn, cBar, cAnswer, cGive);
+      top.replaceChildren(cBar, cAnswer, cGive);
       spare.append(hs.title, hs.num);
     } else {
       top.replaceChildren(hs.title, sp, hs.num);
-      closeMenu();
       stage.append(cBar, cAnswer, cGive);
     }
   }
@@ -184,9 +127,6 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave, openEmote }) {
 
   function refresh() {
     applyClasses();
-    const showMenu = menuVisible(layout, state);
-    menuBtn.hidden = !showMenu;
-    if (!showMenu) closeMenu();
     const s = state;
     mods.board.update(s);
     mods.tools.update(s);
@@ -194,7 +134,6 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave, openEmote }) {
     for (const c of toolCells) c.hidden = !vis;
     mods.hud.update(s);
     mods.players.update(s);
-    mods.settings.update(s);
     mods.result.update(s);
   }
 
@@ -217,30 +156,25 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave, openEmote }) {
   vv?.addEventListener('resize', onResize);
   vv?.addEventListener('scroll', onResize);
 
+  // 사진·꾸미기가 새로 왔다: 자리와 최종 순위의 프로필만 다시 그린다
+  const offFaces = ctx.faces.onChange(() => {
+    if (disposed || !state) return;
+    mods.players.update(state);
+    mods.result.redraw();
+  });
+
   // 10초 남음 소리(상태는 시간이 지나도 다시 오지 않으므로 직접 잰다)
   const tenTimer = setInterval(() => {
-    const key = tenSecondsKey(state, ctx.now(), firedTen);
+    const key = tenSecondsKey(state, ctx.clock.now(), firedTen);
     if (key) { firedTen = key; audio.play('tenLeft'); }
   }, 500);
 
   place();
   applyClasses();
-  menuBtn.hidden = true;
 
   return {
-    el: root,
-    chatSlot: mods.settings.slots.chat,
     room(s) {
-      if (disposed) return;
-      if (!s) {
-        state = null;
-        root.hidden = true;
-        closeMenu();
-        applyClasses();
-        for (const m of Object.values(mods)) m.update(null);
-        return;
-      }
-      offset = clockOffset(s, Date.now(), offset);
+      if (disposed || !s) return;
       const prev = state;
       state = s;
       root.hidden = false;
@@ -248,21 +182,39 @@ function mountDrawInner({ ui, send, getMe, toast, isMuted, leave, openEmote }) {
       const snd = soundForRoom(prev, s, meId());
       if (snd) audio.play(snd);
     },
+
     event(e) {
       if (disposed || !e) return;
       for (const name of routesFor(e)) mods[name]?.event?.(e);
       const snd = soundForEvent(e, meId());
       if (snd) audio.play(snd);
     },
+
     error(err) {
       if (disposed || !err) return;
       if (err.code === 'dr_canvas_full') mods.board.stop();
     },
-    dispose() {
+
+    // 이모티콘·사진·말풍선이 뜰 자리: 최종 순위에서는 순위의 사진, 그 밖에는 플레이어 자리의 사진
+    anchorOf(id) {
+      if (disposed) return null;
+      return (state?.phase === 'final' ? mods.result.anchor(id) : null) ?? mods.players.anchor(id);
+    },
+
+    // 게임 중 채팅은 정답 입력칸(own)이고, 대기실·최종 순위에서는 사이트 채팅. 글은 40자까지(입력칸에서 막고 서버도 거절).
+    chatRule: {
+      maxLen: CHAT.max,
+      own: (s) => PLAYING.has(s?.phase),
+      route: (text) => ({ t: 'chat', text: [...String(text)].slice(0, CHAT.max).join('') }),
+    },
+
+    leaveNote: (s) => (PLAYING.has(s?.phase) ? '나가면 이번 판 코인을 받지 못해요' : null),
+
+    unmount() {
       if (disposed) return;
       disposed = true;
       clearInterval(tenTimer);
-      removeEventListener('pointerdown', unlock, { capture: true });
+      offFaces();
       removeEventListener('resize', onResize);
       removeEventListener('orientationchange', onResize);
       vv?.removeEventListener('resize', onResize);

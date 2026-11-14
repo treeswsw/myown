@@ -145,6 +145,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     },
   });
   console.log(`listening on ${app.port}`);
+  // One stray error must not kill every room: log it and keep serving.
+  process.on('uncaughtException', (err) => console.error('uncaughtException:', err?.stack ?? err));
+  process.on('unhandledRejection', (err) => console.error('unhandledRejection:', err?.stack ?? err));
   // Render kills the process about 30 s after SIGTERM: wait for the last saves (liar scores) at most 10 s.
   const shutdown = async () => {
     const giveUp = new Promise((resolve) => setTimeout(resolve, 10_000).unref());

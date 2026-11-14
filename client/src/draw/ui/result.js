@@ -1,13 +1,14 @@
 // 단어 고르기·정답 공개·최종 순위 (docs/draw/GDD.md 4·7·10-2·10-4·11-2절). 접두사 .dr-rs-
-// createResult(parent, ctx) → { el, update(state), event(e), dispose() }
+// createResult(parent, ctx) → { el, update(state), event(e), anchor(id), redraw(), dispose() }
+// ctx 에 faces·profile(공용 프로필 부품)·leave·toWait 가 있다. 최종 순위의 사진·칭호는 공용 프로필 부품이 그린다.
 // el 은 그림판 영역을 덮는 투명 층(pointer-events:none). 보일 것이 없으면 hidden.
 //   pick   : 그림판 위 가운데 — 그리는 사람은 단어 카드 3장, 나머지는 "○○ 님이 단어를 고르는 중"
 //   reveal : 그림판 아래쪽 정답 카드
 //   final  : 화면 전체 최종 순위
 // 사용자 글자(이름)는 textContent 로만 넣는다. 단어 후보는 pickCards() 를 통해서만 읽는다.
 import {
-  viewMode, pickCards, pickMessage, waitPickText, revealView, finalView, finalActions,
-  secondsLeft, clockText, avatarColor, initialOf, nameOf,
+  viewMode, pickCards, pickMessage, waitPickText, revealView, finalView,
+  secondsLeft, clockText, nameOf,
 } from './result.pure.js';
 
 function h(tag, cls, text) {
@@ -15,12 +16,6 @@ function h(tag, cls, text) {
   if (cls) e.className = cls;
   if (text != null) e.textContent = text;
   return e;
-}
-
-function avatar(id, name, size) {
-  const a = h('span', `dr-rs-av dr-rs-av-${size}`, initialOf(name));
-  a.style.background = avatarColor(id);
-  return a;
 }
 
 export function createResult(parent, ctx) {
@@ -35,7 +30,15 @@ export function createResult(parent, ctx) {
   let pickLocked = false; // 이미 눌렀으면 다시 보내지 않는다
   let tick = null;
   let disposed = false;
-  let againTimer = null;
+  const avs = new Map(); // id -> 최종 순위의 사진 칸(이모티콘·사진·말풍선 자리)
+
+  function avatar(id, name, size) {
+    const a = h('span', `dr-rs-av dr-rs-av-${size}`);
+    const f = ctx.faces?.get(id) ?? { avatar: null, look: null };
+    a.append(ctx.profile.playerAvatar({ id, name, face: f.avatar, look: f.look, size: size === 'lg' ? 64 : 30 }));
+    avs.set(id, a);
+    return a;
+  }
 
   const meId = () => (ctx && typeof ctx.meId === 'function' ? ctx.meId() : null);
   const now = () => (ctx && typeof ctx.now === 'function' ? ctx.now() : Date.now());
@@ -152,7 +155,7 @@ export function createResult(parent, ctx) {
   // ---- 최종 순위 ----
   function renderFinal() {
     const f = finalView(state, meId());
-    const act = finalActions(state, meId());
+    avs.clear();
     const box = h('div', 'dr-rs-card dr-rs-final');
     box.appendChild(h('div', 'dr-rs-title dr-rs-final-title', '최종 순위'));
 
@@ -188,29 +191,17 @@ export function createResult(parent, ctx) {
     const btns = h('div', 'dr-rs-btns');
     const leave = h('button', 'dr-rs-btn dr-rs-btn-sub', '나가기');
     leave.type = 'button';
+    leave.dataset.dr = 'rs-leave';
     leave.addEventListener('click', () => {
       if (ctx && typeof ctx.leave === 'function') ctx.leave();
       else send({ t: 'leave' });
     });
-    btns.appendChild(leave);
-    if (act.canRestart) {
-      const again = h('button', 'dr-rs-btn dr-rs-btn-main', '한 판 더');
-      again.type = 'button';
-      again.addEventListener('click', () => {
-        if (again.disabled) return;
-        again.disabled = true; // 연타 방지. 서버가 거절해도 2초 뒤 다시 켠다
-        send(act.restartMsg);
-        if (againTimer != null) clearTimeout(againTimer);
-        againTimer = setTimeout(() => { againTimer = null; again.disabled = false; }, 2000);
-      });
-      btns.appendChild(again);
-      const lobby = h('button', 'dr-rs-btn dr-rs-btn-sub', '방으로');
-      lobby.type = 'button';
-      lobby.addEventListener('click', () => send(act.lobbyMsg));
-      btns.insertBefore(lobby, again);
-    } else {
-      btns.appendChild(h('div', 'dr-rs-waitnote', act.waitText));
-    }
+    // 다시 하려면 대기실로: 방장이 설정을 바꾸고 시작한다(시작·설정은 공통 대기실이 맡는다)
+    const wait = h('button', 'dr-rs-btn dr-rs-btn-main', '대기실로');
+    wait.type = 'button';
+    wait.dataset.dr = 'rs-wait';
+    wait.addEventListener('click', () => ctx.toWait?.());
+    btns.append(leave, wait);
     side.appendChild(btns);
     body.appendChild(side);
     box.appendChild(body);
@@ -219,12 +210,11 @@ export function createResult(parent, ctx) {
 
   function signature(mode) {
     if (!state) return 'none';
-    const hostMe = state.hostId === meId() ? 'h' : '';
     switch (mode.kind) {
       case 'pick-drawer': return `pd|${state.q}|${JSON.stringify(state.choices)}`;
       case 'pick-wait': return `pw|${state.q}|${state.drawerId}|${nameOf(state, state.drawerId)}`;
       case 'reveal': return `rv|${state.q}|${JSON.stringify(state.reveal)}|${JSON.stringify((state.players || []).map((p) => [p.id, p.name]))}`;
-      case 'final': return `fn|${hostMe}|${JSON.stringify(state.ranking)}`;
+      case 'final': return `fn|${JSON.stringify(state.ranking)}`;
       default: return 'none';
     }
   }
@@ -261,9 +251,23 @@ export function createResult(parent, ctx) {
   function dispose() {
     disposed = true;
     stopTick();
-    if (againTimer != null) { clearTimeout(againTimer); againTimer = null; }
     el.remove();
   }
 
-  return { el, update, event, dispose };
+  // 사진이 새로 왔다: 최종 순위를 다시 그린다
+  function redraw() {
+    if (disposed || !state) return;
+    sig = '';
+    update(state);
+  }
+
+  // 최종 순위일 때 그 사람 사진 위쪽(이모티콘·사진·말풍선 자리). 아니면 null
+  function anchor(id) {
+    const a = avs.get(id);
+    if (el.hidden || !a?.isConnected) return null;
+    const r = a.getBoundingClientRect();
+    return r.width ? { x: r.left + r.width / 2, y: r.top + 4 } : null;
+  }
+
+  return { el, update, event, anchor, redraw, dispose };
 }

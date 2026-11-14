@@ -30,46 +30,13 @@ test('봉투가 틀린 요청', () => {
 });
 
 test('단순 요청: 필드를 떼고 돌려준다', () => {
-  for (const a of ['cx', 'undo', 'redo', 'clear', 'give', 'skip', 'end', 'lobby']) {
+  for (const a of ['cx', 'undo', 'redo', 'clear', 'give', 'skip', 'end']) {
     assert.deepEqual(ok({ a, junk: 1 }), { a });
   }
 });
 
-test('settings: 맞는 것과 정리', () => {
-  const src = { a: 'settings', order: 'hit', rounds: 3, time: 90, len: false, topics: ['음식', '동물', '음식'], junk: 1 };
-  const copy = JSON.stringify(src);
-  assert.deepEqual(ok(src), { a: 'settings', order: 'hit', rounds: 3, time: 90, len: false, topics: ['음식', '동물'] });
-  assert.equal(JSON.stringify(src), copy);
-  assert.deepEqual(ok({ a: 'settings', rounds: 5, zzz: 1 }), { a: 'settings', rounds: 5 });
-  for (const order of K.ORDER_CHOICES) ok({ a: 'settings', order });
-  for (const rounds of K.ROUND_CHOICES) ok({ a: 'settings', rounds });
-  for (const time of K.TIME_CHOICES) ok({ a: 'settings', time });
-});
-
-test('settings: 틀린 것', () => {
-  no({ a: 'settings' });
-  no({ a: 'settings', junk: 1 });
-  no({ a: 'settings', order: 'x' });
-  no({ a: 'settings', order: 1 });
-  no({ a: 'settings', rounds: 4 });
-  no({ a: 'settings', rounds: '2' });
-  no({ a: 'settings', time: 120 });
-  no({ a: 'settings', len: 1 });
-  no({ a: 'settings', topics: [] });
-  no({ a: 'settings', topics: '음식' });
-  no({ a: 'settings', topics: [1] });
-  no({ a: 'settings', topics: [''] });
-  no({ a: 'settings', topics: ['가'.repeat(21)] });
-  no({ a: 'settings', topics: Array.from({ length: 31 }, (_, i) => `주제${i}`) });
-  no({ a: 'settings', order: 'seq', rounds: 9 });
-});
-
-test('kick', () => {
-  assert.deepEqual(ok({ a: 'kick', id: 'jiho' }), { a: 'kick', id: 'jiho' });
-  no({ a: 'kick' });
-  no({ a: 'kick', id: '' });
-  no({ a: 'kick', id: 5 });
-  no({ a: 'kick', id: 'x'.repeat(41) });
+test('옛 요청(settings/kick/lobby)은 공용 set·kick·start 로 대체됨', () => {
+  no({ a: 'settings', rounds: 3 }); no({ a: 'kick', id: 'jiho' }); no({ a: 'lobby' });
 });
 
 test('pick', () => {

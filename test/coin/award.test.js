@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHub } from '../../server/rooms.js';
 import { createStore } from '../../server/store.js';
-import { hookRoom } from '../../server/coin/hooks.js';
 import { FakeClock, client, seeded } from '../helpers.js';
 import * as L from '../liar/e2e/helpers.js';
 import { CATS } from '../../shared/yacht/constants.js';
@@ -43,7 +42,7 @@ test('bluff: winner 1+1*opp, eliminated-in-game finisher 1, leaver 0, spectator 
   await spec.send({ t: 'join', code: cs[0].state.code }); // joins after the deal: not in the game
   const room = [...hub.rooms.values()][0];
   await cs[2].send({ t: 'leave' }); // cat leaves mid game
-  const g = room.game.g;
+  const g = room.impl.game.g;
   const who = (id) => g.players.find((p) => p.id === id);
   who('ann1').hand = ['Q', 'Q', 'Q', 'Q', 'Q'];
   who('ann1').bullet = 0;
@@ -83,7 +82,7 @@ test('yacht: 3 players finish: 3 each, winner +4 per opponent; spectator 0', asy
   await cs[0].send({ t: 'start' });
   const spec = await login(hub, 'dan1');
   await spec.send({ t: 'join', code: cs[0].state.code });
-  const room = [...hub.rooms.values()][0];
+  const room = [...hub.rooms.values()][0].impl; // 요트는 공용 방 틀(Shell) 안의 게임 객체
   await playYacht(clock, cs, room);
   assert.equal(room.game.phase, 'result');
   const r = room.game.result;
@@ -99,7 +98,7 @@ test('yacht: a forfeiter gets 0, opponents still count the leaver', async () => 
   const { hub, clock } = await setup(5);
   const cs = await lobby(hub, 'yacht', ['ann1', 'bob1', 'cat1']);
   await cs[0].send({ t: 'start' });
-  const room = [...hub.rooms.values()][0];
+  const room = [...hub.rooms.values()][0].impl;
   await playYacht(clock, cs, room, { stop: () => room.game.round >= 2 });
   const leaver = room.game.cols[(room.game.turnIdx + 1) % 3].id;
   await cs.find((c) => c.id === leaver).send({ t: 'leave' });
@@ -115,78 +114,12 @@ test('yacht: a room with a bot pays nobody', async () => {
   const { hub, clock } = await setup(5);
   const cs = await lobby(hub, 'yacht', ['ann1', 'bob1']);
   await cs[0].send({ t: 'start' });
-  const room = [...hub.rooms.values()][0];
+  const room = [...hub.rooms.values()][0].impl;
   hub.sessions.get('bob1').bot = true;
   await playYacht(clock, cs, room);
   assert.equal(room.game.phase, 'result');
   assert.equal(coins(hub, 'ann1'), 0);
   assert.equal(coins(hub, 'bob1'), 0);
-});
-
-// ---------- hook logic with stand-in rooms (ties, API drift) ----------
-
-function fakeHub() {
-  const calls = [];
-  return { calls, award: (room, mode, rows) => calls.push({ mode, rows }) };
-}
-
-test('yacht hook: tied first place, both get the full bonus', () => {
-  const hub = fakeHub();
-  const room = {
-    mode: 'yacht', members: [{ id: 'a' }, { id: 'b' }, { id: 'c' }], game: null,
-    settle() {
-      this.game = {
-        cols: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
-        result: { reason: 'done', ranks: [{ id: 'a', rank: 1 }, { id: 'b', rank: 1 }, { id: 'c', rank: 3 }], winners: ['a', 'b'] },
-      };
-    },
-  };
-  hookRoom(hub, room);
-  room.settle();
-  assert.deepEqual(hub.calls, [{ mode: 'yacht', rows: [{ id: 'a', won: true, opp: 2 }, { id: 'b', won: true, opp: 2 }, { id: 'c', won: false, opp: 2 }] }]);
-});
-
-test('draw hook: tied rank 1 both win; left excluded; late joiner excluded', () => {
-  const hub = fakeHub();
-  let players = ['a', 'b', 'c'];
-  const room = {
-    mode: 'draw', members: [], get g() { return { phase: 'pick', players: players.map((id) => ({ id })) }; },
-    syncMembers() {}, apply() {},
-    save() {},
-  };
-  hookRoom(hub, room);
-  room.syncMembers(); // the game started with a, b, c
-  players = ['a', 'b', 'c', 'late'];
-  room.save([
-    { id: 'a', rank: 1, left: false }, { id: 'b', rank: 1, left: false },
-    { id: 'c', rank: 3, left: true }, { id: 'late', rank: 4, left: false },
-  ]);
-  assert.deepEqual(hub.calls, [{ mode: 'draw', rows: [{ id: 'a', won: true, opp: 2 }, { id: 'b', won: true, opp: 2 }] }]);
-});
-
-test('liar hook: void round awards nothing; liar left / dropped players excluded', () => {
-  const mk = (result, dropped) => {
-    const hub = fakeHub();
-    const room = {
-      mode: 'liar', members: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }], game: null,
-      settle() { this.game = { players: ['a', 'b', 'c', 'd'], dropped, liarId: 'a', result }; },
-    };
-    hookRoom(hub, room);
-    room.settle();
-    return hub.calls;
-  };
-  assert.deepEqual(mk({ winner: 'void' }, []), []);
-  assert.deepEqual(mk({ winner: 'citizens' }, ['a', 'd']), [{ mode: 'liar', rows: [{ id: 'b', won: true, opp: 1 }, { id: 'c', won: true, opp: 1 }] }]);
-  assert.deepEqual(mk({ winner: 'liar' }, [])[0].rows, [
-    { id: 'a', won: true, opp: 3 }, { id: 'b', won: false, opp: 1 }, { id: 'c', won: false, opp: 1 }, { id: 'd', won: false, opp: 1 },
-  ]);
-});
-
-test('hookRoom throws when the function to wrap is missing', () => {
-  assert.throws(() => hookRoom(fakeHub(), { mode: 'liar', members: [] }), /settle/);
-  assert.throws(() => hookRoom(fakeHub(), { mode: 'yacht', members: [] }), /settle/);
-  assert.throws(() => hookRoom(fakeHub(), { mode: 'draw', members: [], save() {} }), /syncMembers/);
-  assert.throws(() => hookRoom(fakeHub(), { mode: 'holdem' }), /no hook/);
 });
 
 // ---------- draw ----------
@@ -209,7 +142,7 @@ export async function playDraw(clock, cs, { guesser = 'bob1', stop = () => false
 test('draw: final ranking pays 2, rank 1 +2 per opponent; leaver and late joiner 0', async () => {
   const { hub, clock } = await setup(9);
   const cs = await lobby(hub, 'draw', ['ann1', 'bob1', 'cat1']);
-  await cs[0].send({ t: 'dr', a: 'settings', rounds: 1, time: 60 });
+  await cs[0].send({ t: 'set', patch: { rounds: 1, time: 60 } });
   await cs[0].send({ t: 'start' });
   const late = await login(hub, 'dan1');
   await late.send({ t: 'join', code: cs[0].state.code });
@@ -317,7 +250,7 @@ test('yacht: everyone else left (reason alone) pays nobody', async () => {
   const { hub } = await setup(5);
   const cs = await lobby(hub, 'yacht', ['ann1', 'bob1']);
   await cs[0].send({ t: 'start' });
-  const room = [...hub.rooms.values()][0];
+  const room = [...hub.rooms.values()][0].impl;
   await cs[1].send({ t: 'leave' });
   assert.equal(room.game.result?.reason, 'alone');
   assert.equal(coins(hub, 'ann1'), 0);
@@ -327,26 +260,9 @@ test('yacht: everyone else left (reason alone) pays nobody', async () => {
 test('draw: everyone else left (finished.reason alone) pays nobody', async () => {
   const { hub } = await setup(9);
   const cs = await lobby(hub, 'draw', ['ann1', 'bob1']);
-  await cs[0].send({ t: 'dr', a: 'settings', rounds: 1, time: 60 });
+  await cs[0].send({ t: 'set', patch: { rounds: 1, time: 60 } });
   await cs[0].send({ t: 'start' });
   await cs[1].send({ t: 'leave' });
   assert.equal(coins(hub, 'ann1'), 0);
   assert.equal(coins(hub, 'bob1'), 0);
-});
-
-test('draw hook: apply() with finished.reason alone skips the award, a normal end still pays', () => {
-  const hub = fakeHub();
-  const room = {
-    mode: 'draw', members: [], get g() { return { phase: 'pick', players: [{ id: 'a' }, { id: 'b' }] }; },
-    syncMembers() {},
-    apply(fx) { if (fx.finished?.save) this.save(fx.finished.ranking); },
-    save() {},
-  };
-  hookRoom(hub, room);
-  const ranking = [{ id: 'a', rank: 1, left: false }, { id: 'b', rank: 2, left: true }];
-  room.syncMembers();
-  room.apply({ finished: { reason: 'alone', save: true, ranking } });
-  assert.deepEqual(hub.calls, []);
-  room.apply({ finished: { reason: 'done', save: true, ranking } });
-  assert.equal(hub.calls.length, 1);
 });

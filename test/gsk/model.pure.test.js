@@ -16,16 +16,12 @@ function base(o = {}) {
 }
 const keys = (v) => v.actions.map((a) => a.key);
 
-test('lobby: 색 고르기와 시작', () => {
+test('lobby: 색 고르기·시작은 공통 대기실이 한다(행동 없음)', () => {
   const s = base({ phase: 'lobby', step: null, mine: null, seats: [0, 1, 2].map((i) => seat(i, { color: i === 0 ? null : i })), players: players(3) });
   const v = toView(s, 'p0');
-  assert.deepEqual(v.ranges.colorsFree, [0, 3, 4, 5]);
-  assert.ok(keys(v).includes('color-0') && !keys(v).includes('color-1'));
-  assert.ok(keys(v).includes('start'));
-  assert.match(v.center, /기다리는 중/);
-  assert.ok(!keys(toView(s, 'p1')).includes('start'));
-  const few = base({ phase: 'lobby', step: null, mine: null, seats: [0, 1].map((i) => seat(i)), players: players(2) });
-  assert.ok(!keys(toView(few, 'p0')).includes('start'));
+  assert.deepEqual(keys(v), []);
+  assert.equal(v.center, '대기실');
+  assert.deepEqual(Object.keys(v.ranges).sort(), ['bid', 'flipPiles']);
 });
 
 test('setup: 안 놓았으면 놓기만, 놓았으면 없음', () => {
@@ -114,9 +110,8 @@ test('between / result', () => {
     result: { reason: 'points', winner: 'p2', ranks: [{ id: 'p2', name: 'N2', points: 2, discs: 3, rank: 1 }] } });
   const v = toView(r, 'p0');
   assert.equal(v.center, 'N2 님 승리!');
-  assert.deepEqual(keys(v), ['start']);
+  assert.deepEqual(keys(v), []); // 다시 하기는 공통 대기실에서
   assert.equal(v.result.ranks[0].name, 'N2');
-  assert.ok(!keys(toView(r, 'p1')).includes('start'));
 });
 
 test('관전자·탈락자·mine 없음에서도 오류 없이 행동 없음', () => {
@@ -137,8 +132,8 @@ test('actions 모양', () => {
   assert.deepEqual(A.pass(), { t: 'gk', a: 'pass' });
   assert.deepEqual(A.flip('p1'), { t: 'gk', a: 'flip', p: 'p1' });
   assert.deepEqual(A.discard({ k: 'S' }), { t: 'gk', a: 'discard', k: 'S' });
-  assert.deepEqual(A.color(4), { t: 'gk', a: 'color', c: 4 });
-  assert.deepEqual(A.start(), { t: 'start' });
+  assert.deepEqual(A.pickColor(4), { t: 'pick', patch: { color: 4 } });
+  assert.equal(A.requestFor({ key: 'start', a: 'start' }), null);
   assert.deepEqual(A.requestFor({ key: 'bid-2', a: 'bid', n: 2 }), { t: 'gk', a: 'bid', n: 2 });
   assert.deepEqual(A.requestFor({ key: 'discard-F', a: 'discard', k: 'F' }), { t: 'gk', a: 'discard', k: 'F' });
 });

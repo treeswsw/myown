@@ -225,18 +225,21 @@ test('abuse: full rooms', { timeout: 30000 }, async () => {
   await healthy();
 });
 
-test('abuse: mode change/start only by host and only in lobby', { timeout: 30000 }, async () => {
+test('abuse: mode change is gone (pk_mode), start only by host and only in lobby', { timeout: 30000 }, async () => {
   const { bots } = await seatAll(server, 'holdem', 3, { autoplay: false });
   const [h, b] = bots;
   b.errors.length = 0;
   b.send({ t: 'mode', mode: 'bluff' });
+  b.send({ t: 'start' });
   await sleep(80);
   assert.equal(h.state.mode, 'holdem');
-  assert.ok(b.errors.length >= 1);
+  assert.equal(h.state.phase, 'lobby', 'only the host starts');
+  assert.ok(b.errors.length >= 2);
+  h.errors.length = 0;
   h.send({ t: 'mode', mode: 'bluff' });
-  await h.waitFor(() => h.state.mode === 'bluff', 2000, 'host mode change');
-  h.send({ t: 'mode', mode: 'holdem' });
-  await h.waitFor(() => h.state.mode === 'holdem', 2000, 'back');
+  await h.waitFor(() => h.errors.length >= 1, 2000, 'host mode refused');
+  assert.equal(h.errors[0].code, 'pk_mode');
+  assert.equal(h.state.mode, 'holdem');
   h.start();
   await h.waitFor(() => h.state.phase === 'playing', 3000, 'start');
   h.errors.length = 0;

@@ -1,10 +1,11 @@
 // 갱식마인드 플레이어 표시 + 말풍선 (GDD 7절, 11-2 화면 모듈 약속). 접두사 .dr-pl-
 // createPlayers(parent, ctx) -> { el, update(state), event(e), dispose() }
-// ctx = { send, meId(), now(), layout() }. 사용자 글자는 textContent 로만 넣는다.
+// ctx = { send, meId(), now(), layout(), faces(공용 faces: get(id) → {avatar, look}), profile(공용 프로필 부품) }. 사용자 글자는 textContent 로만 넣는다.
+// 사진·꾸미기·칭호는 공용 프로필 부품(ctx.profile)만 그린다. anchor(id) = 그 사람 사진 위쪽 자리(이모티콘·사진·말풍선 위치).
 import { BUBBLE_MS } from '../../../../shared/draw/constants.js';
 import {
   SEAT_COUNT, SEATS_PER_SIDE, seatSlots, bubbleMode, iAmDrawer, playerView,
-  bubbleFromChat, bubbleFromHit, logEntryFromChat, logEntryFromHit, logFromChatLog, pushLog, avatarSrc, logMode, shouldFollow,
+  bubbleFromChat, bubbleFromHit, logEntryFromChat, logEntryFromHit, logFromChatLog, pushLog, logMode, shouldFollow,
 } from './players.pure.js';
 
 const TALK_MS = 380;   // 통통 (CSS .dr-pl-talk 와 같은 값)
@@ -51,7 +52,6 @@ export function createPlayers(parent, ctx) {
   let state = null;
   let layout = 'wide';
   let disposed = false;
-  const faces = new Map();   // id -> 사진(data URL)
   const slotOf = new Map();  // id -> 자리 번호(칸 번호 0..7)
   const logItems = [];
 
@@ -65,24 +65,25 @@ export function createPlayers(parent, ctx) {
     s.seat.classList.remove('dr-pl-say-on');
   }
 
+  // 사진·꾸미기는 공용 프로필 부품 한 곳(ctx.profile). 같은 사진·이름이면 다시 그리지 않는다.
   function drawAvatar(s, v) {
-    const src = avatarSrc(faces.get(v.id));
-    const key = src ? 'img:' + src.length + ':' + src.slice(-24) : 'ltr:' + v.letter + v.color;
+    const f = ctx.faces?.get(v.id) ?? { avatar: null, look: null };
+    const size = layout === 'phone' ? 28 : 72;
+    const key = `${v.id}|${size}|${f.avatar ? f.avatar.length + f.avatar.slice(-24) : ''}|${JSON.stringify(f.look ?? null)}`;
     if (s.av.dataset.k === key) return;
     s.av.dataset.k = key;
-    s.av.replaceChildren();
     s.av.classList.remove('dr-pl-none');
-    if (src) {
-      const img = document.createElement('img');
-      img.src = src; img.alt = ''; img.draggable = false;
-      s.av.style.background = '';
-      s.av.classList.remove('dr-pl-ltr');
-      s.av.appendChild(img);
-    } else {
-      s.av.classList.add('dr-pl-ltr');
-      s.av.style.background = v.color;
-      s.av.appendChild(h('span', null, v.letter));
-    }
+    s.av.replaceChildren(ctx.profile.playerAvatar({ id: v.id, name: v.name, face: f.avatar, look: f.look, size }));
+  }
+
+  function drawName(s, v) {
+    const f = ctx.faces?.get(v.id) ?? { look: null };
+    const key = `${v.name}|${JSON.stringify(f.look ?? null)}`;
+    if (s.nm.dataset.k === key) return;
+    s.nm.dataset.k = key;
+    const tag = ctx.profile.nameTag({ name: v.name, look: f.look });
+    tag.style.alignItems = 'center'; // 칭호가 이름 위에 가운데로
+    s.nm.replaceChildren(tag);
   }
 
   function render() {
@@ -115,7 +116,7 @@ export function createPlayers(parent, ctx) {
         s.seat.className = 'dr-pl-seat dr-pl-empty';
         s.seat.dataset.mode = bubbleMode(layout, col, mine);
         s.tag.textContent = ''; s.tag.className = 'dr-pl-tag';
-        s.nm.textContent = ''; s.scNum.textContent = ''; s.plus.textContent = '';
+        s.nm.textContent = ''; s.nm.dataset.k = ''; s.scNum.textContent = ''; s.plus.textContent = '';
         continue;
       }
       if (s.id !== p.id) { clearBubble(s); s.id = p.id; s.av.dataset.k = ''; }
@@ -127,7 +128,7 @@ export function createPlayers(parent, ctx) {
       s.seat.className = 'dr-pl-seat' + (v.gone ? ' dr-pl-off' : '') + (v.drawing ? ' dr-pl-turn' : '') + (v.hit ? ' dr-pl-hit' : '') + (s.seat.classList.contains('dr-pl-inrow') ? ' dr-pl-inrow' : '') + (keep ? ' dr-pl-say-on' : '');
       s.tag.textContent = v.badge ? v.badge.text : '';
       s.tag.className = 'dr-pl-tag' + (v.badge ? ' dr-pl-' + v.badge.kind : '');
-      s.nm.textContent = v.name;
+      drawName(s, v);
       s.scNum.textContent = String(v.score);
       s.plus.textContent = v.gain > 0 ? '+' + v.gain : '';
     }
@@ -191,12 +192,19 @@ export function createPlayers(parent, ctx) {
       state = st ?? null;
       render();
     },
+    // 사진 이모티콘·기본 이모티콘·말풍선이 뜰 자리: 그 사람 사진의 위쪽 가운데
+    anchor(id) {
+      const i = slotOf.get(id);
+      if (i == null || root.closest('[hidden]')) return null;
+      const r = seats[i].av.getBoundingClientRect();
+      return r.width ? { x: r.left + r.width / 2, y: r.top + 4 } : null;
+    },
     event(e) {
       if (disposed || !e || typeof e.k !== 'string') return;
       switch (e.k) {
         case 'faces':
           for (const f of Array.isArray(e.items) ? e.items : []) {
-            if (f && typeof f.id === 'string') { faces.set(f.id, f.avatar); const i = slotOf.get(f.id); if (i != null) seats[i].av.dataset.k = ''; }
+            if (f && typeof f.id === 'string') { const i = slotOf.get(f.id); if (i != null) { seats[i].av.dataset.k = ''; seats[i].nm.dataset.k = ''; } }
           }
           render();
           break;
@@ -225,7 +233,7 @@ export function createPlayers(parent, ctx) {
           for (const s of seats) clearBubble(s);
           break;
         case 'left':
-          if (typeof e.id === 'string') { const i = slotOf.get(e.id); if (i != null) clearBubble(seats[i]); faces.delete(e.id); }
+          if (typeof e.id === 'string') { const i = slotOf.get(e.id); if (i != null) clearBubble(seats[i]); }
           break;
         default:
       }

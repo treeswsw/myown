@@ -1,13 +1,13 @@
 // Coin wallet on the hub (SPEC 22): award (22-2), swap / draw / buy / equip / rank (22-3..22-6).
 // Nothing here knows a game; games call hub.award(room, mode, rows) once per finished round.
-import { COIN_RULES, coinsFor } from '../../shared/coin/rules.js';
+import { secureRng } from '../../shared/cards.js';
+import { defaultEcon, normalizeEcon, coinsFor } from '../../shared/coin/rules.js';
 import { draw as gachaDraw, COST, TEN, POOL_START, freeNow, freeNext } from '../../shared/coin/gacha.js';
 import { item } from '../../shared/coin/shop.js';
 import { capsule, COST as CAP_COST, TEN as CAP_TEN, CRAFT, trashKingDue } from '../../shared/coin/capsule.js';
 import { ROWS, priceOf, periodOf, leftOf, rollRow } from '../../shared/coin/stock.js';
 import { parseCoin } from '../../shared/coin/protocol.js';
 
-const CHIPS_PER_COIN = 100;
 const MAX_CHIPS = 2_000_000_000;
 const DRAW_GAP_MS = 300;
 const ADMIN_ID = '관리자';
@@ -29,7 +29,7 @@ export const coinErr = (code) => ({ msg: ERR[code], code });
 export function stockOf(user, hub) {
   const g = user.gear ?? (user.gear = {});
   const now = hub?.now ? hub.now() : 0;
-  const rng = hub?.rng ?? Math.random;
+  const rng = hub?.rng ?? secureRng;
   if (!g.stock || typeof g.stock !== 'object') g.stock = {};
   const st = g.stock;
   const valid = (r) => st[r] && Number.isInteger(st[r].p) && Array.isArray(st[r].ids);
@@ -66,6 +66,7 @@ export function walletOf(user, hub) {
     owned: [...(g.owned ?? [])],
     equip: { ...(g.equip ?? {}) },
     hasPin: !!user.pin,
+    chipsPerCoin: hub?.econ ? hub.econ().chipsPerCoin : defaultEcon().chipsPerCoin,
     stock: stockOf(user, hub),
   };
 }
@@ -92,6 +93,23 @@ export function installWallet(hub) {
     }
   }
 
+  // 관리자 경제 설정 (SPEC 21-7): 시작 때 저장소에서 읽고, 바뀌면 바로 이 변수만 바꾼다(재시작 없음).
+  let econ = defaultEcon();
+  let econSet = false; // 읽기가 끝나기 전에 setEcon 이 불렸으면, 늦게 온 옛 값은 버린다
+  hub.econ = () => econ;
+  hub.coinRules = () => econ.rules;
+  Promise.resolve()
+    .then(() => hub.store.getMeta('econ'))
+    .then((v) => { if (v && !econSet) econ = normalizeEcon(v); })
+    .catch((err) => console.error('econ load failed:', err.message));
+  // 새 설정(검사를 마친 것)을 적용하고 저장한다. 저장이 실패해도 지금 서버에서는 적용된다.
+  hub.setEcon = async (next) => {
+    econ = normalizeEcon(next);
+    econSet = true;
+    try { await hub.store.setMeta('econ', econ); } catch (err) { console.error('econ save failed:', err.message); }
+    return econ;
+  };
+
   const hasBot = (room) => hub.admin?.botsIn?.(room) > 0 || (room.members ?? []).some((m) => m.session?.bot);
 
   function ledger(entry) {
@@ -110,23 +128,110 @@ export function installWallet(hub) {
   }
 
   hub.award = (room, mode, rows) => {
-    if (!COIN_RULES[mode] || !room || hasBot(room)) return;
+    const rules = econ.rules;
+    if (!Object.hasOwn(rules, mode) || !room || hasBot(room)) return;
     const t = hub.now();
     for (const row of rows ?? []) {
       const session = hub.sessions.get(row.id);
       if (!session || session.bot || String(row.id).startsWith('~bot')) continue;
-      const n = coinsFor(mode, { won: !!row.won, opp: row.opp });
-      if (n <= 0) continue;
+      const won = !!row.won;
+      const n = coinsFor(mode, { won, opp: row.opp }, rules);
       const key = `${row.id}|${mode}`;
       const last = lastEarn.get(key);
-      if (last !== undefined && t - last < COIN_RULES[mode].gapMs) continue;
+      const gap = last !== undefined && t - last < rules[mode].gapMs;
+      if (n <= 0 || gap) {
+        // 판이 끝났는데 못 받은 사람에게도 짧게 알린다(0 코인). why: 'gap' = 같은 게임을 너무 빨리 또 함.
+        hub.send(session, { t: 'coin', a: 'got', n: 0, mode, win: won, ...(n > 0 ? { why: 'gap' } : {}) });
+        continue;
+      }
       lastEarn.set(key, t);
       const u = session.user;
       u.coins = (u.coins ?? 0) + n;
       u.coinsTotal = (u.coinsTotal ?? 0) + n;
-      changed(session, { kind: 'earn', delta: n, bal: u.coins, note: { mode, win: !!row.won } });
-      hub.send(session, { t: 'coin', a: 'got', n, mode, win: !!row.won });
+      changed(session, { kind: 'earn', delta: n, bal: u.coins, note: { mode, win: won } });
+      hub.send(session, { t: 'coin', a: 'got', n, mode, win: won });
     }
+  };
+
+  // ---- Escrow for a two-sided bet (mini match, SPEC 22-20). ----
+  // stake(key, rows, info): takes rows [{id, n}] off the players' coins and holds them under `key` (any unique object; the
+  // game passes its own ctx). Everything or nothing: checked for every row first, then taken. The held amount is also written
+  // on the account (gear.escrow = {code, n}) so a restart cannot lose it: the next login of that account gives it back
+  // (recoverStake). settleStake(key, winnerId|null): the winner gets the whole pot, null = everybody gets their own back.
+  // Settling twice does nothing. Returns null (ok) or an error {msg, code, id?}.
+  const stakes = new Map(); // key -> { rows: [{id, n, user}], mode, code }
+  hub.stakes = stakes;
+  const isBotId = (id) => String(id).startsWith('~bot');
+  const holding = (user) => [...stakes.values()].some((s) => s.rows.some((r) => r.user === user));
+  const liveUser = (r) => hub.sessions.get(r.id)?.user ?? r.user;
+
+  hub.stake = (key, rows, info = {}) => {
+    if (!key || stakes.has(key) || !Array.isArray(rows) || rows.length < 2) return coinErr('coin_bad');
+    const picked = [];
+    const seen = new Set();
+    for (const row of rows) {
+      const session = hub.sessions.get(row?.id);
+      if (!session || session.bot || isBotId(row.id) || seen.has(row.id)) return coinErr('coin_bad');
+      if (!Number.isInteger(row.n) || row.n <= 0) return coinErr('coin_bad');
+      const u = session.user;
+      if (u.gear?.escrow || holding(u)) return coinErr('coin_bad');
+      if (!Number.isInteger(u.coins) || u.coins < row.n) return { ...coinErr('coin_low'), id: row.id };
+      seen.add(row.id);
+      picked.push({ id: row.id, n: row.n, user: u });
+    }
+    const mode = info.mode ?? '';
+    const code = info.code ?? '';
+    for (const r of picked) {
+      const u = r.user;
+      u.coins -= r.n;
+      (u.gear ?? (u.gear = {})).escrow = { code, n: r.n };
+      changed(hub.sessions.get(r.id), { kind: 'stake', delta: -r.n, bal: u.coins, note: { mode, code } });
+    }
+    stakes.set(key, { rows: picked, mode, code });
+    return null;
+  };
+
+  hub.settleStake = (key, winnerId = null) => {
+    const st = stakes.get(key);
+    if (!st) return null;
+    stakes.delete(key);
+    const total = st.rows.reduce((a, r) => a + r.n, 0);
+    const won = winnerId !== null && st.rows.some((r) => r.id === winnerId);
+    const result = [];
+    for (const r of st.rows) {
+      const u = liveUser(r);
+      if (u.gear) delete u.gear.escrow;
+      let back = 0; // coins returned to the account now
+      let net = 0; // what the player gained (+) or lost (-) over the whole bet
+      let kind = 'stake_back';
+      if (!won) back = r.n;
+      else if (r.id === winnerId) { back = total; net = total - r.n; kind = 'stake_win'; u.coinsTotal = (u.coinsTotal ?? 0) + net; }
+      else { net = -r.n; kind = 'stake_lose'; }
+      u.coins = (u.coins ?? 0) + back;
+      hub.persist(u);
+      ledger({ uid: r.id, kind, delta: back, bal: u.coins, note: { mode: st.mode, code: st.code, net } });
+      const session = hub.sessions.get(r.id);
+      if (session) {
+        hub.sendMe(session);
+        if (net !== 0) hub.send(session, { t: 'coin', a: 'stake', n: net, mode: st.mode });
+      }
+      result.push({ id: r.id, net });
+    }
+    return result;
+  };
+
+  // Login: a bet that nobody holds any more (the server restarted) is given back.
+  hub.recoverStake = (session) => {
+    const u = session?.user;
+    const e = u?.gear?.escrow;
+    if (!e) return;
+    if (holding(u)) return;
+    delete u.gear.escrow;
+    if (Number.isInteger(e.n) && e.n > 0) {
+      u.coins = (u.coins ?? 0) + e.n;
+      ledger({ uid: session.id, kind: 'stake_back', delta: e.n, bal: u.coins, note: { code: e.code ?? '', recovered: true } });
+    }
+    changed(session, null);
   };
 
   function news(session, pull, name) {
@@ -162,7 +267,7 @@ export function installWallet(hub) {
         const e = needOut();
         if (e) return e;
         if (m.n > u.coins) return coinErr('coin_low');
-        const chips = m.n * CHIPS_PER_COIN;
+        const chips = m.n * econ.chipsPerCoin;
         if (u.bank + chips > MAX_CHIPS) return coinErr('coin_max');
         u.coins -= m.n;
         u.bank += chips;

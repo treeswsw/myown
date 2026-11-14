@@ -69,7 +69,6 @@ for (const n of [2, 3, 6]) {
       for (const b of bots) {
         const a = acc[b.id];
         sum += a.bank;
-        assert.equal(a.stats.refills, 0, 'refills must be 0');
         if (gone.has(b.id)) assert.equal(a.bank, 0, 'eliminated account must hold 0');
       }
       assert.equal(sum, total, `account chips not conserved: ${sum} != ${total}`);

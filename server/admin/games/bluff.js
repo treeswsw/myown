@@ -1,8 +1,6 @@
 // Admin bot for the bluff room (SPEC 21-3): on its turn it plays 1-2 cards, or now and then (~25%) calls LIAR.
 // bot = { id, name, rng(), send(msg), later(ms, fn) }; onMsg gets every server message the bot receives.
 // The brain only uses what a player is sent in `room` states (turn, myHand, lastPlay).
-import * as bluffRules from '../../../shared/bluff.js';
-
 const LIAR_CHANCE = 0.25;
 const pause = (bot) => 500 + Math.floor(bot.rng() * 1001); // 500..1500 ms
 
@@ -48,17 +46,7 @@ export function createBrain(bot) {
 }
 
 // Makes the pending wait fire now: the penalty display before the next round, or the winner display before the lobby.
-// Uses the room's own methods (what its 'next' timer would call), so the rules stay in the game.
+// `room` is the game object (room.impl, server/poker/room.js); it runs what its 'next' timer would, so the rules stay in the game.
 export function skip(room) {
-  if (room.mode !== 'bluff' || !room.game) return false;
-  if (room.phase === 'playing' && room.game.g.phase === 'reveal') {
-    room.clearTimer('next');
-    room.afterBluff(bluffRules.nextRound(room.game.g).events);
-    return true;
-  }
-  if (room.phase === 'result') {
-    room.toLobby();
-    return true;
-  }
-  return false;
+  return room.mode === 'bluff' && typeof room.skipBluff === 'function' && room.skipBluff();
 }

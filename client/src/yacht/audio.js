@@ -1,14 +1,9 @@
-// 요트다이스 소리(Web Audio 합성음). 사이트 음소거(client/src/audio.js 의 isMuted)를 따른다. Math.random 금지.
-import { isMuted } from '../audio.js';
+// 요트다이스 소리 표(Web Audio 합성음). 소리 엔진·소리 끄기는 사이트 공용 sound/core.js 하나(끄면 master gain 0). Math.random 금지.
+import { context, output, isMuted } from '../sound/core.js';
 import { prng } from '../../../shared/yacht/sim.js';
 
-let ctx = null, noiseBuf = null;
-
-function ac() {
-  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-  if (ctx.state === 'suspended') ctx.resume();
-  return ctx;
-}
+let noiseBuf = null;
+const ac = context;
 function noise(c) {
   if (!noiseBuf) {
     noiseBuf = c.createBuffer(1, Math.ceil(c.sampleRate * 0.3), c.sampleRate);
@@ -26,7 +21,7 @@ function tick({ f = 2400, dur = 0.05, gain = 0.3, at = 0, q = 1.2 }) {
   flt.type = 'bandpass'; flt.frequency.value = f; flt.Q.value = q;
   g.gain.setValueAtTime(gain, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  src.connect(flt).connect(g).connect(c.destination);
+  src.connect(flt).connect(g).connect(output());
   src.start(t); src.stop(t + dur + 0.02);
 }
 function tone({ f0, f1 = f0, dur = 0.15, gain = 0.2, at = 0, type = 'triangle' }) {
@@ -37,7 +32,7 @@ function tone({ f0, f1 = f0, dur = 0.15, gain = 0.2, at = 0, type = 'triangle' }
   o.frequency.exponentialRampToValueAtTime(f1, t + dur);
   g.gain.setValueAtTime(gain, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  o.connect(g).connect(c.destination);
+  o.connect(g).connect(output());
   o.start(t); o.stop(t + dur);
 }
 const play = (fn) => (...a) => { if (isMuted()) return; try { fn(...a); } catch { /* 소리를 못 내는 기기 */ } };

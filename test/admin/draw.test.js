@@ -29,7 +29,7 @@ test('admin + 1 bot play one full round (1 round, 2 questions) to the final rank
     await withSpy((bot, msg) => { if (msg.t === 'error') errors.push({ id: bot.id, ...msg }); }, async () => {
     const env = await setupAdmin({ mode: 'draw', bots: 1, seed: 7 });
     assert.equal(phase(env), 'lobby');
-    await dr(env, { a: 'settings', rounds: 1, time: 60 });
+    await env.admin.send({ t: 'set', patch: { rounds: 1, time: 60 } });
     assert.equal(env.state.settings.rounds, 1);
     await env.admin.send({ t: 'start' });
     assert.notEqual(phase(env), 'lobby');
@@ -72,7 +72,7 @@ test('bot as drawer picks a word and draws strokes the other player sees', async
       await env.until((e) => phase(e) === 'draw');
       const before = env.admin.sock.msgs.length;
       await env.until((e) => e.admin.sock.msgs.slice(before).filter((m) => m.t === 'event' && m.e.k === 'drSt').length >= 3, { max: 20_000 });
-      assert.equal(env.room.drawing.ops.length >= 3, true);
+      assert.equal(env.room.impl.drawing.ops.length >= 3, true);
       env.close();
       assert.deepEqual(errors, []);
       return;
@@ -85,7 +85,7 @@ test('skip ends pick, draw and reveal at once; lobby and final have nothing to s
   const env = await setupAdmin({ mode: 'draw', bots: 1, seed: 3 });
   let r = await env.adm('skip');
   assert.equal(r.error?.code, 'adm_noskip'); // lobby
-  await dr(env, { a: 'settings', rounds: 1, time: 60 });
+  await env.admin.send({ t: 'set', patch: { rounds: 1, time: 60 } });
   await env.admin.send({ t: 'start' });
   assert.equal(phase(env), 'pick');
   const t0 = env.clock.now();

@@ -27,7 +27,6 @@ export function createHud(ui, { send, getMe, emotePanel }) {
   const notice = h('div', 'notice', msg, leaveBtn);
   ui.append(row, info, notice);
   let panel = null;
-  let room = null;
 
   const closePanel = () => { panel?.remove(); panel = null; };
   const open = (key, ...kids) => {
@@ -56,7 +55,7 @@ export function createHud(ui, { send, getMe, emotePanel }) {
     const s = me.stats ?? {};
     const line = (k, v) => h('div', 'stat', k, h('b', '', fmt(v ?? 0)));
     open('stats', h('h3', '', me.name), line('보유 칩', me.bank), line('홀덤 판수', s.hands), line('홀덤 승리', s.wins), line('최고 획득', s.biggestWin),
-      line('리필', s.refills), line('블러핑 판수', s.bluffGames), line('블러핑 승리', s.bluffWins));
+      line('블러핑 판수', s.bluffGames), line('블러핑 승리', s.bluffWins));
   };
   const sound = circle(isMuted() ? TOP.muted : TOP.sound, '소리');
   sound.onclick = () => {
@@ -69,7 +68,6 @@ export function createHud(ui, { send, getMe, emotePanel }) {
   return {
     closePanel,
     update(r) {
-      room = r;
       row.style.display = info.style.display = r ? '' : 'none';
       const me = r?.players.find((p) => p.id === r.you);
       // The menu is always there, but spectators and the result screen get a plain leave button too.

@@ -1,10 +1,11 @@
-// 라이어게임 효과음. 파일 없이 WebAudio 로 만든다. 어떤 소리를 언제 틀지는 index.js 가 정한다.
-// 모듈을 불러올 때는 window 를 만지지 않는다. AudioContext 는 unlock() 때 처음 만든다.
+// 라이어게임 효과음 표. 파일 없이 WebAudio 로 만든다. 어떤 소리를 언제 틀지는 index.js 가 정한다.
+// 소리 엔진(AudioContext·master 음량·사이트 소리 끄기·iPad 잠금 해제)은 공용 sound/core.js 것을 쓰고, 이 파일은 소리 표와 합성만 갖는다.
+// 모듈을 불러올 때는 window 를 만지지 않는다.
 
 export const SOUND_NAMES = ['phase', 'myTurn', 'turn', 'vote', 'accused', 'judge', 'executed', 'spared',
   'tick', 'tickBig', 'liar', 'guessOk', 'guessNo', 'win', 'champion'];
 
-const MASTER = 0.5; // 전체 음량(한 곳)
+const MASTER = 0.5; // 이 게임 소리의 음량(공용 master 앞에 곱한다)
 
 // 음 하나: [시작초, 길이초, 시작Hz, 끝Hz, 파형, 음량]. 낮고 어두운 톤 위주.
 // 'noise' 는 [시작초, 길이초, 필터Hz, 0, 'noise', 음량].
@@ -28,32 +29,17 @@ const SOUNDS = {
     n(0.54, 0.25, 523, 523, 'triangle', 0.3), n(0.8, 0.7, 659, 659, 'triangle', 0.3), n(0.8, 0.7, 392, 392, 'sine', 0.2)],
 };
 
-export function createAudio() {
-  let ctx = null;
-  let master = null;
-  let muted = false;
+// sound = sound/core.js (context/output/isMuted). 꺼져 있으면(사이트 소리 끄기) 소리를 만들지 않는다.
+export function createAudio(sound) {
   let disposed = false;
   let noiseBuf = null;
+  let noiseCtx = null;
 
-  function unlock() {
-    if (disposed) return;
-    try {
-      if (!ctx) {
-        const AC = typeof globalThis !== 'undefined' ? (globalThis.AudioContext || globalThis.webkitAudioContext) : null;
-        if (!AC) return;
-        ctx = new AC();
-        master = ctx.createGain();
-        master.gain.value = MASTER;
-        master.connect(ctx.destination);
-      }
-      if (ctx.state === 'suspended') ctx.resume?.();
-    } catch { ctx = null; master = null; }
-  }
-
-  function noise() {
-    if (!noiseBuf) {
+  function noise(ctx) {
+    if (!noiseBuf || noiseCtx !== ctx) {
       const len = Math.floor(ctx.sampleRate * 0.5);
       noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+      noiseCtx = ctx;
       const d = noiseBuf.getChannelData(0);
       // 소리용 잡음. 게임 난수가 아니므로 고정 씨앗 xorshift(Math.random 금지 규칙)
       let x = 0x9e3779b9;
@@ -63,11 +49,14 @@ export function createAudio() {
   }
 
   function play(name) {
-    if (muted || disposed || !ctx || !master) return;
+    if (disposed || !sound || sound.isMuted()) return;
     const notes = Object.prototype.hasOwnProperty.call(SOUNDS, name) ? SOUNDS[name] : null;
     if (!notes) return;
     try {
-      if (ctx.state !== 'running') { ctx.resume?.(); }
+      const ctx = sound.context();
+      const master = ctx.createGain();
+      master.gain.value = MASTER;
+      master.connect(sound.output());
       const t0 = ctx.currentTime;
       for (const [st, dur, f0, f1, type, vol] of notes) {
         const g = ctx.createGain();
@@ -79,7 +68,7 @@ export function createAudio() {
         let src;
         if (type === 'noise') {
           src = ctx.createBufferSource();
-          src.buffer = noise();
+          src.buffer = noise(ctx);
           src.loop = true;
           const lp = ctx.createBiquadFilter();
           lp.type = 'lowpass';
@@ -99,14 +88,7 @@ export function createAudio() {
     } catch { /* 소리는 없어도 게임은 계속된다 */ }
   }
 
-  function setMuted(v) { muted = !!v; }
+  function dispose() { disposed = true; noiseBuf = null; noiseCtx = null; } // AudioContext 는 사이트 것이라 닫지 않는다
 
-  function dispose() {
-    disposed = true;
-    const c = ctx;
-    ctx = null; master = null; noiseBuf = null;
-    try { c?.close?.(); } catch { /* 무시 */ }
-  }
-
-  return { play, setMuted, get muted() { return muted; }, unlock, dispose };
+  return { play, dispose };
 }

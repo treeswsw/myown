@@ -1,6 +1,6 @@
 // 갱스껄 한 판 스모크 (`npm test` 에 포함): 실제 서버(GSK=test) + 빌드된 화면(dist/, ?nogl=1&gsk=1) + 창 3개.
-// 로그인 → 방 만들기 → 두 명 입장 → 색 고르기 → 시작 → (1) 자기 해골 실패 → (2) 남의 해골 실패(벌칙은 늘 도전자 본인이 앞면으로 고름, GDD 17절)
-// → (3)(4) 성공 두 번(4번은 경매 올리기 포함) → 결과에 승자 이름 → 한 판 더 → 나가기.
+// 로그인 → 방 만들기 → 두 명 입장(공통 대기실) → 색 고르기(대기실 개인 칸) → 시작(대기실 버튼 하나) → (1) 자기 해골 실패 → (2) 남의 해골 실패(벌칙은 늘 도전자 본인이 앞면으로 고름, GDD 17절)
+// → (3)(4) 성공 두 번(4번은 경매 올리기 포함) → 결과에 승자 이름 → "대기실로" → 방장이 다시 시작 → 이모티콘이 판 위에 보임 → 나가기(판 중이면 기권 확인).
 // 차례 버튼: 원판 내기 choose-place → place-F/S, 도전 choose-bid → pick-<n> → bid-<n>(확인), 경매 올리기도 pick-<n> → bid-<n>.
 // 상대 더미 flip-<id> 는 연출 중에는 버튼이 없다(서버도 거절) → 다시 눌릴 때까지 기다렸다 누른다. 보이는 글자·data-gk 버튼·받은 웹소켓 메시지로만 판단한다(그림 비교 없음).
 // 진행은 서버가 정한 차례(받은 room 상태)를 보고, 버튼은 그 차례인 창에서만 누른다. 임시 화면(data-gk 손잡이)이 진짜 화면으로 바뀌어도 같은 속성을 달면 통한다.
@@ -151,17 +151,18 @@ try {
     }
     await A.page.click('.lb-seg-item:has-text("갱스껄")');
     await A.page.click('button.lb-primary:has-text("방 만들기")');
-    await A.page.locator('.gkbar-code').waitFor({ state: 'visible' });
+    await A.page.locator('[data-rm="wait-start"]').waitFor({ state: 'visible' });
     for (const w of [B, C]) {
       const row = w.page.locator('.lb-room-row', { hasText: `${names.A}의 방` });
       await row.waitFor({ state: 'visible' });
       await row.locator('b', { hasText: '갱스껄' }).waitFor({ state: 'visible' });
       await row.click();
     }
-    for (const w of wins) await w.page.locator('[data-gk-seat]').nth(2).waitFor({ state: 'visible' });
-    const code = (await A.page.locator('.gkbar-code').innerText()).replace('방 코드', '').trim();
-    if (!code || !(await A.page.locator('[data-gk=center]').innerText()).length) throw new Error('방 코드·상황 문구가 비어 있음');
-    for (const w of wins) await w.page.locator('[data-gk-seat]', { hasText: names[w.who] }).first().waitFor({ state: 'visible' });
+    for (const w of wins) await w.page.locator('.wr-players .lb-row').nth(2).waitFor({ state: 'visible' });
+    const code = (await A.page.locator('[data-rm="wait-code"] b').innerText()).trim();
+    if (!code) throw new Error('방 코드가 비어 있음');
+    for (const w of wins) await w.page.locator('.wr-players .lb-row', { hasText: names[w.who] }).first().waitFor({ state: 'visible' });
+    if (await count(A, '[data-gk=start], .gkbar:not([hidden])')) throw new Error('갱스껄 자체 시작 버튼·옛 상단 줄이 남아 있음');
     noErrors('join');
   });
 
@@ -174,12 +175,12 @@ try {
     await waitS((s) => s.seats.every((x) => x.color != null), '색 3개');
     const cols = S().seats.map((x) => x.color).sort();
     if (cols.join() !== '0,1,2') throw new Error(`색이 ${cols}`);
-    await gk(A, 'start').waitFor({ state: 'visible' });
-    if ((await count(B, '[data-gk=start]')) || (await count(C, '[data-gk=start]'))) throw new Error('방장이 아닌 창에 시작 버튼이 보임');
+    await A.page.locator('[data-rm="wait-start"]').waitFor({ state: 'visible' });
+    if ((await B.page.locator('[data-rm="wait-start"]').isVisible()) || (await C.page.locator('[data-rm="wait-start"]').isVisible())) throw new Error('방장이 아닌 창에 시작 버튼이 보임');
   });
 
   await step('A 가 시작 → 세 창이 준비(원판 놓기) 단계', async () => {
-    await press(A, 'start');
+    await A.page.click('[data-rm="wait-start"]');
     await waitS((s) => s.phase === 'playing' && s.step === 'setup', '준비 단계');
     for (const w of wins) await gk(w, 'place-F').waitFor({ state: 'visible' });
     if (await count(A, '[data-gk=place-S]') !== 1) throw new Error('place-S 버튼이 없음');
@@ -331,24 +332,43 @@ try {
     }
     const all = await gk(A, 'result').innerText();
     for (const n of Object.values(names)) if (!all.includes(n)) throw new Error(`결과 순위에 ${n} 없음`);
-    if ((await count(B, '[data-gk=start]')) || (await count(C, '[data-gk=start]'))) throw new Error('방장이 아닌 창에 한 판 더 버튼');
+    for (const w of wins) if (await count(w, '[data-gk=start]')) throw new Error(`${w.who} 결과 창에 자체 시작 버튼이 남음`);
     noErrors('result');
   });
 
-  await step('A 가 "한 판 더" → 점수·원판이 처음으로 돌아가 다시 준비 단계', async () => {
+  await step('결과의 "대기실로" → 공통 대기실(색 다시 고르기) → A 가 시작 → 점수·원판이 처음으로 돌아가 다시 준비 단계', async () => {
     const gameNo = S().gameNo;
-    await press(A, 'start');
+    for (const w of wins) await press(w, 'to-wait');
+    for (const w of wins) await w.page.locator('.wr-root').waitFor({ state: 'visible' });
+    await press(A, 'color-3'); // 결과 뒤 대기실에서도 색을 바꿀 수 있다
+    await waitS((x) => x.wait?.own?.[A.st.you]?.color === 3, '결과 뒤 색 바꾸기');
+    await A.page.click('[data-rm="wait-start"]');
     await waitS((x) => x.phase === 'playing' && x.step === 'setup' && x.gameNo > gameNo, '새 판 준비 단계');
     for (const s of S().seats) if (s.points !== 0 || s.discs !== 4) throw new Error(`새 판인데 ${s.name} 점수 ${s.points} 원판 ${s.discs}`);
     for (const w of wins) await gk(w, 'place-F').waitFor({ state: 'visible' });
     if (await count(A, '[data-gk=result]')) throw new Error('새 판인데 결과 창이 남음');
+    if (S().seats.find((x) => x.id === A.st.you).color !== 3) throw new Error('고른 색이 새 판에 이어지지 않음');
     noErrors('restart');
   });
 
-  await step('나가기 → 로비로 돌아온다', async () => {
+  await step('게임 중 이모티콘이 머리 위(이름표 위)에 보인다', async () => {
+    await B.page.click('[data-rm="bar-emote"]');
+    await B.page.locator('.ep-btn.glyph').first().click();
+    for (const w of [A, C]) await w.page.locator('.rm-em').first().waitFor({ state: 'visible', timeout: 4000 });
+    const ok = await A.page.evaluate(() => { const e = document.querySelector('.rm-em'); const r = e && e.getBoundingClientRect(); return !!r && r.width > 0 && e.style.visibility !== 'hidden'; });
+    if (!ok) throw new Error('이모티콘이 자리를 못 찾아 숨겨짐(anchorOf)');
+    noErrors('emote');
+  });
+
+  await step('나가기 → 판 중이라 기권 확인이 뜨고, 확인하면 로비로 돌아온다', async () => {
     for (const w of wins) {
-      // 임시 화면의 나가기(data-gk=leave)는 지금 상단 줄(.gkbar)에 가려 눌리지 않는다(보고됨). 가려지면 상단 줄 버튼을 누른다.
-      await gk(w, 'leave').click({ timeout: 1500 }).catch(() => w.page.locator('.gkbar-btn', { hasText: '나가기' }).click());
+      await w.page.click('[data-rm="bar-leave"]');
+      // 앞 사람들이 나가 혼자 남으면 판이 끝나 결과 화면이다 → 확인 없이 바로 나간다
+      const playing = w.st?.phase === 'playing';
+      if (playing) {
+        await w.page.locator('.ui-confirm:has-text("나가면 기권 처리돼요")').waitFor({ state: 'visible' });
+        await w.page.click('.ui-mbtn.ui-danger');
+      }
       await w.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
       if (await count(w, '[data-gk-seat]')) throw new Error(`${w.who} 나간 뒤 화면이 남음`);
     }

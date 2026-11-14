@@ -103,7 +103,8 @@ test('poker room: lg is refused, mode liar is refused, poker keeps working', asy
   assert.equal(cs[0].sock.last('error').msg, '라이어게임은 방을 새로 만들어 주세요.');
   assert.equal(cs[0].state.mode, 'holdem');
   await cs[0].send({ t: 'mode', mode: 'bluff' });
-  assert.equal(cs[0].state.mode, 'bluff');
+  assert.equal(cs[0].sock.last('error').code, 'pk_mode', '방 안 전환은 없어졌다(G-poker)');
+  assert.equal(cs[0].state.mode, 'holdem');
 });
 
 test('lg envelope needs login and a room', async () => {
@@ -127,7 +128,7 @@ test('validation: lg envelope and create modes', () => {
 test('mediaBlocked: a room that returns a sentence blocks emote/pemote/snd/sndAdd; poker room is unaffected', async () => {
   const { hub } = setup();
   const { cs, code } = await lobby(hub, 'liar', ['ann1', 'bob1']);
-  hub.rooms.get(code).mediaBlocked = (session, kind) => (kind === 'pemote' || kind === 'snd' ? '지금은 쓸 수 없습니다.' : null);
+  hub.rooms.get(code).impl.mediaBlocked = (session, kind) => (kind === 'pemote' || kind === 'snd' ? '지금은 쓸 수 없습니다.' : null);
   await cs[0].send({ t: 'pemote', data: JPG });
   assert.equal(cs[0].sock.last('error').msg, '지금은 쓸 수 없습니다.');
   assert.equal(events(cs[1], 'pemote').length, 0);
@@ -151,7 +152,7 @@ test('avatar: liar room sends faces (never in room.state); poker room just pushe
   const before = events(b, 'faces').length;
   await a.send({ t: 'avatar', data: JPG });
   const faces = events(b, 'faces').slice(before);
-  assert.deepEqual(faces, [{ k: 'faces', items: [{ id: 'ann1', avatar: JPG }] }]);
+  assert.deepEqual(faces, [{ k: 'faces', items: [{ id: 'ann1', avatar: JPG, look: {} }] }]); // 공용 faces 알림은 look(꾸미기)도 싣는다
   for (const c of [a, b]) assert.equal(JSON.stringify(c.sock.msgs.filter((m) => m.t === 'room')).includes('data:image'), false);
 
   // faceChanged is the only thing called when the room has it
@@ -165,11 +166,11 @@ test('avatar: liar room sends faces (never in room.state); poker room just pushe
   assert.deepEqual(seen, ['ann1']);
   assert.equal(pushes, 0);
 
-  // poker: same as before (state push, avatar inside the state)
+  // poker (G-poker): faces too, never the photo in the state
   const p = await lobby(hub, 'holdem', ['cat1', 'dan1']);
   await p.cs[0].send({ t: 'avatar', data: JPG });
-  assert.equal(p.cs[1].state.players.find((x) => x.id === 'cat1').avatar, JPG);
-  assert.equal(events(p.cs[1], 'faces').length, 0);
+  assert.equal(p.cs[1].state.players.find((x) => x.id === 'cat1').avatar, undefined);
+  assert.equal(events(p.cs[1], 'faces').at(-1).items.find((x) => x.id === 'cat1').avatar, JPG);
 });
 
 async function setScore(hub, id, score, games) {
@@ -303,4 +304,29 @@ test('liar scores reach the store when the hub closes (flush -> save)', async ()
   await hub.close();
   assert.equal((await store.getOrCreate('ann1', 'ann1')).stats.liar.score, 7);
   assert.deepEqual(store.topLiar(5), [{ name: 'ann1', score: 7, games: 2 }]);
+});
+
+test('mediaBlocked: sndRename is blocked like other media, sndDel is not', async () => {
+  const { hub } = setup();
+  const { cs, code } = await lobby(hub, 'liar', ['ann1', 'bob1']);
+  await cs[0].send({ t: 'sndAdd', sid: 'abc123', name: '박수', data: 'data:audio/webm;base64,AAAA' });
+  hub.rooms.get(code).impl.mediaBlocked = (session, kind) => (kind === 'sndRename' ? '지금은 쓸 수 없습니다.' : null);
+  await cs[0].send({ t: 'sndRename', sid: 'abc123', name: '새이름' });
+  assert.equal(cs[0].sock.last('error').msg, '지금은 쓸 수 없습니다.');
+  assert.equal(events(cs[1], 'sndRename').length, 0);
+  await cs[0].send({ t: 'sndDel', sid: 'abc123' });
+  assert.equal(events(cs[1], 'sndDel').length, 1);
+});
+
+test('conn.close: a room that throws in setConnected does not escape the ws close handler', async () => {
+  const { hub } = setup();
+  const { cs, code } = await lobby(hub, 'liar', ['ann1', 'bob1']);
+  hub.rooms.get(code).setConnected = () => { throw new Error('boom'); };
+  const orig = console.error;
+  console.error = () => {};
+  try {
+    assert.doesNotThrow(() => cs[1].conn.close());
+  } finally {
+    console.error = orig;
+  }
 });

@@ -1,9 +1,9 @@
 // 갱스껄 벌칙 고르기 창 + 결과 창 (GDD 16절 G5). 사용자 글자는 textContent 로만.
 // createResult(parent, ctx) → { el, update(view), event(e), dispose() }
-// ctx 에서 쓰는 것: send, meId, face, busy
+// ctx 에서 쓰는 것: send, meId, face, busy, toWait(결과 화면의 "대기실로")
 import './result.css';
 import { requestFor } from '../actions.js';
-import { COLORS, discFlowerUrl, discSkullUrl, matUrl, skullPhotoUrl } from '../art.js';
+import { COLORS, discFlowerUrl, discSkullUrl, matUrl, setSkullImg } from '../art.js';
 import { penaltyPlan, rankRows, winnerInfo, winCaption } from './result.pure.js';
 
 const GONE_MS = 360;
@@ -92,10 +92,7 @@ export function createResult(parent, ctx) {
       b.type = 'button';
       const skull = c.k === 'S';
       const i = img(skull ? discSkullUrl(color) : discFlowerUrl(color), 'gk-rs-discimg');
-      if (skull) {
-        const photo = ctx.face && ctx.face(ctx.meId());
-        if (photo) skullPhotoUrl(color, photo).then((u) => { if (!disposed) i.src = u; });
-      }
+      if (skull) setSkullImg(i, color, ctx.face && ctx.face(ctx.meId()), () => !disposed);
       b.append(i);
       b.append(h('span', 'gk-rs-cnt', `×${c.count}`));
       b.setAttribute('aria-label', skull ? '해골 원판' : '꽃 원판');
@@ -122,7 +119,7 @@ export function createResult(parent, ctx) {
       const face = h('div', 'gk-rs-ph');
       // 사진이 없으면 그 색 해골 원판
       const f = img(discSkullUrl(info.color), 'gk-rs-phimg');
-      if (photo) skullPhotoUrl(info.color, photo).then((u) => { if (!disposed) f.src = u; });
+      setSkullImg(f, info.color, photo, () => !disposed);
       face.append(f);
       art.append(face);
     }
@@ -164,22 +161,14 @@ export function createResult(parent, ctx) {
       li.append(m);
       list.append(li);
     }
-    const start = act('start');
+    // 다시 하기는 공통 대기실에서(방장이 시작). 여기서는 대기실로 돌아가는 버튼 하나.
     const acts = h('div', 'gk-rs-acts');
-    if (start) {
-      const b = h('button', 'gk-rs-btn');
-      b.type = 'button';
-      b.dataset.gk = 'start';
-      b.append(diamond(), h('span', null, '한 판 더'), diamond());
-      b.addEventListener('click', () => {
-        const a = act('start');
-        const req = a && requestFor(a);
-        if (req) ctx.send(req);
-      });
-      acts.append(b);
-    } else {
-      acts.append(h('div', 'gk-rs-wait', '방장이 다시 시작하기를 기다리는 중'));
-    }
+    const b = h('button', 'gk-rs-btn');
+    b.type = 'button';
+    b.dataset.gk = 'to-wait';
+    b.append(diamond(), h('span', null, '대기실로'), diamond());
+    b.addEventListener('click', () => { if (!disposed && ctx.toWait) ctx.toWait(); });
+    acts.append(b);
     list.append(acts);
 
     box.append(win, list);
@@ -197,7 +186,7 @@ export function createResult(parent, ctx) {
       else if ((plan = penaltyPlan(view))) mode = 'pen-' + plan.mode;
     }
     const next = mode ? [mode, plan && plan.cells ? plan.cells.map((c) => c.key).join(',') : '', plan && plan.name ? plan.name : '',
-      mode === 'result' ? JSON.stringify([view.result, !!act('start'), rankRows(view).map((r) => ((ctx.face && ctx.face(r.id)) || '').length)]) : ''].join('|') : '';
+      mode === 'result' ? JSON.stringify([view.result, rankRows(view).map((r) => ((ctx.face && ctx.face(r.id)) || '').length)]) : ''].join('|') : '';
     if (next === sig) return;
     sig = next;
     sent = false;

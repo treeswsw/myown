@@ -46,11 +46,8 @@ export function createBrain(bot) {
 }
 
 // Makes the hand-result display (the only timed wait of a holdem room) end now: the next hand starts,
-// or the champion lobby when a bust left one player. The room's own timer is cancelled and its callback is run.
+// or the champion lobby when a bust left one player. `room` is the game object (room.impl, server/poker/room.js):
+// its own timer is cancelled and what that timer would run is run now.
 export function skip(room) {
-  if (room.mode !== 'holdem' || room.phase !== 'result' || room.timers.next === null) return false;
-  const busted = (room.result?.busted?.length ?? 0) > 0;
-  room.clearTimer('next');
-  room.hub.guard(() => room.afterResult(busted))();
-  return true;
+  return room.mode === 'holdem' && typeof room.skipResult === 'function' && room.skipResult();
 }

@@ -169,6 +169,51 @@ design/   시안
 
 로비 보이기(화면): `보임 = draw==='on' || (draw==='test' && 주소에 ?draw=1)`. `test`는 "숨김"이지 "잠금"이 아니다.
 
+### 7-3. 공통 방 (2026-11-13, 묶음 2)
+접두사 `<p>` = 그 게임의 오류 코드 앞 글자(`pk_ lg_ yt_ dr_ gk_ mn_`). 모든 방 오류는 `{t:'error', msg, code}`.
+
+화면 → 서버
+| t | 필드 | 누가·언제 | 오류 code |
+|---|---|---|---|
+| `create` | `mode`, `game?` | 로비 | `<p>off` |
+| `start` | | 방장, `wait≠null` | `<p>host`, `<p>now`, canStart 의 코드 |
+| `set` | `patch: {키: 값}` (스키마 키, 중첩은 객체 그대로 예: `{times:{speak:30}}`) | 방장, `wait≠null` | `<p>host`, `<p>now`, 게임 검사 코드 |
+| `pick` | `patch: {키: 값}` (개인 칸: 갱스껄 `color`) | 본인, `wait≠null` | `<p>now`, 게임 검사 코드 |
+| `kick` | `id` | 방장, `wait≠null`, 자기 아님 | `<p>host`, `<p>now`, `<p>bad` |
+| `leave` `chat` `emote` `pemote` `snd*` | 그대로 | | |
+| ~~`mode`~~ | | **없어짐**(방 안 홀덤↔블러핑 전환) | 한 배포 동안 받아서 `{msg:'방을 새로 만들어 주세요.', code:'pk_mode'}`, 묶음 3 청소 때 protocol 에서 삭제 |
+
+서버 → 화면
+- `room.state` 공통 칸(모든 게임, 게임 칸은 그 아래에 그대로):
+```js
+{ code, mode, hostId, you, now, phase,
+  players: [{ id, name, connected, awayUntil, spectating, ...게임 칸 }],   // 사진 없음(포커는 이행 기간 avatar 유지, S3 때 뺌)
+  wait: null | { can, why: null | {msg, code}, set: {...방 설정}, own: { [id]: {...개인 칸} } },  // 대기·결과 동안만
+  specs: [{ id, name, connected }] }            // 관전 계정 자리(7-4). 참가자(players)와 따로, 최대 4
+```
+- 강퇴된 사람: `{t:'error', msg:'방장이 내보냈습니다.', code:'<p>kicked'}` 다음 `room:null`.
+- `event.e`: `joined{id,name}` `left{id,name}` `away{id}` `back{id}` 를 **모든 게임**이 보낸다(포커 새로). `faces.items[]` 에 `look`(장착 아이템 `{title?, frame?, color?, …}`, 상점의 `g.equip` 그대로) 추가.
+- 판 끝 코인 알림은 기존 `{t:'coin', a:'got', n, mode, win}`(22-10) 그대로. 이제 `ctx.finish` 한 길이라 코인 규칙이 있는 모든 게임에서 온다.
+- `sndAdd` 로 방 소리가 넘쳐 지워지면 지워진 것마다 `sndDel{sid}` 가 뒤따른다.
+
+호환·이행
+- 옛 전용 요청은 그대로 받는다(같은 함수로 감): `lg settings/kick`, `dr settings/kick/lobby`, `gk color`, `mn game/again/start`. 화면이 새 메시지로 다 옮긴 뒤 묶음 3 청소에서 지운다.
+- 옛 상태 칸(라이어 `settings`, 갱식마인드 `settings` 등)도 그대로 둔다. `wait.set` 은 대기실용 사본이다.
+- 옮기기 전 게임은 옛 모양 그대로(공통 칸 없음). 화면 틀은 `client/src/games.js` 의 `mount` 가 있는 게임만 새 길로 그린다.
+
+### 7-4. 관전 계정 (2026-11-13, 묶음 3)
+- 아이디가 `관전` + 숫자(`관전1`, `관전2`, …)인 계정은 어느 방에서든 **관전자**다. 판별은 `shared/spectator.js` 한 곳(`isSpectatorId`, `SPEC_MAX = 4`). 로그인은 보통 계정과 같다.
+- 입장은 `{t:'join', code}` 그대로. 대기 중이든 게임 중이든 들어오고, `room.state.specs` 에만 들어간다(`players`·자리·차례·정원·시작 인원·방장 밖). 관전 자리가 차면 `{code:'<p>specfull', msg:'관전 자리가 가득 찼습니다.'}`, 참가자가 없는 방은 `<p>bad`.
+- 만들기 `{t:'create'}` 는 `{code:'spec_create', msg:'관전 계정은 방을 만들 수 없습니다. …'}`.
+- 관전자가 보낼 수 있는 것: `leave` `chat` `emote` `pemote` `snd*`. 게임 요청(`act` `play` `liar` `lg` `yt` `dr` `gk` `mn`)·`pick` 은 `{code:'<p>spec', msg:'관전 중에는 할 수 없습니다.'}`(게임에 넘기지 않음), `start` `set` `kick` 은 `<p>host`.
+- 채팅·이모티콘은 그 게임의 규칙 훅(`chatCheck`·`mediaBlocked`)을 자리 없는 사람으로 그대로 탄다(라이어: 판 중 글 금지·기본 이모티콘만). 채팅을 게임이 맡는 갱식마인드(`chatOwn`)는 게임 중(고르기·그리기·공개) 관전자 채팅을 `<p>spec`("게임 중에는 관전자가 채팅할 수 없습니다.")으로 막는다: 정답 판정에 끼지 않고, 정답을 아는 사람과 말이 오가는 길이 없다. 대기·최종 결과 중에는 보통 채팅. 관전자 이모티콘·소리는 갱식마인드에서 늘 된다(단어를 모른다).
+- 관전자 기기에는 비밀이 없다: 각 게임 view 의 "자리 없는 사람" 시점(라이어 `my:{word:null, role:null}`, 갱식마인드 `word:null, choices:null`·정답자끼리 글 없음, 갱스껄 `mine:null`, 포커 `myCards:null`·남의 `cards:null`, 블러핑 `myHand:[]`). 게임 알림은 방 전체 알림만(갱식마인드는 "못 맞힌 사람"이 받는 것: 그림 선·`drNew`·`drHit`·공개 글).
+- 방장은 관전자를 대기 중이든 게임 중이든 내보낼 수 있다(`{t:'kick', id}`, 대기실 관전 줄의 ×).
+- 판 코인은 받지 않는다(Shell `ctx.finish` 가 참가자만 남긴다). 끊기면 60초 유예 뒤 나간다.
+- 빈 방은 참가자 기준: 마지막 참가자가 나가면 남은 관전자에게 `{t:'error', code:'<p>closed', msg:'참가자가 모두 나가 방이 닫혔습니다.'}` 다음 `room:null`.
+- `event.e` `joined`·`left` 에 관전자면 `spec: true`. 방 목록 `count` 는 참가자만.
+- 화면: 게임 중 위 가운데 "관전 중"(`.rm-spec`). 조작 버튼은 게임이 "내 자리 없음"으로 그리지 않는다. 갱식마인드는 게임 중 관전자 채팅 줄을 잠근다.
+
 ## 8. 화면
 
 시안 대응: `design/lobby.jpg`, `holdem-preflop.jpg`, `holdem-default.jpg`, `holdem-peek.jpg`, `holdem-board-zoom.jpg`, `holdem-raise-dial.jpg`, `holdem-win.jpg`, `bluff.jpg`.
@@ -440,6 +485,7 @@ design/   시안
 | `bot+` | 지금 방에 봇 한 명을 넣는다 |
 | `bot-` | 가장 늦게 들어온 봇 한 명을 내보낸다 |
 | `skip` | 지금 단계의 남은 시간을 0으로 만든다(다음 단계로) |
+| `econ` `econSet` `econReset` | 세부 설정(21-7) |
 
 - 성공하면 `{t:'admOk', a, bots}`(bots = 그 방의 봇 수). 실패는 `error`:
   관리자가 아님 `adm_no` "관리자만 할 수 있습니다." / 방에 없음 `adm_room` "방에 들어가서 쓰세요." /
@@ -476,6 +522,16 @@ design/   시안
 2. 화면: `client/src/admin/fx.js` 의 목록에 `{mode, id, label, play()}` 를 더한다.
 3. 시험: `test/admin/<모드>.test.js` — 관리자 혼자 + 봇으로 한 판이 끝까지 간다.
 
+### 21-7. 세부 설정 (경제 설정, 2026-11-13 사용자 요청)
+- 관리자 패널의 [세부 설정] 버튼 → 전체 화면 덮개(.adm-detail). 방 안·밖 어디서나 된다. 일반 사용자에게는 이 요청이 `adm_no` 로 거절된다.
+- 조절하는 것: 게임별 코인(`finish` 완주, `win` 승리 = 상대 1명당, `gapMs` 지급 간격 — 화면은 초 단위) 과 코인 교환 시세(`chipsPerCoin`, 1코인 = 몇 칩). 게임 목록은 `COIN_RULES` 의 키(bluff·liar·draw·yacht·mini·gsk). 상점 가격은 상점 개편 뒤 추가(화면에 자리 글만).
+- 모양: `econ = { rules: { <코인키>: {finish, win, gapMs}, ... }, chipsPerCoin }`. 기본값 = `shared/coin/rules.js` 의 `COIN_RULES`·`CHIPS_PER_COIN`(=지금까지 쓰던 값).
+- 범위(정수): finish 0~100, win 0~100, gapMs 0~3,600,000, chipsPerCoin 1~10,000 (`ECON_LIMITS`). 모든 코인키와 모든 칸이 있어야 하고, 모르는 키·소수·문자는 거절.
+- 요청(관리자만): `{t:'adm', a:'econ'}` 현재값 보기 / `{t:'adm', a:'econSet', econ}` 저장 / `{t:'adm', a:'econReset'}` 기본값으로 되돌리기(저장도 함).
+  세 요청 모두 답은 `{t:'admOk', a:'econ', saved, econ, defaults, limits}` (`saved` = 저장이 일어났나, `limits` = 위 범위 `{finish:[0,100], ...}`). 범위 밖이면 `error` `adm_bad` "값이 범위를 벗어났습니다."(저장 안 함), 관리자가 아니면 `adm_no`.
+- 저장: 저장소 `meta` 표의 키 `econ` 한 덩어리(JSON) — Postgres 는 기존 `meta (k text, v jsonb)` 표(시작 때 `CREATE TABLE IF NOT EXISTS`), 메모리 저장소도 같은 `getMeta/setMeta`. 서버 시작 때 읽고(손상된 칸은 기본값), 바꾸면 **재시작 없이 바로** 적용(`hub.econ()`, `hub.coinRules()`).
+- 읽는 곳: `hub.award`(정산)가 `hub.econ().rules` 를, 교환(`swap`)이 `chipsPerCoin` 을 읽는다. `me.wallet.chipsPerCoin` 으로 화면에 현재 시세를 준다(교환 창이 이 값을 보여 줌).
+
 ## 22. 갱식 코인·뽑기·상점·비밀번호 (2026-11-13 사용자 요청)
 
 모든 게임(앞으로 만들 게임 포함)이 함께 쓰는 돈 **갱식 코인**. 게임을 끝내면 받고, 칩으로 바꾸거나 뽑기·상점에 쓴다. 홀덤은 코인을 주지 않는다(칩만). 출시 시점에 모두 0에서 시작한다(소급 없음).
@@ -506,13 +562,14 @@ design/   시안
 - **상대 수** = 판을 시작한 사람 수 − 1(중간에 나간 사람도 센다). 라이어만 위 표대로.
 - **동점 1등**: 전원이 보너스를 온전히 받는다(나누지 않는다).
 - **무효**: 라이어의 무효 라운드(`void`)는 아무도 못 받는다. 요트·갱식마인드에서 다른 사람이 모두 나가 혼자 남아 끝난 판(`reason==='alone'`)도 아무도 못 받는다(부계정으로 시작했다 나가는 꼼수 방지). 블러핑도 같은 경우(남은 한 명이 나머지가 나가서 이긴 판)는 끝까지 한 사람이 2명 이상일 때만 준다. 방에 봇이 한 명이라도 있으면(관리자 시험 방) 아무도 못 받는다.
-- **최소 간격**: 같은 사람이 같은 게임에서 코인을 받은 지 표의 시간이 안 지났으면 이번 것은 0(알림도 없음). 서버 메모리에만 기억한다(`hub.now`).
+- **최소 간격**: 같은 사람이 같은 게임에서 코인을 받은 지 표의 시간이 안 지났으면 이번 것은 0. 서버 메모리에만 기억한다(`hub.now`). 0 이어도 판을 끝까지 한 사람에게는 `{t:'coin', a:'got', n:0, mode, win, why?}` 를 보낸다(`why:'gap'` = 간격 때문에 0; 규칙상 0 이면 `why` 없음) → 화면 "이번 판은 코인 없음". 중간에 나간 사람·관전자·봇 방에는 아무것도 없다.
+- 표의 값은 관리자 세부 설정(21-7)으로 바뀐다. `shared/coin/rules.js` 의 `COIN_RULES` 는 기본값이다. 갱스껄(`gsk`) 줄: 완주 2, 승리 2(상대 1명당), 간격 120초(갱식마인드와 비슷한 길이로 정함). 혼자 남은 판(`alone`)은 지급 없음.
 - **라이어 시점**: 라운드가 `result` 단계에 들어간 순간(정체 공개·정답 판정이 끝난 뒤)에만 준다. 그 전에는 코인 잔액도 알림도 바뀌지 않는다. 갱식마인드는 최종 순위가 나올 때, 요트는 결과 화면, 블러핑은 승자가 정해질 때.
 - 서버 함수 하나: `hub.award(room, mode, rows)`, `rows = [{id, won, opp}]`(끝까지 한 사람만, `opp` = 그 사람의 상대 수). 하는 일: 봇 방·최소 간격·봇 아이디 거르기 → `coins`·`coinsTotal` 더하기 → 저장 → 장부 `earn` → `me` 다시 보내기 → `{t:'coin', a:'got'}`.
-- 부르는 곳: 블러핑은 `server/rooms.js` `afterBluff`의 `done`에서 직접. 라이어·요트·갱식마인드는 게임 폴더를 고치지 않고 `server/coin/hooks.js`의 `hookRoom(hub, room)`이 방을 만든 직후 정산 함수를 감싼다(원래 함수 실행 뒤 결과를 읽어 `hub.award`): 라이어 `settle`(`game.result.winner`, `liarId`, `players − dropped`), 요트 `settle`(`result.ranks`, `winners`), 갱식마인드 `save(ranking)`(`rank===1`, `left`). 감쌀 함수가 없으면 방 만들기에서 오류를 던진다.
+- 부르는 곳: 블러핑은 `server/rooms.js` `afterBluff`의 `done`에서 직접. (2026-11-13 묶음 2 이후) 모든 게임은 판 끝에 공용 방 틀의 `ctx.finish(rows)` 를 판마다 한 번 부르고, 틀이 등록표 `coin` 키로 `hub.award` 를 부른다(COMMON-CONTRACT 1-3, D4. 옛 `server/coin/hooks.js` 감싸기는 지웠다): 라이어 결과(`winner`, `liarId`, `players − dropped`), 요트 결과(`ranks`, `winners`), 갱식마인드 순위(`rank===1`, `left`).
 
 ### 22-3. 교환
-- 1코인 = 100칩. 한도 없음. 칩 → 코인은 없다.
+- 1코인 = 100칩(기본값; 관리자 세부 설정으로 바뀐다, 21-7). 한도 없음. 칩 → 코인은 없다.
 - **방 밖에서만** 된다(홀덤은 계정 칩이 곧 테이블 스택이라서). 방 안이면 `coin_room`.
 - `n`은 1 이상 잔액 이하의 정수. 바꾼 뒤 칩이 2,000,000,000을 넘으면 `coin_max`.
 - 장부 `swap`(delta −n, chips +n×100).
@@ -553,7 +610,7 @@ design/   시안
 - 코인 랭킹은 **번 합**(`coins_total`) 큰 순 → 이름 순(코드 순), 0은 제외, 상위 20명, 관리자 계정 제외(21-1과 같음). 내 순위·내 합도 함께.
 
 ### 22-7. 알림
-- 코인을 받으면 그 사람에게 `{t:'coin', a:'got', n, mode, win}` → 화면 위쪽에 "+N 코인" 알림 2.5초(방 안에서도 보임, 조작을 막지 않음).
+- 코인을 받으면 그 사람에게 `{t:'coin', a:'got', n, mode, win}` → 화면 위쪽에 "이번 판 코인 +N"(0 이면 "이번 판은 코인 없음") 알림 2.5초(방 안에서도 보임, 조작을 막지 않음).
 - 라이어·갱식마인드의 비밀 약속: 정체 공개·최종 결과 전에는 `coin` 메시지가 없고 `me.wallet`도 바뀌지 않는다. 받는 메시지의 종류·순서·개수가 시민과 라이어가 같다(금액만 결과 뒤에 다름).
 
 ### 22-8. 비밀번호(선택, 숫자 4자리)
@@ -592,7 +649,7 @@ design/   시안
 | 메시지 | 설명 |
 |---|---|
 | `{t:'me', user, ..., wallet:{coins, total, pity, owned:[], equip:{}, hasPin}}` | `me`에 `wallet` 칸 추가. 바뀔 때마다 `me`를 다시 보낸다 |
-| `{t:'coin', a:'got', n, mode, win}` | 게임 적립 알림 |
+| `{t:'coin', a:'got', n, mode, win, why?}` | 게임 적립 알림(n=0 이면 "코인 없음", why:'gap' = 지급 간격) |
 | `{t:'coin', a:'swap', n, chips}` | 교환 결과 |
 | `{t:'coin', a:'draw', pulls:[{chips, tier}], chips, pity}` | 뽑기 결과(순서 = 뽑은 순서, `chips` = 합) |
 | `{t:'coin', a:'buy', id}` / `{t:'coin', a:'equip', slot, id}` | 상점 결과 |
@@ -632,7 +689,7 @@ design/   시안
 
 ### 22-13. 새 게임에 붙이는 방법
 1. `shared/coin/rules.js`의 `COIN_RULES`에 한 줄: `<mode>: {finish, win, gapMs}`.
-2. 그 게임이 한 판을 정산하는 곳에서 `hub.award(room, '<mode>', rows)`를 한 번 부른다(`rows` = 끝까지 한 사람마다 `{id, won, opp}`). 게임 폴더를 못 고치면 `server/coin/hooks.js`에 감싸기 한 덩어리.
+2. 그 게임이 한 판을 정산하는 곳에서 `hub.award(room, '<mode>', rows)`를 한 번 부른다(`rows` = 끝까지 한 사람마다 `{id, won, opp}`). 방 안에서는 `ctx.finish(rows)` 로 부른다(공용 방 틀이 `hub.award` 로 넘긴다).
 3. 비밀이 있는 게임이면 결과가 모두에게 공개된 뒤에만 부르고, `test/coin/leaks.test.js`에 한 판을 더한다.
 4. `test/coin/award.test.js`에 표 한 줄, 한 판 클릭 시험에 알림 확인 한 줄.
 
@@ -736,6 +793,13 @@ design/   시안
 - 방 안에서 남에게 보이기(22-16 B 단계)는 아직 없음: 꾸미기 창에 "게임 안 표시 · 준비중" 한 줄.
 - 화면은 있는데 서버가 아직 없는 요청은 버튼에 "이용불가"(흐림)로 두고 누르지 못하게 한다. 서버가 생기면 버튼만 켠다.
 - 로비 코인 버튼: [상점] [카드 뽑기] [캡슐] [꾸미기] [교환] [코인 랭킹] [비밀번호]. `SHOW_DRAW` 는 카드 뽑기 화면이 나오면 true.
+
+### 22-20. 미니게임 코인 베팅 맡기기 (2026-11-13 사용자 요청)
+- 서버 함수 둘(server/coin/wallet.js): `hub.stake(key, rows, {mode, code})`, `hub.settleStake(key, winnerId|null)`. `rows = [{id, n}]`(n 은 1 이상 정수, 사람 2명 이상, 봇 불가). 모두 되거나 하나도 안 된다(잔액·중복·봇 검사 뒤에 한꺼번에 뗀다). 떼 간 코인은 계정에도 `gear.escrow = {code, n}` 로 적혀 저장된다.
+- `settleStake`: 이긴 사람이 판돈 전부(자기 것 + 상대 것), `null` 이면 각자 자기 것을 돌려받는다. 같은 key 로 두 번 부르면 두 번째는 아무 일도 없다. 번 몫(상대 판돈)만 `coinsTotal` 에 더한다.
+- 서버가 꺼졌다 켜져 아무도 맡고 있지 않은 `gear.escrow` 는 그 계정이 다시 로그인할 때 `hub.recoverStake` 가 돌려준다. 정상 종료(hub.close)는 방의 `flush` 가 먼저 돌려준다.
+- 알림: 정산 때 `{t:'coin', a:'stake', n, mode}` (n 은 이긴 사람 +판돈, 진 사람 −판돈, 무승부·환불은 보내지 않음). 화면 위쪽에 "+N 코인"/"−N 코인". 원래 승리 코인(`a:'got'`)은 그대로 따로 온다. 장부 종류: `stake`(떼기, 음수) `stake_win`·`stake_lose`·`stake_back`(정산, 돌려받은 양).
+- 쓰는 곳: 미니게임 매치(docs/mini/PLAN.md 5절).
 
 ## 23. 갱스껄
 

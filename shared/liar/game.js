@@ -7,7 +7,7 @@
 
 import {
   PHASES as P, MIN_PLAYERS, DEFAULT_TIMES, FIXED_TIMES, LIMITS,
-  DISCUSS_FLOOR, SHORTEN_TO, LIAR_MODES, SPEAK_HOLD,
+  DISCUSS_FLOOR, SHORTEN_TO, LIAR_MODES, SPEAK_HOLD, SPEAK_ROUND_CHOICES, DEFAULT_SPEAK_ROUNDS,
 } from './constants.js';
 
 const ms = (sec) => sec * 1000;
@@ -60,6 +60,7 @@ export function createGame({ players, settings = {}, draw, rng = defaultRng, now
     if (Number.isFinite(v) && v > 0) times[k] = v;
   }
 
+  const speakRounds = SPEAK_ROUND_CHOICES.includes(settings.speakRounds) ? settings.speakRounds : DEFAULT_SPEAK_ROUNDS;
   const liarId = players[pick(rng, players.length)];
   const order = shuffle(players, rng);
   const seatOrder = shuffle(players, rng);
@@ -69,7 +70,10 @@ export function createGame({ players, settings = {}, draw, rng = defaultRng, now
   for (const id of players) firstSays[id] = { text: null, late: false };
 
   return {
-    liarMode, times, round,
+    liarMode, times, round, speakRounds,
+    speakRound: 1,      // 지금 몇 바퀴째 첫 설명인가
+    extraSays: [],      // 2바퀴째부터의 발언 [{id, rd, text}] (1바퀴째는 firstSays)
+    extendNo: 0,        // 투표가 무산돼 이어 간 연장 투표 횟수
     players: players.slice(), order, seats, liarId,
     topic: draw.topic ?? null,
     citizenWord: draw.citizenWord,
@@ -92,7 +96,7 @@ export function createGame({ players, settings = {}, draw, rng = defaultRng, now
     pendingOutcome: null, // answer 단계 동안 쥐고 있다가 끝나면 finish 로 넘길 결과 사실
     outcome: null,      // result 로 넘어갈 때의 결과 사실(score 가 읽는다)
     result: null,
-    failReason: null,   // 'tie' | 'noVotes' (지목 실패 때)
+    failReason: null,   // 'tie' | 'noVotes' (가장 최근 투표 무산 이유)
     away: [],           // 다음 과제(away/back): 끊긴 사람. 첫 설명 차례에서 건너뛴다
     dropped: [],        // 다음 과제(drop): 판에서 빠진 사람
     shortened: false,
@@ -138,6 +142,13 @@ function nextSpeaker(g, now, events) {
   while (g.speakerIdx < g.order.length &&
          (g.away.includes(g.order[g.speakerIdx]) || g.dropped.includes(g.order[g.speakerIdx])));
   if (g.speakerIdx >= g.order.length) {
+    if (g.speakRound < g.speakRounds) {   // 다음 바퀴
+      g.speakRound += 1;
+      g.speakerIdx = -1;
+      events.push({ k: 'speakRound', no: g.speakRound });
+      nextSpeaker(g, now, events);
+      return;
+    }
     g.speakerIdx = g.order.length;
     startDiscuss(g, now, events);
     return;
@@ -147,11 +158,14 @@ function nextSpeaker(g, now, events) {
   events.push({ k: 'turn', id: g.order[g.speakerIdx] });
 }
 
+// 처음 토론·투표(길이가 긴 것, 30초 보장). 살린 뒤·연장 투표는 아니다.
+const isFirstDiscuss = (g) => g.accuseNo === 1 && g.extendNo === 0;
+
 function startDiscuss(g, now, events) {
   g.votes = {};
   g.candidates = null;
   g.firstVotes = null;
-  enter(g, P.DISCUSS, now, g.accuseNo === 1 ? g.times.discuss : g.times.rediscuss, events);
+  enter(g, P.DISCUSS, now, isFirstDiscuss(g) ? g.times.discuss : g.times.rediscuss, events);
 }
 
 function startRevote(g, now, events, leaders) {
@@ -177,7 +191,7 @@ function refreshShorten(g, now) {
   }
   if (g.shortened || (g.phase !== P.DISCUSS && g.phase !== P.REVOTE)) return;
   if (!allVoted(g)) { g.pendingShortenAt = null; return; }
-  const floorAt = g.phase === P.DISCUSS && g.accuseNo === 1 ? g.phaseStartedAt + ms(DISCUSS_FLOOR) : 0;
+  const floorAt = g.phase === P.DISCUSS && isFirstDiscuss(g) ? g.phaseStartedAt + ms(DISCUSS_FLOOR) : 0;
   if (now < floorAt) { g.pendingShortenAt = floorAt; return; }
   g.shortened = true;
   g.pendingShortenAt = null;
@@ -202,7 +216,7 @@ function decideAccusation(g, now, events) {
   if (!leaders.length) return failAccusation(g, now, events, 'noVotes', log);
   if (leaders.length === 1) {
     log.accused = leaders[0];
-    g.voteLog.push(log);
+    pushLog(g, log);
     g.accused = leaders[0];
     g.tally = tally;
     events.push({ k: 'accused', id: leaders[0], tally });
@@ -214,14 +228,23 @@ function decideAccusation(g, now, events) {
   return failAccusation(g, now, events, 'tie', log);
 }
 
-// 지목 실패: 처형 없이 라이어 공개만(unmask{id:null}). 이어서 guess.
-function failAccusation(g, now, events, reason, log) {
+// 투표 기록은 최근 30줄만 남긴다(연장 투표가 길어져도 끝없이 늘지 않게).
+const VOTE_LOG_MAX = 30;
+function pushLog(g, log) {
   g.voteLog.push(log);
+  if (g.voteLog.length > VOTE_LOG_MAX) g.voteLog.splice(0, g.voteLog.length - VOTE_LOG_MAX);
+}
+
+// 투표 무산(동률·무투표): 판을 끝내지 않는다. 기록만 남기고 연장 투표(다시 토론·투표)로 이어 간다.
+// 판이 끝나는 것은 투표로 한 명을 처형했을 때(와 방장 끝내기·사람 빠짐)뿐이다.
+function failAccusation(g, now, events, reason, log) {
+  pushLog(g, log);
   g.failReason = reason;
+  g.extendNo += 1;
   g.accused = null;
-  g.unmask = { id: null, wasLiar: null, liarId: g.liarId };
-  enter(g, P.UNMASK, now, FIXED_TIMES.unmaskFail, events);
-  events.push({ k: 'unmask', ...g.unmask });
+  g.tally = null;
+  events.push({ k: 'extend', reason, no: g.extendNo });
+  startDiscuss(g, now, events);
 }
 
 // 끝난 단계를 하나 넘긴다. 더 넘길 수 없으면(다음 과제 단계) false.
@@ -375,13 +398,14 @@ function actSay(g, { by, text }, now) {
 
   if (g.phase === P.SPEAK && g.speakHold) return fail('곧 다음 차례로 넘어갑니다.');
   if (g.phase === P.SPEAK && speakerOf(g) === by) {          // 차례인 사람: 기록하고 SPEAK_HOLD 초 머문 뒤 다음 차례
-    mine.text = c.text;
+    if (g.speakRound === 1) mine.text = c.text;
+    else g.extraSays.push({ id: by, rd: g.speakRound, text: c.text });
     g.speakHold = true;
     g.phaseEndsAt = now + ms(SPEAK_HOLD);
     return { ok: true, events: [{ k: 'chat', id: by, text: c.text, ts: now, kind: 'say' }] };
   }
   if (mine.text != null) return fail('이미 첫 설명을 썼습니다.');
-  if (g.phase === P.SPEAK && g.order.indexOf(by) > g.speakerIdx) return fail('아직 차례가 아닙니다.');
+  if (g.phase === P.SPEAK && g.speakRound === 1 && g.order.indexOf(by) > g.speakerIdx) return fail('아직 차례가 아닙니다.');
   mine.text = c.text;                                         // 늦은 추가: 차례·시각은 그대로
   mine.late = true;
   return { ok: true, events: [{ k: 'chat', id: by, text: c.text, ts: now, kind: 'late' }] };
@@ -523,7 +547,7 @@ export function viewFor(g, playerId) {
     }
   }
   const shown = g.phase === P.REVEAL ? 0
-    : g.phase === P.SPEAK ? g.speakerIdx + 1 : g.order.length;
+    : g.phase === P.SPEAK && g.speakRound === 1 ? g.speakerIdx + 1 : g.order.length;
   return {
     phase: g.phase,
     phaseEndsAt: g.phaseEndsAt,
@@ -535,6 +559,10 @@ export function viewFor(g, playerId) {
     speaker: speakerOf(g),
     speakDone: g.phase === P.SPEAK && g.speakHold,   // 차례인 사람이 이미 썼다(곧 다음 차례). 모두에게 같다
     firstSays: g.order.slice(0, shown).map((id) => ({ id, text: g.firstSays[id].text, late: g.firstSays[id].late })),
+    speakRound: g.speakRound,
+    speakRounds: g.speakRounds,
+    extraSays: g.extraSays.map((x) => ({ ...x })),
+    extendNo: g.extendNo,
     votes: { ...g.votes },
     candidates: g.candidates ? g.candidates.slice() : null,
     accuseNo: g.accuseNo,

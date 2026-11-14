@@ -23,7 +23,7 @@ export function createBrain(bot) {
     switch (s.phase) {
       case 'speak':
         if (s.speaker === bot.id && !s.speakDone) {
-          return { key: `${round}say`, msg: { t: 'lg', a: 'say', text: pickOf(bot.rng, SAYS) } };
+          return { key: `${round}say:${s.speakRound || 1}`, msg: { t: 'lg', a: 'say', text: pickOf(bot.rng, SAYS) } };
         }
         return null;
       case 'discuss':
@@ -31,7 +31,7 @@ export function createBrain(bot) {
         if (s.votes?.[bot.id]) return null;
         const pool = s.phase === 'revote' && s.candidates ? s.candidates.filter((id) => id !== bot.id) : others;
         if (!pool.length) return null;
-        return { key: `${round}vote:${s.phase}:${s.accuseNo}`, msg: { t: 'lg', a: 'vote', target: pickOf(bot.rng, pool) } };
+        return { key: `${round}vote:${s.phase}:${s.accuseNo}:${s.extendNo || 0}`, msg: { t: 'lg', a: 'vote', target: pickOf(bot.rng, pool) } };
       }
       case 'judge':
         if (s.accused === bot.id || s.judge?.picks?.[bot.id]) return null;
@@ -66,12 +66,7 @@ export function createBrain(bot) {
 
 // Makes the pending game timer fire now: the current phase (or the current speaker's turn) ends at once and the
 // engine's own tick moves on. Nothing to skip in the lobby, the result, or when no timer is pending.
+// `room` is the game object inside the common room frame (room.impl); it knows its own timer.
 export function skip(room) {
-  const g = room.game;
-  if (!g || g.phase === 'result' || room.timers.game === null || room.timers.game === undefined) return false;
-  g.phaseEndsAt = room.hub.now();
-  g.pendingShortenAt = null;
-  room.clearTimer('game');
-  room.onTimer();
-  return true;
+  return room.skipPhase?.() ?? false;
 }

@@ -93,15 +93,27 @@ async function runContext(browser, server, name, cfg) {
     check(`occlusion: ${state}`, bad.length === 0, bad.length ? `\n      ${bad.join('\n      ')}` : '');
   };
 
-  // Liar room: the settings/HUD layout is covered by test/ui/liar-round.mjs; here only the top bar buttons must be on top.
-  const barOnTop = async (state) => {
+  // Liar room (common frame): the HUD layout is covered by test/ui/liar-round.mjs; here only the common top bar / waiting-room buttons must be on top.
+  const rmBarOnTop = async (state) => {
     await page.waitForTimeout(150);
-    const bad = await page.evaluate(() => [...document.querySelectorAll('.lgbar-btn')].filter((el) => !el.hidden && el.offsetParent !== null).filter((el) => {
+    const bad = await page.evaluate(() => [...document.querySelectorAll('.rm-bar .rm-btn, .wr-root [data-rm]')].filter((el) => !el.hidden && el.offsetParent !== null).filter((el) => {
       const r = el.getBoundingClientRect();
       const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       return !(top && (top === el || el.contains(top)));
     }).map((el) => el.textContent));
     check(`liar top bar on top: ${state}`, bad.length === 0, bad.join(','));
+  };
+
+  // Leaving a poker room from the HUD menu: a confirm window while the table plays (press 나가기), none when already waiting.
+  const leaveConfirm = async (ms) => {
+    const lobbyBtn = 'button:has-text("방 만들기")';
+    const first = await Promise.race([
+      page.waitForSelector('.ui-confirm', { state: 'visible', timeout: ms }).then(() => 'confirm'),
+      page.waitForSelector(lobbyBtn, { state: 'visible', timeout: ms }).then(() => 'lobby'),
+    ]);
+    if (first === 'confirm') await press('.ui-mbtn.ui-danger');
+    // After an all-in the run-out animation may still play; the lobby returns at once on leaving.
+    await page.waitForSelector(lobbyBtn, { state: 'visible', timeout: ms });
   };
 
   // Bot opponent (manual mode) with a tiny deterministic pump: always check/call, never fold, never liar-call.
@@ -153,11 +165,13 @@ async function runContext(browser, server, name, cfg) {
     await occlusion('home lobby');
 
     /* ---------- hold'em ---------- */
-    await step('create a hold\'em room, waiting room shows', async () => {
+    await step('create a hold\'em room, the common waiting room shows (no in-room game switch)', async () => {
       const mode = await loc('.lb-seg-item[aria-checked="true"]').textContent();
       if (!mode.includes('홀덤')) throw new Error(`default mode is ${mode}`);
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.lb-actions .lb-danger');
+      await visible('[data-rm="wait-leave"]');
+      await visible('.wr-root:has-text("텍사스 홀덤")');
+      if (await page.locator('.wr-root .lb-seg-item:has-text("블러핑")').count()) throw new Error('the waiting room still offers 블러핑');
     });
     await occlusion('waiting room (host)');
     await step('bot sees the room in its rooms list and joins by code', async () => {
@@ -168,8 +182,8 @@ async function runContext(browser, server, name, cfg) {
     });
     await step('waiting room: chat icon stays hidden after later room updates', async () => {
       const seen = bot.messages.length;
-      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' });
-      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'room'), T, 'room update in waiting room');
+      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' }); // a photo now comes as a faces notice, never in the room state
+      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'event' && m.e.k === 'faces'), T, 'faces in waiting room');
       await sleep(500);
       const hidden = await page.evaluate(() => { const b = document.querySelector('.chat-btn'); return !b || b.hidden; });
       check('chat icon hidden in lobby mode after 2nd room update', hidden);
@@ -222,10 +236,10 @@ async function runContext(browser, server, name, cfg) {
       await visible('.chat-in');
       await page.focus('.chat-in');
       await page.keyboard.type('keepme');
-      // bot changes its avatar -> server pushes a room update to the page
+      // bot changes its avatar -> the page gets a faces notice and redraws the seat photos
       const seen = bot.messages.length;
-      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' });
-      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'room'), T, 'room update after avatar');
+      bot.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/BBBB' });
+      await bot.waitFor((b) => b.messages.slice(seen).some((m) => m.t === 'event' && m.e.k === 'faces'), T, 'faces after avatar');
       await sleep(1000);
       const r = await page.evaluate(() => ({ focused: document.activeElement?.classList.contains('chat-in'), v: document.querySelector('.chat-in')?.value }));
       check('chat input still focused with text after room update', r.focused && r.v === 'keepme', JSON.stringify(r));
@@ -305,11 +319,11 @@ async function runContext(browser, server, name, cfg) {
     if (await page.waitForSelector('.win', { state: 'visible', timeout: 1500 }).then(() => true, () => false)) await occlusion('result overlay');
     else check('result overlay (not reached within 1.5 s, skipped)', true);
 
-    await step('menu 나가기 returns to the lobby', async () => {
+    await step('menu 나가기 asks first while the table plays (확인 창), then returns to the lobby', async () => {
       await press('button[aria-label="메뉴"]');
       await press('.hpanel button.item');
-      // After an all-in the run-out animation plays before the lobby can show, so allow more time.
-      await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible', timeout: 25000 });
+      // While the table plays the frame asks first; a room already back in the waiting state leaves at once.
+      await leaveConfirm(25000);
     });
 
     /* ---------- bluff ---------- */
@@ -364,8 +378,7 @@ async function runContext(browser, server, name, cfg) {
     await step('liar: leave the bluff room', async () => {
       await press('button[aria-label="메뉴"]');
       await press('.hpanel button.item');
-      // the bluff reveal animation may still be playing; the lobby returns when it ends
-      await page.waitForSelector('button:has-text("방 만들기")', { state: 'visible', timeout: 20000 });
+      await leaveConfirm(20000);
     });
     await step('liar: lobby shows the 라이어 랭킹 button and a 3rd game choice', async () => {
       await visible('.lb-rank-btn');
@@ -386,34 +399,40 @@ async function runContext(browser, server, name, cfg) {
         if (st?.phase !== 'speak') b._said = false;
       });
     }
-    await step('liar: pick 라이어게임, create a room, two bots join', async () => {
+    await step('liar: pick 라이어게임, create a room → common waiting room; two bots join and 게임 시작 is enabled', async () => {
       await press('.lb-seg-item:has-text("라이어게임")');
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.lgbar-code');
-      await visible('.lg-st-player');
+      await visible('[data-rm="wait-start"]');
       const r = await openRoom('liar');
       for (const b of lgBots) await b.join(r.code);
-      await page.locator('.lg-st-player').nth(2).waitFor({ state: 'visible', timeout: T });
+      await page.waitForFunction(() => document.querySelectorAll('.wr-players li').length === 3 && !document.querySelector('[data-rm="wait-start"]').disabled, null, { timeout: T });
     });
-    await barOnTop('liar room (waiting)');
+    await rmBarOnTop('liar room (waiting)');
     await occlusion('liar room (waiting, settings)');
     await step('liar: lobby is hidden inside the liar room, poker HUD absent', async () => {
-      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root') && !document.querySelector('.lb-root').hidden, cluster: !!document.querySelector('.cluster') && getComputedStyle(document.querySelector('.cluster')).display !== 'none' && document.querySelector('.cluster').offsetParent !== null }));
+      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root:not(.wr-root)') && !document.querySelector('.lb-root:not(.wr-root)').hidden, cluster: !!document.querySelector('.cluster') && getComputedStyle(document.querySelector('.cluster')).display !== 'none' && document.querySelector('.cluster').offsetParent !== null }));
       if (r.lobby) throw new Error('lobby is visible in the liar room');
     });
-    await step('liar: room setting button (host) toggles', async () => {
-      await press('[data-lg="st-liarMode"][aria-pressed="false"]');
-      await visible('[data-lg="st-liarMode"][aria-pressed="true"]');
+    await step('liar: waiting room 전체 랭킹 (waitPart lg-rank) opens the ranking window, 닫기 closes it', async () => {
+      await press('[data-lg="rank-wait"]');
+      await visible('.ui-modal [data-lg="rank-mine"]');
+      await press('.ui-modal .ui-mbtn:has-text("닫기")');
+      await page.waitForSelector('.ui-modal', { state: 'detached', timeout: T });
     });
-    await step('liar: shortest times, then 시작 → role card', async () => {
-      for (const key of ['speak', 'discuss', 'rediscuss', 'defense', 'judge', 'guess']) {
-        await press(`[data-lg="st-time"][data-key="${key}"]`, 0);
-        await visible(`[data-lg="st-time"][data-key="${key}"][aria-pressed="true"]`);
+    await step('liar: room setting button (host) toggles (set → wait.set)', async () => {
+      await press('.wr-seg[aria-label="라이어 방식"] .wr-opt[aria-checked="false"]');
+      await visible('.wr-seg[aria-label="라이어 방식"] .wr-opt[aria-checked="true"]:has-text("라이어 알림")');
+      await press('.wr-seg[aria-label="라이어 방식"] .wr-opt[aria-checked="false"]'); // back to 다른 제시어
+    });
+    await step('liar: shortest times, then 게임 시작 → role card', async () => {
+      for (const label of ['첫 설명', '토론·투표', '살린 뒤 토론', '최후 변론', '찬반 투표', '정답 맞히기']) {
+        await press(`.wr-seg[aria-label="${label}"] .wr-opt`, 0);
+        await visible(`.wr-seg[aria-label="${label}"] .wr-opt:first-child[aria-checked="true"]`);
       }
-      await press('button.lgbar-btn:has-text("시작")');
+      await press('[data-rm="wait-start"]');
       await visible('[class*="lg-role-"]');
     });
-    await barOnTop('liar role reveal');
+    await rmBarOnTop('liar role reveal');
     await occlusion('liar role reveal');
     await step('liar: first explanations: chat locked with a note on others\' turns, my own turn types in the chat box', async () => {
       let sawLock = false;
@@ -423,7 +442,7 @@ async function runContext(browser, server, name, cfg) {
         const lockedNow = await page.evaluate(() => { const i = document.querySelector('.chat-in'); return Boolean(i && i.disabled && i.placeholder.includes('첫 설명 중에는')); });
         if (lockedNow) sawLock = true;
         if (!said && await page.getByText('당신의 발언시간입니다').first().isVisible()) {
-          await visible('.chat-in'); // 게임 중에는 아래 채팅 칸이 늘 보인다(채팅 버튼 없음)
+          await visible('.chat-in'); // 내 입력 차례가 오면 채팅 칸이 저절로 열린다
           await page.fill('.chat-in', '제 설명입니다');
           const p = lgBots[0].waitMsg((m) => m.t === 'event' && m.e.k === 'chat' && /제 설명입니다/.test(m.e.text), T, 'my explanation reaches a bot');
           p.catch(() => {});
@@ -436,29 +455,38 @@ async function runContext(browser, server, name, cfg) {
       if (!sawLock) throw new Error('chat was never locked with the 첫 설명 note');
       if (!said) throw new Error('my speaking turn never came');
     });
-    await step('liar: 아래 채팅 칸 "기록" 버튼이 기록 창을 열고 닫는다, 채팅 버튼은 없다', async () => {
+    await step('liar: 사이트 채팅 버튼으로 채팅 칸을 열면 "기록" 버튼이 기록 창을 열고 닫는다', async () => {
       const btnShown = await page.evaluate(() => { const b = document.querySelector('.chat-btn'); return Boolean(b && !b.hidden && b.getClientRects().length); });
-      check('liar in-game: .chat-btn not shown', !btnShown);
+      check('liar in-game: site .chat-btn shown', btnShown);
+      if (!(await page.locator('.chat-in').isVisible())) await press('.chat-btn');
+      await visible('.chat-in');
       await press('.chat-log');
       await visible('.chat-sheet');
       // 이름표는 토론·재투표에서만 눌린다(.lg-vt-can). 그 밖에는 pointer-events:none 이라 캔버스가 맨 위로 잡히는 것이 정상
       await occlusion('liar in-game, 기록 open', '.lg-vt-tag:not(.lg-vt-can)');
       await press('.chat-log');
+      if (await page.locator('.chat-btn[aria-expanded="true"]').count()) await press('.chat-btn'); // 채팅 칸 닫기
     });
     await step('liar: emote panel → emote reaches a bot', async () => {
       const p = lgBots[1].waitMsg((m) => m.t === 'event' && m.e.k === 'emote', T, 'emote event');
       p.catch(() => {});
-      await press('button.lgbar-btn:has-text("이모티콘")');
+      await press('[data-rm="bar-emote"]');
       await visible('.hpanel .ep-btn.glyph');
       await press('.hpanel .ep-btn.glyph', 0);
       await p;
-      if (await loc('.hpanel').count()) await press('button.lgbar-btn:has-text("이모티콘")');
+      if (await loc('.hpanel').count()) await press('[data-rm="bar-emote"]');
       await gone('.hpanel');
     });
-    await step('liar: 나가기 returns to the lobby, bar disappears', async () => {
-      await press('button.lgbar-btn:has-text("나가기")');
+    await step('liar: 나가기 mid-game asks first, 취소 keeps me in, 나가기 returns to the lobby', async () => {
+      await press('[data-rm="bar-leave"]');
+      await visible('.ui-confirm:has-text("나가면 이번 판에서 빠져요")');
+      await press('.ui-mbtn:has-text("취소")');
+      await visible('.rm-bar:not([hidden])');
+      await press('[data-rm="bar-leave"]');
+      await press('.ui-mbtn.ui-danger');
       await visible('button:has-text("방 만들기")');
-      await gone('.lgbar-code');
+      await gone('.rm-bar:not([hidden])');
+      await page.waitForFunction(() => document.querySelector('.lg-root') === null, null, { timeout: T }); // 3D·화면 요소가 남지 않는다
     });
     await step('liar: lobby 라이어 랭킹 button → window → close', async () => {
       await press('.lb-rank-btn');
@@ -512,7 +540,7 @@ async function runContext(browser, server, name, cfg) {
     const yEvent = (pred, label) => { const q = yBot.waitMsg((m) => m.t === 'event' && pred(m.e), T, label); q.catch(() => {}); return q; };
     const ytBarOnTop = async (state) => {
       await page.waitForTimeout(150);
-      const bad = await page.evaluate(() => [...document.querySelectorAll('.ytbar-btn')].filter((el) => !el.hidden && el.offsetParent !== null).filter((el) => {
+      const bad = await page.evaluate(() => [...document.querySelectorAll('.rm-bar .rm-btn, .wr-root button')].filter((el) => !el.hidden && el.offsetParent !== null).filter((el) => {
         const r = el.getBoundingClientRect();
         const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
         return !(top && (top === el || el.contains(top)));
@@ -522,26 +550,43 @@ async function runContext(browser, server, name, cfg) {
     await step('yacht: lobby shows 요트다이스 as a game choice', async () => {
       await visible('.lb-seg-item:has-text("요트다이스")');
     });
-    await step('yacht: pick 요트다이스, create a room, the bot joins, score sheet + bar show', async () => {
+    await step('yacht: pick 요트다이스, create a room → common waiting room; the bot joins and 게임 시작 is enabled', async () => {
       await press('.lb-seg-item:has-text("요트다이스")');
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.ytbar-code');
+      await visible('[data-rm="wait-start"]');
       const r = await openRoom('yacht');
       await yBot.join(r.code);
-      await visible('[data-yt="sheet"]');
-      await visible('[data-yt="bar-start"]');
+      await page.waitForFunction(() => { const b = document.querySelector('[data-rm="wait-start"]'); return b && !b.disabled; }, null, { timeout: T });
+    });
+    await step('yacht: a 관전N account joins → waiting room shows "관전 1/4" apart from players; host × kicks it', async () => {
+      const sBot = new Bot(server.url, `관전${String(Date.now()).slice(-7)}${cfg.touch ? 2 : 1}`, { autoplay: false });
+      await sBot.connect();
+      await sBot.login();
+      await sBot.join(yBot.state.code);
+      await visible('.wr-specs .lb-row');
+      const cap = await page.evaluate(() => document.querySelector('.wr-speccap')?.textContent ?? '');
+      if (cap !== '관전 1/4') throw new Error(`caption "${cap}"`);
+      await press('.wr-specs [data-rm="wait-kick"]');
+      await sBot.waitFor(() => sBot.state === null, T, 'spec kicked');
+      await gone('.wr-specs .lb-row');
+      sBot.close();
     });
     await ytBarOnTop('yacht room (waiting)');
     await occlusion('yacht room (waiting)');
-    await step('yacht: lobby hidden inside the room, liar bar absent', async () => {
-      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root') && !document.querySelector('.lb-root').hidden, lg: !document.querySelector('.lgbar').hidden }));
+    await step('yacht: lobby hidden inside the room, old top bars gone', async () => {
+      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root:not(.wr-root)') && !document.querySelector('.lb-root:not(.wr-root)').hidden, lg: !!document.querySelector('.lgbar, .ytbar, .gkbar') }));
       if (r.lobby || r.lg) throw new Error(`lobby=${r.lobby} liarBar=${r.lg}`);
     });
     await step('yacht: 시작 → my turn comes (cup button)', async () => {
-      await press('[data-yt="bar-start"]');
+      await press('[data-rm="wait-start"]');
       await visible('[data-yt="cup"]');
+      await visible('[data-yt="sheet"]');
     });
     await ytBarOnTop('yacht my turn');
+    await step('yacht: top bar starts at the right edge of the score sheet (--yt-sheet-w)', async () => {
+      const r = await page.evaluate(() => ({ sheet: Math.round(document.querySelector('[data-yt="sheet"]').getBoundingClientRect().width), bar: Math.round(document.querySelector('.rm-bar').getBoundingClientRect().left) }));
+      if (Math.abs(r.sheet - r.bar) > 2) throw new Error(`sheet ${r.sheet}px, bar left ${r.bar}px`);
+    });
     await step('yacht: hold the cup and release → the bot receives ytRoll', async () => {
       const p = yEvent((e) => e.k === 'ytRoll', 'ytRoll event');
       const b = await loc('[data-yt="cup"]').boundingBox();
@@ -597,16 +642,21 @@ async function runContext(browser, server, name, cfg) {
     await ytBarOnTop('yacht bot turn');
     await occlusion('yacht bot turn');
     await step('yacht: sound button toggles', async () => {
-      const before = await loc('[data-yt="bar-sound"]').getAttribute('aria-label');
-      await press('[data-yt="bar-sound"]');
-      const after = await loc('[data-yt="bar-sound"]').getAttribute('aria-label');
+      const before = await loc('[data-rm="bar-sound"]').getAttribute('aria-label');
+      await press('[data-rm="bar-sound"]');
+      const after = await loc('[data-rm="bar-sound"]').getAttribute('aria-label');
       if (before === after) throw new Error('label did not change');
-      await press('[data-yt="bar-sound"]');
+      await press('[data-rm="bar-sound"]');
     });
-    await step('yacht: 나가기 returns to the lobby, bar and board disappear', async () => {
-      await press('[data-yt="bar-leave"]');
+    await step('yacht: 나가기 mid-game asks first ("나가면 기권 처리돼요"), 취소 keeps me in, 나가기 returns to the lobby', async () => {
+      await press('[data-rm="bar-leave"]');
+      await visible('.ui-confirm:has-text("나가면 기권 처리돼요")');
+      await press('.ui-mbtn:has-text("취소")');
+      await visible('[data-yt="sheet"]');
+      await press('[data-rm="bar-leave"]');
+      await press('.ui-mbtn.ui-danger');
       await visible('button:has-text("방 만들기")');
-      await gone('.ytbar-code');
+      await gone('.rm-bar:not([hidden])');
       await page.waitForFunction(() => document.querySelector('.yt-root')?.hidden !== false);
     });
     yBot.close();
@@ -614,10 +664,10 @@ async function runContext(browser, server, name, cfg) {
       await step('poker still works after yacht: create a hold\'em room', async () => {
         await press('.lb-seg-item:has-text("홀덤")');
         await press('button.lb-primary:has-text("방 만들기")');
-        await visible('.lb-actions .lb-danger');
+        await visible('[data-rm="wait-leave"]');
       });
       await step('poker after yacht: leave the room', async () => {
-        await press('.lb-actions .lb-danger');
+        await press('[data-rm="wait-leave"]');
         await visible('button:has-text("방 만들기")');
       });
     }
@@ -628,27 +678,34 @@ async function runContext(browser, server, name, cfg) {
       await page.waitForSelector('.lb-cap:has-text("2~8명 · 그림 보고 단어 맞히기")', { state: 'attached', timeout: T }); // phone landscape hides the caption by design
     });
     await occlusion('home lobby (draw on)');
-    await step('draw: create a room → waiting room (settings, start button)', async () => {
+    await step('draw: create a room → common waiting room (room code, settings, start button)', async () => {
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.dr-st-code');
-      await visible('[data-dr="st-start"]');
-      await visible('.lgbar-code');
+      await visible('[data-rm="wait-code"]');
+      await visible('[data-rm="wait-start"]');
+      await visible('.wr-opt:has-text("맞힌 사람")');
     });
-    await barOnTop('draw room (waiting)');
     await occlusion('draw room (waiting)');
     await step('draw: lobby and poker/liar parts are hidden inside the draw room', async () => {
-      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root') && !document.querySelector('.lb-root').hidden, chatBtn: !!document.querySelector('.chat-btn') && !document.querySelector('.chat-btn').hidden }));
+      const r = await page.evaluate(() => ({ lobby: !!document.querySelector('.lb-root:not(.wr-root)') && !document.querySelector('.lb-root:not(.wr-root)').hidden, chatBtn: !!document.querySelector('.chat-btn') && !document.querySelector('.chat-btn').hidden }));
       if (r.lobby) throw new Error('lobby is visible in the draw room');
       if (r.chatBtn) throw new Error('site chat button is visible in the draw room');
     });
     await step('draw: pick an order option (출제 순서) and it turns on', async () => {
-      await press('[data-dr="st-order"]', 1);
-      await page.waitForFunction(() => document.querySelectorAll('[data-dr="st-order"]')[1]?.getAttribute('aria-pressed') === 'true', null, { timeout: T });
+      await press('.wr-opt:has-text("맞힌 사람")');
+      await page.waitForFunction(() => [...document.querySelectorAll('.wr-opt')].some((b) => b.textContent === '맞힌 사람' && b.getAttribute('aria-checked') === 'true'), null, { timeout: T });
     });
-    await step('draw: 나가기 returns to the lobby, bar disappears', async () => {
-      await press('button.lgbar-btn:has-text("나가기")');
+    await step('draw: waiting-room chat works, and a 41+ character line is stopped at 40 in the input', async () => {
+      const inp = loc('.wr-chat .chat-in');
+      await inp.fill('가'.repeat(60));
+      const n = await inp.evaluate((e) => [...e.value].length);
+      if (n !== 40) throw new Error(`input kept ${n} characters`);
+      await inp.fill('hello-draw-wait');
+      await inp.press('Enter');
+      await visible('.wr-chat .chat-row:has-text("hello-draw-wait")');
+    });
+    await step('draw: 나가기 in the waiting room returns to the lobby', async () => {
+      await press('[data-rm="wait-leave"]');
       await visible('button:has-text("방 만들기")');
-      await gone('.lgbar-code');
       await gone('.dr-root');
     });
 
@@ -657,23 +714,25 @@ async function runContext(browser, server, name, cfg) {
       await press('.lb-seg-item:has-text("갱스껄")');
       await page.waitForSelector('.lb-cap:has-text("3~6명 · 해골을 피해 꽃 뒤집기")', { state: 'attached', timeout: T });
     });
-    await step('gsk: create a room → room code appears in the top bar', async () => {
+    await step('gsk: create a room → common waiting room (code, 내 색 고르기); 시작은 대기실 버튼 하나뿐', async () => {
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.gkbar-code');
-      await page.waitForFunction(() => /방 코드 [A-Z0-9]{4,}/.test(document.querySelector('.gkbar-code')?.textContent ?? ''), null, { timeout: T });
+      await visible('[data-rm="wait-start"]');
+      await page.waitForFunction(() => /[A-Z0-9]{4,}/.test(document.querySelector('[data-rm="wait-code"] b')?.textContent ?? ''), null, { timeout: T });
+      const own = await page.evaluate(() => ({ gkStart: !!document.querySelector('[data-gk="start"]'), gkbar: !!document.querySelector('.gkbar:not([hidden])') }));
+      if (own.gkStart || own.gkbar) throw new Error(`old start/bar left: ${JSON.stringify(own)}`);
     });
-    await step('gsk: in the room, color-0 shows and can be pressed (임시 화면 data-gk)', async () => {
+    await step('gsk: in the waiting room, color-0 shows and can be pressed (pick) → my row gets the color dot', async () => {
       await visible('[data-gk="color-0"]');
       await press('[data-gk="color-0"]');
-      await page.waitForFunction(() => /초록/.test(document.querySelector('[data-gk-seat]')?.textContent ?? ''), null, { timeout: T });
+      await page.waitForFunction(() => !!document.querySelector('.wr-players .wr-dot'), null, { timeout: T });
     });
-    await step('gsk: 방장에게 시작 버튼이 보인다(3명 전에는 흐림). 원판 내기·도전 버튼(choose-place)은 3명 판이 필요해 gsk-round.mjs 가 본다', async () => {
-      await visible('[data-gk="start"]');
+    await step('gsk: 시작 버튼은 3명 전에는 꺼져 있다. 원판 내기·도전 버튼(choose-place)은 3명 판이 필요해 gsk-round.mjs 가 본다', async () => {
+      await page.waitForFunction(() => document.querySelector('[data-rm="wait-start"]')?.disabled === true, null, { timeout: T });
     });
-    await step('gsk: 나가기 returns to the lobby, bar disappears', async () => {
-      await press('button.gkbar-btn:has-text("나가기")');
+    await step('gsk: 나가기 (대기실은 확인 없이) returns to the lobby', async () => {
+      await press('[data-rm="wait-leave"]');
       await visible('button:has-text("방 만들기")');
-      await gone('.gkbar-code');
+      await gone('.wr-root:not([hidden])');
     });
     /* ---------- mini games 미니게임 (server MINI default on) ---------- */
     const mBot = new Bot(server.url, uid('mb'), { autoplay: false });
@@ -684,28 +743,58 @@ async function runContext(browser, server, name, cfg) {
       await press('.lb-seg-item:has-text("미니게임")');
       for (const g of ['오목', '리버시', '체커', '체스', '커넥트포']) await visible(`.lb-mini-item:has-text("${g}")`);
     });
-    await step('mini: pick 커넥트포, create a room → waiting room, the room list names the game', async () => {
+    await step('mini: pick 커넥트포, create a room → common waiting room lists the host, the room list names the game', async () => {
       await press('.lb-mini-item:has-text("커넥트포")');
       await press('button.lb-primary:has-text("방 만들기")');
-      await visible('.lgbar-code');
-      await visible('[data-mn="start"]');
+      await visible('[data-rm="wait-start"]');
       const r = await openRoom('mini');
       if (r.game !== 'connect4') throw new Error(`room list game=${r.game}`);
       await mBot.join(r.code);
-      await visible('.mn-wait-note:has-text("시작을 누르세요")');
+      await page.waitForFunction(() => { const b = document.querySelector('[data-rm="wait-start"]'); return b && !b.disabled; }, null, { timeout: T });
+      await visible('.wr-root :text("커넥트포")');
     });
     await occlusion('mini room (waiting)');
-    await step('mini: the host switches the game to 체스 in the waiting room, then back to 커넥트포', async () => {
-      await press('[data-mn="game-chess"]');
+    await step('mini: the host switches the game to 체스 in the waiting room (set), then back to 커넥트포', async () => {
+      await press('.wr-root .lb-seg-item:has-text("체스")');
       await mBot.waitFor((b) => b.state?.game === 'chess', T, 'game chess');
-      await press('[data-mn="game-connect4"]');
+      await press('.wr-root .lb-seg-item:has-text("커넥트포")');
       await mBot.waitFor((b) => b.state?.game === 'connect4', T, 'game connect4');
     });
+    await step('mini: 승부 방식 3판 2선승 → 단판 (set); the 코인 베팅 panel shows', async () => {
+      await press('.wr-root .lb-seg-item:has-text("3판 2선승")');
+      await mBot.waitFor((b) => b.state?.wait?.set?.len === 3, T, 'len 3');
+      await press('.wr-root .lb-seg-item:has-text("단판")');
+      await mBot.waitFor((b) => b.state?.wait?.set?.len === 1, T, 'len 1');
+      await visible('[data-mn="bet-input"]');
+    });
+    await step('mini: 베팅 + makes the bets differ (start blocked with the reason), 상대 베팅에 맞추기 equalises, back to 0', async () => {
+      const host = () => mState().hostId; // the page user created the room
+      const betOf = (b, id) => b.state?.wait?.own?.[id]?.bet;
+      await press('[data-mn="bet-plus"]');
+      await mBot.waitFor((b) => betOf(b, b.state.hostId) === 1, T, 'host bet 1');
+      await page.waitForFunction(() => document.querySelector('[data-rm="wait-start"]')?.disabled, null, { timeout: T });
+      await visible('.wr-why:has-text("서로 달라요")');
+      mBot.send({ t: 'pick', patch: { bet: 2 } });
+      await mBot.waitFor((b) => betOf(b, b.id) === 2, T, 'bot bet 2');
+      await press('[data-mn="bet-match"]');
+      await mBot.waitFor((b) => betOf(b, b.state.hostId) === 2, T, 'matched to 2');
+      await page.waitForFunction(() => !document.querySelector('[data-rm="wait-start"]')?.disabled, null, { timeout: T });
+      mBot.send({ t: 'pick', patch: { bet: 0 } });
+      await mBot.waitFor((b) => betOf(b, b.id) === 0, T, 'bot bet 0');
+      await press('[data-mn="bet-match"]');
+      await mBot.waitFor((b) => betOf(b, host()) === 0, T, 'host back to 0');
+    });
     await step('mini: 시작 → board shows, status says whose turn', async () => {
-      await press('[data-mn="start"]');
+      await press('[data-rm="wait-start"]');
       await mBot.waitFor((b) => b.state?.phase === 'play', T, 'play phase');
       await visible('.mn-board');
       await page.waitForFunction(() => /차례/.test(document.querySelector('[data-mn="status"]')?.textContent || ''), null, { timeout: T });
+    });
+    await step('mini: 기권 asks with the common confirm box (not the browser one); 취소 keeps playing', async () => {
+      await press('[data-mn="resign"]');
+      await visible('.ui-confirm');
+      await press('.ui-mbtn:has-text("취소")');
+      if (mState().phase !== 'play') throw new Error('cancelled resign ended the game');
     });
     await step('mini: both players drop four stones in a column → result text shows 승리', async () => {
       const bs = () => mState();
@@ -722,16 +811,20 @@ async function runContext(browser, server, name, cfg) {
       await mBot.waitFor((b) => b.state?.phase === 'end', T, 'end phase');
       await page.waitForFunction(() => /승리/.test(document.querySelector('[data-mn="status"]')?.textContent || ''), null, { timeout: T });
     });
-    await step('mini: 다시 (host) returns to the waiting room', async () => {
-      await press('[data-mn="again"]');
-      await mBot.waitFor((b) => b.state?.phase === 'lobby', T, 'lobby phase');
-      await visible('[data-mn="start"]');
+    await step('mini: result → 대기실로 → 게임 시작 again (host)', async () => {
+      await press('[data-mn="to-wait"]');
+      await visible('[data-rm="wait-start"]');
+      await press('[data-rm="wait-start"]');
+      await mBot.waitFor((b) => b.state?.phase === 'play', T, 'second play phase');
+      await visible('.mn-board');
     });
-    await step('mini: 나가기 returns to the lobby, bar and board disappear', async () => {
-      await press('button.lgbar-btn:has-text("나가기")');
+    await step('mini: 나가기 mid-game asks ("나가면 기권 처리돼요"), then returns to the lobby', async () => {
+      await press('[data-rm="bar-leave"]');
+      await visible('.ui-confirm:has-text("나가면 기권 처리돼요")');
+      await press('.ui-mbtn.ui-danger');
       await visible('button:has-text("방 만들기")');
-      await gone('.lgbar-code');
-      await page.waitForFunction(() => document.querySelector('.mn-root')?.hidden !== false);
+      await gone('.rm-bar:not([hidden])');
+      await page.waitForFunction(() => !document.querySelector('.mn-root'));
     });
     mBot.close();
   } catch (e) {
@@ -878,8 +971,15 @@ async function adminCheck(browser) {
       await b.page.click('.adm-toggle');
       await b.page.waitForSelector('.adm-panel', { state: 'visible' });
       rep('admin panel opens with 닫기', await b.page.locator('.adm-close').isVisible());
-      const roomBtnsHidden = await b.page.evaluate(() => [...document.querySelectorAll('.adm-row .adm-btn')].every((x) => x.hidden));
+      const roomBtnsHidden = await b.page.evaluate(() => [...document.querySelectorAll('.adm-row .adm-btn')].filter((x) => /봇|단계/.test(x.textContent)).every((x) => x.hidden));
       rep('in lobby the bot/skip buttons are hidden', roomBtnsHidden);
+      // 세부 설정(SPEC 21-7): 열면 게임별 코인 칸이 서버 값으로 채워지고, 닫을 수 있다
+      await b.page.click('.adm-open-detail');
+      await b.page.waitForSelector('.adm-detail .adm-game', { state: 'visible', timeout: 4000 });
+      const games = await b.page.locator('.adm-detail .adm-game').count();
+      rep('세부 설정 shows per-game coin rows + 상점 note', games >= 6 && (await b.page.locator('.adm-note').innerText()).includes('상점 가격'), `${games} rows`);
+      await b.page.click('.adm-dclose');
+      await b.page.waitForSelector('.adm-detail', { state: 'hidden' });
       await b.page.click('.adm-close');
       await b.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
       await b.page.click('button.lb-primary:has-text("방 만들기")');

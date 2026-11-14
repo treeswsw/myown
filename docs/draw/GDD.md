@@ -263,7 +263,7 @@
   - 휴대폰 가로 목록의 작은 프로필(28px)도 같은 움직임을 쓴다.
   - `prefers-reduced-motion`이면 튀지 않고 말풍선·테두리만 바뀐다. 움직임 느낌은 **미확인(실기기 확인 필요)**.
   - 시안에서 직접 볼 수 있다: `?s=guess`나 `?s=draw` 화면 왼쪽 아래 "▶ 말하기 시연", "▶ 정답 시연".
-- 상단 줄은 라이어게임의 `.lgbar`와 같은 자리·방식(방 코드, 메뉴, 소리, 나가기).
+- 상단 줄은 공용 `.rm-bar`(방 코드, 소리, 나가기). 옛 `.lgbar` 방식은 지난 기록.
 
 ## 8. 규칙 체크리스트 (13항목)
 
@@ -492,8 +492,7 @@ WebSocket `/ws`, JSON, `{t: 종류, ...}`. 기존 SPEC 7절을 그대로 쓰고 
 
 ## 11. 배포와 숨김 스위치
 
-- 환경 변수 **`DRAW`**: `off`(기본. 화면·서버에 흔적 없음) / `test`(주소에 `?draw=1`이 있을 때만 로비 칸이 보임) / `on`(모두에게 보임).
-  `render.yaml`은 `test`로 올리고, 사용자가 실기기에서 확인한 뒤 `on`. `test`는 숨김이지 잠금이 아니다(라이어와 같음).
+- 환경 변수 **`DRAW`**: `off`(화면·서버에 흔적 없음) / `test`(주소에 `?draw=1`이 있을 때만 로비 칸이 보임) / `on`(모두에게 보임). **서버 기본값 `on`**, `render.yaml`도 `on`(2026-11-13 사용자 요청으로 공개). `test`는 숨김이지 잠금이 아니다(라이어와 같음).
 - 화면 코드는 `import('./draw/index.js')`로 따로 불러온다(다른 게임만 하는 사람은 받지 않는다).
 - Render 무료 한 대·Neon 그대로. 새 표 없음, 새 서비스 없음. 배포하면 서버가 다시 시작되어 진행 중인 방이 끊긴다(기존과 같음).
 - 구역: `shared/draw/`, `server/draw/`, `client/src/draw/`, `test/draw/`, `docs/draw/`, `design/draw/`. CSS 는 전부 `.dr-`, 모듈 접두사는 11-1.
@@ -530,7 +529,7 @@ WebSocket `/ws`, JSON, `{t: 종류, ...}`. 기존 SPEC 7절을 그대로 쓰고 
 | 고르기·결과 | `ui/result.js`, `ui/result.css` | `.dr-rs-` | 단어 고르기 카드, 정답 공개 카드, 최종 순위 |
 | 소리 | `audio.js` | — | 내 차례·정답·10초 남음·시간 끝 |
 
-**통합 구역**(한 번에 한 에이전트, 맨 마지막): `server/protocol.js`(`dr` 봉투, `create mode:'draw'`), 방 관리(방 종류 `draw` 연결, `rooms` 목록), `server/store.js`(`stats.draw`), `me.draw`, `client/src/main.js`(`import('./draw/index.js')`, 상단 줄), `client/src/ui/lobby.js`(4번째 칸, 보이기 조건), `render.yaml`(`DRAW: test`), `test/ui/smoke.mjs`·`test/ui/draw-round.mjs`, SPEC·CLAUDE.md·README.
+**통합 구역**(한 번에 한 에이전트, 맨 마지막): `server/protocol.js`(`dr` 봉투, `create mode:'draw'`), 방 관리(방 종류 `draw` 연결, `rooms` 목록), `server/store.js`(`stats.draw`), `me.draw`, `client/src/main.js`(`import('./draw/index.js')`, 상단 줄), `client/src/ui/lobby.js`(4번째 칸, 보이기 조건), `render.yaml`(`DRAW`, 지금은 `on`), `test/ui/smoke.mjs`·`test/ui/draw-round.mjs`, SPEC·CLAUDE.md·README.
 
 ### 11-2. 화면 모듈 약속 (관리자 확정, 화면 모듈을 동시에 만들기 위한 것)
 

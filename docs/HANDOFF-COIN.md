@@ -1,3 +1,5 @@
+> 지난 기록(지금 구조는 COMMON-CONTRACT.md)
+
 # 코인·상점 작업 인계 (2026-11-13)
 
 새 대화에서 이어 갈 때: "docs/HANDOFF-COIN.md, docs/SPEC.md 22절, docs/COIN-ITEMS.md 를 읽고 이어서 해" 라고 시작한다.

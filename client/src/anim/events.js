@@ -73,7 +73,7 @@ export function createAnimator({ ui, stage, table, pins, cluster, special, getRo
         });
         break;
       }
-      case 'bluffDeal': table.clearPile(); pins.clearActs(); sfx.card(); break;
+      case 'bluffDeal': table.clearPile(); pins.clearActs(); pins.clearDead(); sfx.card(); break;
       case 'bluffPlay': table.addToPile(e.count, e.id); break;
       case 'liar':
         bigText(ui, 'LIAR!', pos(e.caller), 'red');

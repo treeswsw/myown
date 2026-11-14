@@ -8,6 +8,7 @@
 //   slots.answer  정답 입력 칸 + 보내기              → PC: 그림판 아래 / 휴대폰: 윗줄
 // 사용자 글자·단어는 textContent 로만 넣는다.
 import { GAME_NAME } from '../../../../shared/draw/name.js';
+import { CHAT } from '../../../../shared/draw/constants.js';
 import {
   remainMs, formatTime, barFraction, isUrgent, questionView, hitCounts, showHitCount,
   questionNo, answerBox, prepareText, keyboardHeight,
@@ -62,7 +63,7 @@ export function createHud(parent, ctx) {
   answer.hidden = true;
   const input = h('input', 'dr-hud-input', {
     type: 'text', enterkeyhint: 'send', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off',
-    spellcheck: 'false', maxlength: '80', 'aria-label': '정답 입력',
+    spellcheck: 'false', maxlength: String(CHAT.max), 'aria-label': '정답 입력',
   });
   const sendBtn = h('button', 'dr-hud-send', { type: 'submit' }, '보내기');
   answer.append(input, sendBtn);
@@ -75,7 +76,10 @@ export function createHud(parent, ctx) {
   function submit() {
     if (!answerBox(state, ctx.meId()).enabled) return;
     const text = prepareText(input.value);
-    if (text == null) return;
+    if (text == null) {
+      if (input.value.trim()) ctx.notice?.(`글은 ${CHAT.max}자까지 보낼 수 있어요`); // 너무 길면 말없이 멈추지 않고 안내한다
+      return;
+    }
     ctx.send({ t: 'chat', text });
     input.value = '';
     input.focus();

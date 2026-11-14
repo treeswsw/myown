@@ -97,7 +97,7 @@ describe('13-1 모이기와 역할', { concurrency: true }, () => {
     const topics = r.host.state.settings.topics.map((x) => x.name);
     assert.ok(topics.length >= 3);
     const pick = topics[2];
-    r.host.lg('settings', { nextTopic: pick });
+    r.host.set({ nextTopic: pick });
     await until(() => r.host.state.settings.nextTopic === pick, 'nextTopic', { clients: r.cs });
     await startRound(r);
     assert.ok(r.cs.every((c) => c.state.topic === pick), '고른 주제로 시작');

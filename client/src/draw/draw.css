@@ -1,10 +1,10 @@
-/* 갱식마인드 입구: 화면 뼈대와 배치 격자 (접두사 .dr- 중 모듈 접두사(.dr-cv- .dr-tb- .dr-hud- .dr-pl- .dr-st- .dr-rs-)가 아닌 이름만).
+/* 갱식마인드 입구: 화면 뼈대와 배치 격자 (접두사 .dr- 중 모듈 접두사(.dr-cv- .dr-tb- .dr-hud- .dr-pl- .dr-rs-)가 아닌 이름만).
    이 파일은 모듈 클래스를 다시 정의하지 않는다(css.test: 같은 클래스를 두 파일에 쓰지 않는다). 모듈 조각의 자리는
    index.js 가 조각을 감싸 준 칸(.dr-c-*)과 그림판 칸(.dr-bd)으로 정하고, 모듈이 직접 격자 칸이 되는 것(플레이어 좌우 줄·채팅 기록)만
    모듈 CSS 가 쓴 칸 번호(1열·5열 / 휴대폰 1열 1·2줄 / 기록 3열 / 이름 칸 dr-log)에 맞춘다.
    시안: design/draw/index.html (PC 1280x800, 휴대폰 가로 844x390). 높이 480px 이하이면 휴대폰 배치(pure.js layoutFor 와 같은 값).
 
-   루트 클래스(pure.js rootClasses): dr-wide | dr-phone / dr-ph-<lobby|pick|draw|reveal|final> / dr-tools(내가 그리는 중) | dr-plain /
+   루트 클래스(pure.js rootClasses): dr-wide | dr-phone / dr-ph-<pick|draw|reveal|final> / dr-tools(내가 그리는 중) | dr-plain /
    dr-lg-<full|small|hidden>(채팅 기록 칸) / dr-kb(휴대폰 키보드가 올라옴). */
 
 .dr-root {
@@ -19,7 +19,7 @@
   --pw: clamp(92px, 8.5vw, 112px); --palw: 0px; --toolw: 64px; /* PC·iPad: 색은 그림판 아래 줄로 옮겨 왼쪽 색 열(palw)은 0 */
   --sl: 0px; --sr: 0px;
   --logrow: 0px;                      /* PC·iPad: 그림판 아래 채팅 기록 줄 높이(+간격). dr-lg-* 가 정한다 */
-  --dr-bar-l: 150px; --dr-bar-r: 330px; /* PC·iPad 윗줄: 사이트 상단 줄(.lgbar)의 방 코드·버튼 자리를 비워 둠. 통합 때 맞춘다 */
+  --dr-bar-l: 150px; --dr-bar-r: 330px; /* PC·iPad 윗줄: 공용 상단 줄(.rm-bar)의 방 코드·버튼 자리를 비워 둠 */
   --ch: min(calc(100dvh - var(--bar) - var(--pad) * 2 - var(--strip) - var(--under) - var(--logrow) - 20px),
             calc((100vw - var(--pad) * 2 - var(--pw) * 2 - var(--palw) - var(--toolw) - var(--gap) * 4) * .75));
   --cw: calc(var(--ch) * 4 / 3);
@@ -53,12 +53,6 @@
 .dr-c-bar > * { flex: 1 1 auto; } /* 문제 띠가 칸 높이를 채운다 */
 .dr-c-bar { flex-direction: row; }
 .dr-c-meter { position: absolute; left: 0; right: 0; top: 0; z-index: 2; pointer-events: none; }
-.dr-lobby {
-  position: absolute; left: 0; right: 0; top: var(--bar); bottom: 0; z-index: 3;
-  display: flex; align-items: center; justify-content: center; pointer-events: none;
-  padding: 0 calc(var(--pad) + var(--sr)) var(--pad) calc(var(--pad) + var(--sl));
-}
-.dr-ph-lobby .dr-stage { display: none; }
 .dr-ph-final .dr-bd { position: static; } /* 최종 순위 층(position:absolute; inset:0)이 그림판 칸이 아니라 화면 전체를 덮는다 */
 
 /* ---------- PC·iPad ---------- */
@@ -115,23 +109,3 @@
 .dr-phone .dr-c-under { grid-column: 1; grid-row: 1; width: 0; height: 0; align-self: start; overflow: visible; }
 .dr-phone.dr-kb .dr-stage { grid-template-columns: 0 var(--cw) minmax(0, 1fr); justify-content: start; column-gap: 0; }
 .dr-phone.dr-kb .dr-bd { margin-left: var(--gap); }
-
-/* ---------- 휴대폰 가로 메뉴(≡): 윗줄 맨 왼쪽 칸 + 작은 창. PC·iPad·대기실·최종 순위에서는 index.js 가 숨긴다 ---------- */
-.dr-menu-btn {
-  flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 10px;
-  background: var(--fill); color: var(--ink); font-size: 22px; line-height: 1;
-  pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.dr-menu-btn[hidden], .dr-menu-back[hidden], .dr-menu-box[hidden] { display: none; }
-.dr-menu-back { position: absolute; inset: 0; z-index: 20; pointer-events: auto; }
-.dr-menu-box {
-  position: absolute; z-index: 21; top: calc(var(--bar) + 2px); left: calc(var(--pad) + var(--sl));
-  min-width: 140px; padding: 6px; display: flex; flex-direction: column; gap: 4px;
-  background: rgba(28, 28, 30, .96); border: 1px solid var(--hair); border-radius: 12px;
-  pointer-events: auto;
-}
-.dr-menu-code { padding: 2px 8px 4px; font-size: 11px; color: var(--ink2); }
-.dr-menu-item {
-  min-height: 36px; padding: 0 12px; border: 0; border-radius: 8px; text-align: left;
-  background: var(--fill); color: var(--ink); font: inherit; pointer-events: auto; cursor: pointer;
-}

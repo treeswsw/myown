@@ -28,7 +28,10 @@
 </div>
 <script type="module">
 import { createAudio, SOUND_NAMES } from '/client/src/liar/audio.js';
-const a = createAudio();
+import { sound } from '/client/src/sound/core.js'; // 사이트 공용 소리 엔진(소리 끄기도 이것을 따른다)
+const inner = createAudio(sound);
+// 시험 페이지용 겉옷: 예전 모양(unlock/setMuted/muted)을 공용 엔진 위에서 흉내 낸다
+const a = { play: inner.play, dispose: inner.dispose, unlock: () => sound.context(), setMuted: (v) => sound.setMuted(v), get muted() { return sound.isMuted(); } };
 window.h = { a, SOUND_NAMES };
 document.getElementById('unlock').onclick = () => a.unlock();
 document.getElementById('mute').onclick = () => a.setMuted(!a.muted);

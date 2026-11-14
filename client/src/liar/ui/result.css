@@ -63,7 +63,7 @@
 .lg-rs-sum { cursor: pointer; color: var(--lg-ink-dim, #a39a8f); padding: 4px 0; min-height: 28px; }
 .lg-rs-entry { padding: 4px 0 4px 10px; border-left: 2px solid var(--lg-line, rgba(239,230,216,.16)); margin-bottom: 4px; overflow-wrap: anywhere; }
 .lg-rs-evotes, .lg-rs-epicks { color: var(--lg-ink-dim, #a39a8f); font-size: .92em; }
-.lg-rs-foot { margin-top: 6px; padding: 8px 0 2px; background: var(--lg-panel-solid, #141012); display: flex; justify-content: center; }
+.lg-rs-foot { margin-top: 6px; padding: 8px 0 2px; background: var(--lg-panel-solid, #141012); display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px; }
 .lg-rs-foot .lg-rs-btn { min-width: calc(160px * var(--lg-k, 1)); }
 .lg-rs-nextwait { color: var(--lg-ink-dim, #a39a8f); padding: 6px 0; text-align: center; }
 .lg-rs-form[hidden] { display: none !important; }

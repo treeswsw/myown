@@ -93,11 +93,8 @@ export function createFirstSays(ctx) {
   function avatar(p) {
     const a = el('span', 'lg-fs-av');
     a.style.setProperty('--c', p ? p.color : '#888');
-    const src = p && ctx.faceOf ? ctx.faceOf(p.id) : null;
-    if (src) {
-      const img = el('img', 'lg-fs-img', { alt: '', draggable: 'false' });
-      img.src = src;
-      a.appendChild(img);
+    if (p && ctx.avatar) { // 사진·꾸미기는 공용 프로필 부품(ctx.avatar = ui/kit/avatar.js)
+      a.appendChild(ctx.avatar(p, 32));
     } else {
       a.classList.add('lg-fs-initial');
       a.textContent = p && p.name ? Array.from(p.name)[0] : '?';
@@ -111,9 +108,16 @@ export function createFirstSays(ctx) {
     const fs = state.firstSays || [];
     const writable = windowOpen(state);
     const done = fs.filter((f) => typeof f.text === 'string').length;
-    sub.textContent = `${done}명 · 발언 순서대로`;
+    const rounds = state.speakRounds || 1;
+    const extra = state.extraSays || [];
+    sub.textContent = `${done}명 · 발언 순서대로` + (rounds > 1 ? ` · ${rounds}바퀴` : '');
     empty.hidden = order.length > 0;
-    list.replaceChildren(...order.map((id, i) => {
+    const head = (n) => {
+      const h = el('li', 'lg-fs-round', { 'data-lg': 'fs-round' });
+      h.textContent = `${n}바퀴째`;
+      return h;
+    };
+    const rows = order.map((id, i) => {
       const p = nameOf(id);
       const entry = fs.find((f) => f.id === id);
       const li = el('li', 'lg-fs-row', { 'data-lg': 'fs-row', 'data-id': id });
@@ -142,7 +146,30 @@ export function createFirstSays(ctx) {
       box.appendChild(line);
       li.append(no, avatar(p), box);
       return li;
-    }));
+    });
+    const nodes = rounds > 1 ? [head(1), ...rows] : rows;
+    // 2바퀴째부터의 발언(모두가 이미 본 공개 글). 바퀴마다 구분 줄을 넣는다
+    for (let rd = 2; rd <= rounds; rd++) {
+      const said = extra.filter((x) => x.rd === rd);
+      if (!said.length) continue;
+      nodes.push(head(rd));
+      for (const x of said) {
+        const p = nameOf(x.id);
+        const li = el('li', 'lg-fs-row', { 'data-lg': 'fs-row', 'data-id': x.id, 'data-rd': String(rd) });
+        li.style.setProperty('--c', p ? p.color : '#efe6d8');
+        const no = el('span', 'lg-fs-no');
+        no.textContent = String(order.indexOf(x.id) + 1);
+        const box = el('div', 'lg-fs-box');
+        const name = el('span', 'lg-fs-name');
+        name.textContent = (p ? p.name : '?') + (x.id === state.you ? ' (나)' : '');
+        const line = el('p', 'lg-fs-text');
+        line.textContent = x.text;
+        box.append(name, line);
+        li.append(no, avatar(p), box);
+        nodes.push(li);
+      }
+    }
+    list.replaceChildren(...nodes);
   }
 
   function renderCount() {

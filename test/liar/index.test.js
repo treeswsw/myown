@@ -37,6 +37,16 @@ test('plainChat 은 서버 stripSizeMark 와 같은 결과(표시뿐인 글은 �
   }
 });
 
+test('leaveNoteFor: 판 도중의 참가자에게만 안내, 대기·결과·구경은 null', async () => {
+  const { leaveNoteFor } = await import('../../client/src/liar/pure.js');
+  const me = (spectating) => ({ you: 'a', players: [{ id: 'a', spectating }, { id: 'b', spectating: false }] });
+  assert.equal(typeof leaveNoteFor({ ...me(false), phase: 'discuss' }), 'string');
+  assert.equal(typeof leaveNoteFor({ ...me(false), phase: 'guess' }), 'string');
+  for (const phase of ['lobby', 'result']) assert.equal(leaveNoteFor({ ...me(false), phase }), null, phase);
+  assert.equal(leaveNoteFor({ ...me(true), phase: 'discuss' }), null);
+  assert.equal(leaveNoteFor(null), null);
+});
+
 test('chatMsgFor: 쓴 뒤 머무는 동안(speakDone)에는 say 로 보내지 않는다', () => {
   assert.deepEqual(chatMsgFor({ phase: 'speak', speaker: 'a', you: 'a', speakDone: true }, 'x'), { t: 'chat', text: 'x' });
 });

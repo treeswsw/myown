@@ -77,25 +77,60 @@ export function createRank(ctx) {
     },
     event(e) {
       if (!e || e.k !== 'lgRank' || !opened) return;
-      const { rows, mine } = rankLines(e.top, e.mine);
-      body.replaceChildren();
-      if (!rows.length) {
-        const p = el('div', 'lg-rk-note');
-        p.textContent = '아직 기록이 없어요';
-        body.appendChild(p);
-      }
-      for (const r of rows) {
-        const row = el('div', 'lg-rk-row', { 'data-lg': 'rank-row' });
-        const a = el('span', 'lg-rk-no'); a.textContent = String(r.rank);
-        const b = el('span', 'lg-rk-name'); b.textContent = r.name;
-        const c = el('span', 'lg-rk-score'); c.textContent = `${r.score}점`;
-        const d = el('span', 'lg-rk-games'); d.textContent = `${r.games}판`;
-        row.append(a, b, c, d);
-        body.appendChild(row);
-      }
-      mineEl.textContent = mine;
-      mineEl.hidden = false;
+      fillRank(body, mineEl, e);
     },
     dispose() { root.remove(); open.remove(); },
+  };
+}
+
+// 받은 랭킹(lgRank)을 목록·내 순위 칸에 채운다(결과 화면 창과 대기실 창이 같이 쓴다).
+function fillRank(body, mineEl, e) {
+  const { rows, mine } = rankLines(e.top, e.mine);
+  body.replaceChildren();
+  if (!rows.length) {
+    const p = el('div', 'lg-rk-note');
+    p.textContent = '아직 기록이 없어요';
+    body.appendChild(p);
+  }
+  for (const r of rows) {
+    const row = el('div', 'lg-rk-row', { 'data-lg': 'rank-row' });
+    const a = el('span', 'lg-rk-no'); a.textContent = String(r.rank);
+    const b = el('span', 'lg-rk-name'); b.textContent = r.name;
+    const c = el('span', 'lg-rk-score'); c.textContent = `${r.score}점`;
+    const d = el('span', 'lg-rk-games'); d.textContent = `${r.games}판`;
+    row.append(a, b, c, d);
+    body.appendChild(row);
+  }
+  mineEl.textContent = mine;
+  mineEl.hidden = false;
+}
+
+// 대기실 칸(waitPart 'lg-rank'): "전체 랭킹" 버튼 -> {t:'lg', a:'rank'} -> 공용 창(ctx.modal)에 목록. 로비·결과의 것과 같은 동작.
+// ctx = { send, modal }. 반환 { el, update(), event(e), dispose() }
+export function createRankPart(ctx) {
+  const btn = el('button', 'lb-btn lb-tint', { type: 'button', 'data-lg': 'rank-wait' });
+  btn.textContent = '전체 랭킹 보기';
+  let win = null; // { close, body, mineEl }
+  btn.addEventListener('click', () => {
+    win?.close();
+    const body = el('div', 'lg-rk-body lg-rk-wbody', { role: 'status', 'data-lg': 'rank-panel' });
+    const p = el('div', 'lg-rk-note');
+    p.textContent = '불러오는 중';
+    body.appendChild(p);
+    const mineEl = el('div', 'lg-rk-mine', { 'data-lg': 'rank-mine' });
+    mineEl.hidden = true;
+    const title = el('div', 'lg-rk-title');
+    title.textContent = '전체 랭킹';
+    const box = el('div', 'lg-rk-wbox');
+    box.append(title, body, mineEl);
+    const m = ctx.modal({ label: '전체 랭킹', content: box, buttons: [{ text: '닫기' }], onClose: () => { if (win?.box === box) win = null; } });
+    win = { close: m.close, body, mineEl, box };
+    ctx.send({ t: 'lg', a: 'rank' });
+  });
+  return {
+    el: btn,
+    update() {},
+    event(e) { if (win && e?.k === 'lgRank') fillRank(win.body, win.mineEl, e); },
+    dispose() { win?.close(); win = null; btn.remove(); },
   };
 }

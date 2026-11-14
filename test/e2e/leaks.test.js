@@ -100,7 +100,7 @@ test('leaks: bluff never exposes other hands or bullet positions', { timeout: 24
   const { bots } = await runBluff(server, 3, 6);
   await stopAll(bots);
   for (const b of bots) checkKeys(b);
-  const allowedPlayerKeys = new Set(['id', 'name', 'avatar', 'seat', 'connected', 'spectating', 'alive', 'handCount', 'shots', 'isDealer', 'stack', 'bet', 'folded', 'allin', 'cards']);
+  const allowedPlayerKeys = new Set(['id', 'name', 'awayUntil', 'seat', 'connected', 'spectating', 'alive', 'handCount', 'shots', 'isDealer', 'stack', 'bet', 'folded', 'allin', 'cards']);
   for (const b of bots) {
     for (const m of b.messages) {
       if (m.t !== 'room' || !m.state) continue;

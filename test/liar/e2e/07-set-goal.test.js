@@ -42,7 +42,7 @@ describe('13-7 제시어 묶음과 목표 점수', { concurrency: true }, () => 
     assert.deepEqual(names(r.host), MINE.map((x) => x.name));
     assert.equal(STAR.length, 10);
     // 방장이 아니면 못 바꾼다
-    r.cs[1].lg('settings', { wordSet: 'star' });
+    r.cs[1].set({ wordSet: 'star' });
     await until(() => r.cs[1].errors.length > 0, 'non-host refused', { clients: r.cs });
     assert.equal(r.host.state.settings.wordSet, 'mine');
     await setSettings(r, { wordSet: 'star' });
@@ -74,7 +74,7 @@ describe('13-7 제시어 묶음과 목표 점수', { concurrency: true }, () => 
     t.after(() => r.close());
     await setSettings(r, { wordSet: 'star' });
     await setSettings(r, { topicMode: 'host' });
-    r.host.lg('settings', { nextTopic: '롤챔프' });
+    r.host.set({ nextTopic: '롤챔프' });
     await until(() => r.cs.every((c) => c.state.settings.nextTopic === '롤챔프'), 'nextTopic', { clients: r.cs });
     await startRound(r);
     assert.equal(r.host.state.topic, '롤챔프');

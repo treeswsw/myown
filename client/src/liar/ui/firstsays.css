@@ -53,7 +53,7 @@
 .lg-fs-no { color: var(--lg-ink-dim, #a39a8f); font-family: var(--lg-serif, serif); font-variant-numeric: tabular-nums; text-align: right; padding-top: 0.25em; }
 .lg-fs-av {
   width: max(26px, calc(32px * var(--lg-k, 1))); height: max(26px, calc(32px * var(--lg-k, 1)));
-  border-radius: 50%; border: 2px solid var(--c, #efe6d8); background: #0c0909; overflow: hidden;
+  border-radius: 50%; border: 2px solid var(--c, #efe6d8); background: #0c0909; overflow: visible;
   display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
 }
 .lg-fs-av.lg-fs-initial { background: var(--c, #efe6d8); color: #120d0c; font-weight: 700; font-size: 0.85em; }
@@ -86,3 +86,4 @@
   background: var(--lg-gold, #d9b26a); color: #120d0c; font: inherit; font-weight: 700; cursor: pointer; touch-action: manipulation;
 }
 .lg-fs-late-send:disabled, .lg-fs-late-input:disabled { opacity: 0.55; cursor: default; }
+.lg-fs-round { list-style: none; margin: 6px 0 2px; padding: 2px 8px; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--lg-gold, #d9b26a); border-bottom: 1px solid rgba(217, 178, 106, .35); }

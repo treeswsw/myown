@@ -1,5 +1,6 @@
-// mountYacht: 요트다이스 화면 모듈(점수표·판·결과)을 하나로 묶는다. 약속: docs/YACHT-PLAN.md 3-2, SPEC 19절.
-// 방이 있을 때만 화면을 만들고, 방이 없어지면(applyRoom(null)) 전부 치운다(3D 장면도 stage.use(null)).
+// 요트다이스 화면 모듈(점수표·판·결과). 공통 방 틀(client/src/room/frame.js)이 mount(ctx) 로 불러 쓴다. 약속: docs/COMMON-CONTRACT.md 4-2, SPEC 19절.
+// 대기실·상단 줄(방 코드/소리/이모티콘/나가기)·이모티콘 머리 위 표시·채팅·소리 끄기·나가기 확인은 틀이 한다.
+// 이 모듈은 게임 판만 그린다: 대기실에서 게임으로 넘어갈 때 틀이 root 를 보이게 하고, 방을 나가면 unmount 를 부른다(3D 장면도 stage.use(null)).
 import './yacht.css';
 import './ui/sheet.css';
 import './ui/result.css';
@@ -7,9 +8,8 @@ import './ui/board.css';
 import { createSheet } from './ui/sheet.js';
 import { createResult } from './ui/result.js';
 import { createBoard } from './ui/board.js';
+import { createWho } from './ui/who.js';
 
-const JPEG = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
-const GLYPHS = ['👍', '😂', '😮', '😡', '😭', '🔥'];
 const YT_EVENTS = new Set(['ytRoll', 'ytKeep', 'ytShake', 'ytTurn', 'ytScore', 'ytEnd', 'ytStart', 'ytPick', 'ytDrop']);
 
 const el = (tag, cls) => {
@@ -21,114 +21,85 @@ const el = (tag, cls) => {
 // 판이 끝난 뒤(result·lobby)에는 서버가 남겨 둔 waiting 을 무시한다.
 const shown = (s) => (s && s.phase !== 'playing' && s.waiting ? { ...s, waiting: null } : s);
 
-export function mountYacht({ ui, stage, send, getMe, chat, toast, emotePanel }) { // eslint-disable-line no-unused-vars
+export function mount(ctx) {
+  const { stage, send } = ctx;
   const root = el('div', 'yt-root');
-  root.hidden = true;
-  ui.append(root);
+  ctx.root.append(root);
 
-  const faces = new Map();
-  const getFace = (id) => faces.get(id) ?? null;
-  const emotes = new Map(); // id -> { el, t }
-
-  let sheet = null;
-  let pane = null;
-  let result = null;
-  let board = null;
-  let ro = null;
+  const who = createWho({ faces: ctx.faces, profile: ctx.profile });
   let state = null;
   let busy = false;
+  let ro = null;
 
+  const sheet = createSheet({ host: root, send, who });
+  const pane = el('div', 'yt-pane');
+  root.append(pane);
+  const result = createResult({ host: pane, who, getMe: () => ctx.me(), onWait: () => ctx.toWait() });
+  const board = createBoard({
+    host: pane, stage, send, who,
+    onBusy: (b) => { busy = b; if (state) sheet.update(shown(state), { settled: !busy }); },
+  });
+
+  // 상단 줄이 점수표 오른쪽에서 시작하도록 점수표 폭을 알린다(틀의 상단 줄이 --yt-sheet-w 를 읽는다)
   function measure() {
-    if (!sheet) return;
     const w = Math.round(sheet.el.getBoundingClientRect().width);
     if (w) document.documentElement.style.setProperty('--yt-sheet-w', `${w}px`);
   }
+  if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(measure); ro.observe(sheet.el); }
+  measure();
 
-  function build() {
-    sheet = createSheet({ host: root, send, getFace });
-    pane = el('div', 'yt-pane');
-    root.append(pane);
-    result = createResult({ host: pane, getFace, getMe });
-    board = createBoard({
-      host: pane, stage, send, getFace,
-      onBusy: (b) => { busy = b; if (sheet && state) sheet.update(shown(state), { settled: !busy }); },
-    });
-    if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(measure); ro.observe(sheet.el); }
-    measure();
-    root.hidden = false;
-  }
-
-  function teardown() {
-    ro?.disconnect(); ro = null;
-    for (const m of [board, result, sheet]) { try { m?.dispose(); } catch (e) { console.error(e); } }
-    board = result = sheet = null;
-    pane?.remove(); pane = null;
-    for (const it of emotes.values()) it.el.remove();
-    emotes.clear();
-    document.documentElement.style.removeProperty('--yt-sheet-w');
-    try { stage?.use?.(null); } catch { /* the scene is already gone */ }
-    root.hidden = true;
-    busy = false;
-  }
-
-  function applyRoom(next) {
-    if (!next || next.mode !== 'yacht') {
-      state = null;
-      if (sheet) teardown();
-      return;
-    }
-    if (!sheet) build();
-    state = next;
-    const s = shown(next);
+  function paint() {
+    if (!state) return;
+    const s = shown(state);
     sheet.update(s, { settled: !busy });
     result.update(s);
     board.update(s);
-    requestAnimationFrame(measure);
   }
 
-  // 점수표의 그 사람 사진 아래쪽(말풍선·이모티콘이 화면 위로 잘리지 않게)
-  function anchorOf(id) {
-    const p = sheet?.anchor(id);
-    return p ? { x: p.x, y: p.y + 22 } : null;
-  }
+  // 사진·꾸미기가 새로 왔다: 점수표·결과의 사진만 다시 그린다
+  const offFaces = ctx.faces.onChange(() => {
+    if (!state) return;
+    const s = shown(state);
+    sheet.update(s, { settled: !busy });
+    result.update(s);
+  });
 
-  function showEmote(id, i) {
-    const pos = anchorOf(id);
-    if (!pos || !GLYPHS[i]) return;
-    emotes.get(id)?.el.remove();
-    const e = el('div', 'yt-em');
-    e.textContent = GLYPHS[i];
-    e.style.left = `${Math.min(innerWidth - 30, Math.max(30, pos.x))}px`;
-    e.style.top = `${Math.min(innerHeight - 10, Math.max(60, pos.y))}px`;
-    root.append(e);
-    emotes.set(id, { el: e, t: 2 });
-  }
+  return {
+    room(next) {
+      state = next;
+      paint();
+      requestAnimationFrame(measure);
+    },
 
-  function handleEvent(e) {
-    if (!e) return;
-    if (e.k === 'faces') {
-      for (const it of e.items || []) if (it && typeof it.id === 'string' && typeof it.avatar === 'string' && JPEG.test(it.avatar)) faces.set(it.id, it.avatar);
-      if (sheet && state) { sheet.update(shown(state), { settled: !busy }); result.update(shown(state)); }
-      return;
-    }
-    if (e.k === 'emote') { showEmote(e.id, e.e); return; }
-    if (!board || !YT_EVENTS.has(e.k)) return;
-    if (e.k === 'ytScore') sheet.flash(e);
-    board.handleEvent(e);
-  }
+    event(e) {
+      if (!e || !YT_EVENTS.has(e.k)) return;
+      if (e.k === 'ytScore') sheet.flash(e);
+      board.handleEvent(e);
+    },
 
-  function frame(dt) {
-    board?.frame(dt);
-    for (const [id, it] of emotes) {
-      it.t -= dt;
-      if (it.t <= 0) { it.el.remove(); emotes.delete(id); }
-    }
-  }
+    // 점수표의 그 사람 사진 아래쪽(말풍선·이모티콘이 화면 위로 잘리지 않게)
+    anchorOf(id) {
+      const p = sheet.anchor(id);
+      return p ? { x: p.x, y: p.y + 22 } : null;
+    },
 
-  function dispose() {
-    teardown();
-    root.remove();
-  }
+    frame(dt) {
+      board.frame(dt);
+    },
 
-  return { applyRoom, handleEvent, anchorOf, frame, dispose };
+    // 판이 진행 중이고 내가 기권하지 않은 참가자면 안내. 아니면 null(대기·결과·관전은 확인 없이/기본 확인)
+    leaveNote(s) {
+      const mine = s?.phase === 'playing' && (s.cols ?? []).find((c) => c.id === s.you);
+      return mine && !mine.left ? '나가면 기권 처리돼요' : null;
+    },
+
+    unmount() {
+      offFaces();
+      ro?.disconnect();
+      for (const m of [board, result, sheet]) { try { m.dispose(); } catch (e) { console.error(e); } }
+      document.documentElement.style.removeProperty('--yt-sheet-w');
+      try { stage?.use?.(null); } catch { /* the scene is already gone */ }
+      root.remove();
+    },
+  };
 }

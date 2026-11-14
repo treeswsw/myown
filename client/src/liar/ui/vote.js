@@ -121,15 +121,12 @@ export function createVote(ctx) {
   }
 
   function setAv(t, p) {
-    const face = ctx.faceOf ? ctx.faceOf(p.id) : null;
-    const key = face ? 'f:' + face : 'c:' + (p.name || '?').slice(0, 1) + p.color;
+    const key = ctx.avatarKey ? ctx.avatarKey(p) : 'c:' + (p.name || '?').slice(0, 1) + p.color;
     if (t.avKey === key) return;
     t.avKey = key;
     t.av.replaceChildren();
-    if (face) {
-      const img = el('img', 'lg-vt-img', { alt: '' });
-      img.src = face;
-      t.av.appendChild(img);
+    if (ctx.avatar) { // 사진·꾸미기는 공용 프로필 부품
+      t.av.appendChild(ctx.avatar(p, 24));
       t.av.classList.remove('lg-vt-initial');
     } else {
       t.av.textContent = Array.from(p.name || '?')[0] || '?';

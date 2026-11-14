@@ -185,7 +185,7 @@ export function createHand(parent, ctx) {
     if (p.buttons.length) {
       const acts = el('div', 'gk-hd-acts');
       for (const bt of p.buttons) {
-        const b = el('button', 'gk-hd-btn' + (bt.tone === 'ink' ? ' ink' : ''));
+        const b = el('button', 'gk-hd-btn' + (bt.tone === 'ink' ? ' gk-hd-ink' : ''));
         b.type = 'button';
         b.dataset.gk = bt.key;
         b.append(diamond(), el('span', '', bt.label), diamond());
@@ -197,7 +197,7 @@ export function createHand(parent, ctx) {
     if (p.coins) {
       controls.append(el('div', 'gk-hd-ask', p.coins.ask));
       const rows = p.coins.rows;
-      const acts = el('div', 'gk-hd-acts coins' + (rows.length > 1 ? ' two' : ''));
+      const acts = el('div', 'gk-hd-acts gk-hd-coins' + (rows.length > 1 ? ' gk-hd-two' : ''));
       rows.forEach((nums, ri) => {
         const row = el('div', 'gk-hd-row');
         for (const n of nums) {
@@ -235,7 +235,7 @@ export function createHand(parent, ctx) {
             row.append(g);
           }
           if (p.pass) {
-            const g = el('button', 'gk-hd-btn ink pass');
+            const g = el('button', 'gk-hd-btn gk-hd-ink gk-hd-pass');
             g.type = 'button';
             g.dataset.gk = 'pass';
             g.append(diamond(), el('span', '', '패스'), diamond());
@@ -251,7 +251,7 @@ export function createHand(parent, ctx) {
       controls.append(acts);
     }
     if (!p.coins && p.open && p.cancel) {
-      const g = el('button', 'gk-hd-ghost abs', '취소');
+      const g = el('button', 'gk-hd-ghost gk-hd-abs', '취소');
       g.type = 'button';
       g.dataset.gk = 'cancel';
       g.addEventListener('click', () => setMode('idle'));

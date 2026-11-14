@@ -14,7 +14,6 @@ import * as THREE from 'three';
 
 export const SEAT_HEIGHT = 0.46;   // 의자 앉는 면 높이
 export const TABLE_HEIGHT = 0.74;  // 자세가 가정하는 테이블 윗면 높이
-export const TABLE_EDGE = 0.32;    // 자리 중심에서 테이블 가장자리까지 거리(자세 기준)
 
 const SKIN = 0xb7aea4;             // 마네킹 몸 색(모두 같음)
 const UP = new THREE.Vector3(0, 1, 0);

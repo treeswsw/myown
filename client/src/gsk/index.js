@@ -1,13 +1,18 @@
-// mountGsk: 갱스껄 화면 입구. 모듈(탁자·손·벌칙/결과·대기·연출)을 GDD 16절 약속대로 조립한다.
-//   const gsk = mountGsk({ ui, send, getMe?, toast?, leave?, openEmote? });
-//   gsk.room(state) / gsk.update(state)   방 상태(GDD 9-2)가 올 때마다. 방을 나가면 null.
-//   gsk.event(e)      event.e 하나(faces, gkFlip, gkPlace, gkReveal ... 사이트 공통 이벤트는 main.js 가 먼저 가려 준다).
-//   gsk.error(err)    {code, msg}. toast 가 있으면 보여 준다.
-//   gsk.dispose()     화면을 걷어낸다.
+// 갱스껄 화면 모듈. 공통 방 틀(client/src/room/frame.js)이 mount(ctx) 로 불러 쓴다. 약속: docs/COMMON-CONTRACT.md 4-2, GDD 16절.
+// 대기실(참가자·시작·나가기·채팅)·상단 줄(방 코드/소리/이모티콘/나가기)·이모티콘/사진/말풍선·나가기 확인·소리 끄기는 틀이 한다.
+// 이 모듈은 게임 판(탁자·손·벌칙/결과·연출)만 그리고, 대기실 개인 칸 하나(waitPart 'gk-color': 내 색 고르기)를 내준다.
+//
+//   const game = mount(ctx);
+//   game.room(state)     방 상태(GDD 9-2)가 올 때마다(대기 중에도).
+//   game.event(e)        event.e 하나(gkFlip, gkPlace, gkReveal ... 사이트 공통 이벤트는 틀이 먼저 처리한다).
+//   game.anchorOf(id)    말풍선·이모티콘 자리(이름표 위, 없으면 개인판 위)
+//   game.leaveNote(s)    나가기 확인 글(판 중 참가자일 때 기권 안내)
+//   game.waitPart(name)  대기실 커스텀 칸
+//   game.unmount()       화면을 걷어낸다.
 //
 // 화면 구성: .gk-root(나무 바닥 + 비네팅) > .gk-stage(시안 크기 상자를 창 크기에 맞게 scale) > 모듈들.
 // 모듈 약속: createXxx(parent, ctx) → { el, update(view), event(e), dispose() }.
-//   ctx = { send, meId(), now(), face(id), layout()('pc'|'phone'), anchor(kind, id), fx, busy(), stage, scale() }
+//   ctx = { send, meId(), now(), face(id), layout()('pc'|'phone'), anchor(kind, id), fx, busy(), stage, scale(), toWait() }
 //   anchor(kind, id) → DOM 요소 | null
 //     'mat'(id=자리 주인) 개인판 · 'stack'(id) 더미 맨 위 칸 · 'tag'(id) 이름표 · 'center' 가운데 덩어리
 //     'row' 펼친 줄 틀 · 'rowSlot'(id=0부터 센 칸 번호, 줄 왼쪽·윗줄부터) · 'handDock' 손이 접혀 있을 때 놓이는 자리
@@ -21,7 +26,7 @@ import { createTable } from './ui/table.js';
 import { LAYOUTS, layoutFor } from './ui/table.pure.js';
 import { createHand } from './ui/hand.js';
 import { createResult } from './ui/result.js';
-import { createWait } from './ui/wait.js';
+import { createColorPart } from './ui/wait.js';
 import { createFx } from './anim/fx.js';
 
 const el = (tag, cls) => {
@@ -29,22 +34,10 @@ const el = (tag, cls) => {
   if (cls) e.className = cls;
   return e;
 };
-const IMG = /^data:image\/(jpeg|png|webp);base64,/;
 const FONT_HREF = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap';
 const FLOW_TIMEOUT = 9000; // 연출이 끝났다고 알려 주지 않아도 이 시간 뒤에는 보여 주기 지연을 푼다
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const withTimeout = (p, ms) => Promise.race([Promise.resolve(p), sleep(ms)]);
-
-let current = null;
-
-export function mountGsk(opts) {
-  current?.dispose();
-  const inst = mountInner(opts);
-  const d = inst.dispose;
-  inst.dispose = () => { if (current === inst) current = null; d(); };
-  current = inst;
-  return inst;
-}
 
 function ensureFonts() {
   if (typeof document === 'undefined' || document.getElementById('gk-fonts')) return;
@@ -55,7 +48,7 @@ function ensureFonts() {
   document.head.append(l);
 }
 
-function mountInner({ ui, send, getMe, toast, leave }) {
+export function mount({ root: host, send, me: getMe, faces, toWait }) {
   ensureFonts();
   const root = el('div', 'gk-root');
   root.style.backgroundImage = `url(${floorUrl()})`;
@@ -63,14 +56,13 @@ function mountInner({ ui, send, getMe, toast, leave }) {
   const vig = el('div', 'gk-vig');
   const stage = el('div', 'gk-stage');
   root.append(vig, stage);
-  ui.append(root);
+  host.append(root);
 
   let state = null;
   let offset = 0;
   let disposed = false;
   let lay = layoutFor(window.innerHeight);
   let scale = 1;
-  const faces = new Map();
 
   // ---- 보여 주기 지연(hold)과 연출 줄 세우기 ----
   const holdShown = {};
@@ -84,15 +76,15 @@ function mountInner({ ui, send, getMe, toast, leave }) {
     send: (m) => { if (!disposed && m) send(m); },
     meId,
     now: () => Date.now() + offset,
-    face: (id) => faces.get(id) || null,
+    face: (id) => faces.get(id)?.avatar || null,
     layout: () => lay,
     anchor: (kind, id) => mods.table?.anchor(kind, id) || null,
     fx: null,
     busy: () => pending > 0 || !!(ctx.fx && ctx.fx.busy && ctx.fx.busy()),
     stage,
     scale: () => scale,
+    toWait: () => { if (!disposed) toWait(); },
   };
-  if (leave) ctx.leave = leave;
 
   const mods = {};
   mods.table = createTable(stage, ctx);
@@ -100,7 +92,6 @@ function mountInner({ ui, send, getMe, toast, leave }) {
   ctx.fx = mods.fx;
   mods.hand = createHand(stage, ctx);
   mods.result = createResult(stage, ctx);
-  mods.wait = createWait(stage, ctx);
 
   const safe = (name, fn) => {
     try { fn(); } catch (e) { console.error(`gsk ${name}`, e); }
@@ -125,10 +116,13 @@ function mountInner({ ui, send, getMe, toast, leave }) {
   function draw() {
     if (disposed) return;
     const v = viewNow();
-    if (!v) { root.hidden = true; return; }
+    if (!v || v.phase === 'lobby') { // 대기실은 공통 틀이 그린다
+      root.hidden = true;
+      if (v) for (const name of ['table', 'hand', 'fx', 'result']) safe(name, () => mods[name].update(null));
+      return;
+    }
     root.hidden = false;
     safe('table', () => mods.table.update(v));
-    safe('wait', () => mods.wait.update(v));
     safe('hand', () => mods.hand.update(v));
     safe('fx', () => mods.fx.update(v));
     // 판정·벌칙·결과 화면은 앞 연출이 끝난 뒤에 띄운다
@@ -182,6 +176,18 @@ function mountInner({ ui, send, getMe, toast, leave }) {
 
   preload();
 
+  // 사진·꾸미기가 새로 왔다: 이름표·결과의 사진만 다시 그린다
+  const offFaces = faces.onChange(() => { if (state && !disposed) draw(); });
+
+  // 말풍선·이모티콘 자리: 이름표 위(없으면 개인판 위). 공개 연출 중에도 같은 자리다.
+  function anchorOf(id) {
+    if (disposed || root.hidden) return null;
+    const node = mods.table.anchor('tag', id) || mods.table.anchor('mat', id);
+    if (!node || !node.isConnected) return null;
+    const r = node.getBoundingClientRect();
+    return r.width ? { x: r.left + r.width / 2, y: r.top + 4 } : null;
+  }
+
   return {
     room(s) {
       if (disposed) return;
@@ -190,43 +196,38 @@ function mountInner({ ui, send, getMe, toast, leave }) {
       if (!state) {
         clearHold();
         root.hidden = true;
-        for (const name of ['table', 'wait', 'hand', 'fx', 'result']) safe(name, () => mods[name].update(null));
+        for (const name of ['table', 'hand', 'fx', 'result']) safe(name, () => mods[name].update(null));
         return;
       }
       if (state.step === 'setup' || state.phase !== 'playing') clearHold();
       draw();
     },
-    update(s) { this.room(s); },
     event(e) {
       if (disposed || !e) return;
-      if (e.k === 'faces' && Array.isArray(e.items)) {
-        for (const f of e.items) {
-          if (f && typeof f.id === 'string') {
-            if (typeof f.avatar === 'string' && IMG.test(f.avatar)) faces.set(f.id, f.avatar);
-            else faces.delete(f.id);
-          }
-        }
-        if (state) draw();
-        return;
-      }
       if (e.k === 'gkFlip') onFlip(e);
       else if (e.k === 'gkReveal') enqueue(() => withTimeout(mods.fx.reveal(e, { view: viewNow(), need: state?.bid?.n ?? state?.need }), FLOW_TIMEOUT));
       else if (e.k === 'gkPlace' && e.id !== meId()) {
         Promise.resolve().then(() => mods.fx.place(e)).catch((err) => console.error('gsk fx', err));
       } else if (e.k === 'gkStart' || e.k === 'gkRound' || e.k === 'gkVoid') clearHold();
       // gkReveal 은 위에서 줄 세워 한 번만 돌린다(fx.event 로 또 보내지 않는다)
-      for (const name of ['table', 'hand', 'result', 'wait']) safe(name, () => mods[name].event(e));
+      for (const name of ['table', 'hand', 'result']) safe(name, () => mods[name].event(e));
     },
-    error(err) {
-      if (disposed || !err) return;
-      toast?.(err.msg || '오류');
+    anchorOf,
+    // 판이 진행 중이고 내가 탈락하지 않은 참가자면 기권 안내. 아니면 null(결과 화면은 확인 없이, 관전은 기본 확인)
+    leaveNote(s) {
+      const mine = s?.phase === 'playing' && (s.seats ?? []).find((x) => x.id === s.you);
+      return mine && !mine.out ? '나가면 기권 처리돼요' : null;
     },
-    dispose() {
+    waitPart(name) {
+      return name === 'gk-color' ? createColorPart({ send: ctx.send }) : null;
+    },
+    unmount() {
       if (disposed) return;
       disposed = true;
+      offFaces();
       removeEventListener('resize', onResize);
       removeEventListener('orientationchange', onResize);
-      for (const name of ['fx', 'table', 'hand', 'result', 'wait']) safe(name, () => mods[name].dispose());
+      for (const name of ['fx', 'table', 'hand', 'result']) safe(name, () => mods[name].dispose());
       root.remove();
     },
   };

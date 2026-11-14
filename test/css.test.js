@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { GAMES } from '../shared/games.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CLIENT = join(ROOT, 'client');
@@ -121,11 +122,9 @@ const CROSS_FILE_ALLOW = new Map([
   ['letter', 'dom.js avatar() adds it to every avatar; style.css styles `.pav.letter`, lobby.css styles `.lb-av.letter` (each scoped by its own base class)'],
   ['big', 'TODO: style.css `.ic.big` and chat.css `.chat-b.big` are unrelated modifiers scoped by different base classes; rename chat.css one to chat-big'],
   ['chat-btn', 'TODO: style.css `.chat-btn::after` (hit-area extension) targets the chat.css button; move that rule into chat.css'],
-  // Host-side layout overrides for the copied liar module (client/src/liar stays identical to gamemine); positions only, scoped by `.lg-root`.
-  ['lg-root', 'style.css overrides liar positions for the site top bar / docked chat; client/src/liar must stay a copy of gamemine'],
-  ['lg-hud-endbox', 'style.css `.lg-root .lg-hud-endbox`: moved below the 54px .lgbar'],
+  // Host-side layout overrides for the liar module; positions only, scoped by `.lg-root`.
+  ['lg-root', 'style.css lifts liar parts above the docked chat (chat.css --chat-docked-h)'],
   ['lg-action', 'style.css `.lg-root .lg-action`: lifted above the docked chat'],
-  ['lg-lobbybox', 'style.css `.lg-root .lg-lobbybox`: kept between .lgbar, the action row and the docked chat'],
   ['lg-rs-panel', 'style.css `.lg-root .lg-rs-panel`: result window kept above the lifted action row and docked chat'],
   ['lobby', 'style.css `.lobby[hidden]` and chat.css `html.chat-docked .lobby` reference the lobby root hook class kept on the element by lobby.js; TODO switch both to `.lb-root`'],
   // 입구가 .dr-root 에 붙이는 키보드 상태 클래스, 모듈은 조상 선택자로 읽기만
@@ -142,19 +141,39 @@ test('a class is not defined in two CSS files', () => {
   assert.deepEqual(bad, [], `duplicate class definitions across CSS files (add to CROSS_FILE_ALLOW with a reason if intended):\n  ${bad.join('\n  ')}`);
 });
 
-// Liar module (client/src/liar/): every class starts with lg-.
-test('every class in client/src/liar css starts with lg-', () => {
-  const liar = files.filter((f) => f.rel.startsWith('client/src/liar/'));
-  assert.ok(liar.some((f) => f.rel === 'client/src/liar/liar.css'), 'client/src/liar/liar.css missing');
-  const bad = [];
-  for (const f of liar) for (const c of f.classes) if (!c.startsWith('lg-')) bad.push(`${f.rel}: ".${c}"`);
-  assert.deepEqual(bad, [], `classes must start with "lg-":\n  ${bad.join('\n  ')}`);
+// Game modules (client/src/<mode>/): every class starts with the game's prefix from the registry (shared/games.js `css`).
+// A game with css: null (poker) has no module folder of its own.
+test('liar module css exists', () => {
+  assert.ok(files.some((f) => f.rel === 'client/src/liar/liar.css'), 'client/src/liar/liar.css missing');
 });
 
-// Yacht module (client/src/yacht/): every class starts with yt-. Passes while no yacht css exists yet.
-test('every class in client/src/yacht css starts with yt-', () => {
-  const yacht = files.filter((f) => f.rel.startsWith('client/src/yacht/'));
-  const bad = [];
-  for (const f of yacht) for (const c of f.classes) if (!c.startsWith('yt-')) bad.push(`${f.rel}: ".${c}"`);
-  assert.deepEqual(bad, [], `classes must start with "yt-":\n  ${bad.join('\n  ')}`);
-});
+// Known unprefixed classes per game. Empty: every class in a game folder starts with the game's prefix.
+const GAME_CSS_ALLOW = {};
+
+for (const [mode, g] of Object.entries(GAMES)) {
+  if (!g.css) continue;
+  test(`every class in client/src/${mode} css starts with ${g.css}`, () => {
+    const mine = files.filter((f) => f.rel.startsWith(`client/src/${mode}/`));
+    const bad = [];
+    for (const f of mine) for (const c of f.classes) if (!c.startsWith(g.css) && !GAME_CSS_ALLOW[mode]?.has(c)) bad.push(`${f.rel}: ".${c}"`);
+    assert.deepEqual(bad, [], `classes must start with "${g.css}":\n  ${bad.join('\n  ')}`);
+  });
+}
+
+// 게임이 아닌 공용 폴더: 코인·관리자·공용 방 틀·공용 부품의 클래스도 접두사를 지킨다.
+const SHARED_PREFIX = [
+  { dir: 'client/src/coin/', prefixes: ['cn-', 'gc-', 'sh-', 'pn-', 'lk-', 'tfx-', 'cp-'], allow: ['tfx'] },
+  { dir: 'client/src/room/', prefixes: ['rm-', 'wr-'] },
+  { dir: 'client/src/ui/kit/', prefixes: ['ui-'], allow: ['letter'] },
+  { file: 'client/src/ui/admin.css', prefixes: ['adm-'] },
+];
+for (const rule of SHARED_PREFIX) {
+  const label = rule.dir ?? rule.file;
+  test(`every class in ${label} starts with ${rule.prefixes.join(' / ')}`, () => {
+    const mine = files.filter((f) => (rule.dir ? f.rel.startsWith(rule.dir) : f.rel === rule.file));
+    assert.ok(mine.length > 0, `${label}: no css files`);
+    const bad = [];
+    for (const f of mine) for (const c of f.classes) if (!rule.prefixes.some((p) => c.startsWith(p)) && !rule.allow?.includes(c)) bad.push(`${f.rel}: ".${c}"`);
+    assert.deepEqual(bad, [], `classes must start with ${rule.prefixes.join(' / ')}:\n  ${bad.join('\n  ')}`);
+  });
+}

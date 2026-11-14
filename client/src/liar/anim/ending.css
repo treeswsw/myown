@@ -15,7 +15,7 @@
 .lg-ed-nogl .lg-ed-beam { display: block; }
 .lg-ed-col {
   position: absolute; left: 0; right: 0; z-index: 1; text-align: center; box-sizing: border-box;
-  top: calc(env(safe-area-inset-top, 0px) + 58px); /* 상단 줄(.lgbar 54px) 아래 */
+  top: calc(env(safe-area-inset-top, 0px) + 58px); /* 상단 줄(.rm-bar 54px) 아래 */
   padding: 0 var(--lg-gutter, 16px);
 }
 .lg-ed-col p { margin: 0; }
@@ -51,7 +51,7 @@
 .lg-ed-nogl .lg-ed-mid { display: flex; }
 .lg-ed-card { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .lg-ed-face {
-  width: max(40px, calc(84px * var(--lg-k, 1))); aspect-ratio: 1; border-radius: 50%; overflow: hidden;
+  width: max(40px, calc(84px * var(--lg-k, 1))); aspect-ratio: 1; border-radius: 50%; overflow: visible;
   display: grid; place-items: center; font-weight: 900; font-size: max(18px, calc(36px * var(--lg-k, 1)));
   color: #111; background: var(--c, #efe6d8); border: 3px solid #fff; box-shadow: 0 0 36px rgba(255, 252, 240, 0.55);
 }
@@ -68,4 +68,4 @@
 @keyframes lg-ed-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .lg-ed-root, .lg-ed-root * { transition: none !important; animation: none !important; } }
 /* 답 입력·정답 공개 동안 큰 글을 가리는 규칙·첫 발언 버튼을 숨긴다 (index.js 가 .lg-root 에 data-ed 를 붙인다) */
-[data-ed="1"] [data-lg="rule-open"], [data-ed="1"] [data-lg="fs-open"] { visibility: hidden; }
+[data-ed="1"] [data-lg="rule-open"], [data-ed="2"] [data-lg="rule-open"], [data-ed="1"] [data-lg="fs-open"] { visibility: hidden; }

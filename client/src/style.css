@@ -65,6 +65,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .hud-tr { position: fixed; right: calc(16px * var(--k)); top: calc(16px * var(--k)); transform: scale(var(--k)); transform-origin: 100% 0; text-align: right; font-size: 12px; font-weight: 700; color: #e2dccf; text-shadow: 0 1px 3px #000; }
 .hud-tr b { font-family: "Bangers"; font-size: 19px; color: var(--gold); letter-spacing: 3px; font-weight: 400; }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; padding: 9px 18px; border-radius: 999px; font-size: 14px; background: rgba(20, 18, 16, .88); border: 1px solid rgba(255, 255, 255, .25); }
+.toast-stale { pointer-events: auto; cursor: pointer; }
 
 /* cards (DOM) */
 .pc { --h: 112px; width: calc(var(--h) * .714); height: var(--h); border-radius: calc(var(--h) * .075); background: #fffdf7; color: #15181c; position: relative; box-shadow: 0 8px 18px rgba(0, 0, 0, .55); flex: none; font-family: "Libre Baskerville", Georgia, serif; box-sizing: border-box; }
@@ -254,41 +255,8 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 
 .buildtag { position: fixed; right: calc(4px + env(safe-area-inset-right, 0px)); bottom: calc(4px + env(safe-area-inset-bottom, 0px)); z-index: 5; font: 10px/1 monospace; color: rgba(255, 255, 255, .4); pointer-events: none; user-select: none; }
 
-/* 라이어 방 상단 줄 (방 코드 · 이모티콘 · 시작 · 나가기). 라이어 CSS 의 54px 자리에 맞춘 높이 */
-.lgbar { position: fixed; left: 0; right: 0; top: 0; z-index: 32; height: 54px; display: flex; gap: 8px; align-items: center; padding: 6px 10px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); box-sizing: border-box; pointer-events: none; }
-.lgbar[hidden] { display: none; }
-.lgbar > * { pointer-events: auto; }
-.lgbar-code { font-weight: 700; padding: 0 8px; }
-.lgbar-sp { flex: 1; pointer-events: none !important; }
-.lgbar-btn { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); font-weight: 700; }
-.lgbar-btn.main { background: #ea3a3d; }
-.lgbar-btn[hidden] { display: none; }
-@media (max-height: 719px) { .lgbar-mini { right: calc(22px + 34px * var(--k, 1)); } } /* 미니게임: 낮은 화면에서 채팅 버튼 자리를 비운다 */
-/* 요트다이스 방 상단 줄 (방 코드 · 소리 · 이모티콘 · 시작 · 나가기). 점수표(--yt-sheet-w, yacht/index.js 가 잰다) 오른쪽에만, 높이 54px.
-   채팅 버튼(오른쪽 위 고정)은 이 줄 바로 아래(top 56px)라 겹치지 않는다 */
-/* gsk room top bar: room code / emote / start / leave */
-.gkbar { position: fixed; left: 0; right: 0; top: 0; z-index: 32; height: 54px; display: flex; gap: 8px; align-items: center; padding: 6px 10px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); box-sizing: border-box; pointer-events: none; }
-.gkbar[hidden] { display: none; }
-.gkbar > * { pointer-events: auto; }
-.gkbar-code { font-weight: 700; padding: 0 8px; }
-.gkbar-sp { flex: 1; pointer-events: none !important; }
-.gkbar-btn { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); font-weight: 700; }
-.gkbar-btn.main { background: #ea3a3d; }
-.gkbar-btn[hidden] { display: none; }
-.ytbar { position: fixed; left: var(--yt-sheet-w, 0px); right: 0; top: 0; z-index: 32; height: 54px; display: flex; gap: 5px; align-items: center; padding: 6px 8px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); box-sizing: border-box; pointer-events: none; }
-.ytbar[hidden] { display: none; }
-.ytbar > * { pointer-events: auto; }
-.ytbar-code { font-weight: 700; font-size: 13px; padding: 0 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ytbar-sp { flex: 1; min-width: 0; pointer-events: none !important; }
-.ytbar-btn { flex: none; min-height: 40px; min-width: 40px; padding: 0 9px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); font-weight: 700; font-size: 13px; white-space: nowrap; }
-.ytbar-btn.main { background: #ea3a3d; }
-.ytbar-btn[hidden] { display: none; }
-@media (max-height: 719px) { .ytbar { right: calc(22px + 34px * var(--k, 1)); } } /* 낮은 화면(휴대폰 가로): 채팅 버튼이 이 줄 안(top 56k)에 들어오므로 그 자리를 비운다 */
-/* 라이어 화면 자리 맞춤(진행자 쪽). client/src/liar 는 gamemine 과 같게 두므로 여기서 덮는다(test/css.test.js CROSS_FILE_ALLOW).
-   "이 판 끝내기"는 상단 줄 바로 아래(58px, 오른쪽 위 기록·채팅 칸과 안 겹침), 방 대기 설정 창은 상단 줄과 조작 줄("전체 랭킹" 40px)·붙은 채팅(--chat-docked-h, chat.css) 사이 */
-.lg-root .lg-hud-endbox { top: calc(env(safe-area-inset-top, 0px) + 58px); right: 10px; }
+/* 라이어 화면 자리 맞춤(진행자 쪽, test/css.test.js CROSS_FILE_ALLOW): 조작 줄("전체 랭킹" 등)과 결과 창을 붙은 채팅(--chat-docked-h, chat.css) 위로 */
 .lg-root .lg-action { bottom: calc(12px * var(--lg-k, 1) + var(--chat-docked-h, 0px)); }
 .lg-root .lg-rs-panel { top: calc(50% - (12px * var(--lg-k, 1) + 48px + var(--chat-docked-h, 0px)) / 2); max-height: calc(100% - 16px - 12px * var(--lg-k, 1) - 48px - var(--chat-docked-h, 0px)); }
-.lg-root .lg-lobbybox { top: max(calc(48px * var(--lg-k, 1)), calc(env(safe-area-inset-top, 0px) + 60px)); bottom: calc(20px * var(--lg-k, 1) + 40px + var(--chat-docked-h, 0px)); }
 /* 라이어 방에서 여는 이모티콘 창: 라이어 화면 층(이름표 등) 위, 상단 줄 아래 */
 .hpanel.lgpanel { z-index: 35; top: calc(56px * var(--k)); }

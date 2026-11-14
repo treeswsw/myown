@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>갱식 클럽 — 공통 대기실 시안</title>
+<style>
+/* ===== 지금 로비(client/src/ui/lobby.css)에서 그대로 가져온 값 ===== */
+:root{--ink:#fff;--ink2:rgba(255,255,255,.6);--ink3:rgba(255,255,255,.3);--fill:rgba(255,255,255,.09);--hair:rgba(255,255,255,.12);--accent:#f2c444;--on-accent:#1c1608;--red:#ff453a;
+  --ease:cubic-bezier(.2,.8,.2,1);--bar:46px}
+html,body{margin:0;height:100%;background:#000;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;
+  font-size:17px;line-height:1.3;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button,input{font:inherit;color:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+hr{border:0;height:1px;background:var(--hair);margin:0;flex:none}
+h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2;flex:none}
+.lb-panel{background:rgba(28,28,30,.62);-webkit-backdrop-filter:blur(40px) saturate(180%);backdrop-filter:blur(40px) saturate(180%);
+  border-radius:28px;box-shadow:inset 0 0 0 1px var(--hair),0 24px 64px rgba(0,0,0,.45);padding:24px;
+  display:flex;flex-direction:column;gap:16px;min-height:0;min-width:0}
+.lb-sub,.lb-cap{margin:0;font-size:13px;color:var(--ink2)}
+.lb-cap.lb-center{text-align:center;min-height:1.3em}
+.lb-av{width:32px;height:32px;border-radius:50%;overflow:hidden;flex:none;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center}
+.lb-av span{font-weight:600;font-size:14px;color:var(--ink2)}
+.lb-av.ph span{color:#fff}
+.lb-btn{height:50px;border-radius:25px;border:0;background:none;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 24px;flex:none;
+  transition:transform .2s var(--ease),opacity .2s,background-color .2s}
+.lb-btn:not(:disabled):active{transform:scale(.97)}
+.lb-btn:disabled{opacity:.35;cursor:default}
+.lb-btn.lb-primary{background:#fff;color:#000}
+.lb-btn.lb-text{height:auto;min-height:44px;padding:6px 0;font-weight:500;font-size:15px;color:var(--ink2)}
+.lb-btn.lb-text.lb-danger{color:var(--red);align-self:center}
+.lb-group{margin:0;padding:0;list-style:none;background:var(--fill);border-radius:14px;display:flex;flex-direction:column;overflow-y:auto;min-height:0;scrollbar-width:none}
+.lb-row{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 12px;flex:none;margin:0}
+.lb-row+.lb-row{box-shadow:inset 0 1px 0 var(--hair)}
+.lb-row dt{flex:1;color:var(--ink2);font-size:15px}
+.lb-row dd{margin:0;font-weight:600;font-size:15px}
+.lb-row.lb-off{opacity:.5}
+.lb-p-name{font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-tags{font-size:13px;color:var(--ink2);white-space:nowrap}
+.lb-seg-item{position:relative;min-width:0;padding:6px 8px;min-height:48px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.2;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;border:0;border-radius:12px;background:var(--fill);font-size:15px;font-weight:600;color:var(--ink2);cursor:pointer;transition:color .2s,background-color .2s,transform .15s}
+.lb-seg-item[aria-checked=true]{color:var(--on-accent);background:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.lb-seg-item:disabled{cursor:default}
+.lb-seg-item:disabled:not([aria-checked=true]){opacity:.6}
+.lb-actions{display:flex;flex-direction:column;gap:4px;flex:none;margin-top:auto}
+.lb-field{height:48px;border-radius:14px;border:0;background:var(--fill);padding:0 16px;width:100%;min-width:0}
+.lb-title-badge{display:inline-block;max-width:100%;padding:1px 8px;font-size:11px;line-height:16px;border:1.5px solid #9a9a9a;border-radius:999px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:flex-start}
+.lb-title-badge.lb-rainbow{border:1.5px solid transparent;background:linear-gradient(#1c1c1e,#1c1c1e) padding-box,linear-gradient(90deg,#ff5a5a,#ffc93c,#5adf7a,#3d8bff,#b45cff) border-box}
+/* 채팅(client/src/ui/chat.css)의 줄·입력 줄 */
+.chat-row{padding:6px 14px;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.chat-row+.chat-row{box-shadow:inset 0 1px 0 var(--hair)}
+.chat-row .meta{display:flex;gap:8px;align-items:baseline;font-size:12px;color:var(--ink3)}
+.chat-row .meta b{font-size:13px;font-weight:600;color:var(--ink2)}
+.chat-row.mine{background:rgba(242,196,68,.1)}
+.chat-row.sys{color:var(--ink3);font-size:13px;text-align:center}
+.chat-bar{width:100%;height:44px;border-radius:22px;display:flex;align-items:center;gap:6px;padding:0 5px 0 5px;background:var(--fill);flex:none}
+.chat-in{flex:1;min-width:0;height:100%;border:0;background:none;padding:0 4px;font-size:16px;caret-color:var(--accent)}
+.chat-in::placeholder{color:var(--ink3)}
+.chat-in:focus-visible{outline:none}
+.chat-send{flex:none;height:34px;width:34px;border:0;border-radius:17px;background:var(--accent);color:#1c1608;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.chat-send svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+
+/* ===== 시안 도구 줄(실제 화면 아님) ===== */
+.mk-bar{height:var(--bar);display:flex;align-items:center;gap:8px;padding:0 12px;background:#1b1b1d;border-bottom:1px solid #333;font-size:13px;color:#bbb}
+.mk-bar b{color:#fff;margin-right:6px}
+.mk-bar button{height:30px;padding:0 12px;border-radius:8px;border:1px solid #444;background:#2a2a2c;cursor:pointer;font-size:13px}
+.mk-bar button[aria-pressed=true]{background:#fff;color:#000;border-color:#fff}
+.mk-bar i{flex:1}
+body.bare .mk-bar,body.bare .mk-notes{display:none}
+body.bare{--bar:0px}
+.mk-notes{background:#141416;border-top:1px solid #333;padding:20px 24px 40px;font-size:14px;line-height:1.6;color:#cfcfcf}
+.mk-notes h3{margin:0 0 6px;font-size:15px;color:#fff}
+.mk-notes ul{margin:0 0 16px;padding-left:20px}
+.mk-notes .cur{color:var(--accent)}
+
+/* ===== 대기실 틀 (.wr-) ===== */
+.wr-stage{position:relative;height:calc(100vh - var(--bar));overflow:hidden;display:flex;align-items:center;justify-content:center;padding:12px;
+  background:radial-gradient(ellipse at 50% 42%,#3a2f27 0%,#1a1512 46%,#0b0a09 100%)}
+.wr-grid{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(0,1.08fr) minmax(0,.9fr);gap:16px;width:100%;max-width:1220px;height:min(100%,780px)}
+.wr-left{overflow-y:auto;scrollbar-width:none;gap:12px}
+.wr-fade{position:sticky;bottom:-24px;height:36px;margin:-36px -24px -24px;flex:none;pointer-events:none;background:linear-gradient(transparent,rgba(24,22,21,.95));border-radius:0 0 28px 28px}
+.wr-head{display:flex;align-items:center;gap:8px;flex:none}
+.wr-game{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:-.01em}
+.wr-sp{flex:1}
+.wr-code{height:32px;border-radius:16px;border:0;background:var(--fill);padding:0 12px;font-size:13px;color:var(--ink2);display:flex;align-items:center;gap:6px;cursor:pointer}
+.wr-code b{color:var(--ink);font-weight:700;letter-spacing:.06em;font-size:15px}
+.wr-ic{width:36px;height:36px;border-radius:50%;border:0;background:var(--fill);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;flex:none;color:var(--ink)}
+.wr-ic svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wr-titlebox{display:flex;flex-direction:column;gap:6px;flex:none}
+.wr-desc{margin:0;font-size:14px;color:var(--ink2);line-height:1.45;word-break:keep-all}
+.wr-sec{display:flex;align-items:baseline;gap:8px;flex:none;font-size:13px;font-weight:700;color:var(--ink)}
+.wr-sec small{font-weight:400;color:var(--ink2);font-size:12px}
+.wr-set{display:flex;flex-direction:column;gap:6px;flex:none}
+.wr-f{display:grid;grid-template-columns:82px minmax(0,1fr);gap:8px;align-items:center}
+.wr-f.top{align-items:start}
+.wr-f.top>.wr-l{padding-top:9px}
+.wr-l{font-size:13px;color:var(--ink2);word-break:keep-all;line-height:1.25}
+.wr-seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px}
+.wr-seg.wrap{display:flex;flex-wrap:wrap}
+.wr-seg.wrap .lb-seg-item{flex:1 0 auto;padding:4px 10px}
+.wr-seg .lb-seg-item{min-height:33px;font-size:13.5px;padding:4px 6px;border-radius:11px}
+.wr-seg .lb-seg-item sup{position:absolute;top:-5px;right:-4px;width:17px;height:17px;border-radius:50%;background:#fff;color:#000;font-size:11px;line-height:17px;font-weight:700}
+.wr-seg.tight{display:flex}.wr-seg.tight .lb-seg-item{flex:1 1 auto;padding:4px 5px;font-size:13px;white-space:nowrap}
+.wr-hint{margin:0;font-size:12px;color:var(--ink3);grid-column:2}
+/* 읽기 전용(방장이 아닌 사람) */
+body.guest .wr-hostonly .lb-seg-item{cursor:default}
+body.guest .wr-hostonly .lb-seg-item:not([aria-checked=true]){opacity:.45}
+body.guest .wr-kick,body.guest .wr-starthost{display:none}
+body:not(.guest) .wr-guestonly{display:none}
+.wr-lock{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink2);font-weight:400}
+.wr-lock svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* 참가자 */
+.wr-mid{gap:12px}
+.wr-players{flex:0 1 auto}
+.wr-who{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.wr-kick{width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:var(--ink2);font-size:15px;line-height:1;cursor:pointer;flex:none;padding:0}
+.wr-dot{width:12px;height:12px;border-radius:50%;flex:none;box-shadow:0 0 0 1.5px rgba(255,255,255,.5)}
+.wr-specs .lb-row{min-height:38px}
+.wr-specs .lb-av{width:26px;height:26px}.wr-specs .lb-av span{font-size:12px}
+.wr-eye{width:15px;height:15px;fill:none;stroke:var(--ink2);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.wr-why{margin:0;font-size:13px;text-align:center;color:var(--accent);min-height:1.3em}
+.wr-why.ok{color:var(--ink2)}
+
+/* 채팅 */
+.wr-chat{gap:12px;padding:24px 16px 16px}
+.wr-chat .wr-head{padding:0 8px}
+.wr-log{flex:1;min-height:0;background:var(--fill);border-radius:14px;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;justify-content:flex-end;padding:4px 0}
+.wr-emo{width:34px;height:34px;background:none}
+
+/* 갱스껄 색 */
+.wr-colors{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.wr-color{border:0;border-radius:12px;background:var(--fill);padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;min-width:0;position:relative}
+.wr-color .disc{width:34px;height:34px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 3px rgba(0,0,0,.28),inset 0 0 0 5px rgba(255,255,255,.35)}
+.wr-color[aria-checked=true]{background:rgba(242,196,68,.16);box-shadow:inset 0 0 0 2px var(--accent);color:var(--ink)}
+.wr-color:disabled{cursor:default}
+.wr-color:disabled .disc{opacity:.3}
+.wr-color:disabled .who{color:var(--ink3);font-weight:400}
+.wr-color .lk{position:absolute;top:13px;left:50%;transform:translateX(-50%);width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+.wr-color .lk svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.wr-color .who{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+
+/* 미니 베팅 */
+.wr-bet{margin:0;background:var(--fill);border-radius:14px;display:flex;flex-direction:column;flex:none}
+.wr-bet .lb-row{padding:6px 12px 6px 14px;min-height:46px}
+.wr-bet dt{font-size:14px!important}
+.wr-step{display:flex;align-items:center;gap:6px}
+.wr-step button{width:34px;height:34px;border-radius:50%;border:0;background:rgba(255,255,255,.12);font-size:18px;font-weight:600;cursor:pointer;padding:0;line-height:1}
+.wr-step input{width:74px;height:36px;border-radius:10px;border:0;background:rgba(0,0,0,.28);text-align:center;font-weight:700;font-size:16px}
+.wr-coin{display:inline-block;width:13px;height:13px;border-radius:50%;background:var(--accent);box-shadow:inset 0 0 0 2px rgba(0,0,0,.25);vertical-align:-1px;margin-right:5px}
+.wr-state{font-size:13px;font-weight:600;padding:9px 14px;border-radius:0 0 14px 14px;box-shadow:inset 0 1px 0 var(--hair);color:var(--accent);display:flex;gap:6px;align-items:center}
+.wr-state.ok{color:#5adf7a}
+
+@media (max-width:1100px){
+  .lb-panel{padding:20px}
+  .wr-chat{padding:20px 12px 12px}
+  .wr-grid{gap:12px}
+  h2{font-size:21px}
+}
+</style>
+</head>
+<body>
+<div class="mk-bar">
+  <b>공통 대기실 시안</b>
+  <button data-ex="liar">(가) 라이어게임</button>
+  <button data-ex="gsk">(나) 갱스껄</button>
+  <button data-ex="mini">(다) 미니게임</button>
+  <i></i>
+  <span>보는 사람:</span>
+  <button data-role="host">방장</button>
+  <button data-role="guest">방장이 아닌 사람</button>
+  <span style="color:#777">· 이 줄과 아래 설명은 시안 도구이고 실제 화면이 아닙니다</span>
+</div>
+
+<div class="wr-stage"><div class="wr-grid" id="grid"></div></div>
+
+<div class="mk-notes" id="notes"></div>
+
+<script>
+const IC = {
+  sound: '<svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
+  emo: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.2 4.2 0 0 0 7 0M9 9.8v.4M15 9.8v.4"/></svg>',
+  send: '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+  lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  eye: '<svg class="wr-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>',
+};
+const seg = (items, cur, cls = '') => `<div class="wr-seg ${cls}" role="radiogroup">${items.map((x) => {
+  const [label, on, extra] = Array.isArray(x) ? x : [x, x === cur];
+  return `<button type="button" class="lb-seg-item" role="radio" aria-checked="${!!on}">${label}${extra || ''}</button>`;
+}).join('')}</div>`;
+const f = (label, body, cls = '') => `<div class="wr-f ${cls}"><div class="wr-l">${label}</div>${body}</div>`;
+const sec = (t, s = '') => `<div class="wr-sec">${t}${s ? `<small>${s}</small>` : ''}</div>`;
+const hostLock = `<small class="wr-guestonly wr-lock">${IC.lock}방장만 바꿀 수 있어요</small>`;
+const PH = ['linear-gradient(135deg,#f7797d,#C6426E)', 'linear-gradient(135deg,#56ab2f,#a8e063)', 'linear-gradient(135deg,#4e54c8,#8f94fb)', 'linear-gradient(135deg,#f2994a,#f2c94c)'];
+const av = (p) => `<span class="lb-av${p.ph != null ? ' ph' : ''}" ${p.ph != null ? `style="background:${PH[p.ph]}"` : ''}><span>${p.name[0]}</span></span>`;
+
+const EX = {
+  liar: {
+    game: '라이어게임', code: '4827', max: 8, min: 3,
+    desc: '3~8명 · 말로 하는 추리. 한 명만 다른 제시어를 받습니다. 설명하고 토론한 뒤 투표로 라이어를 찾으세요.',
+    players: [
+      { name: '성원', ph: 0, title: '전설의 타짜', rainbow: 1, host: 1, me: 1 },
+      { name: '민지', ph: 1, title: '블러핑 장인' },
+      { name: '도윤' },
+      { name: '하은', ph: 2, title: '새내기' },
+      { name: '지호', off: 1 },
+    ],
+    specs: [{ name: '관전1' }],
+    chat: [['s', '하은 님이 들어왔어요'], ['민지', '오후 9:12', '주제 음식 빼면 안 돼? 맨날 떡볶이야'], ['성원', '오후 9:12', 'ㅇㅋ 뺐음', 1], ['도윤', '오후 9:13', '토론 2분으로 가자'], ['관전1', '오후 9:13', '구경하러 왔습니다'], ['s', '지호 님의 연결이 끊겼어요 (60초 기다림)']],
+    why: '', can: true,
+    settings: () => `
+      ${sec('규칙', hostLock)}
+      <div class="wr-set wr-hostonly">
+        ${f('라이어 방식', seg(['다른 제시어', '라이어 알림'], '다른 제시어'))}
+        ${f('제시어 묶음', seg(['내 버전', '스타 버전'], '내 버전'))}
+        ${f('주제 방식', seg(['체크한 것 중 무작위', '매판 방장이 직접'], '체크한 것 중 무작위'))}
+        ${f('주제', seg(['음식', '동물', '직업', '장소', '스포츠', '물건', '취미', '영화·만화', '나라·도시', '탈것', '인물'].map((t) => [t, t !== '음식' && t !== '인물']), null, 'wrap'), 'top')}
+        ${f('첫 설명 바퀴', seg(['1바퀴', '2바퀴', '3바퀴'], '1바퀴'))}
+        ${f('목표 점수', seg(['없음', '10점', '15점', '20점'], '10점'))}
+      </div>
+      <hr>
+      ${sec('시간')}
+      <div class="wr-set wr-hostonly">
+        ${f('첫 설명', seg(['20초', '30초', '45초', '1분'], '30초'))}
+        ${f('토론·투표', seg(['1분', '1분 30초', '2분', '3분'], '2분'))}
+        ${f('살린 뒤 토론', seg(['30초', '1분', '1분 30초'], '1분'))}
+        ${f('최후 변론', seg(['15초', '20초', '30초'], '20초'))}
+        ${f('찬반 투표', seg(['10초', '15초', '20초'], '15초'))}
+        ${f('정답 맞히기', seg(['10초', '15초', '30초'], '15초'))}
+      </div>`,
+    note: ['방장이 아닌 사람: 왼쪽 설정이 전부 읽기 전용(고른 값만 노랗게 보이고 눌리지 않음, "방장만 바꿀 수 있어요" 표시). 내보내기(×) 버튼이 없고, 게임 시작 버튼 자리에 "방장이 시작하기를 기다리는 중"이 나옵니다. 채팅·이모티콘·소리·나가기는 같습니다.',
+      '관전자(관전1): 참가자 수(5/8)에 들어가지 않고 아래 "관전" 줄에 따로 보입니다.'],
+  },
+  gsk: {
+    game: '갱스껄', code: '9051', max: 6, min: 3,
+    desc: '3~6명 · 해골을 피해 꽃 뒤집기. 원판을 엎어 놓고 "몇 장까지 꽃만 뒤집겠다"를 겨룹니다. 해골이 나오면 원판을 잃어요.',
+    players: [
+      { name: '성원', ph: 0, title: '전설의 타짜', rainbow: 1, host: 1, me: 1, color: '#74b940', cname: '초록' },
+      { name: '민지', ph: 1, title: '블러핑 장인', color: '#d61b18', cname: '빨강' },
+    ],
+    specs: [{ name: '관전1' }, { name: '관전2' }],
+    chat: [['s', '민지 님이 들어왔어요'], ['민지', '오후 9:40', '나 빨강 할래'], ['성원', '오후 9:40', '한 명만 더 오면 시작한다', 1], ['관전2', '오후 9:41', '도윤이 지금 온대']],
+    why: '1명 더 필요해요 (3명부터 시작)', can: false,
+    settings: () => `
+      ${sec('내 색 고르기', '각자 고릅니다 · 안 고르면 시작할 때 남은 색')}
+      <div class="wr-colors" role="radiogroup">
+        ${[['초록', '#74b940', 'me'], ['보라', '#8e4fa4'], ['노랑', '#e4930d'], ['빨강', '#d61b18', '민지'], ['파랑', '#3da0bc'], ['주황', '#e8640c']].map(([n, c, by]) =>
+          `<button type="button" class="wr-color" role="radio" style="--c:${c}" aria-checked="${by === 'me'}" ${by && by !== 'me' ? 'disabled' : ''}>
+            <span class="disc"></span>${by && by !== 'me' ? `<span class="lk">${IC.lock}</span>` : ''}
+            <span class="who">${by === 'me' ? '내 색' : by ? by : n}</span></button>`).join('')}
+      </div>
+      <hr>
+      ${sec('규칙', '이 게임은 바꿀 설정이 없어요')}
+      <dl class="lb-group" style="flex:none">
+        <div class="lb-row"><dt>인원</dt><dd>3~6명</dd></div>
+        <div class="lb-row"><dt>원판</dt><dd>꽃 3장 · 해골 1장</dd></div>
+        <div class="lb-row"><dt>승리</dt><dd>먼저 2점 또는 혼자 남기</dd></div>
+      </dl>`,
+    note: ['방장이 아닌 사람: 색 고르기는 방장과 똑같이 자기 색을 고를 수 있습니다(남이 고른 색은 자물쇠 + 그 사람 이름으로 잠김). 달라지는 것은 내보내기(×) 버튼이 없고, 게임 시작 버튼 자리에 "방장이 시작하기를 기다리는 중"이 나오는 것뿐입니다.',
+      '시작 버튼이 꺼져 있을 때는 버튼 위에 이유("1명 더 필요해요")가 노란 글씨로 나옵니다.'],
+  },
+  mini: {
+    game: '미니게임', code: '3310', max: 2, min: 2,
+    desc: '2명 · 오목·리버시·체커·체스·커넥트포. 둘이서 두는 판 게임입니다. 종목과 승부 방식은 여기서 정합니다.',
+    players: [
+      { name: '성원', ph: 0, title: '전설의 타짜', rainbow: 1, host: 1, me: 1, extra: '50코인' },
+      { name: '민지', ph: 1, title: '블러핑 장인', extra: '30코인' },
+    ],
+    specs: [{ name: '관전1' }],
+    chat: [['민지', '오후 10:02', '오목 렌주룰로 하자'], ['성원', '오후 10:02', 'ㅇㅇ 3판 2선승', 1], ['성원', '오후 10:03', '50 걸었다 맞춰', 1], ['민지', '오후 10:03', '30만 하자 ㅠ']],
+    why: '건 코인이 서로 달라요 (같게 맞추거나 둘 다 0)', can: false,
+    settings: () => `
+      ${sec('종목·승부', hostLock)}
+      <div class="wr-set wr-hostonly">
+        ${f('종목 방식', seg(['한 종목', '랜덤', '순서대로'], '한 종목'))}
+        ${f('종목', seg(['오목', '리버시', '체커', '체스', '커넥트포'], '오목', 'tight'))}
+        <p class="wr-hint">랜덤·순서대로일 때는 여러 개를 고릅니다</p>
+        ${f('승부 방식', seg(['단판', '3판 2선승', '5판 3선승'], '3판 2선승'))}
+        ${f('오목 규칙', seg(['렌주룰', '제한 없음'], '렌주룰'))}
+        <p class="wr-hint">렌주룰: 흑만 3-3·4-4·장목 금지</p>
+      </div>
+      <hr>
+      ${sec('코인 베팅', '각자 적습니다 · 0이면 내기 없는 판')}
+      <dl class="wr-bet">
+        <div class="lb-row"><dt>내 코인</dt><dd><i class="wr-coin"></i>1,240개</dd></div>
+        <div class="lb-row"><dt>내가 건 코인</dt><dd class="wr-step"><button type="button" aria-label="줄이기">−</button><input value="50" inputmode="numeric" aria-label="건 코인"><button type="button" aria-label="늘리기">+</button></dd></div>
+        <div class="lb-row"><dt>민지가 건 코인</dt><dd><i class="wr-coin"></i>30개</dd></div>
+        <div class="wr-state">아직 성립 안 됨 · 둘이 건 수가 같아야 해요</div>
+      </dl>
+      <p class="lb-cap">지면 건 코인을 잃고, 무승부는 돌려받아요.</p>`,
+    note: ['방장이 아닌 사람: 종목 방식·종목·승부 방식·오목 규칙은 읽기 전용입니다. 코인 베팅은 방장과 똑같이 "내가 건 코인"을 직접 적을 수 있고, 상대가 건 수와 성립 상태를 같이 봅니다. 내보내기(×)·게임 시작 버튼은 없습니다.',
+      '두 사람이 건 수가 같아지면 상태 줄이 초록색 "내기 성립 · 50코인"으로 바뀌고 시작 버튼이 켜집니다. 오목 규칙 줄은 종목에 오목이 들어 있을 때만 보입니다. 순서대로 방식은 누른 순서가 번호로 표시됩니다.', '참가자 줄 오른쪽에 각자 건 코인 수가 보여 관전자도 내기 상태를 알 수 있습니다.'],
+  },
+};
+
+function render(key) {
+  const e = EX[key];
+  const host = e.players.find((p) => p.host);
+  const n = e.players.length;
+  document.getElementById('grid').innerHTML = `
+  <section class="lb-panel wr-left">
+    <div class="wr-head">
+      <span class="wr-game">${e.game}</span><span class="wr-sp"></span>
+      <button type="button" class="wr-code" title="눌러서 복사">방 코드 <b>${e.code}</b></button>
+      <button type="button" class="wr-ic" aria-label="소리">${IC.sound}</button>
+    </div>
+    <div class="wr-titlebox"><h2>${host.name}의 방</h2><p class="wr-desc">${e.desc}</p></div>
+    <hr>
+    ${e.settings()}
+    <div class="wr-fade"></div>
+  </section>
+  <section class="lb-panel wr-mid">
+    <h2>참가자 ${n}/${e.max}</h2>
+    <ul class="lb-group wr-players">${e.players.map((p) => `
+      <li class="lb-row${p.off ? ' lb-off' : ''}">${av(p)}
+        <span class="wr-who">${p.title ? `<span class="lb-title-badge${p.rainbow ? ' lb-rainbow' : ''}">${p.title}</span>` : ''}<span class="lb-p-name">${p.name}</span></span>
+        ${p.color ? `<i class="wr-dot" style="background:${p.color}" title="${p.cname}"></i>` : ''}
+        <span class="lb-tags">${[p.extra, p.host && '방장', p.me && '나', p.off && '연결 끊김'].filter(Boolean).join(' · ')}</span>
+        ${p.host ? '' : '<button type="button" class="wr-kick" aria-label="내보내기" title="내보내기">×</button>'}
+      </li>`).join('')}</ul>
+    <p class="lb-sub" style="margin-top:4px">관전 ${e.specs.length}/4</p>
+    <ul class="lb-group wr-specs" style="flex:none">${e.specs.map((p) => `
+      <li class="lb-row">${av(p)}<span class="wr-who"><span class="lb-p-name" style="color:var(--ink2)">${p.name}</span></span>${IC.eye}<span class="lb-tags">관전</span>
+      <button type="button" class="wr-kick" aria-label="내보내기" title="내보내기">×</button></li>`).join('')}</ul>
+    <div class="lb-actions">
+      <p class="wr-why wr-starthost">${e.why}</p>
+      <button type="button" class="lb-btn lb-primary wr-starthost" ${e.can ? '' : 'disabled'}>게임 시작</button>
+      <p class="lb-cap lb-center wr-guestonly" style="padding:14px 0">방장이 시작하기를 기다리는 중</p>
+      <button type="button" class="lb-btn lb-text lb-danger">나가기</button>
+    </div>
+  </section>
+  <section class="lb-panel wr-chat">
+    <div class="wr-head"><h2>채팅</h2></div>
+    <div class="wr-log">${e.chat.map((c) => c[0] === 's' ? `<div class="chat-row sys">${c[1]}</div>`
+      : `<div class="chat-row${c[3] ? ' mine' : ''}"><div class="meta"><b>${c[0]}</b><span>${c[1]}</span></div>${c[2]}</div>`).join('')}</div>
+    <div class="chat-bar"><button type="button" class="wr-ic wr-emo" aria-label="이모티콘">${IC.emo}</button><input class="chat-in" placeholder="메시지" maxlength="80"><button type="button" class="chat-send" aria-label="보내기">${IC.send}</button></div>
+  </section>`;
+  const lp = document.querySelector('.wr-left'), fd = lp.querySelector('.wr-fade');
+  fd.hidden = true; fd.hidden = lp.scrollHeight <= lp.clientHeight + 1;
+  document.getElementById('notes').innerHTML = Object.keys(EX).map((k) => `<h3 class="${k === key ? 'cur' : ''}">${EX[k].game}${k === key ? ' (지금 보는 예)' : ''}</h3><ul>${EX[k].note.map((t) => `<li>${t}</li>`).join('')}</ul>`).join('')
+    + '<h3>공통</h3><ul><li>세 칸 모두 지금 로비의 유리판(.lb-panel)·회색 묶음(.lb-group)·노란 선택 버튼(.lb-seg-item)·흰 시작 버튼(.lb-btn.lb-primary)·빨간 글자 나가기를 그대로 씁니다. 배경은 실제로는 3D 테이블 화면이며 여기서는 어두운 색으로 대신했습니다.</li><li>연결이 끊긴 사람은 흐리게 + "연결 끊김"(60초 뒤 나간 것으로 처리).</li></ul>';
+  document.querySelectorAll('[data-ex]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.ex === key));
+}
+const q = new URLSearchParams(location.search);
+let cur = EX[q.get('ex')] ? q.get('ex') : 'liar';
+function setRole(r) {
+  document.body.classList.toggle('guest', r === 'guest');
+  document.querySelectorAll('[data-role]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.role === r));
+}
+if (q.get('bare')) document.body.classList.add('bare');
+document.querySelectorAll('[data-ex]').forEach((b) => b.onclick = () => render(cur = b.dataset.ex));
+document.querySelectorAll('[data-role]').forEach((b) => b.onclick = () => setRole(b.dataset.role));
+render(cur);
+setRole(q.get('role') === 'guest' ? 'guest' : 'host');
+</script>
+</body>
+</html>

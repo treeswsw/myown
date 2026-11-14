@@ -169,13 +169,13 @@ describe('13-5 끊김과 재접속', { concurrency: true }, () => {
     await until(() => [bravo, charl, delta].every((c) => c.state.hostId === 'bravo'), '끊겨서 방장 넘김', { clients: r.cs, timeout: 8000 });
     assert.ok(bravo.state.players.every((p) => p.id !== 'alpha'));
     // 새 방장이 설정을 바꿀 수 있다
-    bravo.lg('settings', { goal: 10 });
+    bravo.set({ goal: 10 });
     await until(() => charl.state.settings.goal === 10, '새 방장 설정', { clients: r.cs });
     // 나가기 버튼도 같음
     bravo.send({ t: 'leave' });
     await until(() => [charl, delta].every((c) => c.state.hostId === 'charl'), '나가서 방장 넘김', { clients: r.cs });
     // 방장이 아닌 사람은 설정 못 바꿈
-    delta.lg('settings', { goal: 15 });
+    delta.set({ goal: 15 });
     await until(() => delta.errors.some((e) => /방장만/.test(e)), '방장만 오류', { clients: r.cs });
     assert.equal(charl.state.settings.goal, 10);
   });

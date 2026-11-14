@@ -100,7 +100,8 @@ test('poker and liar rooms: yt is refused, poker room refuses mode yacht', async
   assert.equal(cs[0].sock.last('error').msg, '요트다이스는 방을 새로 만들어 주세요.');
   assert.equal(cs[0].state.mode, 'holdem');
   await cs[0].send({ t: 'mode', mode: 'bluff' });
-  assert.equal(cs[0].state.mode, 'bluff');
+  assert.equal(cs[0].sock.last('error').code, 'pk_mode', '방 안 전환은 없어졌다(G-poker)');
+  assert.equal(cs[0].state.mode, 'holdem');
 
   const l = await lobby(hub, 'liar', ['liar1', 'liar2']);
   await l.cs[0].send({ t: 'yt', a: 'roll' });
@@ -144,7 +145,7 @@ test('avatar in a yacht room goes out as a faces event, never in the room state'
   const JPG = 'data:image/jpeg;base64,/9j/AAAA';
   await cs[1].send({ t: 'avatar', data: JPG });
   const faces = cs[0].sock.msgs.filter((m) => m.t === 'event' && m.e.k === 'faces').at(-1).e;
-  assert.deepEqual(faces.items, [{ id: 'bob1', avatar: JPG }]);
+  assert.deepEqual(faces.items, [{ id: 'bob1', avatar: JPG, look: {} }]); // 공용 faces 알림은 look(꾸미기)도 싣는다
   assert.equal(JSON.stringify(cs[0].sock.msgs.filter((m) => m.t === 'room')).includes('data:image'), false);
 });
 

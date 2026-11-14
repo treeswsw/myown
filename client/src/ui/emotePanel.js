@@ -3,12 +3,12 @@ import { h, svg, view } from './dom.js';
 import { TOP } from './icons.js';
 import { emoteGlyphs } from './pins.js';
 import { saved } from '../state.js';
-import { BUILTINS, mySounds, playBuiltin, playDataUrl, prepareSound, setMediaMuted, shrinkImage, unlockAudio } from '../media.js';
+import { BUILTINS, mySounds, playBuiltin, playDataUrl, prepareSound, shrinkImage, unlockAudio } from '../media.js';
 
 // createEmotePanel({ onEmote(i), onPhoto(dataUrl), onSoundAdd({sid, name, data}), onSound(sid), getAnchor(id) -> {x, y} | null,
 //                    getSelf?() -> my id, getName?(id) -> name, isHost?() -> bool, onSoundDelete(sid), onSoundRename(sid, name),
 //                    onClose?() after an emote or photo is sent })
-//   -> { el, showPhoto(id, dataUrl), playSound(id, sid), addRoomSound(item), setRoomSounds(items), removeRoomSound(sid), renameRoomSound(sid, name), syncMine(), handleError(text), clearRoom(), setMuted(bool), update() }
+//   -> { el, showPhoto(id, dataUrl), playSound(id, sid), addRoomSound(item), setRoomSounds(items), removeRoomSound(sid), renameRoomSound(sid, name), syncMine(), handleError(text), clearRoom(), update() }
 // `el` is meant to sit inside the scaled .hpanel; photo/sound labels float in their own layer on document.body.
 
 const ICON = {
@@ -353,7 +353,6 @@ export function createEmotePanel({ onEmote, onPhoto, onSoundAdd, onSound, getAnc
       renderSounds();
       for (const f of [...floats]) drop(f);
     },
-    setMuted: setMediaMuted,
     update() { for (const f of floats) place(f); },
   };
   return api;

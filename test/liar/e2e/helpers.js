@@ -70,6 +70,7 @@ export async function client(app, id) {
     id, ws, raw: [], msgs: [], state: null, states: [], events: [], errors: [], phaseLog: [], me: null, lgRank: null,
     send: (obj) => ws.send(JSON.stringify(obj)),
     lg: (a, extra = {}) => ws.send(JSON.stringify({ t: 'lg', a, ...extra })),
+    set: (patch) => ws.send(JSON.stringify({ t: 'set', patch })),
     say: (text) => c.lg('say', { text }),
     vote: (target) => c.lg('vote', { target }),
     judge: (v) => c.lg('judge', { v }),
@@ -129,14 +130,14 @@ export const room3 = (opts) => roomN(3, opts);
 /** 방장이 시간 설정을 바꾸고 모두에게 반영될 때까지 기다린다. 기본은 전부 최솟값. */
 export async function setTimes(r, over = {}) {
   const times = { ...MIN_TIMES, ...over };
-  r.host.lg('settings', { times });
+  r.host.set({ times });
   await until(() => r.cs.every((c) => Object.entries(times).every(([key, v]) => c.state.settings.times[key] === v)),
     'settings.times', { clients: r.cs });
 }
 
 /** 방장이 설정을 바꾸고(예: { liarMode: 'notice' }) 반영될 때까지 기다린다. */
 export async function setSettings(r, change) {
-  r.host.lg('settings', change);
+  r.host.set(change);
   const same = (s) => Object.entries(change).every(([key, v]) => (key === 'times' || key === 'topics' ? true : s[key] === v));
   await until(() => r.cs.every((c) => same(c.state.settings)), 'settings', { clients: r.cs });
 }

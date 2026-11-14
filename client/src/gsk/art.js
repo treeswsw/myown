@@ -74,7 +74,7 @@ export const floorUrl = () => FLOOR;
 export const floorTileUrl = () => FLOOR_TILE;
 
 export const ALL_URLS = () => [
-  ...DISC_BACK, ...DISC_FLOWER, ...DISC_SKULL, ...MAT_FRONT, ...MAT_BACK, FLOOR, FLOOR_TILE,
+  ...DISC_BACK, ...DISC_FLOWER, ...DISC_SKULL, ...MAT_FRONT, ...MAT_BACK, FLOOR,
 ];
 
 function loadImage(url, cors) {
@@ -104,6 +104,15 @@ function loadMeta() {
 }
 
 const photoCache = new Map();
+
+// 해골 원판 <img> 를 그린다 — 해골 원판이 보이는 모든 곳이 이 한 함수를 쓴다.
+// faceUrl(그 원판 주인의 프로필 사진)이 있으면 사진 해골, 없으면 그림 해골. isOk()가 false 가 되면(화면이 걷힘) 바꾸지 않는다.
+// 공개된 해골과 본인이 보는 자기 해골에만 부른다(엎어진 원판 뒷면에는 부르지 않는다).
+export function setSkullImg(img, c, faceUrl, isOk) {
+  img.src = discSkullUrl(c);
+  if (!faceUrl) return;
+  skullPhotoUrl(c, faceUrl).then((u) => { if (!isOk || isOk()) img.src = u; }).catch(() => {});
+}
 
 // 그 색 해골 원판 가운데 원에 프로필 사진을 원형으로 꽉 차게(cover, 가운데) 넣은 그림 주소(Promise).
 // 같은 (c, photoUrl) 은 한 번만 만든다. 사진을 못 불러오면 그림 해골 주소를 그대로 돌려준다.

@@ -52,9 +52,16 @@ test('GSK=on: create, join, start, gk request; other games are refused inside', 
   await a.send({ t: 'gk', a: 'bid', n: 1 }); // reaches the room (a wrong-turn answer is fine); never "unknown request"
   const e = a.sock.last('error');
   if (e) assert.match(e.code ?? '', /^gk_/);
-  for (const m of [{ t: 'act', a: 'fold' }, { t: 'play', cards: [0] }, { t: 'liar' }, { t: 'mode', mode: 'bluff' }, { t: 'lg', a: 'rank' }, { t: 'yt', a: 'x' }, { t: 'dr', a: 'x' }]) {
+  // 포커 글자는 "지금은 할 수 없습니다"(gk_now), 다른 게임 봉투는 "알 수 없는 요청입니다"(gk_bad) — 공용 방 틀(Shell)이 같은 문구로 거절
+  for (const m of [{ t: 'act', a: 'fold' }, { t: 'play', cards: [0] }, { t: 'liar' }, { t: 'mode', mode: 'bluff' }]) {
     await a.send(m);
     assert.equal(a.sock.last('error').code, 'gk_now', m.t);
+  }
+  for (const m of [{ t: 'lg', a: 'x' }, { t: 'yt', a: 'x' }, { t: 'dr', a: 'x' }, { t: 'mn', a: 'x' }]) {
+    await a.send(m);
+    const err = a.sock.last('error');
+    assert.equal(err.code, 'gk_bad', m.t);
+    assert.equal(err.msg, '알 수 없는 요청입니다.', m.t);
   }
 });
 

@@ -1,3 +1,5 @@
+> 지난 기록(지금 구조는 COMMON-CONTRACT.md)
+
 # 요트다이스 만들기 계획 (구역·과제 지시문)
 
 작성: 기획 담당, 2026-11-13. 규칙은 `docs/yacht/GDD.md`, 통신 약속은 `docs/SPEC.md` 19절. 다르면 SPEC 19절 → GDD → 이 문서 순으로 우선.
