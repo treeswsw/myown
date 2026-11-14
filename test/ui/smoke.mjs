@@ -910,7 +910,7 @@ async function runContext(browser, server, name, cfg) {
     });
     /* ---------- 혼자 놀기 solo (server SOLO default on): 종목마다 한 판 → 그만하기 → 공용 결과(점수·순위 칸) → 로비 ---------- */
     await step('solo: pick 혼자 놀기 in the game grid (right after 미니게임) → three cards and a rank box replace 방 만들기', async () => {
-      const names = await page.locator('.lb-seg-item').allTextContents();
+      const names = await page.locator('.lb-seg > .lb-seg-item').allTextContents();
       if (names.indexOf('혼자 놀기') !== names.indexOf('미니게임') + 1 || names.at(-1) !== '혼자 놀기') throw new Error(`grid order ${names.join(',')}`);
       await press('.lb-seg-item:has-text("혼자 놀기")');
       await visible('[data-so="lobby"]');
