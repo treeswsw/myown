@@ -42,7 +42,8 @@ const offErr = (mode) => {
   const code = `${g.err}off`;
   return { msg: SERVER_GAMES[mode].errors?.[code] ?? `${g.name}${josa(g.name)} 아직 열리지 않았습니다.`, code };
 };
-const publicUser = (u) => ({ id: u.id, name: u.name, bank: u.bank, avatar: u.avatar, stats: { ...u.stats } });
+// solo = 혼자 놀기 내 기록 칸 그대로 { [종목]: { best, at, n, wk, wbest, wat } } (로비 종목 카드의 "내 최고"). me.solo(스위치 값)와 다른 칸: 이쪽은 me.user.solo.
+const publicUser = (u) => ({ id: u.id, name: u.name, bank: u.bank, avatar: u.avatar, stats: { ...u.stats }, solo: structuredClone(u.solo ?? {}) });
 
 export function createHub({
   store, rng = secureRng, now = Date.now, timers = { setTimeout, clearTimeout }, timing = {}, adminKey, coinSeed = 0, startCoins = 0, ...flagOpts
@@ -82,7 +83,7 @@ export function createHub({
     },
     // Open rooms only: empty rooms waiting for GC are not listed. Nothing but these fields leaves the server.
     roomList() {
-      return [...hub.rooms.values()].filter((r) => r.members.length > 0).map((r) => r.listInfo());
+      return [...hub.rooms.values()].filter((r) => r.members.length > 0 && r.entry.listed !== false).map((r) => r.listInfo()); // listed: false(혼자 놀기) = 목록에 안 나옴
     },
     sendRooms(session) {
       if (!session.room) hub.send(session, { t: 'rooms', list: hub.roomList() });
@@ -353,7 +354,7 @@ async function dispatch(hub, conn, msg) {
       const r = createRoomShell(hub, code, { mode: msg.mode, ...g, ...entry }, msg); // coins: the game calls ctx.finish
       hub.rooms.set(code, r);
       const bad = r.join(session);
-      if (!bad && msg.mode === 'mini' && (msg.vs === 'bot' || msg.vs === 'puzzle')) r.start(session.id); // 봇과 하기: 대기실 없이 바로 시작 (실패하면 대기실에 그대로)
+      if (!bad && entry.autoStart?.(msg)) r.start(session.id); // 대기실 없이 바로 시작(미니 봇전·퍼즐, 혼자 놀기). 실패하면 대기실에 그대로
       return bad;
     }
     case 'join': {

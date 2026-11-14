@@ -1,8 +1,6 @@
 import { checkEcon } from '../shared/coin/rules.js';
 import { parseCoin, parsePin } from '../shared/coin/protocol.js';
 // Validation of everything a client may send. Returns sanitized messages only.
-import { GAME_IDS } from '../shared/mini/index.js';
-import { LEVELS } from '../shared/mini/settings.js';
 import { GAMES } from '../shared/games.js';
 export const MAX_RAW = 70_000; // every message except sndAdd
 export const MAX_FRAME = 300_000; // WebSocket frame limit: room for sndAdd
@@ -22,6 +20,8 @@ const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
 const MODES = Object.keys(GAMES);
 // Every game's own request types. act / play / liar (poker) have their own cases below; the rest are envelopes {t, a, ...}.
 const ENVELOPES = new Set(Object.values(GAMES).flatMap((g) => g.msgs));
+// 등록표 칸 `parse(m)`: 그 게임 요청의 모양 검사(걸러진 객체 또는 null). 없으면 봉투만 본다.
+const PARSERS = new Map(Object.values(GAMES).filter((g) => g.parse).flatMap((g) => g.msgs.map((t) => [t, g.parse])));
 const isPatch = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const ACTIONS = ['fold', 'check', 'call', 'raise', 'allin'];
 
@@ -101,12 +101,8 @@ export function parseMessage(raw) {
       return validAvatar(m.data) ? good({ t: 'avatar', data: m.data }) : bad('프로필 사진은 60KB 이하의 JPEG여야 합니다.');
     case 'create':
     case 'mode':
-      if (m.t === 'create' && m.mode === 'mini') {
-        const game = GAME_IDS.includes(m.game) ? m.game : 'gomoku';
-        if (m.vs === 'puzzle' && game === 'chess') return good({ t: 'create', mode: 'mini', game, vs: 'puzzle' });
-        if (m.vs !== 'bot') return good({ t: 'create', mode: 'mini', game });
-        return good({ t: 'create', mode: 'mini', game, vs: 'bot', level: LEVELS.includes(m.level) ? m.level : 'mid', side: m.side === 1 ? 1 : 0 });
-      }
+      // 방 만들기 추가 칸(종목·상대·난이도 등)은 등록표 `create(m)` 가 거른다(게임 이름 분기 없음).
+      if (m.t === 'create' && MODES.includes(m.mode) && GAMES[m.mode].create) return good({ t: 'create', mode: m.mode, ...GAMES[m.mode].create(m) });
       return MODES.includes(m.mode) ? good({ t: m.t, mode: m.mode }) : bad('알 수 없는 게임입니다.');
     case 'join': {
       const code = typeof m.code === 'string' ? m.code.trim().toUpperCase() : '';
@@ -190,6 +186,10 @@ export function parseMessage(raw) {
       return Number.isInteger(m.e) && m.e >= 0 && m.e <= 5 ? good({ t: 'emote', e: m.e }) : bad('잘못된 이모티콘입니다.');
     default:
       // Only the envelope is checked here; the game's room validates the contents.
+      if (PARSERS.has(m.t)) {
+        const out = PARSERS.get(m.t)(m);
+        return out ? good(out) : bad('잘못된 메시지 형식입니다.');
+      }
       if (ENVELOPES.has(m.t)) return typeof m.a === 'string' && m.a.length > 0 && m.a.length <= 20 ? good(m) : bad('잘못된 메시지 형식입니다.');
       return bad('알 수 없는 요청입니다.');
   }

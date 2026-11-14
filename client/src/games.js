@@ -14,6 +14,7 @@ export const CLIENT_GAMES = {
   draw: { load: () => import('./draw/index.js'), stage: false, mount: true },
   gsk: { load: () => import('./gsk/index.js'), stage: false, mount: true },
   mini: { load: () => import('./mini/index.js'), stage: false, mount: true },
+  solo: { load: () => import('./solo/index.js'), stage: false, mount: true },
 };
 
 /** 이 방을 공통 틀이 그리는가(등록표에 load·mount 가 있는 게임 = 모든 게임). */

@@ -13,7 +13,7 @@ export function makeHub(opts = {}) {
   const { seed = 1, ...rest } = opts;
   const hub = createHub({
     store, rng: seeded(seed), now: clock.now, timers: clock,
-    liar: 'on', yacht: 'on', draw: 'on', gsk: 'on', mini: 'on', ...rest,
+    liar: 'on', yacht: 'on', draw: 'on', gsk: 'on', mini: 'on', solo: 'on', ...rest,
   });
   // 새 접속 -> 로그인한 클라이언트. 같은 아이디로 다시 부르면 새 소켓(재접속)이다.
   async function login(id) {

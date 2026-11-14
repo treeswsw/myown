@@ -51,6 +51,9 @@ test('shared 칸이 전부 있고 타입이 맞다', () => {
       assert.ok(ok(g[f]), `${k}.${f} 모양이 틀림: ${JSON.stringify(g[f])}`);
     }
     assert.ok(g.min >= 1 && g.min <= g.max, `${k}: min/max`);
+    // 있을 때만 보는 칸 (SPEC 7-5): listed(false = 로비 방 목록에 안 나옴), create(방 만들기 추가 칸 거르기), parse(요청 모양 검사)
+    if (g.listed !== undefined) assert.equal(typeof g.listed, 'boolean', `${k}.listed`);
+    for (const f of ['create', 'parse']) if (g[f] !== undefined) assert.equal(typeof g[f], 'function', `${k}.${f}`);
     if (g.fast !== undefined) {
       assert.ok(Number.isInteger(g.fast.limit) && Array.isArray(g.fast.ops), `${k}.fast`);
     }
@@ -93,6 +96,7 @@ test('서버 항목: make 가 있고, bot 은 false 또는 {createBrain, skip}',
     assert.equal(typeof e.make, 'function', `${k}: make 없음`);
     assert.ok(e.bot === false || (typeof e.bot?.createBrain === 'function' && typeof e.bot?.skip === 'function'), `${k}.bot`);
     if (e.hubMsg !== undefined) assert.equal(typeof e.hubMsg, 'function', `${k}.hubMsg`);
+    if (e.autoStart !== undefined) assert.equal(typeof e.autoStart, 'function', `${k}.autoStart`);
   }
 });
 
