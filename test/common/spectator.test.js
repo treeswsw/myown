@@ -5,6 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeHub, freeLimits, events, drain } from '../lib/hub.js';
+import { turnEngine } from '../solo/lib.js';
 
 const errKey = (e) => e && (e.code ?? e.msg);
 const lastErr = (c, since = 0) => errKey(c.sock.msgs.slice(since).filter((m) => m.t === 'error').at(-1));
@@ -85,10 +86,21 @@ const MODES = [
     mode: 'mini', n: 2, act: { t: 'mn', a: 'resign' }, actErr: 'mn_spec', chat: 'ok',
     secrets: () => [], view: (st) => assert.equal(st.mySeat, -1), blind: (r) => r.cs[1],
   },
+  {
+    // 혼자 놀기: 종목 표를 비워 만들어(자동 시작 실패 = 대기실) 시작 직전에 가짜 종목을 넣는다. 비밀 = seed(하는 사람에게만, play 부터)
+    mode: 'solo', n: 2, act: { t: 'so', a: 'end', score: 0 }, actErr: 'so_spec', chat: 'ok',
+    setup: (h) => { h.hub.soloEngines = {}; },
+    beforeStart: async (r) => { r.hub.soloEngines = { [turnEngine.id]: turnEngine }; await r.cs[0].send({ t: 'set', patch: { game: turnEngine.id } }); },
+    play: async (r) => { await r.tick(3100); r.seed = r.cs[0].state.so.seed; assert.ok(Number.isInteger(r.seed), '하는 사람은 play 에서 seed 를 받는다'); },
+    secrets: (r) => [String(r.seed)],
+    view: (st) => { assert.equal(st.so?.seed, undefined); assert.ok(st.players.every((p) => p.id === st.pid || p.spectating)); },
+    blind: (r) => r.cs[1],
+  },
 ];
 
 async function seat(spec) {
   const h = makeHub();
+  spec.setup?.(h);
   const cs = [];
   for (const id of ['ann1', 'bob1', 'cat1'].slice(0, spec.n)) cs.push(await h.login(id));
   await cs[0].send({ t: 'create', mode: spec.mode });
@@ -108,6 +120,7 @@ for (const spec of MODES) {
     assert.deepEqual(r.room.members.map((m) => m.id), r.cs.map((c) => c.id), '참가자 그대로');
     assert.deepEqual(r.cs[0].state.specs.map((x) => x.id), ['관전1']);
     assert.ok(!s.state.players.some((p) => p.id === '관전1'));
+    await spec.beforeStart?.(r);
     await r.cs[0].send({ t: 'start' });
     assert.equal(lastErr(r.cs[0]), undefined, '시작');
     assert.equal(r.cs[0].state.wait, null, '게임 중');
@@ -120,6 +133,7 @@ for (const spec of MODES) {
     const r = await seat(spec);
     const s = await r.login('관전1');
     await s.send({ t: 'join', code: r.code });
+    await spec.beforeStart?.(r);
     await r.cs[0].send({ t: 'start' });
     const late = await r.login('관전2');
     await late.send({ t: 'join', code: r.code });
@@ -152,6 +166,7 @@ for (const spec of MODES) {
     await s.send({ t: 'chat', text: '대기 중 인사' });
     assert.equal(lastErr(s, n), undefined, '대기 중 채팅');
     assert.ok(events(r.cs[0], 'chat').some((e) => e.id === '관전1'), '참가자가 받는다');
+    await spec.beforeStart?.(r);
     await r.cs[0].send({ t: 'start' });
     if (M === 'liar') await liarWalk(r, 'discuss');
     freeLimits(r.hub);

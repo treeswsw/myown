@@ -139,6 +139,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
       gsk: ['test', 'off'].includes(process.env.GSK) ? process.env.GSK : 'on', // default on (2026-11-13 user: show to everyone); Render ignores render.yaml env changes on an existing service
       draw: ['test', 'off'].includes(process.env.DRAW) ? process.env.DRAW : 'on',
       mini: ['test', 'off'].includes(process.env.MINI) ? process.env.MINI : 'on',
+      solo: ['on', 'off'].includes(process.env.SOLO) ? process.env.SOLO : 'test', // 혼자 놀기: 개발 중 기본 test(?solo=1), 사용자 확인 뒤 on (docs/solo/PLAN.md 0절)
       adminKey: process.env.ADMIN_KEY || undefined, // default 9975 (SPEC 21-1)
       startCoins: 20, // 새 계정 20코인으로 시작(2026-11-13 사용자 요청). 칩은 START_BANK 10,000.
       coinSeed: Number(process.env.COIN_SEED) > 0 ? Math.floor(Number(process.env.COIN_SEED)) : 0, // click tests only (SPEC 22-12)

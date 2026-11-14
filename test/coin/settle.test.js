@@ -19,9 +19,9 @@ async function table(mode) {
   return { ...h, a, b, c, room, coins: (id) => h.hub.sessions.get(id).user.coins };
 }
 
-test('등록표의 coin 키는 모두 COIN_RULES 에 있고 홀덤만 코인이 없다', () => {
+test('등록표의 coin 키는 모두 COIN_RULES 에 있고 홀덤·혼자 놀기(solo_* 줄을 hub.grant 로 직접 줌, NEW-GAME 4절 예외)만 코인이 없다', () => {
   for (const [id, g] of Object.entries(GAMES)) {
-    if (id === 'holdem') assert.equal(g.coin, null);
+    if (id === 'holdem' || id === 'solo') assert.equal(g.coin, null);
     else assert.ok(Object.hasOwn(COIN_RULES, g.coin), `${id}.coin`);
   }
 });

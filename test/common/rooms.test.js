@@ -8,6 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeHub, freeLimits, events, drain } from '../lib/hub.js';
+import { turnEngine } from '../solo/lib.js';
 
 const JPG = 'data:image/jpeg;base64,/9j/AAAA';
 const AUD = 'data:audio/webm;base64,AAAA';
@@ -133,6 +134,17 @@ const MODES = [
     leftEvent: true, awayEvents: true, faces: true,
     stages: [plain('진행 중(셋째 사람은 관전)')],
   },
+  {
+    // 예외(NEW-GAME 4절): 정원 1명(사람 1명이 하고 나머지는 구경) -> startFew 없음, 만들자마자 시작(autoStart)이라
+    // 표가 "대기실에서 시작"을 시험할 수 있게 종목 표를 비워 둔 채 만들고(자동 시작 실패 = 대기실), 시작 직전에 가짜 종목을 넣는다.
+    mode: 'solo', create: { mode: 'solo' }, max: 4, chatMax: 120, chatLong: HUB_LONG, flood: HUB_FLOOD,
+    startFew: null, startNonHost: 'so_host', startedPhase: 'ready', listed: false, // listed: false = 로비 방 목록에 안 나옴
+    hostWhenNextAway: 'cat1', // 연결된 사람 우선 (Shell)
+    leftEvent: true, awayEvents: true, faces: true,
+    setup: (h) => { h.hub.soloEngines = {}; },
+    beforeStart: async (r) => { r.hub.soloEngines = { [turnEngine.id]: turnEngine }; await r.cs[0].send({ t: 'set', patch: { game: turnEngine.id } }); },
+    stages: [plain('진행 중(카운트다운, 둘째부터는 구경)')],
+  },
 ];
 
 // ---- 도우미 ----------------------------------------------------------------------------------
@@ -140,6 +152,7 @@ const MODES = [
 // n 명이 들어간 방. cs[0] 이 방장.
 async function seat(spec, n, hubOpts) {
   const h = makeHub(hubOpts);
+  spec.setup?.(h);
   const cs = [];
   for (const id of ['ann1', 'bob1', 'cat1', 'dan1'].slice(0, n)) cs.push(await h.login(id));
   await cs[0].send({ t: 'create', ...spec.create });
@@ -147,7 +160,7 @@ async function seat(spec, n, hubOpts) {
   for (const c of cs.slice(1)) await c.send({ t: 'join', code });
   return { ...h, cs, code, room: h.hub.rooms.get(code), ids: () => h.hub.rooms.get(code)?.members.map((m) => m.id) ?? null };
 }
-const startGame = async (r) => { await r.cs[0].send({ t: 'start' }); };
+const startGame = async (r, spec) => { await spec.beforeStart?.(r); await r.cs[0].send({ t: 'start' }); };
 const errKey = (e) => e && (e.code ?? e.msg);
 const lastErr = (c, since = 0) => errKey(c.sock.msgs.slice(since).filter((m) => m.t === 'error').at(-1));
 
@@ -389,7 +402,7 @@ for (const spec of MODES) {
   test(`${M}: 마지막 사람이 나가면 방 목록에서 바로 사라지고 ${GRACE / 1000}초 뒤 방이 지워진다`, async () => {
     const r = await seat(spec, 2);
     const watcher = await r.login('zed1');
-    assert.equal(r.hub.roomList().length, 1);
+    assert.equal(r.hub.roomList().length, spec.listed === false ? 0 : 1, '목록에 나오는 게임만 보인다(등록표 listed)');
     await r.cs[1].send({ t: 'leave' });
     await r.cs[0].send({ t: 'leave' });
     assert.equal(r.hub.roomList().length, 0, '빈 방은 목록에 안 나온다');
@@ -476,15 +489,18 @@ for (const spec of MODES) {
 
   // 6) 게임 시작
   test(`${M}: 게임 시작 - 인원 부족 거절, 방장 아니면 거절, 충족하면 시작`, async () => {
-    const solo = await seat(spec, 1);
-    await solo.cs[0].send({ t: 'start' });
-    assert.equal(lastErr(solo.cs[0]), spec.startFew);
-    assert.equal(solo.cs[0].state.phase, 'lobby');
+    if (spec.startFew !== null) { // null = 한 명으로도 시작되는 게임(혼자 놀기)
+      const solo = await seat(spec, 1);
+      await solo.cs[0].send({ t: 'start' });
+      assert.equal(lastErr(solo.cs[0]), spec.startFew);
+      assert.equal(solo.cs[0].state.phase, 'lobby');
+    }
     const r = await seat(spec, 3);
     assert.equal(r.cs[0].state.phase, 'lobby');
     await r.cs[1].send({ t: 'start' });
     assert.equal(lastErr(r.cs[1]), spec.startNonHost);
     assert.equal(r.cs[0].state.phase, 'lobby', '방장이 아니면 시작되지 않는다');
+    await spec.beforeStart?.(r);
     await r.cs[0].send({ t: 'start' });
     assert.equal(lastErr(r.cs[0]), undefined);
     for (const c of r.cs) assert.equal(c.state.phase, spec.startedPhase, c.id);
@@ -493,7 +509,7 @@ for (const spec of MODES) {
   // 7) 게임 진행 중 채팅·이모티콘·사운드 (그 게임의 규칙대로)
   test(`${M}: 게임 중 채팅·이모티콘·사운드 - 그 게임의 규칙대로 (${spec.stages.map((s) => s.name).join(' / ')})`, async () => {
     const r = await seat(spec, 3);
-    await startGame(r);
+    await startGame(r, spec);
     assert.equal(r.cs[0].state.phase, spec.startedPhase);
     for (const st of spec.stages) {
       await st.enter?.(r);
@@ -519,7 +535,7 @@ for (const spec of MODES) {
   // 8) 게임 중 나가기·끊김
   test(`${M}: 게임 중 - 나가면 남은 사람은 계속, 끊긴 사람은 유예 안 재접속하면 자리 유지·유예 뒤에는 나감`, async () => {
     const r = await seat(spec, 4);
-    await startGame(r);
+    await startGame(r, spec);
     const code = r.code;
     const phase = r.cs[0].state.phase;
     assert.equal(phase, spec.startedPhase);

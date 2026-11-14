@@ -219,6 +219,13 @@ design/   시안
 - `event.e` `joined`·`left` 에 관전자면 `spec: true`. 방 목록 `count` 는 참가자만.
 - 화면: 게임 중 위 가운데 "관전 중"(`.rm-spec`). 조작 버튼은 게임이 "내 자리 없음"으로 그리지 않는다. 갱식마인드는 게임 중 관전자 채팅 줄을 잠근다.
 
+### 7-5. 혼자 놀기 `solo` (2026-11-14, 규칙·화면은 docs/solo/PLAN.md)
+- 방 만들기 `{t:'create', mode:'solo', game}`: 등록표 칸 `create(m)` 가 `game` 만 남긴다(모르는 종목은 표 `SOLO` 의 첫 종목). 서버 등록표 `autoStart` 가 true 라 만들자마자 `start` 가 불린다(대기실 없음; 실패하면 대기실에 남음). 등록표 `listed: false` 라 로비 방 목록에 안 나온다. 방 코드로 들어오면 구경(`players[].spectating`).
+- 방 안 요청은 전부 `{t:'so', a}`. 등록표 `parse(m)` 가 모양을 거른다: `in` `{n: 0 이상 정수, ops: 정수 1~512개, 각 −600 ~ 1048575}`, `end` `{score: 0 이상 정수}`, `rank` `{game: 1~20자 글자}`, 그 밖의 `a` 는 `잘못된 메시지 형식입니다.`. 방 만들기·시작·설정·나가기는 공용 `create/start/set/leave`.
+- 오류 `so_now so_spec so_game so_off so_sync so_fast so_need1 so_bad`(문구는 `server/games.js` `errors`). `so_sync`·`so_fast` 는 화면 틀이 알림 없이 처리(`so_sync` = 서버 `so.n` 부터 다시 보냄).
+- 방 상태 칸(공통 칸 위에): `{game, pid, so: null | {startAt, endsAt, n, score, seed?}, last: null | {game, score, reason, desync?, best, fresh, rank:{all,wk}, coin:{want,gain,capped}, today, cap}}`. `seed` 는 `play` 부터 하는 사람(`pid`)에게만. 이벤트 `soProg {score, n}`(구경꾼에게만). 순위 답 `{t:'soRank', game, week, all:{top,mine}, wk:{top,mine}}`(방 밖·안 어디서나, 허브가 답함).
+- `me` 에 스위치 값 `solo: 'on'|'test'|'off'`(서버 환경 변수 `SOLO`, 기본 `test` = 주소에 `?solo=1`)와, `me.user.solo` = 내 기록 칸 `{[종목]: {best, at, n, wk, wbest, wat}}`.
+
 ## 8. 화면
 
 시안 대응: `design/lobby.jpg`, `holdem-preflop.jpg`, `holdem-default.jpg`, `holdem-peek.jpg`, `holdem-board-zoom.jpg`, `holdem-raise-dial.jpg`, `holdem-win.jpg`, `bluff.jpg`.
