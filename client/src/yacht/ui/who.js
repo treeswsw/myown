@@ -17,6 +17,8 @@ export function createWho({ faces = null, profile = kitProfile } = {}) {
       colors = new Map((players ?? []).filter((p) => p && typeof p.color === 'string' && HEX.test(p.color)).map((p) => [p.id, p.color]));
     },
     color,
+    /** 장착 꾸미기(칭호·글자 색) 또는 null */
+    look(id) { return faceOf(id).look ?? null; },
     /** 사진·꾸미기·색이 바뀌었는지 비교하는 열쇠 */
     key(id) {
       const f = faceOf(id);
