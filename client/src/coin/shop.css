@@ -1,187 +1,212 @@
-/* 상점 "딜러의 테이블" (.sh-). #ui 는 pointer-events:none 이라 이 창이 스스로 auto. zoom 금지. */
-.sh-root{--bg:#0b0a09;--bar:#120f0b;--ink:#f4efe6;--ink2:#b9ad97;--ink3:#8f8573;--hair:#2a241b;--hair2:#3a3226;--gold:#f2c444;--gold2:#6b5418;--gold3:#5a4614;
-  --on-gold:#1c1608;--red:#ff453a;--paper:#f4efe6;--cw:150px;--ch:214px;--cmin:74px;--gap:12px;--pad:24px;
-  position:fixed;inset:0;z-index:40;pointer-events:auto;background:var(--bg);color:var(--ink);
-  font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo",sans-serif;font-size:15px;line-height:1.3;-webkit-font-smoothing:antialiased}
+/* 갱식 상점 (.sh-, SPEC 22-20). 사용자 확정 시안(1280x720 기준)을 옮긴 것.
+   크기는 전부 calc(시안 px * var(--u)) (글자는 --f). zoom 금지. #ui 는 pointer-events:none 이라 이 창이 스스로 auto. */
+.sh-root{--u:clamp(.75px,min(100vh / 720,100vw / 1280),1.7px);--f:var(--u);--gap:calc(34*var(--u));
+  --cp:polygon(calc(16*var(--u)) 0,100% 0,100% calc(100% - 16*var(--u)),calc(100% - 16*var(--u)) 100%,0 100%,0 calc(16*var(--u)));
+  --cc:polygon(calc(10*var(--u)) 0,calc(100% - 10*var(--u)) 0,100% calc(10*var(--u)),100% calc(100% - 10*var(--u)),calc(100% - 10*var(--u)) 100%,calc(10*var(--u)) 100%,0 calc(100% - 10*var(--u)),0 calc(10*var(--u)));
+  --au:linear-gradient(160deg,#fbe9b0,#c79a45 36%,#6f4f1c 60%,#ecd08a);
+  position:fixed;inset:0;z-index:40;pointer-events:auto;color:#eef4f8;overflow:hidden;
+  font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo",sans-serif;font-size:calc(14*var(--f));line-height:1.3;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(ellipse 55% 53% at 82% 30%,rgba(28,96,190,.42),transparent 70%),radial-gradient(ellipse 48% 42% at 8% 96%,rgba(14,110,130,.38),transparent 70%),linear-gradient(180deg,#040b16,#061422 52%,#03080f)}
 .sh-root *{box-sizing:border-box}
-.sh-root button{font:inherit;color:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent;cursor:pointer}
+.sh-root button{font-family:inherit;color:inherit;margin:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent;cursor:pointer;transition:transform .08s ease-out,filter .12s ease-out}
+.sh-root button:active{transform:translateY(1px) scale(.97);filter:brightness(1.15)}
 .sh-root button:disabled{cursor:default}
-.sh-root :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.sh-root :focus-visible{outline:2px solid #9be0ff;outline-offset:2px}
 .sh-root [hidden]{display:none !important}
-.sh-panel{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;
+.sh-hf{font-family:"Black Han Sans","Noto Sans KR",sans-serif;font-weight:400}
+.sh-panel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-.sh-grow{flex:1 1 0;min-height:0;min-width:0}
-.sh-num{font-family:"Bangers","Black Han Sans",sans-serif;font-weight:400;letter-spacing:1px;font-variant-numeric:tabular-nums}
+.sh-sk{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.9}
+.sh-stage{position:relative;flex:none;width:min(100%,calc(1500*var(--u)));height:min(100%,calc(744*var(--u)));display:flex;flex-direction:column}
 
-/* 위 줄 */
-.sh-head{flex:none;height:68px;padding:0 28px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--hair);background:var(--bar)}
-.sh-close{flex:none;width:44px;height:44px;padding:0;border-radius:22px;border:1px solid var(--hair2);background:transparent;display:flex;align-items:center;justify-content:center}
-.sh-ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.sh-title{margin:0;font-family:"Black Han Sans","Noto Sans KR",sans-serif;font-weight:400;font-size:30px;letter-spacing:1px;color:var(--gold);text-shadow:0 3px 0 #5a3d00;white-space:nowrap}
-.sh-swap{flex:none;height:44px;padding:0 18px;border-radius:22px;border:1px solid var(--gold3);background:transparent;color:var(--gold) !important;font-weight:700;white-space:nowrap}
-.sh-swap:disabled{opacity:.5}
-.sh-pill{flex:none;display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:22px;background:#15130f;border:1px solid var(--hair);white-space:nowrap}
-.sh-pill span{font-size:14px;color:var(--ink2)}
-.sh-pill .sh-num{font-size:22px}
-.sh-coins{background:#1c1608;border-color:var(--gold3)}
-.sh-coins .sh-num{font-size:24px;color:var(--gold)}
-
-.sh-body{flex:1 1 0;min-height:0;display:flex}
-
-/* 왼쪽: 회원증 */
-.sh-side{flex:none;width:340px;padding:18px var(--pad);border-right:1px solid var(--hair);display:flex;flex-direction:column;gap:12px;min-height:0}
-.sh-member{--av:72px;flex:none;padding:12px 18px 14px;border-radius:18px;border:2px solid var(--gold);
-  box-shadow:inset 0 0 0 5px var(--bar),inset 0 0 0 6px var(--gold2),0 12px 28px rgba(0,0,0,.66);
-  background:radial-gradient(circle at 50% 20%,#2b1f0b 0%,#120f0b 75%);display:flex;flex-direction:column;align-items:center;gap:8px;transform:rotate(-1.5deg)}
-.sh-m-top{align-self:stretch;display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;color:var(--ink2)}
-.sh-fig{display:flex;flex-direction:column;align-items:center}
-.sh-avbox{width:var(--av);height:var(--av);position:relative;z-index:2;display:flex;align-items:center;justify-content:center}
-.sh-av{width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--hair2);display:flex;align-items:center;justify-content:center;
-  font-size:calc(var(--av) * .4);font-weight:700;color:#d9cdb6;line-height:1}
+/* 맨 위 줄 */
+.sh-hd{position:relative;flex:none;height:calc(60*var(--u));display:flex;align-items:center;gap:calc(12*var(--u));padding:0 calc(28*var(--u))}
+.sh-ico{width:calc(22*var(--u));height:calc(22*var(--u));flex:none;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.sh-close{flex:none;width:calc(46*var(--u));height:calc(44*var(--u));padding:0;display:grid;place-items:center;border:1px solid #3f5a74;color:#e6f2fa !important;background:#0a1826;clip-path:var(--cc)}
+.sh-h1{flex:none;margin:0 calc(6*var(--u)) 0 calc(4*var(--u));font-size:calc(30*var(--f));line-height:1;letter-spacing:1px;color:#fff;white-space:nowrap}
+.sh-me{flex:0 1 auto;min-width:0;height:calc(44*var(--u));display:flex;align-items:center;gap:calc(10*var(--u));padding:0 calc(18*var(--u)) 0 calc(6*var(--u));border:1px solid #2c4a66;background:rgba(8,22,38,.85);clip-path:var(--cc);overflow:hidden}
+.sh-av{flex:none;width:calc(34*var(--u));height:calc(34*var(--u));border-radius:50%;overflow:hidden;display:grid;place-items:center;font-size:calc(17*var(--f));line-height:1;color:#fff;
+  background:radial-gradient(circle at 35% 30%,#6b5cff,#2a1a8c);box-shadow:0 0 0 2px #9fb4ff,0 0 10px rgba(110,120,255,.8)}
 .sh-av img{width:100%;height:100%;object-fit:cover;display:block}
-.sh-suit{margin-top:-5px;width:calc(var(--av) * 1.55);height:calc(var(--av) * .9);border-radius:46px 46px 12px 12px;background:var(--sh-su,#3a3e4a);position:relative;display:flex;justify-content:center;
-  transition:background-color .25s}
-.sh-shirt{width:30%;height:60%;background:#ece7dc;clip-path:polygon(0 0,100% 0,50% 100%)}
-.sh-tie{position:absolute;top:7%;width:11%;height:64%;background:var(--sh-ti,#5c1016);clip-path:polygon(20% 0,80% 0,100% 80%,50% 100%,0 80%);transition:background-color .25s}
-.sh-m-info{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;max-width:100%}
-.sh-m-title{min-height:20px;max-width:100%;display:flex;justify-content:center}
-.sh-m-title>span{font-size:13px;font-weight:700;padding:2px 12px}
-.sh-m-name{font-size:24px;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .25s}
-.sh-m-chat{font-size:13px;color:var(--ink2);white-space:nowrap}
-.sh-m-chat span{color:var(--ink);transition:color .25s}
+.sh-me-title{flex:none;display:flex;align-items:center}
+.sh-me-title>span{font-size:max(11px,calc(12.5*var(--f)))}
+.sh-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(14*var(--f));font-weight:700;color:#cfe6f5}
+.sh-sp{flex:1 1 0;min-width:0}
+.sh-pill{flex:none;height:calc(42*var(--u));padding:0 calc(16*var(--u)) 0 calc(10*var(--u));display:flex;align-items:center;gap:calc(8*var(--u));border:1px solid #2c4a66;font-size:calc(13.5*var(--f));color:#c6d4df;background:rgba(5,14,24,.85);clip-path:var(--cc);white-space:nowrap}
+.sh-pill b{font-size:calc(18*var(--f));color:#fff;font-variant-numeric:tabular-nums}
+.sh-coins{border-color:#8a6a24}
+.sh-coins b{color:#ffe08a}
+.sh-coin{flex:none;display:inline-block;width:calc(20*var(--u));height:calc(20*var(--u));border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff6c9,#f2c14a 45%,#a8701a);box-shadow:inset 0 0 0 2px #c98f25,0 0 8px rgba(242,193,74,.6)}
+.sh-coin.sh-s{width:calc(15*var(--u));height:calc(15*var(--u));box-shadow:inset 0 0 0 1.5px #c98f25}
+.sh-chip{flex:none;display:inline-block;width:calc(20*var(--u));height:calc(20*var(--u));border-radius:50%;box-shadow:0 0 8px rgba(70,160,255,.8);
+  background:radial-gradient(circle,#0a3550 0 40%,#bff4ff 42% 54%,transparent 56%),conic-gradient(#bff4ff 0 12.5%,#1668c4 0 25%,#bff4ff 0 37.5%,#1668c4 0 50%,#bff4ff 0 62.5%,#1668c4 0 75%,#bff4ff 0 87.5%,#1668c4 0)}
+.sh-ex{flex:none;height:calc(44*var(--u));padding:0 calc(20*var(--u));border:1px solid #9be0ff;font-size:calc(15*var(--f));font-weight:700;color:#fff !important;background:linear-gradient(180deg,#2f9be0,#12508f);clip-path:var(--cc);text-shadow:0 1px 2px rgba(0,0,0,.6);white-space:nowrap}
+.sh-wd{flex:none;height:calc(44*var(--u));padding:0 calc(16*var(--u)) 0 calc(12*var(--u));display:flex;align-items:center;gap:calc(8*var(--u));border:1px solid #b9a8ff;font-size:calc(15*var(--f));font-weight:700;color:#fff !important;background:linear-gradient(180deg,#4a3fc0,#231a70);clip-path:var(--cc);text-shadow:0 1px 2px rgba(0,0,0,.6);white-space:nowrap}
 
-/* 딜러 */
-.sh-dealer{flex:none;display:flex;gap:10px;align-items:flex-end}
-.sh-d-fig{flex:none;width:84px;display:flex;flex-direction:column;align-items:center}
-.sh-d-fig i{display:block}
-.sh-d-hat{width:40px;height:20px;border-radius:6px 6px 0 0;background:#1c1608;border:2px solid var(--gold);border-bottom:0}
-.sh-d-brim{width:68px;height:8px;border-radius:4px;background:var(--gold)}
-.sh-d-face{width:38px;height:30px;border-radius:0 0 19px 19px;background:#d9cdb6;display:flex !important;align-items:center;justify-content:center;gap:8px}
-.sh-d-face i{width:5px;height:5px;border-radius:3px;background:#1c1608}
-.sh-d-body{margin-top:-2px;width:84px;height:40px;border-radius:30px 30px 6px 6px;background:var(--hair);border:2px solid var(--gold2);display:flex !important;justify-content:center}
-.sh-d-body i{margin-top:4px;width:22px;height:10px;border-radius:3px;background:var(--red)}
-.sh-bubble{flex:1 1 0;min-width:0;min-height:84px;padding:10px 14px;border-radius:4px 14px 14px 14px;background:#15130f;border:1px solid var(--hair);display:flex;flex-direction:column;gap:2px}
-.sh-d-name{font-size:12px;color:var(--ink2)}
-.sh-line{font-size:15px;line-height:1.45}
+/* 위쪽 묶음: 명품 2칸(왼쪽 위아래) + 뽑기 2칸 */
+.sh-band{position:relative;flex:none;height:calc(296*var(--u));margin:calc(10*var(--u)) calc(28*var(--u)) 0;display:grid;
+  grid-template-columns:calc(250*var(--u)) minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:calc(12*var(--u))}
+.sh-pn{--e:linear-gradient(150deg,#7fe6ff,#1d5f8e 40%,#0e3350 70%,#58c8f0);--n:rgba(53,184,255,.45);position:relative;min-width:0;min-height:0;cursor:pointer;
+  filter:drop-shadow(0 0 calc(10*var(--u)) var(--n)) drop-shadow(0 calc(10*var(--u)) calc(12*var(--u)) rgba(0,0,0,.6))}
+.sh-pn::before{content:"";position:absolute;inset:0;clip-path:var(--cp);background:var(--e)}
+.sh-i{position:absolute;inset:1.5px;clip-path:var(--cp);overflow:hidden}
+.sh-i::after{content:"";position:absolute;inset:calc(6*var(--u));border:1px solid rgba(160,220,255,.16);clip-path:var(--cp);pointer-events:none}
+.sh-big{grid-row:1 / 3}
+.sh-pB{grid-column:2}
+.sh-pC{grid-column:3}
+.sh-feat.sh-v{grid-row:2}
+.sh-feat{grid-column:1;grid-row:1;--n:rgba(255,138,60,.45);--e:linear-gradient(150deg,#ffe6a0,#9a5a22 40%,#4a2410 70%,#ffb86a)}
+.sh-feat.sh-none{cursor:default}
+.sh-feat.sh-sel{--n:rgba(140,212,255,.9)}
+.sh-feat .sh-i{display:flex;flex-direction:column;gap:calc(5*var(--u));padding:calc(9*var(--u)) calc(12*var(--u));
+  background:radial-gradient(ellipse 88% 65% at 50% 44%,rgba(255,120,40,.4),transparent 72%),repeating-linear-gradient(118deg,rgba(255,200,150,.06) 0 2px,transparent 2px 26px),linear-gradient(170deg,#24120c,#0a070c)}
+.sh-feat.sh-v .sh-i{background:radial-gradient(ellipse 88% 65% at 50% 44%,rgba(240,190,70,.36),transparent 72%),repeating-linear-gradient(118deg,rgba(255,220,150,.06) 0 2px,transparent 2px 26px),linear-gradient(170deg,#221a0c,#0a080c)}
+/* 명품 칸의 은은한 빛 */
+.sh-feat .sh-i::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 70% 60% at 50% 46%,rgba(255,214,120,.26),transparent 70%);animation:sh-glow 3.2s ease-in-out infinite}
+.sh-feat.sh-none .sh-i::before{content:none}
+.sh-lt{position:relative;flex:none;min-height:calc(20*var(--u));margin:0;display:flex;align-items:center;gap:calc(6*var(--u));font-size:calc(12.5*var(--f));color:#d5deea;white-space:nowrap}
+.sh-lt em{margin-left:auto;font-style:normal}
+.sh-lt em b{color:#5ff0c0;font-size:calc(13.5*var(--f));font-variant-numeric:tabular-nums}
+.sh-gl{flex:none;display:inline-block;padding:1px calc(10*var(--u));font-size:calc(12.5*var(--f));font-weight:700;letter-spacing:2px;color:#1a1203;background:#ffc93c;clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)}
+.sh-lp{position:relative;flex:1 1 0;min-height:0;min-width:0;display:flex;align-items:center;justify-content:center;gap:calc(12*var(--u))}
+.sh-lp-none{font-size:calc(14*var(--f));color:#8fa3b5}
+.sh-lp-art{position:relative;flex:none;display:grid;place-items:center}
+.sh-lp-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(26*var(--f));letter-spacing:1px;color:#fff;text-shadow:0 0 12px rgba(255,200,90,.8),0 2px 4px rgba(0,0,0,.8)}
+.sh-fl{position:absolute;inset:0;width:100%;height:100%}
+.sh-plq{position:relative;width:100%;height:calc(40*var(--u));filter:drop-shadow(0 0 calc(10*var(--u)) rgba(255,150,40,.85)) drop-shadow(0 5px 6px rgba(0,0,0,.7))}
+.sh-plq::before{content:"";position:absolute;inset:0;clip-path:var(--cc);background:var(--au)}
+.sh-plq>span{position:absolute;inset:2.5px;clip-path:var(--cc);display:flex;align-items:center;justify-content:center;padding:0 calc(8*var(--u));overflow:hidden;
+  background:radial-gradient(ellipse 100% 150% at 50% 110%,rgba(255,110,30,.75),transparent 75%),linear-gradient(180deg,#2a0d08,#0e0506)}
+.sh-plq b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(23*var(--f));line-height:1.3;letter-spacing:1px;color:#ffc93c;
+  background:linear-gradient(180deg,#fff7c4,#ffc93c 45%,#ff6a1e 85%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sh-lb{position:relative;flex:none;display:flex;align-items:center;gap:calc(8*var(--u))}
+.sh-lb-note{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:calc(12.5*var(--f));font-weight:700;letter-spacing:.5px;color:#ffe9a8;white-space:nowrap}
+.sh-by{flex:none;max-width:70%;height:calc(44*var(--u));padding:0 calc(14*var(--u)) 0 calc(10*var(--u));display:flex;align-items:center;justify-content:center;gap:calc(7*var(--u));border:1px solid #a6ffe0;font-size:calc(15*var(--f));font-weight:700;color:#03241a !important;background:linear-gradient(180deg,#5fe0b4,#2fae86);clip-path:var(--cc);white-space:nowrap}
 
-.sh-sel{flex:none;display:flex;flex-direction:column;gap:2px;min-width:0}
-.sh-sel-name{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sh-sel-where{font-size:13px;color:#a39883;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sh-msg{flex:none;margin:0;min-height:1.3em;font-size:14px;color:var(--gold)}
-.sh-msg.sh-bad{color:#ff6a61}
+.sh-pB{--n:rgba(240,182,74,.45);--e:linear-gradient(150deg,#ffe6a0,#9a6d22 40%,#4a3410 70%,#f0c96a)}
+.sh-pB .sh-i{background:radial-gradient(ellipse 66% 64% at 50% 36%,rgba(240,170,60,.42),transparent 72%),repeating-linear-gradient(118deg,rgba(255,220,150,.06) 0 2px,transparent 2px 30px),linear-gradient(160deg,#2a1c10,#0c0a10)}
+.sh-pC{--n:rgba(166,107,255,.45);--e:linear-gradient(150deg,#dcc4ff,#5a2fa0 40%,#2a1454 70%,#b98cff)}
+.sh-pC .sh-i{background:radial-gradient(ellipse 66% 64% at 50% 36%,rgba(150,90,255,.5),transparent 72%),repeating-linear-gradient(118deg,rgba(200,170,255,.06) 0 2px,transparent 2px 30px),linear-gradient(160deg,#1c1238,#080714)}
+.sh-ar{position:absolute;left:0;right:0;top:4%;height:60%}
+.sh-pB .sh-ar{filter:drop-shadow(0 0 calc(12*var(--u)) rgba(255,200,90,.75)) drop-shadow(0 8px 10px rgba(0,0,0,.6))}
+.sh-fc{position:absolute;left:50%;top:50%;height:94%;aspect-ratio:92 / 166;border-radius:calc(8*var(--u));background:#0b1422 url(/coin/cardback.png) center / cover no-repeat;transform:translate(-50%,-50%)}
+.sh-fc-l{transform:translate(-128%,-44%) rotate(-16deg)}
+.sh-fc-r{transform:translate(28%,-44%) rotate(16deg)}
+.sh-cry{position:absolute;left:50%;top:50%;height:88%;transform:translate(-50%,-50%);filter:drop-shadow(0 0 calc(12*var(--u)) #b98cff) drop-shadow(0 0 calc(26*var(--u)) rgba(140,90,255,.8))}
+.sh-fi{position:absolute;left:calc(24*var(--u));right:calc(22*var(--u));bottom:calc(18*var(--u));display:flex;align-items:flex-end;gap:calc(16*var(--u))}
+.sh-fi-txt{flex:1 1 0;min-width:0}
+.sh-bg{display:inline-block;margin-bottom:calc(6*var(--u));padding:2px calc(9*var(--u));font-size:calc(12.5*var(--f));font-weight:700;color:#1a1203;white-space:nowrap;background:linear-gradient(180deg,#fff0bf,#e9b94a);clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)}
+.sh-h2{margin:0;font-size:calc(40*var(--f));line-height:1.1;letter-spacing:.5px;color:#fff;white-space:nowrap;text-shadow:0 2px 6px rgba(0,0,0,.7)}
+.sh-mt{margin:calc(3*var(--u)) 0 0;font-size:calc(12.5*var(--f));color:#d5deea;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sh-mt b{font-size:calc(14*var(--f));color:#ffe9a8}
+.sh-sb{flex:none;height:calc(54*var(--u));padding:0 calc(34*var(--u));border:1px solid #f6e3a6;font-size:calc(24*var(--f));color:#1a1203 !important;white-space:nowrap;background:linear-gradient(180deg,#f8eac0,#cfa856);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 14*var(--u)),calc(100% - 14*var(--u)) 100%,0 100%)}
 
-/* 오른쪽: 테이블 */
-.sh-table{flex:1 1 0;min-width:0;min-height:0;padding:0 28px 8px;display:flex;flex-direction:column;gap:10px;
-  background:repeating-linear-gradient(45deg,rgba(255,255,255,.024) 0 2px,transparent 2px 6px),radial-gradient(ellipse at 50% 0%,#4a161e 0%,#220c10 55%,#0f0607 100%);
-  box-shadow:inset 0 0 0 6px #1c1208,inset 0 0 0 8px var(--gold2),inset 0 0 90px rgba(0,0,0,.66)}
-.sh-rim{flex:none;height:30px;margin:0 -28px;border-top:6px solid #a3202f;
-  background:radial-gradient(circle at 24px 2px,#a3202f 22px,var(--gold2) 23px,var(--gold2) 25px,transparent 26px) repeat-x;background-size:48px 30px}
-.sh-cards::-webkit-scrollbar{display:none}
-.sh-empty{margin:auto;padding:24px;color:var(--ink2);font-size:16px}
+/* 진열대 머리 */
+.sh-rh{position:relative;flex:none;height:calc(46*var(--u));display:flex;align-items:center;gap:calc(14*var(--u));padding:calc(4*var(--u)) calc(30*var(--u)) 0}
+.sh-rh-name{flex:none;margin:0;font-size:calc(25*var(--f));letter-spacing:1px;color:#fff;white-space:nowrap}
+.sh-tm{flex:none;padding:calc(5*var(--u)) calc(22*var(--u));font-size:calc(14*var(--f));font-weight:700;color:#1a1203;white-space:nowrap;font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#ffe9a8,#e0a93c);
+  clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%)}
+.sh-msg{flex:0 1 auto;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;font-size:calc(13*var(--f));color:#c6d4df;white-space:nowrap}
+.sh-msg.sh-say{color:#8dffba;font-weight:700}
+.sh-msg.sh-bad{color:#ff9c9c}
+.sh-ln{flex:1 1 0;min-width:0;height:1px;background:linear-gradient(90deg,#4fc8ff,transparent)}
 
-/* 진열 두 줄 */
-.sh-rows{flex:1 1 0;min-height:0;width:100%;max-width:calc(var(--cw) * 5 + var(--gap) * 4 + 8px);margin:0 auto;display:flex;flex-direction:column;justify-content:center;gap:14px;padding-bottom:6px}
-.sh-row{flex:1 1 0;min-height:0;max-height:calc(var(--ch) + 40px);display:flex;flex-direction:column;gap:6px}
-.sh-row-head{flex:none;display:flex;align-items:baseline;gap:10px;padding:0 4px;white-space:nowrap}
-.sh-row-name{margin:0;font-family:"Black Han Sans","Noto Sans KR",sans-serif;font-weight:400;font-size:20px;letter-spacing:.5px;color:var(--gold)}
-.sh-timer{font-size:13px;color:var(--ink2)}
-.sh-timer .sh-num{margin-left:2px;font-size:17px;color:var(--ink)}
-.sh-cards{flex:1 1 0;min-height:0;display:grid;grid-template-columns:repeat(5,minmax(var(--cmin),1fr));grid-template-rows:minmax(0,1fr);gap:var(--gap);padding:4px;
-  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+/* 진열대 */
+.sh-tray{position:relative;flex:1 1 0;min-height:0;margin:0 calc(28*var(--u)) calc(16*var(--u));filter:drop-shadow(0 0 8px rgba(53,184,255,.35))}
+.sh-tray::before{content:"";position:absolute;inset:0;clip-path:var(--cp);background:linear-gradient(90deg,#3fa9e0,#12344e 30%,#12344e 70%,#3fa9e0)}
+.sh-ti{position:absolute;inset:1.5px;clip-path:var(--cp);display:grid;grid-template-columns:repeat(6,minmax(0,calc(160*var(--u))));justify-content:center;grid-template-rows:minmax(0,1fr);gap:var(--gap);
+  padding:calc(15*var(--u)) calc(18*var(--u));background:radial-gradient(ellipse 60% 45% at 50% 105%,rgba(30,110,200,.4),transparent 72%),linear-gradient(180deg,#07121f,#040a13)}
+.sh-cd{--g:#35b8ff;--g2:#9adcff;--ga:rgba(53,184,255,.6);position:relative;display:block;min-width:0;min-height:0;padding:0;border:0;background:none;color:inherit;text-align:left;cursor:pointer;
+  filter:drop-shadow(0 0 calc(9*var(--u)) var(--ga)) drop-shadow(0 calc(10*var(--u)) calc(10*var(--u)) rgba(0,0,0,.6))}
+.sh-cd::before{content:"";position:absolute;inset:0;clip-path:var(--cc);background:var(--au)}
+.sh-in-box{position:absolute;inset:2.5px;clip-path:var(--cc);overflow:hidden;display:flex;flex-direction:column;background:linear-gradient(180deg,#0d1b2c,#060d17)}
+.sh-fd::before{content:none}
+.sh-fd .sh-in-box{inset:0;background:#0b1422 url(/coin/cardback.png) center / cover no-repeat}
+.sh-seam{position:absolute;left:50%;top:5%;bottom:5%;width:2px;transform:translateX(-50%);border-radius:50%;opacity:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent,#fff 18%,#d6f8ff 50%,#fff 82%,transparent);box-shadow:0 0 14px 5px rgba(170,235,255,.95),0 0 34px 12px rgba(80,180,255,.7)}
+.sh-void{cursor:default;filter:none}
+.sh-void::before{background:linear-gradient(180deg,#1a3046,#0c1a28)}
+.sh-void>span{position:absolute;inset:2.5px;clip-path:var(--cc);display:grid;place-items:center;text-align:center;font-size:calc(12.5*var(--f));color:#6f8599;background:repeating-linear-gradient(118deg,rgba(120,170,210,.05) 0 2px,transparent 2px 14px),#060d17}
+.sh-gb{flex:none;height:calc(22*var(--u));display:grid;place-items:center;font-size:calc(12*var(--f));font-weight:700;letter-spacing:3px;color:#0b0f14;background:linear-gradient(180deg,var(--g2),var(--g))}
+.sh-art{position:relative;flex:1 1 0;min-height:0;min-width:0;margin:calc(8*var(--u)) calc(8*var(--u)) calc(6*var(--u));display:grid;place-items:center;overflow:hidden;border:1px solid var(--g);
+  background:radial-gradient(circle at 50% 42%,var(--ga),#050c16 82%);box-shadow:inset 0 4px 12px rgba(0,0,0,.7)}
+.sh-art-t>span:first-child{max-width:94%;overflow:hidden;text-overflow:ellipsis;padding:calc(3*var(--u)) calc(9*var(--u));font-size:calc(12.5*var(--f));font-weight:700;box-shadow:0 0 0 2px rgba(0,0,0,.45),0 0 14px var(--g)}
+.sh-soon{position:absolute;left:0;bottom:0;padding:0 calc(7*var(--u)) 0 calc(5*var(--u));font-size:calc(11*var(--f));line-height:1.5;font-weight:700;color:#d6e6f2;white-space:nowrap;background:rgba(10,24,38,.9);clip-path:polygon(0 0,calc(100% - 6px) 0,100% 100%,0 100%)}
+.sh-st{position:absolute;right:calc(4*var(--u));top:calc(4*var(--u));transform:rotate(5deg);padding:0 calc(6*var(--u));border:2px solid #8dffba;border-radius:4px;font-size:calc(12*var(--f));font-weight:700;color:#8dffba;white-space:nowrap;background:rgba(0,0,0,.7)}
+.sh-name{flex:none;margin:0 calc(9*var(--u));overflow:hidden;text-overflow:ellipsis;font-size:calc(14.5*var(--f));font-weight:700;white-space:nowrap;color:#fff}
+.sh-sub{flex:none;margin:1px calc(9*var(--u)) calc(6*var(--u));overflow:hidden;text-overflow:ellipsis;font-size:calc(12*var(--f));white-space:nowrap;color:#c6d4df}
+.sh-lo{color:#ffb0b0 !important}
+.sh-pb{flex:none;height:calc(44*var(--u));margin:0 calc(8*var(--u)) calc(9*var(--u));padding:0 2px;display:flex;align-items:center;justify-content:center;gap:calc(6*var(--u));border:1px solid #6b5220;border-radius:3px;font-size:calc(15*var(--f));font-weight:700;line-height:1.1;white-space:nowrap;color:#1a1203 !important;background:linear-gradient(180deg,#f8eac0,#cfa856)}
+/* 버튼 상태 (진열 카드 .sh-pb · 명품 칸 .sh-by 공통) */
+.sh-pb.sh-cf,.sh-by.sh-cf{font-size:calc(12*var(--f));letter-spacing:-.3px;color:#04162e !important;border-color:#eafcff;background:linear-gradient(180deg,#d6f8ff,#49b4ff)}
+.sh-pb.sh-no,.sh-by.sh-no{color:#ffb0b0 !important;border-color:#ff6b6b;background:#2a0b10}
+.sh-pb.sh-off,.sh-by.sh-off{color:#d6f8ff !important;border-color:#5fd6ee;background:rgba(18,60,84,.9)}
+.sh-pb.sh-eq,.sh-by.sh-eq{color:#03241a !important;border-color:#a6ffe0;background:linear-gradient(180deg,#5fe0b4,#2fae86)}
+.sh-pb.sh-dim,.sh-by.sh-dim{opacity:.5}
+.sh-cd.sh-sel{transform:translateY(calc(-5*var(--u)));filter:drop-shadow(0 0 calc(12*var(--u)) #8cd4ff) drop-shadow(0 0 calc(26*var(--u)) rgba(61,139,255,.9)) drop-shadow(0 calc(12*var(--u)) calc(10*var(--u)) rgba(0,0,0,.6))}
 
-/* 카드: 그림(누르면 미리 입어 보기) + 가격 버튼 */
-.sh-card,.sh-void{min-width:0;min-height:0;border-radius:12px}
-.sh-card{position:relative;padding:5px;border:2px solid var(--paper);background:var(--paper);color:var(--on-gold);display:flex;flex-direction:column;gap:5px;
-  box-shadow:0 8px 18px rgba(0,0,0,.53);transition:border-color .18s,box-shadow .18s}
-.sh-card.sh-on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 10px 24px rgba(0,0,0,.6)}
-.sh-void{border:2px dashed rgba(244,239,230,.22);background:rgba(0,0,0,.22);color:rgba(244,239,230,.4);font-size:13px;display:flex;align-items:center;justify-content:center}
-.sh-pick{position:relative;flex:1 1 0;min-height:0;width:100%;padding:0 2px;border:0;background:transparent;color:var(--on-gold) !important;display:flex;flex-direction:column;align-items:center;gap:3px}
-.sh-grade{flex:none;align-self:stretch;height:18px;border-radius:5px;background:var(--sh-gc,#9a9a9a);color:#14110b;font-size:11px;font-weight:700;line-height:18px;text-align:center;white-space:nowrap;overflow:hidden}
-.sh-art{flex:1 1 0;min-height:0;width:100%;border-radius:8px;background:#15130f;display:flex;align-items:center;justify-content:center;gap:6px;padding:4px;overflow:hidden;line-height:1.2}
-.sh-art-title>span{max-width:100%;white-space:normal;text-align:center;font-size:12px;font-weight:700;border-radius:12px;padding:2px 8px}
-.sh-sw-suit{display:block;width:36px;height:44px;max-height:90%;border-radius:14px 14px 4px 4px;border:1px solid #5a5347}
-.sh-sw-tie{display:block;width:10px;height:38px;max-height:80%;border-radius:3px;border:1px solid #5a5347}
-.sh-sw-text{font-size:20px;font-weight:700}
-.sh-name{flex:none;font-size:14px;line-height:1.2;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sh-kind{flex:none;font-size:11px;color:#5a5347;white-space:nowrap}
-.sh-stamp{position:absolute;top:26px;left:50%;padding:1px 8px;transform:translateX(-50%) rotate(-8deg);border:2px solid var(--gold);border-radius:4px;color:var(--gold);
-  background:rgba(11,10,9,.85);font-size:12px;font-weight:700;white-space:nowrap;pointer-events:none}
-.sh-act{flex:none;width:100%;height:40px;padding:0 4px;border:0;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;
-  transition:transform .15s,opacity .2s}
-.sh-act .sh-num{font-size:20px;line-height:1}
-.sh-act span{font-size:12px}
-.sh-act.sh-buy{background:var(--gold);color:var(--on-gold) !important;box-shadow:inset 0 2px 0 #ffe9a0,inset 0 -4px 0 #b8901f}
-.sh-act.sh-sure{background:#2fbf71;color:#04210f !important;box-shadow:inset 0 2px 0 #8ff0bb,inset 0 -4px 0 #1c7f49}
-.sh-act.sh-low{background:var(--red);color:#fff !important;box-shadow:inset 0 2px 0 rgba(255,255,255,.3),inset 0 -4px 0 rgba(0,0,0,.25)}
-.sh-act.sh-equip{background:#15130f;color:var(--gold) !important;box-shadow:inset 0 0 0 2px var(--gold)}
-.sh-worn .sh-act.sh-equip{color:#d9cdb6 !important;box-shadow:inset 0 0 0 2px var(--hair2)}
-.sh-act.sh-none{background:var(--hair);color:var(--ink3) !important}
-.sh-act:disabled{opacity:.55}
-.sh-act:not(:disabled):active{transform:scale(.96)}
+/* 연출: 카드 뒤집기(이음새에서 빛) · 줄 밀기 · 명품 빛 */
+.sh-fd.sh-opening{animation:sh-shut .25s ease-in forwards;pointer-events:none}
+.sh-fd.sh-opening .sh-seam{animation:sh-seam .25s ease-in forwards}
+.sh-front.sh-in{animation:sh-open .28s cubic-bezier(.2,.9,.3,1.2)}
+.sh-front.sh-in .sh-in-box::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,#fff,rgba(190,240,255,.85));animation:sh-flash .5s ease-out forwards}
+.sh-ti.sh-shift .sh-cd{animation:sh-shift .45s cubic-bezier(.2,.8,.2,1)}
+.sh-ti.sh-shift .sh-cd:last-child{animation-name:sh-shift-new}
+@keyframes sh-shut{0%{transform:scaleX(1)}60%{filter:drop-shadow(0 0 16px #c8f2ff) brightness(1.5)}100%{transform:scaleX(.05);filter:drop-shadow(0 0 22px #e8fbff) brightness(2.4)}}
+@keyframes sh-seam{0%{opacity:0;width:2px}40%{opacity:1;width:3px}100%{opacity:1;width:70%}}
+@keyframes sh-open{0%{transform:scaleX(.05)}100%{transform:scaleX(1)}}
+@keyframes sh-flash{0%{opacity:.95}100%{opacity:0}}
+@keyframes sh-shift{0%{transform:translateX(calc(100% + var(--gap)))}100%{transform:translateX(0)}}
+@keyframes sh-shift-new{0%{transform:translateX(calc(180% + var(--gap)));opacity:0}100%{transform:translateX(0);opacity:1}}
+@keyframes sh-glow{0%,100%{opacity:.35}50%{opacity:1}}
 
-@media (max-height:680px){
-  .sh-kind{display:none}
-  .sh-rows{gap:8px}
+/* 휴대폰 가로 (높이 560 이하): 같은 구성, 위쪽 묶음을 낮추고 명품 칸은 한 줄로 */
+@media (max-height:560px){
+  .sh-root{--u:.68px;--f:.8px;--gap:clamp(8px,2vw,24px)}
+  .sh-stage{height:100%;width:100%}
+  .sh-hd{height:44px;gap:6px;padding:0 12px}
+  .sh-close{width:36px;height:34px}
+  .sh-me,.sh-wd,.sh-ex,.sh-pill{height:34px}
+  .sh-me{gap:6px;padding:0 10px 0 5px}
+  .sh-wd,.sh-ex{padding:0 10px}
+  .sh-pill{padding:0 9px 0 6px;gap:5px}
+  .sh-band{height:auto;flex:1 1 0;min-height:0;max-height:176px;margin:2px 12px 0;gap:8px;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr)}
+  .sh-feat .sh-i{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr);gap:2px 6px;padding:5px 9px 6px}
+  .sh-lt{grid-column:1 / 3;min-height:0}
+  .sh-lp{gap:6px;justify-content:flex-start}
+  .sh-lp-name{font-size:15px}
+  .sh-plq{height:26px}
+  .sh-plq b{font-size:14px;letter-spacing:0}
+  .sh-lb{align-self:center}
+  .sh-lb-note{display:none}
+  .sh-by{max-width:none;height:32px;padding:0 9px 0 7px;font-size:12px}
+  .sh-by.sh-cf{max-width:86px;white-space:normal;font-size:10.5px;line-height:1.1}
+  .sh-fi{left:12px;right:10px;bottom:9px;gap:6px}
+  .sh-ar{top:3%;height:50%}
+  .sh-h2{font-size:21px}
+  .sh-bg{margin-bottom:2px}
+  .sh-sb{height:34px;padding:0 14px;font-size:16px}
+  .sh-rh{height:28px;gap:8px;padding:0 14px}
+  .sh-rh-name{font-size:17px}
+  .sh-tm{padding:2px 14px;font-size:11.5px}
+  .sh-msg{flex:1 1 0}
+  .sh-ln{display:none}
+  .sh-tray{flex:1.05 1 0;margin:0 12px 6px}
+  .sh-ti{padding:7px 10px;grid-template-columns:repeat(6,minmax(0,108px))}
+  .sh-gb{height:14px;letter-spacing:2px}
+  .sh-art{margin:4px 5px 3px}
+  .sh-name{margin:0 6px;font-size:11.5px}
+  .sh-sub{margin:0 6px 3px;font-size:10px}
+  .sh-pb{height:28px;margin:0 5px 5px;font-size:12px}
+  .sh-pb.sh-cf{white-space:normal;text-align:center;font-size:10px;line-height:1.05}
 }
-
-/* PC 지만 폭이 좁을 때 */
-@media (max-width:1100px){
-  .sh-side{width:300px}
-  .sh-title{font-size:24px}
+@media (max-height:560px) and (max-width:760px){
+  .sh-nm{display:none}
+  .sh-me{padding-right:6px}
+  .sh-h1{font-size:21px;margin:0 2px}
 }
-
-/* 휴대폰 가로 (낮은 화면): 세로 스크롤 없이, 카드는 옆으로 넘긴다 */
-@media (max-height:500px){
-  .sh-root{--cmin:70px;--gap:6px;--pad:12px}
-  .sh-head{height:52px;padding:0 12px;gap:8px}
-  .sh-title{font-size:20px;text-shadow:0 2px 0 #5a3d00}
-  .sh-swap{padding:0 12px;font-size:14px}
-  .sh-pill{padding:0 10px;gap:5px}
-  .sh-pill span{font-size:12px}
-  .sh-pill .sh-num,.sh-coins .sh-num{font-size:18px}
-  .sh-side{width:248px;padding:8px var(--pad);gap:6px}
-  .sh-member{--av:46px;flex-direction:row;flex-wrap:wrap;justify-content:flex-start;gap:4px 10px;padding:8px 12px 8px;border-radius:14px;transform:none}
-  .sh-m-top{flex:none;width:100%;font-size:9px}
-  .sh-fig{flex:none}
-  .sh-m-info{flex:1 1 0;align-items:flex-start;gap:3px}
-  .sh-m-title{justify-content:flex-start;min-height:18px}
-  .sh-m-title>span{font-size:11px;padding:1px 8px}
-  .sh-m-name{font-size:17px}
-  .sh-m-chat{font-size:11px}
-  .sh-d-fig{display:none}
-  .sh-bubble{min-height:0;padding:6px 10px;border-radius:4px 12px 12px 12px}
-  .sh-d-name{font-size:10px}
-  .sh-line{font-size:12.5px;line-height:1.35;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-  .sh-sel-name{font-size:14px}
-  .sh-sel-where{display:none}
-  .sh-msg{font-size:12px}
-  .sh-table{padding:0 14px 4px;gap:4px}
-  .sh-rim{height:14px;margin:0 -14px;border-top-width:4px;background-size:24px 14px;
-    background-image:radial-gradient(circle at 12px 1px,#a3202f 10px,var(--gold2) 11px,var(--gold2) 12px,transparent 13px)}
-  .sh-rows{gap:4px;padding-bottom:0}
-  .sh-row{gap:2px}
-  .sh-row-name{font-size:15px}
-  .sh-timer{font-size:11px}
-  .sh-timer .sh-num{font-size:14px}
-  .sh-cards{padding:3px}
-  .sh-card{padding:3px;gap:3px;border-radius:10px}
-  .sh-pick{gap:2px;padding:0}
-  .sh-grade{height:14px;line-height:14px;font-size:10px;border-radius:4px}
-  .sh-art{padding:2px;border-radius:6px}
-  .sh-art-title>span{font-size:10px;padding:1px 5px}
-  .sh-sw-text{font-size:15px}
-  .sh-name{font-size:11.5px}
-  .sh-act{height:30px;font-size:13px;border-radius:7px}
-  .sh-act .sh-num{font-size:16px}
-  .sh-act span{font-size:10px}
-  .sh-stamp{top:18px;font-size:10px;border-width:1px}
-  .sh-void{font-size:11px}
-}
-@media (max-height:500px) and (max-width:700px){
-  .sh-title{display:none}
-  .sh-side{width:216px}
-}
-
 @media (prefers-reduced-motion:reduce){
-  .sh-card,.sh-act,.sh-suit,.sh-tie,.sh-m-name,.sh-m-chat span{transition:none}
+  .sh-root *,.sh-root *::before,.sh-root *::after{animation:none !important;transition:none !important}
+  .sh-root button:active{transform:none}
 }
