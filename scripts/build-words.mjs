@@ -8,6 +8,8 @@ import { normalize as norm } from '../shared/liar/words.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
 export const SOURCES = { mine: 'docs/WORDS.md', star: 'docs/WORDS-STAR.md' };
+// 어느 주제에도 안 들어가는 갱식마인드 전용 구역 이름(md 의 ## 제목). 라이어에는 나오지 않는다.
+export const DRAW_ONLY = '갱식마인드 전용';
 export const OUT = path.join(root, 'server', 'liar', 'words.json');
 
 // 정답 비교용 정규화는 shared/liar/words.js 의 normalize 를 그대로 쓴다(둘이 어긋나지 않게)
@@ -20,13 +22,16 @@ export function parseWordsMd(text) {
     for (let line of lines) {
       line = line.trim();
       if (!line || line.startsWith('(총')) continue;
-      line = line.replace(/^(특이·어려운|유행·웃긴):/, '');
+      line = line.replace(/^(특이·어려운|유행·웃긴|갱식):/, '');
       for (const item of line.split(' · ')) {
         const m = item.trim().match(/^(.*?)\s*\((.*)\)\s*$/);
-        const w = (m ? m[1] : item).trim();
+        let w = (m ? m[1] : item).trim();
+        // 단어 뒤 `*` = 갱식 표시(g:1). 갱식마인드 전용 구역의 단어는 전부 갱식이다.
+        const star = w.endsWith('*');
+        if (star) w = w.slice(0, -1).trim();
         if (!w) continue;
         const alt = m ? m[2].split(',').map((s) => s.trim()).filter(Boolean) : [];
-        words.push({ w, alt });
+        words.push(star || head.trim() === DRAW_ONLY ? { w, alt, g: 1 } : { w, alt });
       }
     }
     topics.push({ name: head.trim(), words });
@@ -51,7 +56,9 @@ export function buildAll(readFile = (p) => fs.readFileSync(path.join(root, p.rep
         }
       }
     }
-    sets[id] = { topics };
+    // 갱식마인드 전용 구역은 주제가 아니다: 라이어가 읽는 topics 에서 빼고 따로 둔다(drawOnly).
+    const only = topics.find((t) => t.name === DRAW_ONLY);
+    sets[id] = only ? { topics: topics.filter((t) => t !== only), drawOnly: only.words } : { topics };
   }
   return { json: { sets }, warnings };
 }
@@ -62,7 +69,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   fs.writeFileSync(OUT, JSON.stringify(json, null, 1) + '\n');
   for (const w of warnings) console.warn('경고', w);
   for (const [id, s] of Object.entries(json.sets)) {
-    console.log(`${id}: ${s.topics.length}주제, ${s.topics.reduce((n, t) => n + t.words.length, 0)}단어`);
+    const g = s.topics.reduce((n, t) => n + t.words.filter((e) => e.g).length, 0);
+    console.log(`${id}: ${s.topics.length}주제, ${s.topics.reduce((n, t) => n + t.words.length, 0)}단어, 갱식 표시 ${g}개 + 갱식마인드 전용 ${(s.drawOnly || []).length}개`);
   }
   console.log(`경고 ${warnings.length}건 → ${path.relative(root, OUT)}`);
 }

@@ -161,3 +161,20 @@ test('notice 방식: 하나 남으면 그것을 쓰고, 다 쓰면 기록을 비
   drawWords({ words: w, set: 'x', topic: 't', used, liarMode: 'notice', rng: lcg(2) });
   assert.equal(used['x:t'].length, 1);
 });
+
+test('갱식 표시(g)·전용 구역: 라이어는 표시와 상관없이 뽑고, 전용 단어는 어느 주제에도 안 나온다', () => {
+  const m = words.sets.mine;
+  const flagged = m.topics.flatMap((t) => t.words.filter((e) => e.g).map((e) => e.w));
+  assert.ok(flagged.length >= 100 && m.drawOnly.length > 0);
+  assert.ok(!m.topics.some((t) => t.name === '갱식'));
+  const only = new Set(m.drawOnly.map((e) => e.w));
+  for (const t of m.topics) for (const e of t.words) assert.ok(!only.has(e.w), `${t.name}/${e.w}`);
+  for (let seed = 1; seed <= 200; seed++) {
+    for (const liarMode of ['word', 'notice']) {
+      const r = drawWords({ words, set: 'mine', enabled: ['인물'], liarMode, rng: lcg(seed) });
+      assert.ok(!only.has(r.citizenWord) && !only.has(r.liarWord));
+    }
+  }
+  const used = {}; // 인물 주제(갱식 단어 다수)를 끝까지 써도 문제없다
+  for (let i = 0; i < 200; i++) drawWords({ words, set: 'mine', enabled: ['인물'], used, rng: lcg(i + 1) });
+});

@@ -2,13 +2,16 @@
 // 난수는 crypto 만. 시험에서는 rng 를 바꿔 넣을 수 있다.
 import { readFileSync } from 'node:fs';
 import { randomInt } from 'node:crypto';
-import { WORD_CHOICES, TOPICS_ON, TOPICS_OFF } from '../../shared/draw/constants.js';
+import { WORD_CHOICES, TOPICS_ON, TOPICS_OFF, GANGSIK_LABEL } from '../../shared/draw/constants.js';
 
 const WORDS_URL = new URL('../liar/words.json', import.meta.url);
 const SET = 'mine';
 
 let cache = null;
-/** words.json 의 sets.mine 을 읽어 {topics:[{name, words:[{w, alt}]}]} 로 돌려준다(기본 파일은 한 번만 읽음). */
+/**
+ * words.json 의 sets.mine 을 읽어 {topics:[{name, words:[{w, alt, g?}]}], drawOnly:[{w, alt}]} 로 돌려준다(기본 파일은 한 번만 읽음).
+ * g:1 = 갱식 표시 단어, drawOnly = 어느 주제에도 안 들어가는 갱식마인드 전용 단어(라이어는 안 읽음).
+ */
 export function loadWords(url = WORDS_URL) {
   if (url === WORDS_URL && cache) return cache;
   const json = JSON.parse(readFileSync(url, 'utf8'));
@@ -17,8 +20,9 @@ export function loadWords(url = WORDS_URL) {
   const data = {
     topics: set.topics.map((t) => ({
       name: t.name,
-      words: t.words.map((e) => ({ w: e.w, alt: Array.isArray(e.alt) ? e.alt : [] })),
+      words: t.words.map((e) => ({ w: e.w, alt: Array.isArray(e.alt) ? e.alt : [], ...(e.g ? { g: 1 } : {}) })),
     })),
+    drawOnly: (Array.isArray(set.drawOnly) ? set.drawOnly : []).map((e) => ({ w: e.w, alt: Array.isArray(e.alt) ? e.alt : [] })),
   };
   if (url === WORDS_URL) cache = data;
   return data;
@@ -57,6 +61,12 @@ export function createWordPicker({ data = loadWords(), rng = cryptoRng } = {}) {
   const used = new Set();
   const byWord = new Map();
   for (const t of data.topics) for (const e of t.words) if (!byWord.has(e.w)) byWord.set(e.w, { w: e.w, topic: t.name, alt: e.alt });
+  for (const e of data.drawOnly || []) if (!byWord.has(e.w)) byWord.set(e.w, { w: e.w, topic: GANGSIK_LABEL, alt: e.alt });
+  // 갱식 풀: 주제와 상관없이 g 표시 단어 + 전용 단어(같은 단어는 한 번만, 첫 주제 소속)
+  const gangsik = [];
+  { const seenG = new Set();
+    for (const t of data.topics) for (const e of t.words) if (e.g && !seenG.has(e.w)) { seenG.add(e.w); gangsik.push({ w: e.w, topic: t.name, alt: e.alt }); }
+    for (const e of data.drawOnly || []) if (!seenG.has(e.w)) { seenG.add(e.w); gangsik.push({ w: e.w, topic: GANGSIK_LABEL, alt: e.alt }); } }
 
   function pool(topics) {
     const names = new Set(topics);
@@ -78,20 +88,25 @@ export function createWordPicker({ data = loadWords(), rng = cryptoRng } = {}) {
       if (!Array.isArray(topics) || topics.length === 0) throw new Error('켜진 주제가 없습니다');
       const all = pool(topics);
       if (all.length === 0) throw new Error('켜진 주제에 단어가 없습니다');
-      let free = all.filter((e) => !used.has(e.w));
-      if (free.length < WORD_CHOICES) { // 다 썼다 → 켜진 주제의 기록만 비운다
+      // 후보 하나는 갱식 풀(g 표시 + 전용)에서. 안 쓴 갱식 단어가 없으면 기존 방식(3개 모두 켜진 주제)으로 대체.
+      const gFree = gangsik.filter((e) => !used.has(e.w));
+      const g = gFree.length ? gFree[rng(gFree.length)] : null;
+      const need = g ? WORD_CHOICES - 1 : WORD_CHOICES;
+      let free = all.filter((e) => !used.has(e.w) && (!g || e.w !== g.w));
+      if (free.length < need) { // 다 썼다 → 켜진 주제의 기록만 비운다
         for (const e of all) used.delete(e.w);
-        free = all;
+        free = g ? all.filter((e) => e.w !== g.w) : all;
       }
-      if (free.length < WORD_CHOICES) throw new Error('단어가 모자랍니다');
+      if (free.length < need) throw new Error('단어가 모자랍니다');
       const out = [];
-      for (let k = 0; k < WORD_CHOICES; k++) { // 부분 섞기: 뽑은 칸에 맨 뒤 것을 옮겨 중복을 막는다
+      for (let k = 0; k < need; k++) { // 부분 섞기: 뽑은 칸에 맨 뒤 것을 옮겨 중복을 막는다
         const last = free.length - 1 - k;
         const i = rng(last + 1);
         out.push(free[i]);
         free[i] = free[last];
       }
-      return out.map((e) => ({ ...e }));
+      if (g) out.splice(rng(out.length + 1), 0, g); // 갱식 단어 자리는 섞는다
+      return out.map((e) => ({ w: e.w, topic: e.topic, alt: e.alt }));
     },
     use(w) { used.add(w); },
     isUsed(w) { return used.has(w); },

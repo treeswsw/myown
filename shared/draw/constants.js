@@ -80,6 +80,9 @@ export const LEN_DEFAULT = false; // 글자 수 칸 표시
 
 export const WORD_CHOICES = 3; // 단어 후보 개수
 
+// 갱식마인드 전용 단어(주제 없음)에 붙는 표시 이름. 후보 3개 중 하나는 늘 '갱식' 표시 단어(5절).
+export const GANGSIK_LABEL = '갱식';
+
 // 기본으로 켜는/끄는 주제 (5절)
 export const TOPICS_ON = Object.freeze(['음식', '동물', '직업', '장소', '스포츠', '물건', '취미', '탈것']);
 export const TOPICS_OFF = Object.freeze(['영화·만화', '나라·도시', '인물']);

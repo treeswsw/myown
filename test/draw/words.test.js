@@ -24,7 +24,7 @@ test('단어 3개: 서로 다르고 켜진 주제에서만, alt 제공', () => {
     const c = p.pick(on);
     assert.equal(c.length, 3);
     assert.equal(new Set(c.map((x) => x.w)).size, 3);
-    for (const x of c) { assert.ok(on.includes(x.topic)); assert.ok(Array.isArray(x.alt)); }
+    for (const x of c) { assert.ok(Array.isArray(x.alt)); }
   }
   const e = p.entry('돈가스');
   assert.deepEqual(e.alt, ['돈까스']);
@@ -76,4 +76,55 @@ test('words.json 은 읽기만 한다', () => {
   const before = readFileSync(f, 'utf8');
   createWordPicker().pick(['음식']);
   assert.equal(readFileSync(f, 'utf8'), before);
+});
+
+const gSet = (d) => new Set([...d.topics.flatMap((t) => t.words.filter((e) => e.g).map((e) => e.w)), ...d.drawOnly.map((e) => e.w)]);
+
+test('갱식: words.json 에 표시 단어(117)와 전용 단어(78)가 있다', () => {
+  const d = loadWords();
+  assert.equal(d.topics.flatMap((t) => t.words).filter((e) => e.g).length, 117);
+  assert.equal(d.drawOnly.length, 78);
+  assert.equal(listTopics(d).length, 11);
+});
+
+test('갱식: 후보 3개 중 정확히 하나는 갱식 단어, 나머지 둘은 켜진 주제 (자리는 섞임)', () => {
+  const d = loadWords();
+  const g = gSet(d);
+  const p = createWordPicker();
+  const pos = new Set();
+  for (let i = 0; i < 300; i++) {
+    const c = p.pick(['음식', '동물']);
+    assert.equal(c.length, 3);
+    assert.equal(new Set(c.map((x) => x.w)).size, 3);
+    const gi = c.map((x, k) => (g.has(x.w) ? k : -1)).filter((k) => k >= 0);
+    // 켜진 주제(음식·동물)에도 갱식 표시 단어(컵라면 등)가 있어 둘 이상일 수 있으나, 적어도 하나는 갱식
+    assert.ok(gi.length >= 1);
+    pos.add(gi[0]);
+  }
+  assert.ok(pos.size >= 2);
+});
+
+test('갱식: 주제와 무관하게 하나가 갱식 (켜진 주제가 갱식 단어 없는 곳이어도)', () => {
+  const data = { topics: [
+    { name: '가', words: [{ w: 'a', alt: [] }, { w: 'b', alt: [] }, { w: 'c', alt: [] }] },
+    { name: '나', words: [{ w: 'x', alt: [], g: 1 }] },
+  ], drawOnly: [{ w: 'o', alt: ['오'] }] };
+  const p = createWordPicker({ data });
+  for (let i = 0; i < 100; i++) {
+    const c = p.pick(['가']);
+    assert.equal(c.filter((x) => x.w === 'x' || x.w === 'o').length, 1);
+    assert.equal(c.filter((x) => ['a', 'b', 'c'].includes(x.w)).length, 2);
+  }
+  assert.deepEqual(p.entry('o'), { w: 'o', topic: '갱식', alt: ['오'] });
+});
+
+test('갱식: 고른 갱식 단어는 다시 안 나오고, 다 쓰면 기존 방식으로 대체', () => {
+  const d = loadWords();
+  const p = createWordPicker();
+  const all = [...gSet(d)];
+  for (const w of all.slice(0, all.length - 1)) p.use(w);
+  const last = all[all.length - 1];
+  assert.ok(p.pick(['음식']).some((x) => x.w === last));
+  p.use(last);
+  for (let i = 0; i < 50; i++) for (const x of p.pick(['음식'])) { assert.equal(x.topic, '음식'); }
 });
