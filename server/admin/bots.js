@@ -89,16 +89,20 @@ export function createAdmin(hub, adminKey = DEFAULT_ADMIN_KEY) {
         const live = hub.sessions.get(msg.id);
         let user = live?.user;
         if (!user) {
+          const epoch = hub.epoch; // 검토: 기다리는 사이 초기화되면 지운 계정을 되살리지 않는다
           if (!(await hub.store.exists(msg.id))) return admErr('adm_noid');
           user = await hub.store.getOrCreate(msg.id);
           if (!user) return admErr('adm_noid');
+          if (epoch !== hub.epoch || hub.resetting) return admErr('adm_noid');
           hub.userEpoch?.set(user, hub.epoch);
           user = hub.sessions.get(msg.id)?.user ?? user; // logged in meanwhile
         }
-        if (msg.a === 'chips') user.bank = Math.min(2_000_000_000, (user.bank | 0) + msg.n);
-        else user.coins = Math.min(2_000_000_000, (user.coins | 0) + msg.n);
+        const key = msg.a === 'chips' ? 'bank' : 'coins';
+        const before = user[key] | 0;
+        user[key] = Math.min(2_000_000_000, before + msg.n);
+        const added = user[key] - before; // 상한에 걸리면 실제로 더한 만큼만 장부에
         hub.persist(user);
-        if (msg.a === 'coins') hub.store.log?.({ uid: msg.id, kind: 'adm', delta: msg.n, bal: user.coins, chips: 0, note: { by: session.id } })?.catch?.(() => {});
+        hub.store.log?.({ uid: msg.id, kind: 'adm', delta: msg.a === 'coins' ? added : 0, bal: user.coins | 0, chips: msg.a === 'chips' ? added : 0, note: { by: session.id } })?.catch?.(() => {});
         const s2 = hub.sessions.get(msg.id);
         if (s2?.conn) hub.sendMe(s2);
         hub.send(session, { t: 'admOk', a: msg.a, id: msg.id, n: msg.n, bank: user.bank, coins: user.coins });

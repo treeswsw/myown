@@ -259,8 +259,8 @@ test('shop: buy, shop_own, shop_no, coin_low, equip, shop_not, unequip', async (
   const a = await login(hub, 'aaa');
   const u = sess(hub, 'aaa').user;
   const st = msgs(a, 'me').at(-1).wallet.stock;
-  const cheap = st.a.ids.filter(Boolean).sort((x, y) => priceOf(x) - priceOf(y))[0];
-  const dear = st.b.ids.filter(Boolean).sort((x, y) => priceOf(y) - priceOf(x))[0];
+  const cheap = st.row.map((c) => c.id).filter(Boolean).sort((x, y) => priceOf(x) - priceOf(y))[0];
+  const dear = st.feat.ids.filter(Boolean).sort((x, y) => priceOf(y) - priceOf(x))[0];
   u.coins = priceOf(cheap) + 5;
   await a.send({ t: 'coin', a: 'buy', id: cheap });
   assert.equal(u.coins, 5);
@@ -325,8 +325,9 @@ test('me.wallet shape; no pin or hash in any message', async () => {
   const me = msgs(a, 'me').at(-1);
   const { stock, ...rest } = me.wallet;
   assert.deepEqual(rest, { coins: 3, total: 0, pity: 0, shard: 0, cpity: 0, pos: {}, owned: [], equip: {}, hasPin: true, chipsPerCoin: 100, free: { n: 2, next: null }, pool: 10000 });
-  assert.equal(stock.a.ids.length, 5);
-  assert.equal(stock.b.ids.length, 5);
+  assert.equal(stock.row.length, 6);
+  assert.equal(stock.feat.ids.length, 2);
+  assert.ok(stock.next > 0 && stock.next <= 120000);
   assert.equal(me.user.pin, undefined);
   await a.send({ t: 'coin', a: 'buy', id: 'nope' });
   await a.send({ t: 'coin', a: 'rank' });

@@ -10,7 +10,7 @@ import { seeded } from '../helpers.js';
 import { assertRate } from '../lib/stats.js';
 import { TIERS, ROLL, PITY, POOL_START, draw } from '../../shared/coin/gacha.js';
 import { WEIGHTS, PITY as CAP_PITY, capsule } from '../../shared/coin/capsule.js';
-import { ROWS, rollRow } from '../../shared/coin/stock.js';
+import { WEIGHTS as STOCK_W, rollSlot } from '../../shared/coin/stock.js';
 import { ITEMS } from '../../shared/coin/shop.js';
 
 const SOURCES = [['고정 씨앗', () => seeded(11)], ['crypto', () => secureRng]];
@@ -48,17 +48,14 @@ for (const [name, mk] of SOURCES) {
     }
   });
 
-  test(`상점 진열(${name}): 칸마다 등급 비율이 줄(row)의 가중치와 같다`, () => {
+  test(`상점 진열(${name}): 새 칸의 등급 비율이 가중치와 같다`, () => {
     const rng = mk();
     const gradeOf = new Map(ITEMS.map((i) => [i.id, i.g]));
-    for (const [rowName, row] of Object.entries(ROWS)) {
-      const N = 40_000; // 줄 40000번 × 칸 5
-      const hit = new Map(row.w.map(([g]) => [g, 0]));
-      for (let i = 0; i < N; i++) for (const id of rollRow(rng, row, [], [])) hit.set(gradeOf.get(id), (hit.get(gradeOf.get(id)) ?? 0) + 1);
-      const sum = row.w.reduce((s, [, w]) => s + w, 0);
-      // 한 줄 안에서는 같은 물건이 겹치지 않으므로 칸끼리 아주 조금 상관이 있다. 6.5 시그마 기준은 그래도 넉넉하다.
-      for (const [g, w] of row.w) assertRate(hit.get(g), N * row.n, w / sum, `stock ${rowName} grade ${g}`);
-    }
+    const N = 200_000;
+    const hit = new Map(STOCK_W.map(([g]) => [g, 0]));
+    for (let i = 0; i < N; i++) { const g = gradeOf.get(rollSlot(rng, [], [])); hit.set(g, (hit.get(g) ?? 0) + 1); }
+    const sum = STOCK_W.reduce((s, [, w]) => s + w, 0);
+    for (const [g, w] of STOCK_W) assertRate(hit.get(g), N, w / sum, `stock grade ${g}`);
   });
 }
 

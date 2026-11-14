@@ -5,7 +5,7 @@ import { defaultEcon, normalizeEcon, coinsFor } from '../../shared/coin/rules.js
 import { draw as gachaDraw, COST, TEN, POOL_START, freeNow, freeNext } from '../../shared/coin/gacha.js';
 import { item } from '../../shared/coin/shop.js';
 import { capsule, COST as CAP_COST, TEN as CAP_TEN, CRAFT, trashKingDue } from '../../shared/coin/capsule.js';
-import { ROWS, priceOf, periodOf, leftOf, rollRow } from '../../shared/coin/stock.js';
+import { ROW_N, FEAT_N, priceOf, tickOf, featOf, nextTickIn, featLeft, slotLeft, rollSlot, rollRow, rollFeat } from '../../shared/coin/stock.js';
 import { parseCoin } from '../../shared/coin/protocol.js';
 
 const MAX_CHIPS = 2_000_000_000;
@@ -25,27 +25,49 @@ const ERR = {
 };
 export const coinErr = (code) => ({ msg: ERR[code], code });
 
-// Personal shop stock (SPEC 22-18): roll lazily for the current periods, keep in user.gear.stock.
+// Personal shop stock (SPEC 22-20): conveyor row + hourly featured, kept lazily in user.gear.stock:
+// {t: last tick, row:[{id|null, t: tick it entered}] x6, fp: featured period, feat:[ids]}.
+const validStock = (st) => st && typeof st === 'object' && Number.isInteger(st.t) && Number.isInteger(st.fp)
+  && Array.isArray(st.row) && st.row.length === ROW_N
+  && st.row.every((c) => c && Number.isInteger(c.t) && (c.id === null || typeof c.id === 'string'))
+  && Array.isArray(st.feat) && st.feat.length === FEAT_N && st.feat.every((x) => x === null || typeof x === 'string');
+
 export function stockOf(user, hub) {
   const g = user.gear ?? (user.gear = {});
   const now = hub?.now ? hub.now() : 0;
   const rng = hub?.rng ?? secureRng;
-  if (!g.stock || typeof g.stock !== 'object') g.stock = {};
-  const st = g.stock;
-  const valid = (r) => st[r] && Number.isInteger(st[r].p) && Array.isArray(st[r].ids);
-  const fresh = (r) => valid(r) && st[r].p === periodOf(ROWS[r], now);
   const owned = g.owned ?? [];
-  let rolled = false;
-  for (const [r, o] of [['b', 'a'], ['a', 'b']]) {
-    if (fresh(r)) continue;
-    const other = fresh(o) ? st[o].ids : [];
-    st[r] = { p: periodOf(ROWS[r], now), ids: rollRow(rng, ROWS[r], owned, other) };
-    rolled = true;
+  const tick = tickOf(now);
+  const fp = featOf(now);
+  let st = g.stock;
+  let changed = false;
+  const ids = (list) => list.map((c) => c.id).filter(Boolean);
+  if (!validStock(st) || tick - st.t >= ROW_N || tick < st.t) {
+    // first look, old shape, or long away: fill everything. Featured first, then the row avoids it.
+    const keep = st && typeof st === 'object' && st.fp === fp && Array.isArray(st.feat) && st.feat.length === FEAT_N
+      && st.feat.every((x) => x === null || typeof x === 'string');
+    const feat = keep ? [...st.feat] : rollFeat(rng, owned, []);
+    const row = rollRow(rng, ROW_N, owned, feat).map((id, i) => ({ id, t: tick - (ROW_N - 1) + i }));
+    st = g.stock = { t: tick, row, fp, feat };
+    changed = true;
+  } else {
+    if (st.fp !== fp) {
+      st.feat = rollFeat(rng, owned, ids(st.row));
+      st.fp = fp;
+      changed = true;
+    }
+    for (; st.t < tick; ) {
+      st.t += 1;
+      st.row.shift();
+      st.row.push({ id: rollSlot(rng, owned, [...ids(st.row), ...st.feat]), t: st.t });
+      changed = true;
+    }
   }
-  if (rolled) { try { hub?.persist?.(user); } catch { /* saved on the next change */ } }
+  if (changed) { try { hub?.persist?.(user); } catch { /* saved on the next change */ } }
   return {
-    a: { ids: [...st.a.ids], left: leftOf(ROWS.a, st.a.p, now) },
-    b: { ids: [...st.b.ids], left: leftOf(ROWS.b, st.b.p, now) },
+    row: st.row.map((c) => ({ id: c.id, left: slotLeft(c.t, now) })),
+    next: nextTickIn(now),
+    feat: { ids: [...st.feat], left: featLeft(now) },
   };
 }
 
@@ -380,7 +402,7 @@ export function installWallet(hub) {
         const price = it ? priceOf(it) : null;
         if (price === null) return coinErr('shop_no');
         const st = stockOf(u, hub);
-        if (!st.a.ids.includes(it.id) && !st.b.ids.includes(it.id)) return coinErr('shop_gone');
+        if (!st.row.some((c) => c.id === it.id) && !st.feat.ids.includes(it.id)) return coinErr('shop_gone');
         if (g.owned.includes(it.id)) return coinErr('shop_own');
         if (u.coins < price) return coinErr('coin_low');
         u.coins -= price;

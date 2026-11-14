@@ -1077,7 +1077,7 @@ async function coinCheck(browser) {
     await step('swap window: 3 coins -> chips', async () => {
       await page.click('.lb-coin-btn:has-text("상점")'); // 교환·뽑기는 상점 안에서만 (2026-11-13)
       await visible2(page, '.sh-panel');
-      await page.click('.sh-swap:has-text("칩 교환")');
+      await page.click('.sh-ex:has-text("칩 교환")');
       await visible2(page, '.cn-field');
       await page.fill('.cn-field', '3');
       await page.click('.cn-btn.cn-primary:has-text("바꾸기")');
@@ -1086,45 +1086,107 @@ async function coinCheck(browser) {
       await page.click('.sh-close');
       await waitCoins('(n) => n === 497', 'balance not 497');
     });
-    await step('draw 1 with skip, then 10', async () => {
+    await step('card draw: free 1, 1장, 10장 with 다 뒤집기, chips go up', async () => {
+      // 상점 → [카드 뽑기]. 상점 화면이 바뀌어도 되도록 버튼 글자로 찾는다.
       await page.click('.lb-coin-btn:has-text("상점")');
-      await page.click('.sh-swap:has-text("카드 뽑기")');
-      await visible2(page, '.gc-panel');
-      await page.click('.gc-btn:has-text("1회")');
-      await page.waitForFunction(() => document.querySelector('.gc-panel')?.dataset.mode !== 'idle', null, { timeout: T });
-      await page.click('.gc-btn-skip', { timeout: 2500 }).catch(() => {}); // skip while it plays (if it already ended, fine)
-      await page.waitForSelector('.gc-panel[data-mode="done"]', { timeout: T });
-      await page.waitForTimeout(450); // the window ignores clicks for 0.35 s after a draw
-      await page.click('.gc-btn:has-text("10연") >> visible=true');
-      await page.waitForFunction(() => document.querySelector('.gc-panel')?.dataset.mode !== 'done', null, { timeout: T });
-      await page.click('.gc-btn-skip', { timeout: 2500 }).catch(() => {});
-      await page.waitForSelector('.gc-panel[data-mode="done"]', { timeout: T });
-      await page.click('.gc-btn:has-text("닫기")');
-      await waitCoins('(n) => n === 442', 'balance not 442 after 11 pulls');
+      const openers = ['.sh-big-draw .sh-sb', 'button:has-text("카드 뽑기")', ':has(> :text("카드 뽑기")) button:has-text("뽑기")', 'text=카드 뽑기'];
+      for (const sel of openers) {
+        if (await page.locator('.gc-panel').count()) break;
+        await page.click(`${sel} >> visible=true`, { timeout: 1500 }).catch(() => {});
+        await page.waitForSelector('.gc-panel', { timeout: 1500 }).catch(() => {});
+      }
+      await visible2(page, '.gc-panel[data-mode="idle"]');
+      await visible2(page, '.gc-tiers .gc-face >> nth=5'); // 나올 수 있는 카드 6종
+      await visible2(page, '.gc-vault-n');
+      if (!/대박 확정까지 \d+장/.test(await page.locator('.gc-pity-t').innerText())) throw new Error('no pity line');
+      if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || document.querySelector('.gc-ft-bar').getBoundingClientRect().bottom > innerHeight + 1 || [...document.querySelectorAll('.gc-ft-bar .gc-btn')].some((b) => !b.hidden && (b.getBoundingClientRect().right > innerWidth + 1 || b.getBoundingClientRect().left < -1)))) throw new Error('draw window overflows the phone screen');
+      const num = (sel) => page.evaluate((q) => Number((document.querySelector(q)?.textContent || '').replace(/[^\d]/g, '')), sel);
+      const drawOnce = async (btn, n) => {
+        const before = await num('.gc-chips b');
+        await page.waitForTimeout(450); // the window ignores clicks for 0.35 s after a draw
+        await page.click(`${btn} >> visible=true`);
+        await page.waitForSelector('.gc-panel[data-mode="busy"], .gc-panel[data-mode="done"]', { timeout: T });
+        await page.waitForFunction((k) => document.querySelectorAll('.gc-row .gc-card').length === k, n, { timeout: T });
+        await page.click('.gc-btn-all:not([disabled]) >> visible=true', { timeout: 2500 }).catch(() => {}); // 한 번에 다 뒤집기 (already done is fine)
+        await page.waitForSelector('.gc-panel[data-mode="done"]', { timeout: T });
+        if ((await page.locator('.gc-row .gc-card.gc-open').count()) !== n) throw new Error(`not all ${n} cards are face up`);
+        const gained = await num('.gc-sum');
+        if (!(gained >= 200 * n)) throw new Error(`total chips ${gained} for ${n} cards`);
+        await page.waitForFunction(([q, want]) => Number((document.querySelector(q)?.textContent || '').replace(/[^\d]/g, '')) === want, ['.gc-chips b', before + gained], { timeout: T }).catch(() => { throw new Error(`chips did not go up by ${gained}`); });
+      };
+      const coins0 = await num('.gc-coins b');
+      if (await page.locator('.gc-btn-free:not(.gc-dim)').count()) { // 무료 1장 (새 계정은 2장)
+        await drawOnce('.gc-btn-free', 1);
+        if ((await num('.gc-coins b')) !== coins0) throw new Error('free draw took coins');
+        await page.click('.gc-back'); // 처음 화면으로
+        await visible2(page, '.gc-panel[data-mode="idle"]');
+      }
+      await drawOnce('.gc-btn:has-text("1장 · 5코인")', 1);
+      await drawOnce('.gc-btn:has-text("10장 한 번 더")', 10);
+      if ((await num('.gc-coins b')) !== coins0 - 55) throw new Error('coins not down by 55');
+      await page.click('.gc-back');
+      await page.click('.gc-btn:has-text("내 기록")');
+      await visible2(page, '.gc-hist-row');
+      await page.click('.gc-hist-x');
+      await page.click('.gc-back'); // 닫기
+      await page.waitForSelector('.gc-panel', { state: 'detached', timeout: T });
+      await page.click('.sh-close', { timeout: 1500 }).catch(() => {}); // 옛 상점은 뽑기를 열 때 닫히지 않을 수 있다
     });
     await step('capsule: title draw 1', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');
-      await page.click('.sh-swap:has-text("칭호 뽑기")');
-      await visible2(page, '.cp-sheet');
-      await page.click('.cp-sheet .cn-primary >> nth=0');
-      await page.waitForSelector('.cp-row', { timeout: T });
+      await page.locator('.sh-big-cap .sh-sb, button:has-text("치장 뽑기")').first().click(); // 상점 안의 치장 뽑기 입구
+      await visible2(page, '.cp-ov');
+      await page.click('.cp-go >> nth=0'); // 1개
+      await page.waitForSelector('.cp-ov[data-mode="done"] .cp-res', { timeout: T + 3000 });
+      await page.click('.cp-row2 button:has-text("조각 교환")'); // 조각 교환 창이 열리고 닫힌다
+      await visible2(page, '.cp-cpn');
       await page.keyboard.press('Escape');
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('.cp-ov', { state: 'detached', timeout: T });
     });
     await step('shop: buy then equip', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');
       await visible2(page, '.sh-panel');
-      await visible2(page, '.sh-row[data-row="a"] .sh-timer'); // SPEC 22-18: two stock rows with a countdown
-      await page.click('.sh-card >> nth=0 >> .sh-act.sh-buy'); // first card of the stock: price button, pressed twice to buy
-      await page.click('.sh-card >> nth=0 >> .sh-act.sh-sure');
+      await visible2(page, '.sh-tm'); // SPEC 22-20: "다음 교체까지 m:ss"
+      if ((await page.locator('.sh-ti > .sh-cd').count()) !== 6) throw new Error('the shelf does not have 6 cards');
+      if (!(await page.locator('.sh-feat').count())) throw new Error('no 이 시간의 명품 panel');
+      await page.click('.sh-ti > .sh-cd >> nth=0'); // face-down card: tap to reveal
+      await visible2(page, '.sh-ti > .sh-cd >> nth=0 >> .sh-pb.sh-buy');
+      await page.click('.sh-ti > .sh-cd >> nth=0 >> .sh-pb.sh-buy'); // price button, pressed twice to buy
+      await page.click('.sh-ti > .sh-cd >> nth=0 >> .sh-pb.sh-cf');
       await page.waitForFunction(() => /샀습니다/.test(document.querySelector('.sh-msg')?.textContent || ''), null, { timeout: T });
-      await page.click('.sh-card >> nth=0 >> .sh-act:has-text("끼기")');
-      await page.waitForFunction(() => /꼈습니다/.test(document.querySelector('.sh-msg')?.textContent || ''), null, { timeout: T });
-      if (!(await page.locator('.sh-card.sh-worn .sh-stamp').count())) throw new Error('no 착용 중 stamp');
-      if (await page.evaluate(() => document.documentElement.scrollHeight > innerHeight + 1 || document.querySelector('.sh-rows').getBoundingClientRect().bottom > innerHeight)) throw new Error('shop overflows the phone screen');
-      await page.click('.sh-swap'); // [칩 교환] opens the swap window over the shop
+      await page.click('.sh-ti > .sh-cd >> nth=0 >> .sh-pb:has-text("장착")');
+      await page.waitForFunction(() => /장착했습니다/.test(document.querySelector('.sh-msg')?.textContent || ''), null, { timeout: T });
+      if (!(await page.locator('.sh-cd.sh-worn .sh-st').count())) throw new Error('no 착용 중 stamp');
+      if (await page.evaluate(() => document.documentElement.scrollHeight > innerHeight + 1 || document.documentElement.scrollWidth > innerWidth + 1 || document.querySelector('.sh-tray').getBoundingClientRect().bottom > innerHeight)) throw new Error('shop overflows the phone screen');
+      await page.click('.sh-ex'); // [칩 교환] opens the swap window over the shop
       await visible2(page, '.cn-field');
       await page.click('.cn-sheet .cn-btns button');
-      await page.click('.sh-close');
+      await page.click('.sh-wd'); // [옷장] closes the shop and opens the wardrobe page
+      await page.waitForFunction(() => !document.querySelector('.sh-root'), null, { timeout: T });
+    });
+    await step('wardrobe (옷장): opens from the shop, tab, unequip/equip, close', async () => {
+      await page.waitForSelector('.lk-w-page', { timeout: 3000 }).catch(() => {}); // the shop step's [옷장] loads it lazily
+      if (!(await page.locator('.lk-w-page').count())) { // the shop step may already have opened it via [옷장]
+        await page.click('.lb-coin-btn:has-text("상점")');
+        await page.click('button:has-text("옷장")');
+      }
+      await visible2(page, '.lk-w-page');
+      for (const slot of ['title', 'hat', 'acc', 'face', 'frame', 'color', 'suit']) { // find the tab of the item equipped in the shop step
+        await page.click(`.lk-w-tab[data-slot="${slot}"]`);
+        if (await page.locator('.lk-w-card.lk-w-worn').count()) break;
+      }
+      await visible2(page, '.lk-w-card.lk-w-worn');
+      await page.click('.lk-w-card.lk-w-worn .lk-w-act:has-text("빼기")');
+      await page.waitForFunction(() => /뺐습니다/.test(document.querySelector('.lk-w-msg')?.textContent || ''), null, { timeout: T });
+      await page.click('.lk-w-card >> nth=0 >> .lk-w-act:has-text("장착")');
+      await visible2(page, '.lk-w-card.lk-w-worn');
+      await page.click('.lk-w-tab[data-slot="suit"]');
+      await visible2(page, '.lk-w-tab.lk-w-sel[data-slot="suit"]');
+      if (await page.evaluate(() => { const r = document.querySelector('.lk-w-page'), d = document.documentElement; return d.scrollWidth > innerWidth + 1 || d.scrollHeight > innerHeight + 1 || r.scrollWidth > r.clientWidth + 1 || document.querySelector('.lk-w-side').getBoundingClientRect().bottom > innerHeight + 1; })) throw new Error('wardrobe overflows the phone screen');
+      await page.click('.lk-w-close');
+      await page.waitForSelector('.lk-w-root', { state: 'detached', timeout: T });
+      if (await page.locator('.sh-root').count()) await page.click('.sh-close'); // the shop may still be open underneath
     });
     await step('coin rank opens', async () => {
       await page.click('.lb-coin-btn:has-text("코인 랭킹")');
