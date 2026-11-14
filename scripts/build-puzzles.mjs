@@ -1,6 +1,6 @@
 // 리체스 퍼즐 CSV(zst) -> server/mini/puzzles.json.gz. 사용: node scripts/build-puzzles.mjs <csv.zst 경로> [구간당 최대=1000]
 // 기준: Popularity>=85, NbPlays>=500, RatingDeviation<=90, rating 600~2900 을 100 단위 구간으로, 구간마다 PuzzleId 해시 순 앞에서 N 개.
-// 결과: [[id, fen, moves, rating], ...] rating 오름차순. 마지막에 모든 문제의 수순이 합법인지 chess.js 로 확인(불합법은 버림).
+// 결과: [[id, fen, moves, rating, themes(리체스 주제, 공백 구분)], ...] rating 오름차순. 마지막에 모든 문제의 수순이 합법인지 chess.js 로 확인(불합법은 버림).
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
@@ -56,7 +56,7 @@ for await (const line of lines(src)) {
   const b = Math.min(22, Math.floor((rating - 600) / 100));
   const h = crypto.createHash('sha1').update(f[0]).digest().readUInt32BE(0);
   if (!buckets.has(b)) buckets.set(b, []);
-  buckets.get(b).push({ h, p: [f[0], f[1], f[2], rating] });
+  buckets.get(b).push({ h, p: [f[0], f[1], f[2], rating, f[7] ?? ""] });
   kept++;
 }
 console.log(`읽은 줄 ${rows}, 기준 통과 ${kept}`);

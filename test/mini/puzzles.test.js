@@ -15,7 +15,7 @@ test('파일: 2만 개 안팎, rating 오름차순, 600~2900', () => {
   assert.ok(p.length > 15000 && p.length < 30000, `개수 ${p.length}`);
   for (let i = 1; i < p.length; i++) assert.ok(p[i][3] >= p[i - 1][3]);
   assert.ok(p[0][3] >= 600 && p.at(-1)[3] < 3000);
-  assert.equal(p[0].length, 4);
+  assert.equal(p[0].length, 5);
 });
 
 test('무작위 50문제: FEN 왕복, 수순 전부 합법, 마지막 수는 상대 수 아님', () => {

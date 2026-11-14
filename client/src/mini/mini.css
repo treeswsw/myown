@@ -139,5 +139,14 @@
 .mn-pz-down { color: #ff9a8f; }
 .mn-pz-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .mn-pz-next { min-height: 48px; padding: 0 28px; font-size: 1.05rem; background: #3f8f5b; }
+.mn-pz-goal { font-weight: 700; font-size: .95rem; text-align: center; }
+.mn-pz-themes { font-size: .86rem; opacity: .9; text-align: center; }
+.mn-pz-small { min-height: 32px; padding: 0 12px; font-size: .85rem; }
+.mn-pz-note { display: flex; align-items: center; gap: 8px; color: #ff9a8f; font-weight: 800; }
+.mn-pz-note[hidden], .mn-pz-link[hidden], .mn-pz-small[hidden], .mn-pz-themes[hidden] { display: none; }
+.mn-pz-link { font-size: .85rem; opacity: .92; }
+.mn-pz-a { color: #9ec8ff; }
+.mn-pz-nav { min-width: 48px; min-height: 44px; }
+.mn-pz-nav:disabled { opacity: .4; }
 .mn-pz-hint { fill: rgba(255, 214, 80, .55); stroke: #ffd650; stroke-width: .5; }
 .mn-status[hidden] { display: none; }
