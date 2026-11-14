@@ -40,11 +40,11 @@
 .lb-root .lb-av img{width:100%;height:100%;object-fit:cover;display:block}
 .lb-root .lb-av.letter span{font-weight:600;font-size:14px;color:var(--ink2)}
 .lb-root .lb-av.lb-big{width:64px;height:64px}.lb-root .lb-av.lb-big.letter span{font-size:26px}
-.lb-av-btn{background:none;border:0;padding:0;border-radius:50%;cursor:pointer;flex:none;display:block}
+.lb-av-btn{overflow:visible;background:none;border:0;padding:0;border-radius:50%;cursor:pointer;flex:none;display:block}
 .lb-photo{width:88px;height:88px;border-radius:50%;padding:0;border:0;background:var(--fill);color:var(--ink2);font-size:15px;cursor:pointer;overflow:hidden;
   display:flex;align-items:center;justify-content:center;flex:none}
 .lb-root .lb-photo .lb-av{width:100%;height:100%}
-.lb-who{display:flex;gap:16px;align-items:center;min-width:0}
+.lb-who{padding-top:14px;display:flex;gap:16px;align-items:center;min-width:0}
 .lb-who>div:last-child{min-width:0}
 
 .lb-field{height:48px;border-radius:14px;border:0;background:var(--fill);padding:0 16px;width:100%;min-width:0}
@@ -183,9 +183,6 @@
 .lb-reset-err:empty{display:none}
 .lb-sheet-body .lb-reset-err{color:var(--red)}
 
-.lb-title-badge{display:inline-block;max-width:100%;margin-bottom:3px;padding:1px 8px;font-size:11px;line-height:16px;border:1.5px solid #9a9a9a;border-radius:999px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lb-title-badge[hidden]{display:none}
-.lb-title-badge.lb-rainbow{border:1.5px solid transparent;background:linear-gradient(#1c1c1e,#1c1c1e) padding-box,linear-gradient(90deg,#ff5a5a,#ffc93c,#5adf7a,#3d8bff,#b45cff) border-box}
 .lb-mini-pick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .lb-mini-pick[hidden]{display:none}
 .lb-mini-item{flex:1 1 auto;padding:0 10px;border-radius:8px;background:rgba(128,128,128,.15)}

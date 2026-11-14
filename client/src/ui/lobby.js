@@ -3,7 +3,7 @@ import { openAvatarCrop } from './avatarCrop.js';
 import { h, svg, avatar, fmt } from './dom.js';
 import { GAMES as MODES, visibleModes } from '../games.js';
 import { NAMES as MINI_NAMES, GAME_IDS as MINI_IDS } from '../../../shared/mini/index.js';
-import { item as shopItem, GRADES } from '../../../shared/coin/shop.js';
+import { playerAvatar, nameTag } from './kit/avatar.js';
 
 // createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code), onLogout()})
 // -> { el, setUser(user|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setFlags(me), showRank({top, mine}) }
@@ -210,8 +210,6 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   }
   const brokeNote = h('div', 'lb-notice', h('p', null, '칩을 모두 잃었습니다. 홀덤은 새 아이디로 다시 시작해야 합니다.'),
     button('새 아이디로 시작', 'lb-text lb-accent', () => onLogout()));
-  const titleBadge = h('div', 'lb-title-badge');
-  titleBadge.hidden = true;
   const walletRow = h('div', 'lb-sub lb-coins');
   const coinBtns = h('div', 'lb-coin-btns');
   for (const [a, label] of [['shop', '상점'], ['rank', '코인 랭킹']] /* 교환·카드 뽑기·칭호 뽑기는 상점 안에서 (2026-11-13) */) {
@@ -224,7 +222,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   walletRow.hidden = true;
   const rankBtn = button('라이어 랭킹', 'lb-tint lb-rank-btn', () => onRank?.());
   rankBtn.hidden = true;
-  profile.append(brand('lb-small'), h('div', 'lb-who', meAv, h('div', null, titleBadge, meName, meBank, walletRow)), brokeNote, coinBox, stats,
+  profile.append(brand('lb-small'), h('div', 'lb-who', meAv, h('div', null, meName, meBank, walletRow)), brokeNote, coinBox, stats,
     rankBtn, h('div', 'lb-grow'), button('로그아웃', 'lb-text', () => onLogout()));
 
   const play = h('section', 'lb-panel panel');
@@ -416,21 +414,11 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
     out.hidden = !!user;
     home.hidden = !user;
     if (user) {
-      meAv.replaceChildren(avatar(user, 'lb-av lb-big'));
-      meName.textContent = user.name;
+      const look = user.wallet ? { ...user.wallet.equip, pos: user.wallet.pos } : null;
+      meAv.replaceChildren(playerAvatar({ id: user.id, name: user.name, face: user.avatar, look, size: 64 }));
+      meName.replaceChildren(nameTag({ name: user.name, look }));
       const chips = user.chips ?? user.bank ?? 0;
       meBank.textContent = `${fmt(chips)} 칩`;
-      const eq = user.wallet?.equip;
-      const tItem = eq ? shopItem(eq.title) : null;
-      const cItem = eq ? shopItem(eq.color) : null;
-      const tText = tItem?.v?.text;
-      titleBadge.hidden = !tText;
-      titleBadge.textContent = tText || '';
-      const gc = tItem ? GRADES[tItem.g]?.color : null;
-      titleBadge.classList.toggle('lb-rainbow', gc === 'rainbow');
-      titleBadge.style.borderColor = gc && gc !== 'rainbow' ? gc : '';
-      const hex = cItem?.v?.hex;
-      meName.style.color = Number.isFinite(hex) ? '#' + hex.toString(16).padStart(6, '0') : '';
       const coins = user.wallet?.coins;
       walletRow.hidden = !Number.isFinite(coins);
       if (!walletRow.hidden) walletRow.textContent = `${fmt(coins)} 코인`;
