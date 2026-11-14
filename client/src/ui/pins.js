@@ -1,5 +1,13 @@
 import { h, svg, avatar, cardEl, cardBack, fmt, fmtShort, view } from './dom.js';
 import { PIN } from './icons.js';
+import '../coin/look.css';
+import '../coin/titlefx.css';
+import { decorate, titleBadge, nameColor } from '../coin/look.js';
+
+const AV = 76; // 자리 프사 지름(.pl .av-wrap 과 같다). 꾸미기 크기 기준.
+// 칭호 배지: 프사 바로 아래, 이름 위 (SPEC 22-21). 이름은 배지 높이만큼 내려간다.
+const TITLE_CSS = 'position:absolute;left:0;top:42px;transform:translateX(-50%);line-height:1;white-space:nowrap;pointer-events:none';
+const TITLE_H = 17;
 
 const EMOTES = ['👍', '😂', '😮', '😡', '😭', '🔥'];
 export const emoteGlyphs = EMOTES;
@@ -34,8 +42,11 @@ export function createPins(ui, stage, table) {
     const nm = h('div', 'nm ko');
     const rv = h('div', 'rv');
     const emote = h('div', 'emote');
-    const entry = { el, top, wrap, nm, rv, emote, av: null, photo: null, id: p.id };
-    el.append(top, wrap, nm, rv, emote);
+    const tt = h('div');
+    tt.style.cssText = TITLE_CSS;
+    const entry = { el, top, wrap, tt, nm, rv, emote, av: null, photo: null, id: p.id };
+    // 프사가 맨 아래: 모자·스티커가 원 밖으로 나와도 행동 핀·이름을 가리지 않는다.
+    el.append(wrap, top, tt, nm, rv, emote);
     layer.append(el);
     return entry;
   }
@@ -47,17 +58,25 @@ export function createPins(ui, stage, table) {
     const holdem = r.mode === 'holdem';
     for (const p of r.players) {
       const e = pins.get(p.id) ?? (pins.set(p.id, build(p)), pins.get(p.id));
-      const photoKey = `${p.avatar ?? ''}|${p.name}`;
+      const look = p.look ?? null;
+      const photoKey = `${p.avatar ?? ''}|${p.name}|${look ? JSON.stringify(look) : ''}`;
       if (e.photo !== photoKey) {
         e.photo = photoKey;
         e.av = avatar(p, 'pav');
         e.wrap.replaceChildren(e.av);
+        decorate(e.av, look, { size: AV }); // 테두리·모자·스티커는 .pav 밖(.lk-wrap)에 겹쳐서 잘리지 않는다
+        const badge = titleBadge(look);
+        e.tt.replaceChildren(...(badge ? [badge] : []));
+        e.nm.style.marginTop = badge ? `${TITLE_H}px` : '';
+        e.color = nameColor(look);
       }
+      e.tt.style.top = winners?.has(p.id) ? '60px' : '42px'; // 승자는 프사가 커진다(.pl.champ)
       const playing = r.phase !== 'lobby';
       const out = playing && (holdem ? p.folded : p.alive === false);
       const gone = Boolean(p.eliminated);
       e.el.classList.toggle('dim', Boolean(out) || dead.has(p.id) || gone || Boolean(winners && !winners.has(p.id)));
       e.el.classList.toggle('champ', Boolean(winners?.has(p.id)));
+      e.tt.style.opacity = e.el.classList.contains('dim') ? '.6' : '';
       e.el.classList.toggle('turn', r.turn === p.id);
       e.el.classList.toggle('away', !p.connected);
       e.av.classList.toggle('dead', dead.has(p.id) || gone || (playing && !holdem && p.alive === false));
@@ -83,7 +102,9 @@ export function createPins(ui, stage, table) {
       e.el.classList.toggle('has-top', Boolean(amount || kind));
 
       const sub = holdem ? fmtShort(stacks.get(p.id) ?? p.stack ?? 0) : playing ? `${p.handCount ?? 0}장` : '';
-      e.nm.replaceChildren(h('i', 'nmt', p.name), ...(sub ? [h('span', '', sub)] : []));
+      const nmt = h('i', 'nmt', p.name);
+      if (e.color) nmt.style.color = e.color;
+      e.nm.replaceChildren(nmt, ...(sub ? [h('span', '', sub)] : []));
       e.rv.textContent = holdem ? '' : `${p.shots ?? 0} / 6`;
       e.rv.style.display = holdem || !playing ? 'none' : '';
     }
