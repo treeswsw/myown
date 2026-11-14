@@ -1115,6 +1115,26 @@ async function coinCheck(browser) {
       await page.click('.cn-sheet .cn-btns button');
       await page.click('.sh-close');
     });
+    await step('wardrobe (옷장): opens from the shop, tab, unequip/equip, close', async () => {
+      await page.click('.lb-coin-btn:has-text("상점")');
+      await page.click('button:has-text("옷장")');
+      await visible2(page, '.lk-w-page');
+      for (const slot of ['title', 'hat', 'acc', 'face', 'frame', 'color', 'suit']) { // find the tab of the item equipped in the shop step
+        await page.click(`.lk-w-tab[data-slot="${slot}"]`);
+        if (await page.locator('.lk-w-card.lk-w-worn').count()) break;
+      }
+      await visible2(page, '.lk-w-card.lk-w-worn');
+      await page.click('.lk-w-card.lk-w-worn .lk-w-act:has-text("빼기")');
+      await page.waitForFunction(() => /뺐습니다/.test(document.querySelector('.lk-w-msg')?.textContent || ''), null, { timeout: T });
+      await page.click('.lk-w-card >> nth=0 >> .lk-w-act:has-text("장착")');
+      await visible2(page, '.lk-w-card.lk-w-worn');
+      await page.click('.lk-w-tab[data-slot="suit"]');
+      await visible2(page, '.lk-w-tab.lk-w-sel[data-slot="suit"]');
+      if (await page.evaluate(() => { const r = document.querySelector('.lk-w-page'), d = document.documentElement; return d.scrollWidth > innerWidth + 1 || d.scrollHeight > innerHeight + 1 || r.scrollWidth > r.clientWidth + 1 || document.querySelector('.lk-w-side').getBoundingClientRect().bottom > innerHeight + 1; })) throw new Error('wardrobe overflows the phone screen');
+      await page.click('.lk-w-close');
+      await page.waitForSelector('.lk-w-root', { state: 'detached', timeout: T });
+      if (await page.locator('.sh-root').count()) await page.click('.sh-close'); // the shop may still be open underneath
+    });
     await step('coin rank opens', async () => {
       await page.click('.lb-coin-btn:has-text("코인 랭킹")');
       await visible2(page, '.cn-mine');
