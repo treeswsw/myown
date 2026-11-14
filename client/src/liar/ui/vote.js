@@ -169,7 +169,11 @@ export function createVote(ctx) {
     for (const p of sitting) {
       const t = tags.get(p.id) || makeTag(p.id);
       t.btn.style.setProperty('--c', p.color);
-      t.name.textContent = p.name;
+      const nk = p.name + '|' + (ctx.nameKey ? ctx.nameKey(p) : '');
+      if (t.nk !== nk) { // 이름 + 칭호(공용 프로필 부품). 바뀔 때만 다시 그린다
+        t.nk = nk;
+        if (ctx.nameTag) { const nt = ctx.nameTag(p); nt.classList.add('lg-nt-mid'); t.name.replaceChildren(nt); } else t.name.textContent = p.name;
+      }
       t.who.textContent = p.id === s.you ? '(나)' : '';
       t.btn.classList.toggle('lg-vt-self', p.id === s.you);
       t.btn.classList.toggle('lg-vt-off', !p.connected);

@@ -65,13 +65,61 @@ export function mount(ctx, opts = {}) {
     return box;
   };
 
+  // 이름 + 칭호 배지(이름 위) + 이름 색. 겉모습(look)은 역할과 상관없는 공용 faces 알림에서만 온다.
+  const nameKey = (p) => JSON.stringify(faces.get(p.id).look ?? null);
+  const nameTag = (p, text) => {
+    const tag = profile.nameTag({ name: text ?? p.name ?? '', look: faces.get(p.id).look });
+    tag.classList.add('lg-nt');
+    return tag;
+  };
+
+  // 3D 마네킹 머리 위 판때기(SPEC 22-21): 3D 텍스처에 합성하지 않고, 같은 공용 프로필 부품을 머리 자리에 겹쳐 붙인다.
+  // 매 프레임 scene.facePos(id) (화면 좌표 + 반지름)를 따라간다. 뒤통수·카메라 뒤·장면 없음(nogl)·대기실이면 숨긴다.
+  const HB = 64; // 판때기를 그리는 기준 크기(px). 거리에 따른 크기는 scale 로만
+  const heads = el('div', 'lg-hb-layer');
+  root.prepend(heads); // 다른 라이어 화면 요소들보다 아래
+  const boards = new Map(); // id -> { box, key, tf, shown }
+  function syncBoards() {
+    const on = !!scene?.facePos && !!state && !root.hidden && state.phase !== 'lobby';
+    const seen = new Set();
+    if (on) {
+      for (const p of state.players ?? []) {
+        const a = scene.facePos(p.id);
+        if (!a || !(a.r > 0)) continue;
+        seen.add(p.id);
+        let b = boards.get(p.id);
+        if (!b) {
+          b = { box: el('div', 'lg-hb'), key: null, tf: '', shown: false };
+          b.box.dataset.lg = 'head';
+          b.box.dataset.id = String(p.id);
+          boards.set(p.id, b);
+          heads.append(b.box);
+        }
+        const key = avatarKey(p);
+        if (b.key !== key) {
+          b.key = key;
+          const f = faces.get(p.id);
+          b.box.replaceChildren(profile.playerAvatar({ id: p.id, name: p.name ?? '', face: f.avatar, look: f.look, size: HB }));
+        }
+        const tf = `translate(${a.x.toFixed(1)}px,${a.y.toFixed(1)}px) scale(${((a.r * 2) / HB).toFixed(3)}) translate(-50%,-50%)`;
+        if (b.tf !== tf) { b.tf = tf; b.box.style.transform = tf; }
+        if (!b.shown) { b.shown = true; b.box.hidden = false; }
+      }
+    }
+    for (const [id, b] of boards) {
+      if (seen.has(id)) continue;
+      if (!on || !(state.players ?? []).some((p) => p.id === id)) { b.box.remove(); boards.delete(id); }
+      else if (b.shown) { b.shown = false; b.box.hidden = true; }
+    }
+  }
+
   const mods = {};
   const lctx = {
     root, action, send,
     now: () => clock.now(),
     anchor: (id) => (scene ? scene.screenPos(id) : nogl ? (mods.vote?.tagPos(id) ?? null) : null),
     tagAnchor: (id) => (scene ? (scene.tagPos?.(id) ?? scene.screenPos(id)) : null),
-    avatar, avatarKey,
+    avatar, avatarKey, nameTag, nameKey,
     toast: ctx.toast, nogl, limits: LIMITS,
   };
 
@@ -224,6 +272,7 @@ export function mount(ctx, opts = {}) {
         if (k !== size) { size = k; scene.resize(innerWidth, innerHeight); }
         scene.frame(dt);
       }
+      syncBoards();
       each((m) => m.frame?.(dt));
     },
 

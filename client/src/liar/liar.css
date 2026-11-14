@@ -13,3 +13,11 @@
 /* 공용 프로필 부품(ui/kit/avatar.js)을 이름표·첫 발언·엔딩의 동그라미 칸에 꽉 채운다 */
 .lg-av-fit { display: flex; width: 100%; height: 100%; }
 .lg-av-fit > * { width: 100% !important; height: 100% !important; font-size: inherit !important; }
+
+/* 이름 + 칭호(공용 .ui-tag)를 라이어 글꼴·줄 안에 맞춘다 */
+.lg-nt { display: inline-flex; font-family: inherit; vertical-align: bottom; max-width: 100%; }
+.lg-nt-mid { align-items: center; }
+/* 3D 마네킹 머리 위 프로필 판때기(SPEC 22-21). 자리·크기는 index.js 가 매 프레임 transform 으로 준다 */
+.lg-hb-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+.lg-hb { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; will-change: transform; }
+.lg-hb[hidden] { display: none; }

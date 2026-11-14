@@ -90,6 +90,12 @@ export function createFirstSays(ctx) {
 
   const nameOf = (id) => (state.players || []).find((p) => p.id === id);
 
+  // 이름 + 칭호(공용 프로필 부품). 부품이 없으면 글자만
+  function putName(node, p, text) {
+    if (ctx.nameTag && p) node.replaceChildren(ctx.nameTag(p, text));
+    else node.textContent = text;
+  }
+
   function avatar(p) {
     const a = el('span', 'lg-fs-av');
     a.style.setProperty('--c', p ? p.color : '#888');
@@ -126,7 +132,7 @@ export function createFirstSays(ctx) {
       no.textContent = String(i + 1);
       const box = el('div', 'lg-fs-box');
       const name = el('span', 'lg-fs-name');
-      name.textContent = (p ? p.name : '?') + (id === state.you ? ' (나)' : '');
+      putName(name, p, (p ? p.name : '?') + (id === state.you ? ' (나)' : ''));
       box.appendChild(name);
       const line = el('p', 'lg-fs-text');
       if (!entry) {
@@ -161,7 +167,7 @@ export function createFirstSays(ctx) {
         no.textContent = String(order.indexOf(x.id) + 1);
         const box = el('div', 'lg-fs-box');
         const name = el('span', 'lg-fs-name');
-        name.textContent = (p ? p.name : '?') + (x.id === state.you ? ' (나)' : '');
+        putName(name, p, (p ? p.name : '?') + (x.id === state.you ? ' (나)' : ''));
         const line = el('p', 'lg-fs-text');
         line.textContent = x.text;
         box.append(name, line);
