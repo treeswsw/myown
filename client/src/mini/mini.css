@@ -158,4 +158,6 @@
 .mn-pz-panel .mn-status[hidden] { display: none; }
 .mn-puz { flex-direction: row; align-items: stretch; justify-content: center; gap: 16px; }
 .mn-puz .mn-boardwrap { flex: 0 1 auto; height: 100%; aspect-ratio: 1; min-width: 0; }
-.mn-puz .mn-bottom { display: none; }
+.mn-puz .mn-bottom, .mn-puz .mn-top { display: none; }
+.mn-pz-panel .mn-pz-stats { font-size: .95rem; gap: 4px; }
+.mn-pz-panel .mn-pz-head { font-size: 1.3rem; }
