@@ -1,4 +1,4 @@
-// 미니게임 화면 모듈(판·결과). 공통 방 틀(client/src/room/frame.js)이 mount(ctx) 로 불러 쓴다. 약속: docs/mini/PLAN.md, COMMON-CONTRACT 4-2.
+// 미니게임 화면 모듈(판). 결과는 공통 결과 화면(room/result.js)에 제목만 준다. 공통 방 틀(client/src/room/frame.js)이 mount(ctx) 로 불러 쓴다. 약속: docs/mini/PLAN.md, COMMON-CONTRACT 4-2.
 // 대기실(참가자·종목 고르기·시작·나가기)·상단 줄(방 코드/소리/이모티콘/나가기)·머리 위 이모티콘·채팅 말풍선·소리 끄기·나가기 확인은 틀이 한다.
 // 이 모듈은 게임 판만 그린다. 글자는 textContent 로만. 판 그림은 boards/index.js(renderBoard).
 import './mini.css';
@@ -58,9 +58,7 @@ export function mount(ctx) {
     if (ok) send({ t: 'mn', a: 'resign' });
   });
   resignBtn.dataset.mn = 'resign';
-  const waitBtn = btn('mn-act mn-main', '대기실로', () => ctx.toWait());
-  waitBtn.dataset.mn = 'to-wait';
-  bottom.append(status, resignBtn, waitBtn);
+  bottom.append(status, resignBtn);
 
   root.append(top, boardWrap, bottom);
 
@@ -121,7 +119,6 @@ export function mount(ctx) {
     }
 
     resignBtn.hidden = !((play || between) && rm.mySeat >= 0);
-    waitBtn.hidden = !end;
     const head = series && rm.match && (play || between) ? `${rm.match.round - (between ? 1 : 0)}/${rm.match.len}판 · ` : '';
     if (between) {
       const w = rm.match?.last?.winner;
@@ -137,10 +134,7 @@ export function mount(ctx) {
       if (rm.game === 'chess' && rm.mn.check) s += ' · 체크!';
       if (rm.game === 'gomoku' && rm.mn.rule === 'renju') s += ' · 렌주룰';
       status.textContent = head + s;
-    } else if (end && rm.result) {
-      status.textContent = `${NAMES[rm.game] ?? ''} · ${resultText(rm.result, rm)}`;
     } else status.textContent = '';
-    status.classList.toggle('mn-end', end);
   }
 
   const offFaces = ctx.faces.onChange(() => render());
@@ -159,6 +153,12 @@ export function mount(ctx) {
       const r = (seat >= 0 ? chips[seat].face : top).getBoundingClientRect();
       if (!r.width && !r.height) return null;
       return { x: r.left + r.width / 2, y: r.bottom + 6 };
+    },
+
+    // 공통 결과 화면 제목: 매치 승자와 승수
+    resultTitle(s) {
+      if (!s.result) return null;
+      return { title: resultText(s.result, s), sub: `${NAMES[s.game] ?? ''}${(s.match?.len ?? 1) > 1 ? ` · ${s.match.len}판 승부` : ''}` };
     },
 
     // 판 중 자리에 앉아 있으면 안내. 결과 화면은 틀이 확인 없이 나가게 한다

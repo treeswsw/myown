@@ -1,5 +1,5 @@
 // 코인 정산 표 시험: 등록표(shared/games.js)를 돌며 코인 있는 게임마다
-// 한 번 지급 · 동점 · 지급 간격(gapMs) · 0 코인 알림 · 봇 방을 덮는다. 판 끝 finish 중복 방지(Shell.finish)는 test/room/shell.test.js.
+// 한 번 지급 · 동점 · 지급 간격(gapMs) · 돌려주는 gain(0 포함) · 봇 방을 덮는다. 판 끝 finish 중복 방지(Shell.finish)는 test/room/shell.test.js.
 // 게임별 실제 판(블러핑·요트·갱식마인드·라이어 지급, 혼자 남은 판·무효 판)은 award.test.js, 미니는 mini.test.js, 갱스껄 혼자 남은 판은 test/gsk/room.test.js.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,7 +8,6 @@ import { GAMES } from '../../shared/games.js';
 import { COIN_RULES } from '../../shared/coin/rules.js';
 
 const withCoin = Object.entries(GAMES).filter(([, g]) => g.coin);
-const got = (c) => c.sock.msgs.filter((m) => m.t === 'coin' && m.a === 'got');
 
 async function table(mode) {
   const h = makeHub();
@@ -32,13 +31,11 @@ for (const [id, g] of withCoin) {
 
   test(`${id}: 끝까지 한 사람 finish, 이긴 사람 + win × 상대 수, 지급은 사람마다 한 번`, async () => {
     const t = await table(id);
-    t.hub.award(t.room, g.coin, [{ id: 'ann1', won: true, opp: 2 }, { id: 'bob1', won: false, opp: 2 }, { id: 'cat1', won: false, opp: 2 }]);
+    const gain = t.hub.award(t.room, g.coin, [{ id: 'ann1', won: true, opp: 2 }, { id: 'bob1', won: false, opp: 2 }, { id: 'cat1', won: false, opp: 2 }]);
     assert.equal(t.coins('ann1'), r.finish + r.win * 2);
     assert.equal(t.coins('bob1'), r.finish);
     assert.equal(t.hub.sessions.get('ann1').user.coinsTotal, r.finish + r.win * 2);
-    assert.equal(got(t.a).length, 1);
-    assert.equal(got(t.a)[0].n, r.finish + r.win * 2);
-    assert.equal(got(t.b).length, 1, '못 이긴 사람에게도 알림이 한 번 온다');
+    assert.deepEqual(gain, { ann1: r.finish + r.win * 2, bob1: r.finish, cat1: r.finish }, '못 이긴 사람도 gain 에 있다');
   });
 
   test(`${id}: 동점 1등은 둘 다 보너스를 온전히 받는다`, async () => {
@@ -49,18 +46,15 @@ for (const [id, g] of withCoin) {
     assert.equal(t.coins('cat1'), r.finish);
   });
 
-  test(`${id}: 지급 간격 gapMs(${r.gapMs}ms) 안에는 못 받고(0 코인 알림), 간격이 지나면 다시 받는다`, async () => {
+  test(`${id}: 지급 간격 gapMs(${r.gapMs}ms) 안에는 못 받고(gain 0), 간격이 지나면 다시 받는다`, async () => {
     const t = await table(id);
     const rows = [{ id: 'ann1', won: true, opp: 1 }];
     const pay = r.finish + r.win;
     t.hub.award(t.room, g.coin, rows);
     assert.equal(t.coins('ann1'), pay);
     await t.tick(r.gapMs - 1);
-    t.hub.award(t.room, g.coin, rows);
+    assert.deepEqual(t.hub.award(t.room, g.coin, rows), { ann1: 0 });
     assert.equal(t.coins('ann1'), pay, '간격 안: 그대로');
-    const last = got(t.a).at(-1);
-    assert.equal(last.n, 0);
-    if (pay > 0) assert.equal(last.why, 'gap');
     await t.tick(1);
     t.hub.award(t.room, g.coin, rows);
     assert.equal(t.coins('ann1'), pay * 2, '간격 끝: 다시 지급');
@@ -76,11 +70,9 @@ for (const [id, g] of withCoin) {
     t.hub.award(t.room, g.coin, [{ id: 'ghost', won: true, opp: 1 }]);
     t.hub.award(null, g.coin, [{ id: 'ann1', won: true, opp: 1 }]);
     assert.equal(t.coins('ann1'), 0);
-    assert.equal(got(t.a).length, 0);
     t.room.members.push({ id: '~bot1', session: { bot: true } });
     t.hub.award(t.room, g.coin, [{ id: 'ann1', won: true, opp: 1 }]);
     assert.equal(t.coins('ann1'), 0, '봇 방');
-    assert.equal(got(t.a).length, 0);
   });
 }
 
@@ -89,16 +81,14 @@ function coinsOf(mode, won, opp) {
   return r.finish + (won ? r.win * opp : 0);
 }
 
-test('코인 0 인 판도 짧게 알린다: 미니 진 사람 n=0 (why 없음)', async () => {
+test('코인 0 인 판도 gain 에 0 으로: 미니 진 사람', async () => {
   const t = await table('mini');
-  t.hub.award(t.room, 'mini', [{ id: 'ann1', won: false, opp: 1 }]);
-  assert.deepEqual(got(t.a).at(-1), { t: 'coin', a: 'got', n: 0, mode: 'mini', win: false });
+  assert.deepEqual(t.hub.award(t.room, 'mini', [{ id: 'ann1', won: false, opp: 1 }]), { ann1: 0 });
   assert.equal(t.coins('ann1'), 0);
 });
 
-test('홀덤(코인 없음)은 지급도 알림도 없다', async () => {
+test('홀덤(코인 없음)은 지급이 없다', async () => {
   const t = await table('holdem');
-  t.hub.award(t.room, 'holdem', [{ id: 'ann1', won: true, opp: 3 }]);
+  assert.deepEqual(t.hub.award(t.room, 'holdem', [{ id: 'ann1', won: true, opp: 3 }]), {});
   assert.equal(t.coins('ann1'), 0);
-  assert.equal(got(t.a).length, 0);
 });

@@ -1,10 +1,10 @@
-// 갱스껄 벌칙 고르기 창 + 결과 창 (GDD 16절 G5). 사용자 글자는 textContent 로만.
+// 갱스껄 벌칙 고르기 창 (GDD 16절 G5). 판 끝 결과는 공통 결과 화면(room/result.js). 사용자 글자는 textContent 로만.
 // createResult(parent, ctx) → { el, update(view), event(e), dispose() }
-// ctx 에서 쓰는 것: send, meId, face, busy, toWait(결과 화면의 "대기실로")
+// ctx 에서 쓰는 것: send, meId, face, busy
 import './result.css';
 import { requestFor } from '../actions.js';
-import { COLORS, discFlowerUrl, discSkullUrl, matUrl, setSkullImg } from '../art.js';
-import { penaltyPlan, rankRows, winnerInfo, winCaption } from './result.pure.js';
+import { discFlowerUrl, discSkullUrl, setSkullImg } from '../art.js';
+import { penaltyPlan } from './result.pure.js';
 
 const GONE_MS = 360;
 
@@ -21,23 +21,6 @@ const img = (src, cls) => {
   i.src = src;
   return i;
 };
-const SVG_NS = 'http://www.w3.org/2000/svg';
-function diamond() {
-  const s = document.createElementNS(SVG_NS, 'svg');
-  s.setAttribute('width', '9');
-  s.setAttribute('height', '9');
-  s.setAttribute('viewBox', '0 0 10 10');
-  s.setAttribute('fill', 'none');
-  s.setAttribute('stroke', 'currentColor');
-  s.setAttribute('stroke-width', '1.2');
-  s.setAttribute('aria-hidden', 'true');
-  const p = document.createElementNS(SVG_NS, 'path');
-  p.setAttribute('d', 'M5 0.8 L9.2 5 L5 9.2 L0.8 5 Z');
-  s.append(p);
-  return s;
-}
-const colorOf = (c) => (COLORS[c] ? COLORS[c].base : '#c9a45c');
-
 export function createResult(parent, ctx) {
   const root = h('div', 'gk-rs-root');
   root.hidden = true;
@@ -104,89 +87,14 @@ export function createResult(parent, ctx) {
     root.append(wrap);
   }
 
-  function drawResult() {
-    const info = winnerInfo(lastView);
-    const rows = rankRows(lastView);
-    const box = h('div', 'gk-rs-box gk-rs-in');
-    box.dataset.gk = 'result';
-
-    const win = h('div', 'gk-rs-win');
-    const art = h('div', 'gk-rs-art');
-    const bd = img(matUrl(info ? info.color : 0, true), 'gk-rs-bd');
-    art.append(bd);
-    const photo = info && info.id && ctx.face ? ctx.face(info.id) : null;
-    if (info && info.id) {
-      const face = h('div', 'gk-rs-ph');
-      // 사진이 없으면 그 색 해골 원판
-      const f = img(discSkullUrl(info.color), 'gk-rs-phimg');
-      setSkullImg(f, info.color, photo, () => !disposed);
-      face.append(f);
-      art.append(face);
-    }
-    win.append(art);
-    win.append(h('div', 'gk-rs-cap', winCaption(info)));
-    win.append(h('div', 'gk-rs-ttl', info && info.id ? '갱스껄 승리' : '판 끝'));
-    if (info && info.name) win.append(h('div', 'gk-rs-nm', info.name));
-
-    const list = h('div', 'gk-rs-list');
-    const hd = h('div', 'gk-rs-h');
-    hd.append(h('i'), h('span', null, '순위'), h('i'));
-    list.append(hd);
-    for (const r of rows) {
-      const li = h('div', 'gk-rs-r' + (r.out ? ' gk-rs-outrow' : '') + (r.isWinner ? ' gk-rs-top' : ''));
-      li.append(h('span', 'gk-rs-k', String(r.rank)));
-      const av = h('span', 'gk-rs-av');
-      const url = ctx.face ? ctx.face(r.id) : null;
-      if (url) {
-        const a = img(url, 'gk-rs-avimg');
-        a.style.boxShadow = `0 0 0 1.5px ${colorOf(r.color)}`;
-        av.append(a);
-      } else {
-        av.style.background = colorOf(r.color);
-      }
-      li.append(av);
-      const nm = h('span', 'gk-rs-n');
-      nm.append(h('span', 'gk-rs-nt', r.isMe ? `${r.name} (나)` : r.name));
-      const dot = h('i', 'gk-rs-dot');
-      dot.style.background = colorOf(r.color);
-      nm.append(dot);
-      li.append(nm);
-      const m = h('span', 'gk-rs-m');
-      if (r.out) {
-        m.append(h('span', 'gk-rs-out', '탈락'));
-      } else {
-        for (const on of r.pips) m.append(h('i', 'gk-rs-pip' + (on ? ' gk-rs-lit' : '')));
-        m.append(h('span', 'gk-rs-dn', `원판 ${r.discs}`));
-      }
-      li.append(m);
-      list.append(li);
-    }
-    // 다시 하기는 공통 대기실에서(방장이 시작). 여기서는 대기실로 돌아가는 버튼 하나.
-    const acts = h('div', 'gk-rs-acts');
-    const b = h('button', 'gk-rs-btn');
-    b.type = 'button';
-    b.dataset.gk = 'to-wait';
-    b.append(diamond(), h('span', null, '대기실로'), diamond());
-    b.addEventListener('click', () => { if (!disposed && ctx.toWait) ctx.toWait(); });
-    acts.append(b);
-    list.append(acts);
-
-    box.append(win, list);
-    root.append(box);
-  }
-
   function update(view) {
     if (disposed) return;
     lastView = view || null;
     const busy = !!(ctx.busy && ctx.busy());
     let mode = null;
     let plan = null;
-    if (view && !busy) {
-      if (view.phase === 'result' && view.result) mode = 'result';
-      else if ((plan = penaltyPlan(view))) mode = 'pen-' + plan.mode;
-    }
-    const next = mode ? [mode, plan && plan.cells ? plan.cells.map((c) => c.key).join(',') : '', plan && plan.name ? plan.name : '',
-      mode === 'result' ? JSON.stringify([view.result, rankRows(view).map((r) => ((ctx.face && ctx.face(r.id)) || '').length)]) : ''].join('|') : '';
+    if (view && !busy && (plan = penaltyPlan(view))) mode = 'pen-' + plan.mode;
+    const next = mode ? [mode, plan.cells ? plan.cells.map((c) => c.key).join(',') : '', plan.name || ''].join('|') : '';
     if (next === sig) return;
     sig = next;
     sent = false;
@@ -195,8 +103,7 @@ export function createResult(parent, ctx) {
     if (!mode) { clear(); return; }
     root.textContent = '';
     root.hidden = false;
-    if (mode === 'result') drawResult();
-    else drawPenalty(plan);
+    drawPenalty(plan);
   }
 
   return {

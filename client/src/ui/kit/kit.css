@@ -26,7 +26,6 @@
 .ui-toasts { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 55; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; color: var(--ui-ink); }
 .ui-toast { padding: 9px 18px; border-radius: 999px; font-size: 14px; background: rgba(20, 18, 16, .88); border: 1px solid rgba(255, 255, 255, .25); max-width: min(520px, calc(100vw - 32px)); text-align: center; overflow-wrap: anywhere; animation: ui-fade .2s ease-out both; }
 .ui-toast.ui-error { border-color: rgba(255, 69, 58, .6); }
-.ui-toast.ui-coin { border-color: var(--ui-accent); color: var(--ui-accent); font-weight: 600; }
 .ui-toast.ui-hit { pointer-events: auto; cursor: pointer; }
 
 /* 프로필 */

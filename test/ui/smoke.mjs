@@ -807,14 +807,27 @@ async function runContext(browser, server, name, cfg) {
         await mBot.waitFor((b) => count(b.state) === n + 1 || b.state.phase === 'end', T, `stone ${i + 1}`);
       }
       await mBot.waitFor((b) => b.state?.phase === 'end', T, 'end phase');
-      await page.waitForFunction(() => /승리/.test(document.querySelector('[data-mn="status"]')?.textContent || ''), null, { timeout: T });
+      await visible('[data-rm="result"]');
+      await page.waitForFunction(() => /승리/.test(document.querySelector('.rm-rs-title')?.textContent || ''), null, { timeout: T });
     });
-    await step('mini: result → 대기실로 → 게임 시작 again (host)', async () => {
-      await press('[data-mn="to-wait"]');
+    await step('mini: common result shows both players and their coins, 대기실로 → wait room → 게임 시작 again (host)', async () => {
+      const rows = await page.locator('[data-rm="result"] .rm-rs-row').count();
+      if (rows !== 2) throw new Error(`result rows ${rows}`);
+      await visible('[data-rm="result"] .rm-rs-top .rm-rs-gain');
+      await press('[data-rm="result-wait"]');
       await visible('[data-rm="wait-start"]');
       await press('[data-rm="wait-start"]');
       await mBot.waitFor((b) => b.state?.phase === 'play', T, 'second play phase');
       await visible('.mn-board');
+    });
+    await step('mini: 다시 시작 from the common result starts a new match at once', async () => {
+      await press('[data-mn="resign"]');
+      await press('.ui-mbtn.ui-danger');
+      await mBot.waitFor((b) => b.state?.phase === 'end', T, 'end by resign');
+      await visible('[data-rm="result-again"]');
+      await press('[data-rm="result-again"]');
+      await mBot.waitFor((b) => b.state?.phase === 'play', T, 'third play phase');
+      await gone('[data-rm="result"]');
     });
     await step('mini: 나가기 mid-game asks ("나가면 기권 처리돼요"), then returns to the lobby', async () => {
       await press('[data-rm="bar-leave"]');

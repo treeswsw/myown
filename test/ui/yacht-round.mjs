@@ -41,20 +41,6 @@ async function openPage(ctx, w) {
 async function makeWin(browser, url, who) {
   const ctx = await browser.newContext({ viewport: { width: VW, height: VH }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
-  // SPEC 22-12: remember the {t:'coin',a:'got'} message (the "+N 코인" toast only lasts 2.5 s)
-  await ctx.addInitScript(() => {
-    const WS = window.WebSocket;
-    window.__coinGot = 0;
-    window.WebSocket = class extends WS {
-      constructor(...a) {
-        super(...a);
-        this.addEventListener('message', (ev) => {
-          if (typeof ev.data !== 'string' || !ev.data.startsWith('{"t":"coin"')) return;
-          try { const m = JSON.parse(ev.data); if (m.a === 'got') window.__coinGot += Number(m.n) || 0; } catch { /* ignore */ }
-        });
-      }
-    };
-  });
   const w = { who, ctx, url, errors: [], page: null };
   await openPage(ctx, w);
   wins.push(w);
@@ -148,7 +134,7 @@ try {
   let sawPickmark = false;
   const t0 = Date.now();
   await step('12바퀴 끝까지: 굴림·보관·기록, 모든 창의 주사위가 같다, 차례 아닌 창은 버튼 없음', async () => {
-    while (!(await shown(A, '[data-yt="result"]'))) {
+    while (!(await shown(A, '[data-rm="result"]'))) {
       const act = await activeWin(players);
       const other = players.find((w) => w !== act);
       turns++;
@@ -201,7 +187,7 @@ try {
       await act.page.locator(`[data-yt="row-${cat}"][aria-pressed="true"]`).waitFor({ state: 'visible' });
       if (await shown(other, '[data-yt="pickmark"]').catch(() => false) || await until(() => shown(other, '[data-yt="pickmark"]'), '남의 창에 선택 강조', 3000).catch(() => false)) sawPickmark = true;
       await act.page.locator(`[data-yt="row-${cat}"]`).click();
-      await until(async () => !(await shown(act, '[data-yt="cup"]')) || (await shown(A, '[data-yt="result"]')), '기록 뒤 차례 넘어감');
+      await until(async () => !(await shown(act, '[data-yt="cup"]')) || (await shown(A, '[data-rm="result"]')), '기록 뒤 차례 넘어감');
       if (turns > 40) throw new Error('차례가 40번을 넘어도 끝나지 않음');
     }
     if (turns !== 24) throw new Error(`차례 수 ${turns} (24여야 함)`);
@@ -209,7 +195,7 @@ try {
   check(`한 판 24차례 (${((Date.now() - t0) / 1000).toFixed(0)}초), 재접속 ${reconnected ? 1 : 0}번, 관전 창 ${C ? 1 : 0}개, 선택 강조 확인 ${sawPickmark}`, turns === 24 && reconnected && Boolean(C) && sawPickmark);
 
   await step('결과 창이 모든 창에 뜨고 합계 = 칸 합 + 보너스', async () => {
-    for (const w of [A, B, C]) await until(() => shown(w, '[data-yt="result"]'), `결과 창 (${w.who})`, 10000);
+    for (const w of [A, B, C]) await until(() => shown(w, '[data-rm="result"]'), `결과 창 (${w.who})`, 10000);
     await shot(A, '4-result');
     const cols = await A.page.evaluate(() => {
       const cats = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'choice', 'fourKind', 'fullHouse', 'smallStraight', 'largeStraight', 'yacht'];
@@ -225,20 +211,27 @@ try {
     if (cols.length !== 2) throw new Error(`점수 줄 ${cols.length}개`);
     for (const c of cols) if (!c.total || c.total !== c.sum) throw new Error(`합계 ${c.total} ≠ 칸 합+보너스 ${c.sum}`);
     for (const w of [A, B, C]) await noButtons(w, '결과');
-    // SPEC 22: both players got a coin message at the result (the spectator C gets none)
-    for (const w of [A, B]) await w.page.waitForFunction(() => window.__coinGot > 0, null, { timeout: 5000 }).catch(() => { throw new Error(`${w.who}: 결과에 코인 알림이 오지 않음`); });
-    if (await C.page.evaluate(() => window.__coinGot)) throw new Error('관전자에게 코인 알림이 감');
+    // SPEC 22: 공통 결과 화면에 두 사람의 코인이 모두 보인다(나중에 들어와 구경한 C 는 줄이 없다)
+    for (const w of [A, B, C]) {
+      const rows = await count(w, '[data-rm="result"] .rm-rs-row');
+      const paid = await count(w, '[data-rm="result"] .rm-rs-gain:not(.rm-rs-zero)');
+      if (rows !== 2 || paid !== 2) throw new Error(`${w.who}: 결과 줄 ${rows}, 코인 받은 줄 ${paid}`);
+    }
+    if (!(await shown(A, '[data-yt="result-sheet"]'))) throw new Error('요트 칸: 점수표 보기 없음');
+    await A.page.click('[data-yt="result-sheet"]');
+    await until(async () => !(await shown(A, '[data-rm="result"]')) && (await shown(A, '[data-rm="result-back"]')), '점수표 보기: 결과를 접음');
+    await A.page.click('[data-rm="result-back"]');
+    await until(() => shown(A, '[data-rm="result"]'), '결과 보기: 다시 폄');
   });
 
   await step('결과 → 대기실로 → 방장이 C 를 내보냄(강퇴) → C 다시 입장 → 대기실로', async () => {
-    for (const w of [A, B, C]) await w.page.click('[data-yt="result-wait"]');
+    for (const w of [A, B, C]) await w.page.click('[data-rm="result-wait"]');
     for (const w of [A, B, C]) await w.page.locator('[data-rm="wait-leave"]').waitFor({ state: 'visible' });
     await until(async () => (await count(A, '.wr-players li')) === 3, '대기실에 3명');
     await A.page.locator('.wr-players li', { hasText: names.C }).locator('[data-rm="wait-kick"]').click();
     await C.page.locator('button:has-text("방 만들기")').waitFor({ state: 'visible' });
     await until(async () => (await count(A, '.wr-players li')) === 2, '내보낸 뒤 대기실 2명');
-    await C.page.locator('.lb-room-row', { hasText: `${names.A}의 방` }).click();
-    await C.page.locator('[data-yt="result-wait"]').click();
+    await C.page.locator('.lb-room-row', { hasText: `${names.A}의 방` }).click(); // 결과 뒤에 들어온 사람은 바로 대기실
     await C.page.locator('[data-rm="wait-leave"]').waitFor({ state: 'visible' });
     await until(async () => (await count(A, '.wr-players li')) === 3, '다시 입장해 대기실에 3명');
   });
@@ -246,7 +239,7 @@ try {
   await step('방장 시작 → 새 판(3줄), 상단 줄 왼쪽 = 점수표 폭', async () => {
     await until(() => A.page.locator('[data-rm="wait-start"]').isEnabled(), '게임 시작 켜짐');
     await A.page.click('[data-rm="wait-start"]');
-    await until(async () => (await A.page.locator('[data-yt^="head-"]').count()) === 3 && !(await shown(A, '[data-yt="result"]')), '3줄 점수표·결과 창 닫힘', 10000);
+    await until(async () => (await A.page.locator('[data-yt^="head-"]').count()) === 3 && !(await shown(A, '[data-rm="result"]')), '3줄 점수표·결과 창 닫힘', 10000);
     await until(async () => (await C.page.locator('[data-yt^="head-"]').count()) === 3, '다시 들어온 창에도 3줄');
     await until(() => shown(A, '[data-yt="turn"]'), '새 판 차례 표시');
     const r = await A.page.evaluate(() => ({ sheet: Math.round(document.querySelector('[data-yt="sheet"]').getBoundingClientRect().width), bar: Math.round(document.querySelector('.rm-bar').getBoundingClientRect().left) }));

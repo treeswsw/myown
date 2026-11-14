@@ -80,11 +80,6 @@ try {
         await page.locator('[data-lg="judge"][data-v="yes"]').click();
         ok(await page.evaluate(() => window.h.sent.some((m) => m.a === 'judge' && m.v === 'yes')), `${n}명 judge: 찬반 → judge`);
       }
-      if (phase === 'result') {
-        await page.evaluate(() => { window.h.sent.length = 0; });
-        await page.locator('[data-lg="next"]').click();
-        ok(await page.evaluate(() => window.h.sent.some((m) => m.t === 'start')), `${n}명 result: 다음 판 → start`);
-      }
     }
     // 정답: 라이어 본인 시점
     await apply(make('guess', { n, you: 'u2', round: n }));

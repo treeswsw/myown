@@ -255,8 +255,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 
 .buildtag { position: fixed; right: calc(4px + env(safe-area-inset-right, 0px)); bottom: calc(4px + env(safe-area-inset-bottom, 0px)); z-index: 5; font: 10px/1 monospace; color: rgba(255, 255, 255, .4); pointer-events: none; user-select: none; }
 
-/* 라이어 화면 자리 맞춤(진행자 쪽, test/css.test.js CROSS_FILE_ALLOW): 조작 줄("전체 랭킹" 등)과 결과 창을 붙은 채팅(--chat-docked-h, chat.css) 위로 */
+/* 라이어 화면 자리 맞춤(진행자 쪽, test/css.test.js CROSS_FILE_ALLOW): 조작 줄("전체 랭킹" 등)을 붙은 채팅(--chat-docked-h, chat.css) 위로 */
 .lg-root .lg-action { bottom: calc(12px * var(--lg-k, 1) + var(--chat-docked-h, 0px)); }
-.lg-root .lg-rs-panel { top: calc(50% - (12px * var(--lg-k, 1) + 48px + var(--chat-docked-h, 0px)) / 2); max-height: calc(100% - 16px - 12px * var(--lg-k, 1) - 48px - var(--chat-docked-h, 0px)); }
 /* 라이어 방에서 여는 이모티콘 창: 라이어 화면 층(이름표 등) 위, 상단 줄 아래 */
 .hpanel.lgpanel { z-index: 35; top: calc(56px * var(--k)); }

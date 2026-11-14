@@ -1,4 +1,4 @@
-// 고르기·정답 공개·최종 순위의 계산 (DOM 없음). docs/draw/GDD.md 4·7·10-2·10-4절.
+// 고르기·정답 공개의 계산 (DOM 없음). docs/draw/GDD.md 4·7·10-2·10-4절.
 // 약속: 단어 후보(choices)는 "그리는 사람의 pick 단계"에서만 읽는다. 그 밖에는 빈 배열.
 import { WORD_CHOICES } from '../../../../shared/draw/constants.js';
 
@@ -31,7 +31,7 @@ export function nameOf(state, id) {
 
 /**
  * 지금 이 화면 모듈이 무엇을 보여 줄지.
- * kind: 'none' | 'pick-drawer' | 'pick-wait' | 'reveal' | 'final'
+ * kind: 'none' | 'pick-drawer' | 'pick-wait' | 'reveal'
  */
 export function viewMode(state, meId) {
   if (!state || typeof state !== 'object') return { kind: 'none' };
@@ -40,8 +40,6 @@ export function viewMode(state, meId) {
       return state.drawerId != null && state.drawerId === meId ? { kind: 'pick-drawer' } : { kind: 'pick-wait' };
     case 'reveal':
       return state.reveal ? { kind: 'reveal' } : { kind: 'none' };
-    case 'final':
-      return Array.isArray(state.ranking) ? { kind: 'final' } : { kind: 'none' };
     default:
       return { kind: 'none' };
   }
@@ -111,29 +109,4 @@ export function revealView(state) {
     drawer,
     next: r.nextId != null ? { id: r.nextId, name: nameOf(state, r.nextId) } : null,
   };
-}
-
-/**
- * 최종 순위. { podium:[row] (최대 3, 화면 배치 순서 2-1-3), rest:[row], rows:[row] }
- * row = { id, name, rank, score, correct, isYou }
- * 공동 순위는 서버가 준 rank 를 그대로 쓴다. rank 가 없으면 점수·맞힌 횟수로 직접 매긴다.
- */
-export function finalView(state, meId) {
-  const src = state && Array.isArray(state.ranking) ? state.ranking : [];
-  const rows0 = src.map((x, i) => ({
-    id: x.id, name: typeof x.name === 'string' && x.name ? x.name : nameOf(state, x.id),
-    rank: Number.isInteger(x.rank) ? x.rank : 0,
-    score: Number(x.score) || 0, correct: Number(x.correct) || 0,
-    isYou: x.id === meId, idx: i,
-  }));
-  rows0.sort((a, b) => (b.score - a.score) || (b.correct - a.correct) || (a.idx - b.idx));
-  let rank = 0;
-  const rows = rows0.map((r, i) => {
-    const prev = rows0[i - 1];
-    if (!prev || prev.score !== r.score || prev.correct !== r.correct) rank = i + 1;
-    return { id: r.id, name: r.name, rank: r.rank > 0 ? r.rank : rank, score: r.score, correct: r.correct, isYou: r.isYou };
-  });
-  const top = rows.slice(0, 3);
-  const podium = top.length === 3 ? [top[1], top[0], top[2]] : top.length === 2 ? [top[1], top[0]] : top;
-  return { podium, rest: rows.slice(3), rows };
 }

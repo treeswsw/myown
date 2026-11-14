@@ -36,14 +36,12 @@ async function openPage(browser, url, who, viewport) {
   await ctx.addInitScript(() => {
     const WS = window.WebSocket;
     window.__drSt = 0;
-    window.__coinGot = 0;
     window.WebSocket = class extends WS {
       constructor(...a) {
         super(...a);
         this.addEventListener('message', (ev) => {
           if (typeof ev.data !== 'string') return;
           if (ev.data.includes('"k":"drSt"')) window.__drSt++;
-          if (ev.data.startsWith('{"t":"coin"')) { try { const m = JSON.parse(ev.data); if (m.a === 'got') window.__coinGot += Number(m.n) || 0; } catch { /* 무시 */ } }
           // 받은 room.state 를 남긴다(못 맞힌 사람에게 word 가 오는지 서버 메시지로 확인)
           if (ev.data.startsWith('{"t":"room"')) { try { window.__drRoom = JSON.parse(ev.data).state; } catch { /* 무시 */ } }
         });
@@ -77,12 +75,13 @@ async function step(what, fn) {
 }
 
 // 보이는 버튼·입력의 중심점이 맨 위에 있어야 한다.
-async function occlusion(w, state) {
+async function occlusion(w, state, skip = '') {
   await w.page.waitForTimeout(200);
-  const bad = await w.page.evaluate(() => {
+  const bad = await w.page.evaluate((skipSel) => {
     const out = [];
     const desc = (e) => `${e.tagName.toLowerCase()}${e.className && typeof e.className === 'string' ? `.${e.className.trim().split(/\s+/).slice(0, 2).join('.')}` : ''}`;
     for (const el of document.querySelectorAll('button, [role=button], .hit, input')) {
+      if (skipSel && el.matches(skipSel)) continue;
       if (el.closest('[hidden]') || el.type === 'hidden' || el.hidden) continue;
       const cs = getComputedStyle(el);
       if (cs.pointerEvents === 'none') continue;
@@ -106,10 +105,10 @@ async function occlusion(w, state) {
       out.push(`${desc(el)} "${label}" at (${Math.round(cx)},${Math.round(cy)}) is covered by ${top ? desc(top) : 'nothing'}`);
     }
     return out;
-  });
+  }, skip);
   if (bad.length) throw new Error(`눌림 검사 실패(${w.who}, ${state}): ${bad.join('; ')}`);
 }
-const occAll = async (state) => { for (const w of wins) await occlusion(w, state); };
+const occAll = async (state, skip) => { for (const w of wins) await occlusion(w, state, skip); };
 const noErrors = (state) => {
   for (const w of wins) if (w.errors.length) throw new Error(`콘솔 오류(${w.who}, ${state}): ${w.errors.join(' | ')}`);
 };
@@ -363,34 +362,35 @@ try {
     if (ids.size !== 3) throw new Error(`한 라운드에 같은 사람이 두 번 그림: ${asked.map((a) => a.drawer)}`);
   });
 
-  await step('최종 순위: 세 창 모두 이름과 점수, 프로필 사진 부품, 눌림 검사', async () => {
-    for (const w of wins) await w.page.locator('.dr-rs-final-title').waitFor({ state: 'visible', timeout: 20000 });
+  await step('최종 순위(공통 결과): 세 창 모두 이름·점수·코인, 프로필 사진 부품, 눌림 검사', async () => {
+    for (const w of wins) await w.page.locator('[data-rm="result"]').waitFor({ state: 'visible', timeout: 20000 });
     for (const w of wins) {
-      const t = await w.page.locator('.dr-rs-final').innerText();
+      const t = await w.page.locator('[data-rm="result"]').innerText();
       for (const n of Object.values(names)) if (!t.includes(n)) throw new Error(`최종 순위에 ${n} 없음`);
-      if (!/\d+점/.test(t)) throw new Error('점수 글자가 없음');
-      const av = await w.page.locator('.dr-rs-final .ui-avbox').count(); // 공용 프로필 부품
+      if (!/맞힘 \d+/.test(t)) throw new Error('맞힌 횟수 글자가 없음');
+      const av = await w.page.locator('[data-rm="result"] .ui-avbox').count(); // 공용 프로필 부품
       if (av < 3) throw new Error(`${w.who}: 최종 순위에 공용 프로필 부품이 ${av}개`);
+      // SPEC 22: 끝까지 한 세 사람 모두 코인을 받고, 모두의 것이 보인다
+      const paid = await w.page.locator('[data-rm="result"] .rm-rs-gain:not(.rm-rs-zero)').count();
+      if (paid !== 3) throw new Error(`${w.who}: 코인 받은 줄 ${paid}`);
     }
-    // SPEC 22: everyone who stayed to the end got coins (message {t:'coin',a:'got'})
-    for (const w of wins) await w.page.waitForFunction(() => window.__coinGot > 0, null, { timeout: 5000 }).catch(() => { throw new Error(`${w.who}: 최종 순위에 코인 알림이 오지 않음`); });
-    await occAll('final');
+    await occAll('final', ':not(.rm-rs-root *)'); // 결과 패널이 판 위를 덮는다: 패널 안 버튼만 본다
     noErrors('final');
   });
 
   await step('최종 순위에서 나가기 → 확인 없이 로비로 돌아온다 (C)', async () => {
-    await C.page.locator('.dr-rs-btn', { hasText: '나가기' }).click();
+    await C.page.locator('[data-rm="result-leave"]').click();
     await C.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
     const left = await C.page.evaluate(() => ({ root: document.querySelectorAll('.dr-root:not([hidden])').length, bar: !!document.querySelector('.rm-bar:not([hidden])') }));
     if (left.root || left.bar) throw new Error(`나간 뒤 화면이 남음: ${JSON.stringify(left)}`);
   });
 
   await step('최종 순위 → 대기실로: 방장 A 가 대기실에서 다시 시작할 수 있고 대기실 채팅이 된다 (A·B)', async () => {
-    await B.page.locator('[data-dr="rs-wait"]').click();
+    await B.page.locator('[data-rm="result-wait"]').click();
     await B.page.locator('[data-rm="wait-start"]').waitFor({ state: 'attached' });
     await B.page.locator('.wr-root').waitFor({ state: 'visible' });
     await B.page.locator('[data-rm="wait-start"]').waitFor({ state: 'hidden' }); // 방장이 아니면 시작 버튼이 없다
-    await A.page.locator('[data-dr="rs-wait"]').click();
+    await A.page.locator('[data-rm="result-wait"]').click();
     await A.page.locator('.wr-root').waitFor({ state: 'visible' });
     // 최종 순위의 40자 규칙: 입력칸이 40자에서 멈춘다
     const inp = B.page.locator('.wr-chat .chat-in');
@@ -420,7 +420,10 @@ try {
     await B.page.locator('[data-rm="bar-leave"]').click();
     await B.page.locator('.ui-mbtn.ui-danger').click();
     await B.page.waitForSelector('button:has-text("방 만들기")', { state: 'visible' });
-    await A.page.locator('.wr-root').waitFor({ state: 'visible' }); // 혼자 남아 판이 끝나고 대기실
+    // 혼자 남아 판이 끝나도 공통 결과(코인 0)가 보이고, 대기실로 가면 대기실
+    await A.page.locator('[data-rm="result"] .rm-rs-zero').waitFor({ state: 'visible' });
+    await A.page.locator('[data-rm="result-wait"]').click();
+    await A.page.locator('.wr-root').waitFor({ state: 'visible' });
   });
 
   await step('그리기 방을 나간 뒤 포커 방을 만들면 사이트 채팅 버튼이 보인다 (C)', async () => {

@@ -106,11 +106,11 @@ export function makeDrawGame(ctx, opt = {}) {
     for (const w of fx.use) picker.use(w);
     // 관전 계정(엔진 밖)은 "못 맞힌 사람"과 같은 것만 받는다: 공개 알림(정답자끼리 글 sec 은 빼고)과 비밀 없는 view
     for (const { to, e } of fx.events) if (!SHELL_EVENTS.has(e.k)) ctx.emit([e], SPEC_OK.has(e.k) && !e.sec ? [...to, ...ctx.specIds()] : to);
+    if (fx.finished?.save) save(fx.finished.ranking, fx.finished.reason); // 상태보다 먼저: 공통 결과(wait.result)가 같은 상태에 실린다
     if (fx.room.length && flow === 0) {
       const everyone = ctx.members().filter((m) => m.connected).every((m) => fx.room.includes(m.id));
       if (everyone) ctx.push(); else ctx.pushTo([...fx.room, ...ctx.specIds()]);
     }
-    if (fx.finished?.save) save(fx.finished.ranking, fx.finished.reason);
     syncMembers();
   }
 
@@ -148,10 +148,10 @@ export function makeDrawGame(ctx, opt = {}) {
         if (session.conn) hub.sendMe(session);
       }
     }
-    if (reason === 'alone') return;
     const who = starters ?? new Set(ranking.map((r) => r.id));
-    const opp = who.size - 1;
-    ctx.finish(ranking.filter((r) => !r.left && who.has(r.id)).map((r) => ({ id: r.id, won: r.rank === 1, opp })));
+    const opp = reason === 'alone' ? undefined : who.size - 1; // 혼자 남아 끝난 판: 결과만, 코인 없음
+    ctx.finish(ranking.filter((r) => !r.left && who.has(r.id))
+      .map((r) => ({ id: r.id, rank: r.rank, score: r.score, note: `맞힘 ${r.correct}`, won: r.rank === 1, opp })));
   }
 
   // ---- 그림 요청 ----

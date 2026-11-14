@@ -34,10 +34,11 @@ export function makeMiniGame(ctx, opt = {}) {
   const betOf = (id) => bets.get(id) ?? 0;
 
   // ---- 코인 (맡기기·정산은 한 번씩만: hub.stake / hub.settleStake 가 이중 처리를 막는다) ----
+  // 돌려주는 값 {id: 베팅 증감}
   function settle(winnerId) {
-    if (!staked) return;
+    if (!staked) return {};
     staked = false;
-    ctx.hub.settleStake?.(ctx, winnerId ?? null);
+    return Object.fromEntries((ctx.hub.settleStake?.(ctx, winnerId ?? null) ?? []).map((r) => [r.id, r.net]));
   }
 
   // ---- 판 진행 ----
@@ -73,9 +74,14 @@ export function makeMiniGame(ctx, opt = {}) {
     nextAt = null;
     const wSeat = winnerId === null ? -1 : seats.indexOf(winnerId);
     result = winnerId === null ? { winner: 'draw', reason: 'draw' } : { winner: wSeat, reason };
-    // 판 승수로 이긴 때만(기권·나감·무승부 제외) 이긴 사람에게 원래 승리 코인 한 번.
-    if (reason === 'win' && winnerId !== null) ctx.finish([{ id: winnerId, won: true, opp: 1 }]);
-    settle(winnerId);
+    // 공통 결과는 매치마다 한 번. 승리 코인은 판 승수로 이긴 때만(기권·나감·무승부 제외), 베팅 증감은 add 로 합친다.
+    const bet = settle(winnerId);
+    const out = reason === 'resign' ? '기권' : reason === 'leave' ? '나감' : '';
+    ctx.finish(mt.players.map((id) => ({
+      id, rank: winnerId === null || id === winnerId ? 1 : 2,
+      note: [`${mt.wins[id] ?? 0}승`, id === winnerId ? '' : out].filter(Boolean).join(' · '),
+      won: id === winnerId, opp: reason === 'win' && id === winnerId ? 1 : undefined,
+    })), { add: { label: '베팅', by: bet } });
     bets.clear();
   }
 

@@ -418,7 +418,7 @@ test('poker in the common room (G-poker): wait only in the lobby, result -> lobb
   const { cs } = await lobby(hub, 'bluff', ['ann1', 'bob1', 'cat1']);
   const [a, b, c] = cs;
   await a.send({ t: 'avatar', data: 'data:image/jpeg;base64,/9j/AAAA' });
-  assert.deepEqual(a.state.wait, { can: true, why: null, set: {}, own: {} });
+  assert.deepEqual(a.state.wait, { can: true, why: null, set: {}, own: {}, result: null });
   await a.send({ t: 'kick', id: 'cat1' });
   assert.equal(c.sock.last('room').state, null);
   assert.equal(c.sock.msgs.filter((m) => m.t === 'error').at(-1).code, 'pk_kicked');
@@ -436,17 +436,40 @@ test('poker in the common room (G-poker): wait only in the lobby, result -> lobb
   await b.send({ t: 'liar' });
   assert.equal(a.state.phase, 'result');
   assert.equal(a.state.wait, null, 'the result stays on the table');
-  const got = () => b.sock.msgs.filter((m) => m.t === 'coin' && m.a === 'got').length;
-  const paid = got();
-  assert.equal(paid, 1, 'the winner is paid once (ctx.finish)');
+  const paid = hub.sessions.get('bob1').user.coins;
+  assert.equal(paid, 1 + 1, 'the winner is paid once (ctx.finish)');
   clock.advance(6000);
   assert.equal(a.state.phase, 'lobby');
   assert.equal(a.state.wait.can, true);
+  assert.deepEqual(a.state.wait.result.gain, { ann1: 1, bob1: 2 }, 'common result after the win display');
+  assert.deepEqual(a.state.wait.result.rows.map((r) => [r.id, r.rank]), [['bob1', 1], ['ann1', 2]]);
   await a.send({ t: 'start' });
   assert.equal(a.state.phase, 'playing', 'started again from the waiting room');
-  assert.equal(got(), paid, 'no second payment');
+  assert.equal(hub.sessions.get('bob1').user.coins, paid, 'no second payment');
   const allStates = JSON.stringify(cs.flatMap((x) => x.sock.msgs.filter((m) => m.t === 'room')));
   assert.equal(allStates.includes('data:image'), false, 'photos only go in faces');
+});
+
+test('holdem: the common result shows each chip change over the whole game when the table goes back to the lobby', async () => {
+  const { hub, clock } = await setup(8);
+  const { cs } = await lobby(hub, 'holdem', ['ann1', 'bob1', 'cat1']);
+  const bank = (id) => hub.sessions.get(id).user.bank;
+  const start = { ann1: bank('ann1'), bob1: bank('bob1'), cat1: bank('cat1') };
+  await cs[0].send({ t: 'start' });
+  const st = hub.rooms.values().next().value.impl.hand.st;
+  // whoever is on turn raises, then the two others leave: the hand ends, and with one player left the table goes back to the lobby
+  const turn = cs.find((x) => x.state.you === st.seats[st.turn].id);
+  await turn.send({ t: 'act', a: 'raise', amount: turn.state.minRaiseTo });
+  for (const x of cs.filter((y) => y !== turn)) await x.send({ t: 'leave' });
+  clock.advance(60_000);
+  assert.equal(turn.state.phase, 'lobby');
+  const res = turn.state.wait.result;
+  const me = turn.state.you;
+  assert.equal(res.unit, 'chip');
+  assert.deepEqual(res.rows.map((r) => [r.id, r.rank, r.score]), [[me, 1, bank(me)]]);
+  assert.deepEqual(res.gain, { [me]: bank(me) - start[me] });
+  assert.ok(res.gain[me] > 0, 'won the blinds');
+  assert.equal(res.add, undefined, 'chips alone: no split line');
 });
 
 test('bluff: a disconnected player on turn plays the first card after the grace, then is removed', async () => {

@@ -120,7 +120,8 @@ export function makeLiarGame(ctx) {
     const g = game;
     settledGame = g;
     const r = g.result;
-    if (!r || r.winner === 'void') return;
+    if (!r) return;
+    if (r.winner === 'void') { finishRows(g, r, false); return; } // 무효 판: 결과만(점수·코인 없음)
     const book = {};
     for (const [id, e] of scores) book[id] = e.score;
     const next = applyDelta(book, r.delta);
@@ -144,13 +145,23 @@ export function makeLiarGame(ctx) {
     for (const [id, e] of scores) all[id] = e.score;
     r.champions = champions(all, settings.goal);
     won = r.champions !== null;
-    // Coins (SPEC 22-2): finishers = round players who did not drop and are still in the room. Citizens opp = 1, liar opp = #citizens.
-    ctx.finish(g.players
-      .filter((id) => !g.dropped.includes(id) && ctx.member(id))
-      .map((id) => {
-        const liar = id === g.liarId;
-        return { id, won: liar ? r.winner === 'liar' : r.winner === 'citizens', opp: liar ? g.players.length - 1 : 1 };
-      }));
+    finishRows(g, r, true);
+  }
+
+  // 공통 결과(ctx.finish): 이 판을 끝까지 한 사람, 방 점수 순위. 코인(SPEC 22-2): 시민 opp = 1, 라이어 opp = 시민 수.
+  function finishRows(g, r, pay) {
+    const ids = g.players.filter((id) => !g.dropped.includes(id));
+    const total = (id) => scores.get(id)?.score ?? 0;
+    const sorted = ids.map(total).sort((a, b) => b - a);
+    ctx.finish(ids.map((id) => {
+      const liar = id === g.liarId;
+      const d = r.delta?.[id] ?? 0;
+      const note = [liar ? '라이어' : '', pay ? `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d)}점` : ''].filter(Boolean).join(' · ');
+      return {
+        id, rank: sorted.indexOf(total(id)) + 1, score: total(id), note,
+        won: liar ? r.winner === 'liar' : r.winner === 'citizens', opp: pay ? (liar ? g.players.length - 1 : 1) : undefined,
+      };
+    }));
   }
 
   // Add one person's not-yet-booked room score to their running total (once per point).

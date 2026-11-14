@@ -1,18 +1,19 @@
 // 갱스껄 화면 모듈. 공통 방 틀(client/src/room/frame.js)이 mount(ctx) 로 불러 쓴다. 약속: docs/COMMON-CONTRACT.md 4-2, GDD 16절.
 // 대기실(참가자·시작·나가기·채팅)·상단 줄(방 코드/소리/이모티콘/나가기)·이모티콘/사진/말풍선·나가기 확인·소리 끄기는 틀이 한다.
-// 이 모듈은 게임 판(탁자·손·벌칙/결과·연출)만 그리고, 대기실 개인 칸 하나(waitPart 'gk-color': 내 색 고르기)를 내준다.
+// 이 모듈은 게임 판(탁자·손·벌칙·연출)과 공통 결과 화면 제목만 그리고, 대기실 개인 칸 하나(waitPart 'gk-color': 내 색 고르기)를 내준다.
 //
 //   const game = mount(ctx);
 //   game.room(state)     방 상태(GDD 9-2)가 올 때마다(대기 중에도).
 //   game.event(e)        event.e 하나(gkFlip, gkPlace, gkReveal ... 사이트 공통 이벤트는 틀이 먼저 처리한다).
 //   game.anchorOf(id)    말풍선·이모티콘 자리(이름표 위, 없으면 개인판 위)
 //   game.leaveNote(s)    나가기 확인 글(판 중 참가자일 때 기권 안내)
+//   game.holdWait() · resultTitle(s)  공통 결과 화면(연출 뒤에, 제목)
 //   game.waitPart(name)  대기실 커스텀 칸
 //   game.unmount()       화면을 걷어낸다.
 //
 // 화면 구성: .gk-root(나무 바닥 + 비네팅) > .gk-stage(시안 크기 상자를 창 크기에 맞게 scale) > 모듈들.
 // 모듈 약속: createXxx(parent, ctx) → { el, update(view), event(e), dispose() }.
-//   ctx = { send, meId(), now(), face(id), layout()('pc'|'phone'), anchor(kind, id), fx, busy(), stage, scale(), toWait() }
+//   ctx = { send, meId(), now(), face(id), layout()('pc'|'phone'), anchor(kind, id), fx, busy(), stage, scale() }
 //   anchor(kind, id) → DOM 요소 | null
 //     'mat'(id=자리 주인) 개인판 · 'stack'(id) 더미 맨 위 칸 · 'tag'(id) 이름표 · 'center' 가운데 덩어리
 //     'row' 펼친 줄 틀 · 'rowSlot'(id=0부터 센 칸 번호, 줄 왼쪽·윗줄부터) · 'handDock' 손이 접혀 있을 때 놓이는 자리
@@ -26,6 +27,7 @@ import { createTable } from './ui/table.js';
 import { LAYOUTS, layoutFor } from './ui/table.pure.js';
 import { createHand } from './ui/hand.js';
 import { createResult } from './ui/result.js';
+import { winnerInfo, winCaption } from './ui/result.pure.js';
 import { createColorPart } from './ui/wait.js';
 import { createFx } from './anim/fx.js';
 
@@ -48,7 +50,7 @@ function ensureFonts() {
   document.head.append(l);
 }
 
-export function mount({ root: host, send, me: getMe, faces, toWait }) {
+export function mount({ root: host, send, me: getMe, faces, ready }) {
   ensureFonts();
   const root = el('div', 'gk-root');
   root.style.backgroundImage = `url(${floorUrl()})`;
@@ -83,7 +85,6 @@ export function mount({ root: host, send, me: getMe, faces, toWait }) {
     busy: () => pending > 0 || !!(ctx.fx && ctx.fx.busy && ctx.fx.busy()),
     stage,
     scale: () => scale,
-    toWait: () => { if (!disposed) toWait(); },
   };
 
   const mods = {};
@@ -139,6 +140,7 @@ export function mount({ root: host, send, me: getMe, faces, toWait }) {
         pending--;
         if (disposed) return;
         if (pending === 0 || deferred) draw();
+        if (pending === 0) ready(); // 연출이 끝났다: 틀이 공통 결과 화면을 띄운다(holdWait)
       });
   }
 
@@ -217,6 +219,12 @@ export function mount({ root: host, send, me: getMe, faces, toWait }) {
     leaveNote(s) {
       const mine = s?.phase === 'playing' && (s.seats ?? []).find((x) => x.id === s.you);
       return mine && !mine.out ? '나가면 기권 처리돼요' : null;
+    },
+    // 공개·승리 연출이 도는 동안은 공통 결과 화면을 미룬다
+    holdWait: () => ctx.busy(),
+    resultTitle(s) {
+      const w = winnerInfo(s);
+      return w ? { title: w.id ? `${w.name} 승리` : '판 끝', sub: winCaption(w) } : null;
     },
     waitPart(name) {
       return name === 'gk-color' ? createColorPart({ send: ctx.send }) : null;

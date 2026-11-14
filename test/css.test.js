@@ -125,7 +125,6 @@ const CROSS_FILE_ALLOW = new Map([
   // Host-side layout overrides for the liar module; positions only, scoped by `.lg-root`.
   ['lg-root', 'style.css lifts liar parts above the docked chat (chat.css --chat-docked-h)'],
   ['lg-action', 'style.css `.lg-root .lg-action`: lifted above the docked chat'],
-  ['lg-rs-panel', 'style.css `.lg-root .lg-rs-panel`: result window kept above the lifted action row and docked chat'],
   ['lobby', 'style.css `.lobby[hidden]` and chat.css `html.chat-docked .lobby` reference the lobby root hook class kept on the element by lobby.js; TODO switch both to `.lb-root`'],
   // 입구가 .dr-root 에 붙이는 키보드 상태 클래스, 모듈은 조상 선택자로 읽기만
   ['dr-kb', '입구가 .dr-root 에 붙이는 키보드 상태 클래스, 모듈은 조상 선택자로 읽기만'],

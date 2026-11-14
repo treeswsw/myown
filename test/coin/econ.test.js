@@ -8,7 +8,6 @@ import { COIN_RULES, ECON_LIMITS, defaultEcon, normalizeEcon, checkEcon, coinsFo
 import { GAMES } from '../../shared/games.js';
 
 const lastErr = (c) => c.sock.msgs.filter((m) => m.t === 'error').at(-1);
-const got = (c) => c.sock.msgs.filter((m) => m.t === 'coin' && m.a === 'got');
 const econMsg = (c) => c.sock.msgs.filter((m) => m.t === 'admOk' && m.a === 'econ').at(-1);
 
 async function loginAdmin(h) {
@@ -74,9 +73,8 @@ test('바꾸면 서버 재시작 없이 바로: 정산 · 지급 간격 · 교�
   await adm.send({ t: 'adm', a: 'econSet', econ: e });
   assert.equal(econMsg(adm).saved, true);
   assert.equal(h.hub.econ().rules.yacht.finish, 10);
-  h.hub.award(room, 'yacht', [{ id: 'ann1', won: true, opp: 2 }]);
+  assert.deepEqual(h.hub.award(room, 'yacht', [{ id: 'ann1', won: true, opp: 2 }]), { ann1: 50 });
   assert.equal(h.hub.sessions.get('ann1').user.coins, 50);
-  assert.equal(got(a).at(-1).n, 50);
   await h.tick(999);
   h.hub.award(room, 'yacht', [{ id: 'ann1', won: true, opp: 2 }]); // 간격 1초 안: 못 받음
   assert.equal(h.hub.sessions.get('ann1').user.coins, 50);

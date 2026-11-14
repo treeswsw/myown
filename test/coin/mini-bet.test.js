@@ -8,7 +8,6 @@ import { pair, c4Win, c4Draw, mnMsg, lastErr, GRACE } from '../mini/lib.js';
 import { betModel } from '../../client/src/mini/bet.pure.js';
 
 const bet = (c, n) => c.send({ t: 'pick', patch: { bet: n } });
-const stakeMsgs = (c) => c.sock.msgs.filter((m) => m.t === 'coin' && m.a === 'stake');
 const escrow = (r, id) => r.hub.sessions.get(id).user.gear.escrow;
 const total = (r) => r.coinsOf('ann1') + r.coinsOf('bob1');
 
@@ -78,10 +77,11 @@ test('bet: start takes the bet from both and holds it; win -> the winner gets th
   assert.equal(escrow(r, winner), undefined);
   assert.equal(escrow(r, loser), undefined);
   assert.equal(r.hub.stakes.size, 0);
-  const w = r.by(0);
-  const l = r.by(1);
-  assert.deepEqual(stakeMsgs(w).map((m) => m.n), [30], '이긴 사람 알림 +30');
-  assert.deepEqual(stakeMsgs(l).map((m) => m.n), [-30], '진 사람 알림 -30');
+  // 공통 결과: 코인 칸 = 승리 코인 + 베팅, 베팅은 따로 add 로(화면이 "판 코인 +1 · 베팅 +30")
+  const res = r.a.state.wait.result;
+  assert.deepEqual(res.gain, { [winner]: 31, [loser]: -30 });
+  assert.deepEqual(res.add, { label: '베팅', by: { [winner]: 30, [loser]: -30 } });
+  assert.deepEqual(res.rows.map((x) => [x.id, x.rank, x.note]), [[winner, 1, '1승'], [loser, 2, '0승']]);
   // 베팅은 매치마다 새로: 결과 화면에서는 0 으로 비어 있다
   assert.deepEqual(r.a.state.wait.own, { ann1: { bet: 0 }, bob1: { bet: 0 } });
   await r.a.send({ t: 'start' });
@@ -130,7 +130,10 @@ test('bet: leaving the room in the middle of the match is a loss', async () => {
   assert.equal(r.coinsOf(stayer.conn.session.id), 80 + 40);
   assert.equal(r.coinsOf(quitter.conn.session.id), 80);
   assert.equal(escrow(r, quitter.conn.session.id), undefined);
-  assert.deepEqual(stakeMsgs(stayer).map((m) => m.n), [20]);
+  const res = stayer.state.wait.result;
+  assert.equal(res.gain[stayer.conn.session.id], 20, '나감 승은 승리 코인 없이 판돈만');
+  assert.equal(res.gain[quitter.conn.session.id], -20);
+  assert.equal(res.rows.find((x) => x.id === quitter.conn.session.id).note, '0승 · 나감');
 });
 
 test('bet: more than 60 s disconnected is a forfeit; coming back within the time keeps playing with the bet held', async () => {
@@ -161,7 +164,7 @@ test('bet: a drawn match gives both their coins back', async () => {
   assert.equal(r.coinsOf('ann1'), 100);
   assert.equal(r.coinsOf('bob1'), 100);
   assert.equal(escrow(r, 'ann1'), undefined);
-  assert.deepEqual(stakeMsgs(r.a), [], '무승부는 +/- 알림이 없다');
+  assert.deepEqual(r.a.state.wait.result.gain, { ann1: 0, bob1: 0 }, '무승부는 돌려받아 0');
   assert.equal(r.hub.stakes.size, 0);
 });
 
