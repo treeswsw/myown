@@ -14,6 +14,7 @@ export function createLiarScene() {
   const table = createTable(scene);
   const rig = createCameraRig(camera);
   const v = new THREE.Vector3();
+  const fv = new THREE.Vector3();
   const project = (x, y, z) => {
     camera.updateMatrixWorld();
     v.set(x, y, z).project(camera);
@@ -114,6 +115,24 @@ export function createLiarScene() {
         if (p) return { x: p.x, y: p.y, below: true };
       }
       return seats.screenPos(id);
+    },
+    // 얼굴 판의 화면 자리와 반지름(CSS px). 화면이 이 위에 프로필 판때기를 겹쳐 붙인다(SPEC 22-21).
+    // 뒤통수가 보이거나(얼굴이 카메라 반대쪽) 카메라 뒤·화면 밖 깊이면 null
+    facePos(id) {
+      if (disposed) return null;
+      const e = seats.get(id);
+      if (!e || e.body.visible === false) return null;
+      camera.updateMatrixWorld();
+      fv.setFromMatrixPosition(camera.matrixWorld).sub(e.face);
+      const dist = fv.length();
+      if (!(dist > 0) || fv.dot(e.fwd) / dist < 0.2) return null;
+      const c = project(e.face.x, e.face.y, e.face.z);
+      if (!c) return null;
+      const r = e.body.userData.faceR;
+      fv.setFromMatrixColumn(camera.matrixWorld, 1).multiplyScalar(r).add(e.face);
+      const t = project(fv.x, fv.y, fv.z);
+      if (!t) return null;
+      return { x: c.x, y: c.y, r: Math.hypot(t.x - c.x, t.y - c.y) };
     },
     seatPos(id) { return disposed ? null : seats.seatPos(id); },
     frame(dt) {

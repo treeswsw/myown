@@ -222,7 +222,8 @@ export function createEnding(ctx, opts = {}) {
     el.dataset.phase = plan.phase;
     el.style.setProperty('--c', color);
     wait.textContent = ED.wait;
-    cname.textContent = liarP ? liarP.name || '' : '';
+    if (ctx.nameTag && liarP) { const nt = ctx.nameTag(liarP); nt.classList.add('lg-nt-mid'); cname.replaceChildren(nt); } // 이름 + 칭호(공용 프로필 부품)
+    else cname.textContent = liarP ? liarP.name || '' : '';
     face.replaceChildren();
     if (ctx.avatar && liarP) {
       face.appendChild(ctx.avatar(liarP, 84)); // 공용 프로필 부품
