@@ -761,7 +761,7 @@ design/   시안
 - 칭호 효과(`.tfx-`): 레전드·갱식 칭호의 움직이는 효과. `prefers-reduced-motion` 이면 멈춘 그림.
 
 ### 22-17. 치장템 화면 약속 (병렬 작업 기준)
-- 그림 모음 `client/src/coin/art/{hat,acc,face}.js`: `export default { '<품목 id>': { svg, w, dx, dy, fx? } }`.
+- 그림 모음 `client/src/coin/art/{hat,acc,face}.js`: `export default { '<품목 id>': { svg 또는 src, w, dx, dy, fx? } }` (2026-11-14부터 `src` = `/coin/art/<id>.webp` 그림 파일, 효과 CSS 는 art/art.css).
   `svg` = 완성된 `<svg viewBox="0 0 100 100" ...>` 글자(우리 코드가 쓴 고정 글자라 innerHTML 가능, 사용자 글자는 절대 넣지 않는다). 색은 svg 안에 직접.
   `w` = 그림 한 변 길이 ÷ 프사 지름, `dx`·`dy` = 그림 중심이 프사 중심에서 떨어진 정도 ÷ 프사 지름(위쪽이 −). 예: 모자 `{w:0.9, dx:0, dy:-0.55}`.
   edge 는 이 값 그대로 고정. sticker 는 이 값이 기본 자리이고 `gear.pos[id]` 의 `x,y`(더하기), `s`(곱하기), `r`(돌리기)을 적용. cover 는 `w:1, dx:0, dy:0` 이고 프사 동그라미로 잘린다.
