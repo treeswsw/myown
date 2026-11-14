@@ -51,8 +51,29 @@ export function makePuzzleRun(ctx, err, uid) {
     if (!pick) return;
     const moves = pick[2].split(' ');
     const s1 = chess.apply(fromFen(pick[1]), uciToMove(moves[0]));
-    pz = { puzzle: pick, moves, idx: 1, state: s1, seat: s1.turn, status: 'play', hinted: false, hint: null, solution: null, delta: null, success: null, coin: null };
+    pz = { puzzle: pick, moves, idx: 1, state: s1, seat: s1.turn, status: 'play', hinted: false, failed: false, wrong: 0, hint: null, solution: null, delta: null, success: null, coin: null };
     if (today === null) queue(async () => { today = await ctx.hub.store.earnedOn(uid, 'puzzle', day()); if (alive) ctx.push(); });
+  }
+
+  // 리체스처럼: 틀린 수는 두지 않고 "다시 시도"(fail=true 로 실패 기록은 한 번만), 힌트만 쓰고 맞히면 레이팅·연속 그대로
+  function record(u, kind) { // kind: 'success' | 'fail' | 'hinted'
+    const p = u.puzzle;
+    pz.delta = kind === 'hinted' ? 0 : elo(p.r, pz.puzzle[3], p.n, kind === 'success');
+    p.r = Math.max(100, p.r + pz.delta);
+    if (kind !== 'hinted') p.n += 1;
+    if (kind === 'success') p.streak += 1;
+    else if (kind === 'fail') p.streak = 0;
+    p.best = Math.max(p.best, p.streak);
+    p.recent = [...p.recent, pz.puzzle[0]].slice(-PUZZLE_RECENT);
+    ctx.hub.persist(u);
+    ctx.hub.sendMe(ctx.member(uid).session);
+  }
+
+  function fail() { // 틀린 수 / 정답 보기: 이 문제는 실패로 한 번만 기록
+    if (pz.failed) return;
+    pz.failed = true;
+    const u = user();
+    if (u) record(u, 'fail');
   }
 
   function finish(status) {
@@ -61,14 +82,10 @@ export function makePuzzleRun(ctx, err, uid) {
     const u = user();
     if (!u) return;
     const p = u.puzzle;
-    const success = status === 'solved' && !pz.hinted; // 힌트·정답 보기·틀림은 실패로 센다
+    if (status !== 'solved') fail();
+    else if (!pz.failed) record(u, pz.hinted ? 'hinted' : 'success');
+    const success = status === 'solved' && !pz.hinted && !pz.failed;
     pz.success = success;
-    pz.delta = elo(p.r, pz.puzzle[3], p.n, success);
-    p.r = Math.max(100, p.r + pz.delta);
-    p.n += 1;
-    p.streak = success ? p.streak + 1 : 0;
-    p.best = Math.max(p.best, p.streak);
-    p.recent = [...p.recent, pz.puzzle[0]].slice(-PUZZLE_RECENT);
     ctx.hub.persist(u);
     ctx.hub.sendMe(ctx.member(uid).session);
     const r = rules();
@@ -91,7 +108,7 @@ export function makePuzzleRun(ctx, err, uid) {
 
   return {
     begin,
-    // 요청 {a:'move'|'hint'|'reveal'|'next'}. 방에 앉은 사람(uid)만.
+    // 요청 {a:'move'|'hint'|'reveal'|'retry'|'next'}. 방에 앉은 사람(uid)만.
     onAction(session, msg) {
       if (session.id !== uid) return err('seat', '관전 중입니다.');
       if (!pz) return err('now');
@@ -104,8 +121,9 @@ export function makePuzzleRun(ctx, err, uid) {
           const after = chess.apply(pz.state, one);
           if (!after) return err('move', '둘 수 없는 곳입니다.');
           if (!checkMove(pz.puzzle, pz.idx, one, after)) {
-            pz.solution = pz.moves.slice(pz.idx);
-            finish('failed');
+            // 틀린 수: 두지 않고 그대로 두어 다시 시도하게 한다 (이 문제는 실패로 기록, 코인 0). 정답은 보내지 않는다.
+            pz.wrong += 1;
+            fail();
           } else if (pz.idx === pz.moves.length - 1 || after.winner !== null) {
             pz.state = after;
             finish('solved');
@@ -129,6 +147,10 @@ export function makePuzzleRun(ctx, err, uid) {
           finish('revealed');
           ctx.push();
           return null;
+        case 'retry': // 틀린 수 알림을 닫고 계속 푼다 (판은 서버에서 그대로이므로 상태만 다시 보낸다)
+          if (pz.status !== 'play') return err('now');
+          ctx.push();
+          return null;
         case 'next':
           if (pz.status === 'play') return err('now', '문제를 풀거나 정답을 본 뒤에 넘어갈 수 있어요.');
           begin();
@@ -137,19 +159,26 @@ export function makePuzzleRun(ctx, err, uid) {
         default: return err('bad');
       }
     },
-    // 화면용 문제 상태. 정답 수순(solution)은 끝난 뒤(failed·revealed)에만 들어간다.
+    // 화면용 문제 상태. 정답 수순(solution)·전체 수순(line)은 끝난 뒤(solved·revealed)에만 들어간다.
     view() {
       if (!pz) return null;
       const p = user()?.puzzle ?? {};
       const ended = pz.status !== 'play';
+      const last = pz.moves.length - 1;
       return {
         status: pz.status,
+        id: ended ? pz.puzzle[0] : null,
         rating: pz.puzzle[3],
+        themes: pz.puzzle[4] ?? '',
+        humanMoves: Math.ceil(last / 2),
         seat: pz.seat,
         hint: pz.hint,
         hinted: pz.hinted,
-        solution: ended && pz.status !== 'solved' ? pz.solution : null,
-        me: { r: p.r ?? null, n: p.n ?? 0, streak: p.streak ?? 0, best: p.best ?? 0, delta: ended ? pz.delta : null },
+        failed: pz.failed,
+        wrong: pz.wrong,
+        solution: ended && pz.status === 'revealed' ? pz.solution : null,
+        line: ended ? { fen: pz.puzzle[1], moves: pz.moves, at: pz.idx, solved: pz.status === 'solved' } : null,
+        me: { r: p.r ?? null, n: p.n ?? 0, streak: p.streak ?? 0, best: p.best ?? 0, delta: ended || pz.failed ? pz.delta : null },
         coin: { today, cap: cap(), ...(ended && pz.coin ? pz.coin : {}) },
       };
     },

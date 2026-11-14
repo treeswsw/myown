@@ -879,8 +879,17 @@ async function runContext(browser, server, name, cfg) {
       await visible('.mn-root .mn-board');
       await visible('[data-pz="rate"]:has-text("내 레이팅")');
       await visible('[data-pz="coin"]:has-text("/100")');
+      await visible('[data-pz="goal"]:has-text("내가 둘 수")');
+      await press('[data-mn="themes"]');
+      await visible('[data-pz="themes"]');
+      await press('[data-mn="flip"]');
       await press('[data-mn="reveal"]');
       await visible('[data-mn="next"]');
+      await visible('a:has-text("리체스에서 보기")');
+      await press('[data-mn="nav-first"]');
+      await press('[data-mn="nav-next"]');
+      await press('[data-mn="nav-last"]');
+      await press('[data-mn="nav-prev"]');
       await press('[data-mn="next"]');
       await visible('[data-mn="reveal"]');
       await press('[data-rm="bar-leave"]');

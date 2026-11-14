@@ -9,6 +9,7 @@ import { GAMES } from '../../shared/mini/index.js';
 import { fromFen } from '../../shared/mini/fen.js';
 import { loadPuzzles } from '../../server/mini/puzzles.js';
 import { defaultEcon } from '../../shared/coin/rules.js';
+import { goalText, themeTags } from '../../client/src/mini/puzzleThemes.js';
 import { tierKey } from '../../server/mini/puzzleRun.js';
 
 const chess = GAMES.chess;
@@ -80,27 +81,69 @@ test('맞힘: 레이팅 오르고 난이도별 코인, 연속 1', async () => {
   assert.ok(r.user.puzzle.recent.includes(p[0]));
 });
 
-test('틀림: 그 문제 실패, 레이팅 내려가고 코인 0, 정답 수순은 그때 보인다', async () => {
+test('틀림: 수는 두지 않고 다시 시도, 그 문제는 실패(레이팅 내림·코인 0)로 한 번만 기록, 정답은 안 보냄', async () => {
   const r = await room();
   const { moves } = findPuzzle(r.a.state);
   const wrong = chess.legalMoves(r.a.state.mn).find((m) => `${FILES[m.from.x]}${8 - m.from.y}${FILES[m.to.x]}${8 - m.to.y}` !== moves[1].slice(0, 4));
+  const board = JSON.stringify(r.a.state.mn.board);
   await mnMsg(r.a, { a: 'move', move: wrong });
   await flush();
-  const st = r.a.state.puzzle;
-  assert.equal(st.status, 'failed');
+  let st = r.a.state.puzzle;
+  assert.equal(st.status, 'play');
+  assert.equal(st.wrong, 1);
+  assert.equal(st.failed, true);
+  assert.equal(st.solution, null);
+  assert.equal(st.line, null);
+  assert.equal(JSON.stringify(r.a.state.mn.board), board, '틀린 수는 두지 않는다');
+  const rAfter = r.user.puzzle.r, nAfter = r.user.puzzle.n;
   assert.ok(st.me.delta < 0);
-  assert.equal(st.me.streak, 0);
+  assert.equal(r.user.puzzle.streak, 0);
+  assert.ok(!r.a.sock.raw.join('\n').includes(`"${moves[1]}"`), '다시 시도 중에도 정답 수가 새지 않는다');
+  // 또 틀려도 실패는 한 번만 센다
+  await mnMsg(r.a, { a: 'move', move: wrong });
+  assert.equal(r.user.puzzle.r, rAfter);
+  assert.equal(r.user.puzzle.n, nAfter);
+  await mnMsg(r.a, { a: 'retry' });
+  assert.equal(r.a.state.puzzle.status, 'play');
+  // 이어서 풀면 solved 지만 코인 0, 레이팅은 더 안 변함
+  await solve(r);
+  st = r.a.state.puzzle;
+  assert.equal(st.status, 'solved');
   assert.equal(st.coin.gain, 0);
   assert.equal(r.user.coins, 0);
-  assert.deepEqual(st.solution, moves.slice(1));
+  assert.equal(r.user.puzzle.r, rAfter);
+  assert.equal(r.user.puzzle.n, nAfter);
+  assert.equal(r.user.puzzle.streak, 0);
+  assert.deepEqual(st.line.moves, moves);
   // 끝난 문제에 또 두면 거절, 다음 문제는 새 문제
   await mnMsg(r.a, { a: 'move', move: wrong });
   assert.equal(lastErr(r.a).code, 'mn_now');
   const before = JSON.stringify(r.a.state.mn.board);
   await mnMsg(r.a, { a: 'next' });
   assert.equal(r.a.state.puzzle.status, 'play');
-  assert.equal(r.a.state.puzzle.solution, null);
+  assert.equal(r.a.state.puzzle.wrong, 0);
+  assert.equal(r.a.state.puzzle.line, null);
   assert.notEqual(JSON.stringify(r.a.state.mn.board), before);
+});
+
+test('목표·수·주제: 문제 시작부터 값이 있고, 목표 문구는 주제로 정해진다', async () => {
+  const r = await room();
+  const { p, moves } = findPuzzle(r.a.state);
+  const st = r.a.state.puzzle;
+  assert.equal(st.themes, p[4]);
+  assert.ok(st.themes.length > 0);
+  assert.equal(st.humanMoves, Math.ceil((moves.length - 1) / 2));
+  assert.equal(st.id, null, '번호는 끝난 뒤에');
+  assert.equal(goalText('mate mateIn3 short', 3), '3수 안에 체크메이트');
+  assert.equal(goalText('advantage fork', 1), '기물 이득');
+  assert.equal(goalText('crushing', 1), '기물 이득');
+  assert.equal(goalText('equality', 1), '동점 만들기');
+  assert.equal(goalText('promotion', 1), '승진');
+  assert.equal(goalText('', 2), '최선의 수 찾기');
+  assert.deepEqual(themeTags('fork short advantage pin'), ['포크', '핀']);
+  for (const q of loadPuzzles().slice(0, 200)) assert.equal(typeof q[4], 'string');
+  await mnMsg(r.a, { a: 'reveal' });
+  assert.equal(r.a.state.puzzle.id, p[0]);
 });
 
 test('둘 수 없는 수는 거절만 하고 문제는 계속', async () => {
@@ -112,7 +155,7 @@ test('둘 수 없는 수는 거절만 하고 문제는 계속', async () => {
   assert.equal(r.a.state.puzzle.status, 'play');
 });
 
-test('힌트: 갈 말 칸만 알려 주고 0코인, 레이팅은 실패로; 풀기 전 다음 문제는 거절', async () => {
+test('힌트: 갈 말 칸만 알려 주고 맞히면 코인 0·레이팅 변화 없음·연속 그대로; 풀기 전 다음 문제는 거절', async () => {
   const r = await room();
   const { moves } = findPuzzle(r.a.state);
   await mnMsg(r.a, { a: 'next' });
@@ -125,8 +168,21 @@ test('힌트: 갈 말 칸만 알려 주고 0코인, 레이팅은 실패로; 풀�
   assert.equal(st.status, 'solved');
   assert.equal(st.coin.gain, 0);
   assert.equal(r.user.coins, 0);
-  assert.ok(st.me.delta < 0);
-  assert.equal(st.me.streak, 0);
+  assert.equal(st.me.delta, 0);
+  assert.equal(r.user.puzzle.r, 1500);
+  assert.equal(r.user.puzzle.n, 0);
+  assert.equal(r.user.puzzle.streak, 0);
+});
+
+test('힌트 쓰고 맞혀도 연속 정답은 끊기지 않고 늘지도 않는다', async () => {
+  const r = await room({ seed: 7 });
+  await solve(r);
+  assert.equal(r.user.puzzle.streak, 1);
+  await mnMsg(r.a, { a: 'next' });
+  await mnMsg(r.a, { a: 'hint' });
+  await solve(r);
+  assert.equal(r.user.puzzle.streak, 1);
+  assert.equal(r.a.state.puzzle.me.delta, 0);
 });
 
 test('정답 보기: 수순이 그때 나오고 코인 0 / 레이팅 실패', async () => {
@@ -137,6 +193,7 @@ test('정답 보기: 수순이 그때 나오고 코인 0 / 레이팅 실패', as
   const st = r.a.state.puzzle;
   assert.equal(st.status, 'revealed');
   assert.deepEqual(st.solution, moves.slice(1));
+  assert.equal(st.line.at, 1);
   assert.equal(r.user.coins, 0);
   assert.ok(st.me.delta < 0);
 });
@@ -151,6 +208,8 @@ test('정답 누출 없음: 푸는 동안 어느 메시지에도 정답 수순�
   assert.ok(!raw.includes('"solution":["'), 'solution 은 비어 있다');
   for (const u of answer) assert.ok(!raw.includes(`"${u}"`), u);
   assert.equal(r.a.state.puzzle.solution, null);
+  assert.equal(r.a.state.puzzle.line, null);
+  assert.ok(!raw.includes(`"moves":["`), '전체 수순(line)은 끝난 뒤에만');
 });
 
 test('5연속 정답마다 보너스, 처음 4번은 난이도별 코인만', async () => {
