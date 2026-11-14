@@ -75,7 +75,7 @@ function segmented(onPick, initKeys = BASE_KEYS) {
   };
 }
 
-export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onResetConfirm, onRank, onCoin }) {
+export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onResetConfirm, onRank, onCoin, onFlash }) {
   const el = h('div', 'lb-root lobby');
   let user = null, pendingAvatar = null, shownModes = BASE_KEYS;
 
@@ -294,7 +294,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   const rows = new Map();
   let lastRooms = [];
   play.append(h('h2', null, '새 게임'), h('div', 'lb-stack lb-seg-box', homeSeg.el, homeSeg.caption, miniBox, vsSeg.row, levelSeg.row, sideSeg.row),
-    createBtn, createNote,
+    createBtn, createNote, button('놀이터', 'lb-flash-btn', () => onFlash?.()),
     h('hr'), h('h2', null, '열린 방'), roomList, emptyNote, homeErr);
 
   function roomRow(code) {

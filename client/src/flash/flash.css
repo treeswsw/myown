@@ -1,0 +1,28 @@
+.fl-root{position:fixed;inset:0;z-index:60;background:#0b0d10;color:#fff;display:flex;flex-direction:column;overflow:hidden;overscroll-behavior:none;touch-action:manipulation}
+.fl-top{display:flex;align-items:center;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;flex:none}
+.fl-title{font-size:18px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fl-help{font-size:13px;color:rgba(255,255,255,.65);white-space:nowrap}
+.fl-btn{height:40px;padding:0 16px;border:0;border-radius:20px;background:rgba(255,255,255,.14);color:#fff;font-size:15px;font-weight:600;cursor:pointer;flex:none}
+.fl-btn:active{transform:scale(.97)}
+.fl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;padding:12px 16px;overflow:auto;flex:1;align-content:start}
+.fl-card{display:flex;flex-direction:column;gap:6px;text-align:left;padding:16px;border:0;border-radius:16px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer}
+.fl-card:active{transform:scale(.98)}
+.fl-card-name{font-size:18px}
+.fl-card-desc{font-size:14px;color:rgba(255,255,255,.75);line-height:1.35}
+.fl-card-meta{font-size:12px;color:rgba(255,255,255,.55)}
+.fl-note{margin:0;padding:8px 16px calc(env(safe-area-inset-bottom,0px) + 12px);font-size:12px;color:rgba(255,255,255,.5);text-align:center;flex:none}
+.fl-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.fl-player{position:absolute;inset:0;width:100%;height:100%;display:block}
+.fl-status{position:relative;margin:0;font-size:15px;color:rgba(255,255,255,.7)}
+.fl-pad{flex:none;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:8px 16px calc(env(safe-area-inset-bottom,0px) + 10px);user-select:none;-webkit-user-select:none;touch-action:none}
+.fl-pad-arrows{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,56px);gap:6px}
+.fl-key{border:0;border-radius:14px;background:rgba(255,255,255,.2);color:#fff;font-size:20px;font-weight:700;min-width:56px;min-height:56px;touch-action:none;-webkit-touch-callout:none}
+.fl-key.fl-on{background:rgba(255,255,255,.45)}
+.fl-key-arrowup{grid-column:2;grid-row:1}
+.fl-key-arrowleft{grid-column:1;grid-row:2}
+.fl-key-arrowdown{grid-column:2;grid-row:2}
+.fl-key-arrowright{grid-column:3;grid-row:2}
+@media (orientation:landscape) and (max-height:500px){
+  .fl-pad{position:absolute;left:0;right:0;bottom:0;pointer-events:none}
+  .fl-pad .fl-key{pointer-events:auto;background:rgba(255,255,255,.28)}
+}

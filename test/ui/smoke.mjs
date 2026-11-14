@@ -163,6 +163,15 @@ async function runContext(browser, server, name, cfg) {
       await visible('button:has-text("방 만들기")');
     });
     await occlusion('home lobby');
+    await step('놀이터: 열기 → 블록소즈 → Ruffle 캔버스가 뜬다 → 나가기 → 로비로', async () => {
+      await press('.lb-flash-btn');
+      await press('.fl-card[data-flash="bloxorz"]');
+      await page.waitForFunction(() => { const r = document.querySelector('.fl-player')?.shadowRoot; return r && r.querySelector('canvas'); }, null, { timeout: 30000 });
+      await press('.fl-btn:has-text("나가기")');
+      await visible('.fl-card');
+      await press('.fl-btn:has-text("로비로")');
+      await gone('.fl-root');
+    });
 
     /* ---------- hold'em ---------- */
     await step('create a hold\'em room, the common waiting room shows (no in-room game switch)', async () => {

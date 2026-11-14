@@ -22,6 +22,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 코인(SPEC 22절, 모든 게임 공용): shared/coin/, server/coin/, client/src/coin/, test/coin/ (CSS 지갑·랭킹 .cn-, 뽑기 .gc-, 상점 .sh-, 비밀번호 .pn-, 꾸미기 .lk-, 칭호 효과 .tfx-, 캡슐 .cp-). 판 끝 정산은 게임이 공용 방 틀의 ctx.finish(rows) 를 판마다 한 번 부른다(docs/COMMON-CONTRACT.md 1-3). 코인 규칙은 shared/coin/rules.js + 등록표 coin 키. 무작위는 hub.rng(crypto)만.
 - 미니게임: shared/mini/, server/mini/, client/src/mini/, test/mini/, docs/mini/ (CSS 는 전부 .mn-)
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
+- 놀이터(플래시): client/src/flash/, client/public/flash/, client/public/ruffle/ (CSS 는 전부 .fl-)
 - UI 시험: test/ui/
 - 관리자(SPEC 21절): 서버 틀 server/admin/*.js, 게임별 봇 server/admin/games/<모드>.js (한 과제는 한 게임만), 시험 test/admin/, 화면 client/src/ui/admin.*(.adm-), 연출 목록 client/src/admin/
 - 갱스껄: shared/gsk/, server/gsk/, client/src/gsk/, test/gsk/, docs/gsk/, design/gsk/ (한 과제는 그 안의 한 모듈만. CSS 는 전부 .gk-, 모듈 접두사 GDD 10절)
@@ -85,6 +86,13 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 봇전: 공통 방 + 봇 자리(`vs:'bot'`, 사람 1명, 대기실 없이 바로 시작). 계산은 사람 기기(client/src/mini/bots/ → `{t:'mn',a:'bot'}`), 코인은 `minibot_easy/mid/hard`(SPEC 22-2). 규칙 docs/mini/PLAN.md 5절.
 - 체스 퍼즐(혼자 퀴즈 풀기, `vs:'puzzle'`): server/mini/puzzleRun.js·puzzles.js, 코인 `puzzle_*`(하루 상한 100은 coin_log 합), 레이팅 `users.puzzle`. 정답 수순은 실패·정답 보기 뒤에만 보낸다(test/mini/puzzle.test.js). 규칙 docs/mini/PLAN.md 6절.
 - test/ui/smoke.mjs 에 미니게임 한 판(커넥트포) 클릭이 있다. 판 모양·소리·터치 느낌은 "미확인(실기기 확인 필요)".
+
+## 놀이터 (플래시 게임, 코인·랭킹·서버 없음)
+- 로비 "놀이터" 버튼 → client/src/flash/index.js(처음 누를 때만 불러옴) → 게임 카드 → Ruffle 로 전체 화면 실행. 서버 방·코인·채팅과 섞이지 않는다.
+- 게임 추가 = client/src/flash/games.js 한 줄(id·name·file·players·keys·desc) + client/public/flash/<file>.swf. keys 에 방향키·스페이스·엔터가 들어 있으면 휴대폰에 화면 버튼이 뜬다.
+- Ruffle 0.7.1 은 npm pack 으로 받아 필요한 파일만 client/public/ruffle/ 에 복사해 커밋했다(package.json 에 넣지 않음). 올릴 때도 같은 방법.
+- 소리 끄기(sound/core.js)를 Ruffle 볼륨에 연결. 지금은 혼자 하는 게임만(players:1).
+- 시험: test/ui/smoke.mjs 의 놀이터 한 줄. 실제 게임 조작감·소리·휴대폰 화면 버튼·iPad/Safari 는 "미확인(실기기 확인 필요)".
 
 ## CSS
 - 접두사: 로비 .lb-, 채팅 .chat-, 이모티콘·사운드 .ep-, 공용 방 틀 .rm- .wr-, 공용 부품 .ui-, 코인 .cn- 등, 관리자 .adm-. 새 모듈은 새 접두사. test/css.test.js 가 등록표(shared/games.js 의 css 칸)와 이 접두사들을 검사한다.
