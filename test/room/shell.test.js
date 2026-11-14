@@ -551,3 +551,23 @@ test('관전 계정: 끊기면 유예 뒤 나간다(게임 훅 없음), 다시 �
   assert.equal(r.room.specs.length, 0);
   assert.ok(!r.calls().some((c) => ['away', 'back', 'leave'].includes(c[0]) && c[1] === '관전1'));
 });
+
+test('look.pos: 낀 스티커의 저장 위치만 faces 로 나가고, 장착·위치 변경은 방에 다시 알린다', async () => {
+  const r = await setup(2);
+  const [a, b] = r.cs;
+  const u = r.hub.sessions.get('ann1').user;
+  const P = { x: 0.1, y: -0.2, s: 1, r: 5 };
+  u.gear = { owned: ['face.stubble', 'face.darkcircle'], equip: {}, pos: { 'face.stubble': P, 'face.darkcircle': { ...P } } };
+  const n0 = events(b, 'faces').length;
+  await a.send({ t: 'coin', a: 'equip', slot: 'face', id: 'face.stubble' });
+  const f1 = events(b, 'faces');
+  assert.equal(f1.length, n0 + 1, '장착하면 방에 다시 알린다');
+  assert.deepEqual(f1.at(-1).items[0].look, { face: 'face.stubble', pos: { 'face.stubble': P } }, '낀 것의 위치만');
+  assert.notEqual(f1.at(-1).items[0].look.pos['face.stubble'], u.gear.pos['face.stubble'], '참조를 공유하지 않는다');
+  await a.send({ t: 'coin', a: 'pos', id: 'face.stubble', x: 0.3, y: 0, s: 1.5, r: 0 });
+  const f2 = events(b, 'faces');
+  assert.equal(f2.length, n0 + 2);
+  assert.deepEqual(f2.at(-1).items[0].look.pos['face.stubble'], { x: 0.3, y: 0, s: 1.5, r: 0 });
+  await a.send({ t: 'coin', a: 'equip', slot: 'face', id: null });
+  assert.deepEqual(events(b, 'faces').at(-1).items[0].look, {}, '벗으면 위치도 안 나간다');
+});

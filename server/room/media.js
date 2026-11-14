@@ -23,7 +23,14 @@ export function createMedia(shell) {
 
   const who = (id) => shell.member(id) ?? shell.spec(id); // 참가자 또는 관전자
   const faceOf = (m) => (held.has(m.id) ? held.get(m.id) : m.session.user.avatar) ?? null;
-  const faceItem = (m) => ({ id: m.id, avatar: faceOf(m), look: { ...(m.session.user.gear?.equip ?? {}) } });
+  const lookOf = (gear) => {
+    const look = { ...(gear?.equip ?? {}) };
+    const pos = {};
+    for (const id of Object.values(look)) if (gear?.pos?.[id]) pos[id] = { ...gear.pos[id] };
+    if (Object.keys(pos).length) look.pos = pos;
+    return look;
+  };
+  const faceItem = (m) => ({ id: m.id, avatar: faceOf(m), look: lookOf(m.session.user.gear) });
   const facesEvent = (ms) => ({ k: 'faces', items: ms.map(faceItem) });
 
   function sendFaces(ids, filter = () => true) {

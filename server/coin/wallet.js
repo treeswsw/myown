@@ -380,6 +380,7 @@ export function installWallet(hub) {
         const c = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
         (g.pos ?? (g.pos = {}))[it.id] = { x: c(m.x, -0.5, 0.5), y: c(m.y, -0.5, 0.5), s: c(m.s, 0.3, 2), r: c(m.r, -180, 180) };
         changed(session, null);
+        session.room?.faceChanged(session, session.user.avatar);
         return null;
       }
       case 'hist': {
@@ -430,6 +431,7 @@ export function installWallet(hub) {
         }
         changed(session, null);
         hub.send(session, { t: 'coin', a: 'equip', slot: m.slot, id: m.id });
+        session.room?.faceChanged(session, session.user.avatar);
         return null;
       }
       case 'rank': {
