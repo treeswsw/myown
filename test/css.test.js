@@ -163,6 +163,7 @@ for (const [mode, g] of Object.entries(GAMES)) {
 const SHARED_PREFIX = [
   { dir: 'client/src/coin/', prefixes: ['cn-', 'gc-', 'sh-', 'pn-', 'lk-', 'tfx-', 'cp-'], allow: ['tfx'] },
   { dir: 'client/src/room/', prefixes: ['rm-', 'wr-'] },
+  { dir: 'client/src/flash/', prefixes: ['fl-'] },
   { dir: 'client/src/ui/kit/', prefixes: ['ui-'], allow: ['letter'] },
   { file: 'client/src/ui/admin.css', prefixes: ['adm-'] },
 ];

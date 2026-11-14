@@ -101,6 +101,7 @@ const lobby = createLobby({
     setTimeout(() => location.reload(), 150); // let the message leave before the socket closes
   },
   onRank: () => send({ t: 'lg', a: 'rank' }),
+  onFlash: () => import('./flash/index.js').then((m) => m.open()), // 놀이터(플래시): 서버 없이 화면만
 });
 document.body.append(lobby.el);
 /* coin module (SPEC 22): loaded right after login; messages are buffered until it is ready */
