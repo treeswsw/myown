@@ -43,3 +43,12 @@
 - 승부 방식 `len`: 1(단판, 기본) / 3(3판 2선승) / 5(5판 3선승). 판 사이에 자리를 서로 바꿔 선(먼저 두는 사람)이 번갈아 바뀐다(첫 선은 난수). 한 판이 끝나고 매치가 안 끝났으면 `phase:'between'` 으로 `BETWEEN_MS`(5초) 쉬고 서버가 다음 판을 시작한다(관리자 skip 은 바로). 매치가 끝나야 `phase:'end'`(결과) → 대기실. 무승부 판은 승수에 넣지 않고 다시 한다(한 매치에서 3번 나오면 매치도 무승부, 단판은 무승부면 바로 끝). 판 중·판 사이의 기권/나감/60초 끊김은 매치 전체 패배.
 - 방 상태 추가 칸: `phase` 에 `between`, `match: null | {len, kind, round, draws, bet, score:[자리0 승수, 자리1 승수], next: 다음 판 시작 시각|null, last: null|{winner: 자리|'draw', game}}`. `result` 는 매치 결과 `{winner: 마지막 판 기준 자리|'draw', reason: 'win'|'resign'|'leave'|'draw'}`(모양은 전과 같다). `wait.set = {game, kind, games, rule, len}`, `wait.own = {[id]: {bet}}`(두 사람 모두 보임).
 - 코인 베팅(개인 칸 `bet`, 화면 `waitPart('mn-bet')`): 앉은 두 사람이 각자 가진 코인 이하로 건다(`pick {bet}`; 구경꾼은 0 만, 한도 초과는 `mn_coin`, 정수 아님 `mn_betval`). 둘의 수가 같아야 시작(`mn_bet`: "건 코인이 서로 달라요 (같게 맞추거나 둘 다 0)"), 시작 직전 잔액 재확인(`mn_coin`), 둘 다 0 이면 내기 없음, 봇과는 불가. 시작하면 `hub.stake`(SPEC 22-20)로 두 사람에게서 떼어 맡고, 매치가 끝나면 이긴 사람이 전부, 무승부·서버가 닫히는 경우는 돌려준다. 베팅 칸은 매치가 끝날 때마다 0 으로 비운다. 원래 승리 코인(미니 +1)은 매치를 판 승수로 이긴 사람에게 한 번.
+
+## 5. 봇과 하기 (혼자, 서버 없음) — 2026-11-14
+- 서버 방을 만들지 않는다. 화면이 shared/mini 규칙으로 판을 진행하고, 봇은 브라우저 Web Worker 에서 계산(서버 부담 0).
+- 난이도 `level`: 'easy' | 'mid' | 'hard'. 사람은 선/후 선택(기본 선 = seat 0).
+- 공용 입구 client/src/mini/bots/index.js: `export function botMove(game, state, level) → Promise<move>` (move 는 2절 모양 그대로, 반드시 legalMoves 안의 수). 사람이 생각할 틈을 위해 최소 400ms 뒤에 돌려준다. 실패하면 legalMoves 중 무작위.
+- 오목·커넥트포·리버시·체커: client/src/mini/bots/{gomoku,connect4,reversi,checkers}.js 각각 `pickMove(state, level, deadlineMs)` (동기, 순수). index.js 가 client/src/mini/bots/worker.js 하나에서 돌린다.
+- 체스: client/src/mini/bots/chess.js `export function chessMove(state, level) → Promise<move>` — Stockfish lite-single(npm `stockfish`)을 client/public/stockfish/ 에 복사해 Worker 로 UCI. bots/fen.js 가 상태→FEN. easy: Skill 0 + 50ms + 무작위 수 섞기, mid: Skill 8 + 300ms, hard: Skill 20 + 1000ms. 처음 봇전 들어갈 때만 받는다.
+- 세기(Fable 검토안): 오목 깊이 1(+실수)/2/4 + 4목 강제수, 커넥트포 2/6/1.5초 반복심화, 리버시 2/4/7 + 끝 12수 완전탐색, 체커 2/5/8(반복심화, 1초 제한). 모두 시간 제한 안에서 끝낸다.
+- 화면: 미니게임에서 게임을 고른 뒤 "친구와 하기"(지금 방식) / "봇과 하기"(난이도·선후 고르고 바로 판). client/src/mini/solo.js 가 판(boards/renderBoard)을 그대로 쓴다. 끝나면 결과 + "다시" + "나가기".
