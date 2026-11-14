@@ -44,11 +44,11 @@
 - 방 상태 추가 칸: `phase` 에 `between`, `match: null | {len, kind, round, draws, bet, score:[자리0 승수, 자리1 승수], next: 다음 판 시작 시각|null, last: null|{winner: 자리|'draw', game}}`. `result` 는 매치 결과 `{winner: 마지막 판 기준 자리|'draw', reason: 'win'|'resign'|'leave'|'draw'}`(모양은 전과 같다). `wait.set = {game, kind, games, rule, len}`, `wait.own = {[id]: {bet}}`(두 사람 모두 보임).
 - 코인 베팅(개인 칸 `bet`, 화면 `waitPart('mn-bet')`): 앉은 두 사람이 각자 가진 코인 이하로 건다(`pick {bet}`; 구경꾼은 0 만, 한도 초과는 `mn_coin`, 정수 아님 `mn_betval`). 둘의 수가 같아야 시작(`mn_bet`: "건 코인이 서로 달라요 (같게 맞추거나 둘 다 0)"), 시작 직전 잔액 재확인(`mn_coin`), 둘 다 0 이면 내기 없음, 봇과는 불가. 시작하면 `hub.stake`(SPEC 22-20)로 두 사람에게서 떼어 맡고, 매치가 끝나면 이긴 사람이 전부, 무승부·서버가 닫히는 경우는 돌려준다. 베팅 칸은 매치가 끝날 때마다 0 으로 비운다. 원래 승리 코인(미니 +1)은 매치를 판 승수로 이긴 사람에게 한 번.
 
-## 5. 봇과 하기 (혼자, 서버 없음) — 2026-11-14
-- 서버 방을 만들지 않는다. 화면이 shared/mini 규칙으로 판을 진행하고, 봇은 브라우저 Web Worker 에서 계산(서버 부담 0).
-- 난이도 `level`: 'easy' | 'mid' | 'hard'. 사람은 선/후 선택(기본 선 = seat 0).
-- 공용 입구 client/src/mini/bots/index.js: `export function botMove(game, state, level) → Promise<move>` (move 는 2절 모양 그대로, 반드시 legalMoves 안의 수). 사람이 생각할 틈을 위해 최소 400ms 뒤에 돌려준다. 실패하면 legalMoves 중 무작위.
-- 오목·커넥트포·리버시·체커: client/src/mini/bots/{gomoku,connect4,reversi,checkers}.js 각각 `pickMove(state, level, deadlineMs)` (동기, 순수). index.js 가 client/src/mini/bots/worker.js 하나에서 돌린다.
-- 체스: client/src/mini/bots/chess.js `export function chessMove(state, level) → Promise<move>` — Stockfish lite-single(npm `stockfish`)을 client/public/stockfish/ 에 복사해 Worker 로 UCI. bots/fen.js 가 상태→FEN. easy: Skill 0 + 50ms + 무작위 수 섞기, mid: Skill 8 + 300ms, hard: Skill 20 + 1000ms. 처음 봇전 들어갈 때만 받는다.
-- 세기(Fable 검토안): 오목 깊이 1(+실수)/2/4 + 4목 강제수, 커넥트포 2/6/1.5초 반복심화, 리버시 2/4/7 + 끝 12수 완전탐색, 체커 2/5/8(반복심화, 1초 제한). 모두 시간 제한 안에서 끝낸다.
-- 화면: 미니게임에서 게임을 고른 뒤 "친구와 하기"(지금 방식) / "봇과 하기"(난이도·선후 고르고 바로 판). client/src/mini/solo.js 가 판(boards/renderBoard)을 그대로 쓴다. 끝나면 결과 + "다시" + "나가기".
+## 5. 봇과 하기 — 2026-11-14 (사이트 공통 틀 그대로, docs/NEW-GAME.md 2절)
+- 따로 화면·따로 흐름을 만들지 않는다. **미니게임 방 하나에 봇 자리**를 둔다. 방 만들기·대기실·시작·나가기·결과 화면·코인은 공용(Shell, `ctx.finish`, `client/src/room/result.js`) 그대로.
+- 방 설정(shared/mini/settings.js): `vs: 'friend'|'bot'`, `level: 'easy'|'mid'|'hard'`, `side: 0|1`(사람이 선=0). 로비에서 "봇과 하기"를 고르면 이 설정으로 방을 만들고 바로 시작(대기실 생략 가능, 다시 시작은 공용 결과 화면의 "다시").
+- 봇 방은 사람 1명. 다른 사람은 관전만. `seats = [사람id, 'bot']` 또는 반대. 봇 자리 이름 "봇 (초급/중급/고급)". 정원 예외(min 1)는 NEW-GAME 4절 예외 표에 한 줄.
+- **봇 계산은 사람 기기에서**(서버 부담 0): 봇 차례가 되면 사람 화면이 `client/src/mini/bots/index.js` 의 `botMove(game, state, level)`(Web Worker, 체스는 Stockfish)로 수를 구해 `{t:'mn', a:'bot', move}` 를 보낸다. 서버는 그 방의 사람만, 봇 차례에만, shared 규칙으로 합법인 수만 받는다. 사람이 끊기면 판은 멈추고 공용 유예(60초) 뒤 기권.
+- 봇 엔진 약속: `botMove(...) → Promise<move>`(2절 모양, legalMoves 안의 수, 최소 400ms, 실패 시 무작위 합법 수). 오목·커넥트포·리버시·체커 `bots/<game>.js` 의 `pickMove(state, level, deadlineMs)`, 체스 `bots/chess.js` 의 `chessMove(state, level)`. 세기: 오목 1(+실수)/2/4, 커넥트포 2/6/1.5초, 리버시 2/4/7+끝 12수, 체커 2/5/8(1초), 체스 Skill 0(+무작위 30%)/8/20.
+- **코인**: `shared/coin/rules.js` COIN_RULES 에 `minibot: { easy: 1, mid: 2, hard: 4, gapMs: 60000 }` 한 줄(이길 때만, 지거나 무승부·기권은 0). 봇 방은 `ctx.finish(rows, { coin: 'minibot', level })` 로 사람 한 줄만 낸다. "방에 봇이 있으면 지급 없음" 규칙은 관리자 봇(server/admin) 얘기라 이 봇 자리에는 적용하지 않는다(예외 표에 한 줄). 관리자 세부 설정(21-7)에서 값이 바뀌게 기존 줄과 같은 방식.
+- 결과 화면: 공용 결과에 "봇(중급)에게 승리 +2" 처럼 `resultPart`/`note` 로.
