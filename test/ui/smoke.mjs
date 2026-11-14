@@ -1075,21 +1075,51 @@ async function coinCheck(browser) {
       await page.click('.sh-close');
       await waitCoins('(n) => n === 497', 'balance not 497');
     });
-    await step('draw 1 with skip, then 10', async () => {
+    await step('card draw: free 1, 1장, 10장 with 다 뒤집기, chips go up', async () => {
+      // 상점 → [카드 뽑기]. 상점 화면이 바뀌어도 되도록 버튼 글자로 찾는다.
       await page.click('.lb-coin-btn:has-text("상점")');
-      await page.click('.sh-swap:has-text("카드 뽑기")');
-      await visible2(page, '.gc-panel');
-      await page.click('.gc-btn:has-text("1회")');
-      await page.waitForFunction(() => document.querySelector('.gc-panel')?.dataset.mode !== 'idle', null, { timeout: T });
-      await page.click('.gc-btn-skip', { timeout: 2500 }).catch(() => {}); // skip while it plays (if it already ended, fine)
-      await page.waitForSelector('.gc-panel[data-mode="done"]', { timeout: T });
-      await page.waitForTimeout(450); // the window ignores clicks for 0.35 s after a draw
-      await page.click('.gc-btn:has-text("10연") >> visible=true');
-      await page.waitForFunction(() => document.querySelector('.gc-panel')?.dataset.mode !== 'done', null, { timeout: T });
-      await page.click('.gc-btn-skip', { timeout: 2500 }).catch(() => {});
-      await page.waitForSelector('.gc-panel[data-mode="done"]', { timeout: T });
-      await page.click('.gc-btn:has-text("닫기")');
-      await waitCoins('(n) => n === 442', 'balance not 442 after 11 pulls');
+      const openers = ['button:has-text("카드 뽑기")', ':has(> :text("카드 뽑기")) button:has-text("뽑기")', 'text=카드 뽑기'];
+      for (const sel of openers) {
+        if (await page.locator('.gc-panel').count()) break;
+        await page.click(`${sel} >> visible=true`, { timeout: 1500 }).catch(() => {});
+        await page.waitForSelector('.gc-panel', { timeout: 1500 }).catch(() => {});
+      }
+      await visible2(page, '.gc-panel[data-mode="idle"]');
+      await visible2(page, '.gc-tiers .gc-face >> nth=5'); // 나올 수 있는 카드 6종
+      await visible2(page, '.gc-vault-n');
+      if (!/대박 확정까지 \d+장/.test(await page.locator('.gc-pity-t').innerText())) throw new Error('no pity line');
+      if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || document.querySelector('.gc-ft-bar').getBoundingClientRect().bottom > innerHeight + 1 || [...document.querySelectorAll('.gc-ft-bar .gc-btn')].some((b) => !b.hidden && (b.getBoundingClientRect().right > innerWidth + 1 || b.getBoundingClientRect().left < -1)))) throw new Error('draw window overflows the phone screen');
+      const num = (sel) => page.evaluate((q) => Number((document.querySelector(q)?.textContent || '').replace(/[^\d]/g, '')), sel);
+      const drawOnce = async (btn, n) => {
+        const before = await num('.gc-chips b');
+        await page.waitForTimeout(450); // the window ignores clicks for 0.35 s after a draw
+        await page.click(`${btn} >> visible=true`);
+        await page.waitForSelector('.gc-panel[data-mode="busy"], .gc-panel[data-mode="done"]', { timeout: T });
+        await page.waitForFunction((k) => document.querySelectorAll('.gc-row .gc-card').length === k, n, { timeout: T });
+        await page.click('.gc-btn-all:not([disabled]) >> visible=true', { timeout: 2500 }).catch(() => {}); // 한 번에 다 뒤집기 (already done is fine)
+        await page.waitForSelector('.gc-panel[data-mode="done"]', { timeout: T });
+        if ((await page.locator('.gc-row .gc-card.gc-open').count()) !== n) throw new Error(`not all ${n} cards are face up`);
+        const gained = await num('.gc-sum');
+        if (!(gained >= 200 * n)) throw new Error(`total chips ${gained} for ${n} cards`);
+        await page.waitForFunction(([q, want]) => Number((document.querySelector(q)?.textContent || '').replace(/[^\d]/g, '')) === want, ['.gc-chips b', before + gained], { timeout: T }).catch(() => { throw new Error(`chips did not go up by ${gained}`); });
+      };
+      const coins0 = await num('.gc-coins b');
+      if (await page.locator('.gc-btn-free:not(.gc-dim)').count()) { // 무료 1장 (새 계정은 2장)
+        await drawOnce('.gc-btn-free', 1);
+        if ((await num('.gc-coins b')) !== coins0) throw new Error('free draw took coins');
+        await page.click('.gc-back'); // 처음 화면으로
+        await visible2(page, '.gc-panel[data-mode="idle"]');
+      }
+      await drawOnce('.gc-btn:has-text("1장 · 5코인")', 1);
+      await drawOnce('.gc-btn:has-text("10장 한 번 더")', 10);
+      if ((await num('.gc-coins b')) !== coins0 - 55) throw new Error('coins not down by 55');
+      await page.click('.gc-back');
+      await page.click('.gc-btn:has-text("내 기록")');
+      await visible2(page, '.gc-hist-row');
+      await page.click('.gc-hist-x');
+      await page.click('.gc-back'); // 닫기
+      await page.waitForSelector('.gc-panel', { state: 'detached', timeout: T });
+      await page.click('.sh-close', { timeout: 1500 }).catch(() => {}); // 옛 상점은 뽑기를 열 때 닫히지 않을 수 있다
     });
     await step('capsule: title draw 1', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');
