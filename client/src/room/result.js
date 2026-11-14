@@ -50,6 +50,7 @@ export function createResult({ send, profile, faces, onWait, onLeave }) {
   const title = h('h2', 'rm-rs-title');
   const sub = h('p', 'rm-rs-sub');
   const list = h('ul', 'lb-group rm-rs-rows');
+  const cols = h('div', 'rm-rs-cols'); // 열 이름: 게임 점수 / 받은 코인 (2026-11-14 사용자 요청)
   const part = h('div', 'rm-rs-part');
   const why = h('p', 'rm-rs-why');
   const again = btn('lb-btn lb-primary', '다시 시작', 'result-again', () => send({ t: 'start' }));
@@ -59,7 +60,7 @@ export function createResult({ send, profile, faces, onWait, onLeave }) {
     h('span', 'rm-rs-sp'),
     btn('lb-btn lb-tint', '대기실로', 'result-wait', () => onWait()),
     again, guest);
-  const panel = h('section', 'lb-panel rm-rs-panel', h('div', 'rm-rs-head', title, sub), list, part, why, foot);
+  const panel = h('section', 'lb-panel rm-rs-panel', h('div', 'rm-rs-head', title, sub), cols, list, part, why, foot);
   panel.dataset.rm = 'result';
   const back = btn('lb-btn lb-primary rm-rs-back', '결과 보기', 'result-back', () => setPeek(false));
   const el = h('div', 'lb-root rm-rs-root', panel, back);
@@ -102,6 +103,8 @@ export function createResult({ send, profile, faces, onWait, onLeave }) {
     sub.hidden = !m.sub;
     avatars.clear();
     list.replaceChildren(...m.rows.map(row));
+    const unitName = state.wait?.result?.unit === 'chip' ? '받은 칩' : '받은 코인';
+    cols.replaceChildren(h('span', 'rm-rs-sp'), ...(m.rows.some((x) => x.score !== null) ? [h('span', 'rm-rs-col-score', '게임 점수')] : []), h('span', 'rm-rs-col-gain', unitName));
     const g = safe(() => game?.resultPart?.(state) ?? null);
     if (part.firstChild !== g) part.replaceChildren(...(g ? [g] : []));
     part.hidden = !g;

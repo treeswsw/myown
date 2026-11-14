@@ -5,7 +5,8 @@
 //   skullFace(host, {id,name,face,look}) -> 해골 원판 속 사진 자리 위에 공용 프사를 판때기처럼 겹친다(치장이 없으면 아무것도 안 붙임)
 import { playerAvatar } from '../ui/kit/avatar.js';
 
-const HOLE_D = 0.8; // 해골 원판 가운데 사진 구멍 지름 / 원판 너비 (img/meta.json skullHole r≈0.4, 중심 0.5·0.5)
+const HOLE_D = 0.7; // 테두리 링까지 원판 안에 들어오게 조금 작게(2026-11-14)
+const ROUND = 'circle(50% at 50% 50%)'; // iPad Safari 에서 둥근 잘림이 풀리는 일 막기 // 해골 원판 가운데 사진 구멍 지름 / 원판 너비 (img/meta.json skullHole r≈0.4, 중심 0.5·0.5)
 const SLOTS = ['face', 'acc', 'frame'];
 
 export function gskLook(look) {
@@ -39,7 +40,10 @@ export function skullFace(host, who) {
     last = w;
     const box = playerAvatar({ id: who.id, name: who.name || '', face: who.face || null, look, size: Math.round(w * HOLE_D) });
     // 사진이 없으면 그림 해골이 그대로 보이고 치장만 얹힌다
-    if (!who.face) { const pic = box.querySelector('.ui-av'); if (pic) pic.style.opacity = '0'; }
+    const pic = box.querySelector('.ui-av');
+    if (pic) { pic.style.clipPath = ROUND; pic.style.webkitClipPath = ROUND; }
+    for (const c of box.querySelectorAll('.lk-cover')) { c.style.clipPath = ROUND; c.style.webkitClipPath = ROUND; }
+    if (!who.face && pic) pic.style.opacity = '0';
     ov.replaceChildren(box);
   };
   fit();

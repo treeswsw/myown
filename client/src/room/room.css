@@ -105,3 +105,7 @@
 .rm-rs-guest.rm-rs-guest { padding: 0 8px; }
 .rm-rs-peek.rm-rs-peek { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; align-items: flex-end; justify-content: flex-end; padding: 16px; }
 .rm-rs-back.rm-rs-back { pointer-events: auto; box-shadow: 0 8px 24px rgba(0, 0, 0, .45); }
+/* 결과 열 이름(게임 점수 / 받은 코인) — 아래 줄의 .rm-rs-score·.rm-rs-gain 폭에 맞춘다 */
+.rm-rs-cols { display: flex; align-items: center; gap: 12px; padding: 0 16px 6px; font-size: 12px; font-weight: 600; color: var(--ink2); }
+.rm-rs-cols .rm-rs-col-score { flex: none; min-width: 52px; text-align: right; }
+.rm-rs-cols .rm-rs-col-gain { flex: none; min-width: 120px; text-align: right; }
