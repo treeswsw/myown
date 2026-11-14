@@ -13,7 +13,7 @@
 ## 프롬프트 1 — 모자 20개 + 악세 22개 (그림 4장: 1–10 / 11–20 / 21–31 / 32–42, 사이에 `next`)
 
 ```
-I need cosmetic item art for a Korean meme-humour online card game (poker / party games). The items are overlays that sit on a player's CIRCULAR profile picture. You will make the HATS (items 1–20) and ACCESSORIES (items 21–42) below as a series of sprite-sheet images, all in exactly the same style. Make ONE image now with items 1–10; when I reply "next", make the next image with the next 10–11 items (11–20, then 21–31, then 32–42).
+I need cosmetic item art for a Korean meme-humour online card game (poker / party games). The items are overlays that sit on a player's CIRCULAR profile picture. You will make the HATS (items 1–20) and ACCESSORIES (items 21–42) below as a series of sprite-sheet images, all in the same overall set. Make ONE image now with items 1–10; when I reply "next", make the next image with the next 10–11 items (11–20, then 21–31, then 32–42).
 
 LAYOUT OF EACH IMAGE (very important)
 - 4 columns × 3 rows = 12 equal square cells, thin light-grey grid lines between cells. Fill cells in item order, left-to-right, top-to-bottom; leave unused cells empty.
@@ -25,25 +25,11 @@ LAYOUT OF EACH IMAGE (very important)
 STYLE — MIXED RENDERING, CHOSEN PER ITEM (this is the most important rule)
 - Do NOT draw everything in one flat style. Each item gets the treatment that makes it funniest or most convincing, marked below:
   [REAL] = photorealistic object: true materials and textures (real hair strands, crinkled plastic, fabric weave, brushed metal, glass, skin-safe makeup texture), realistic lighting. Example: a steel drum or a gold chain should look like a real product photo.
-  [SEMI] = stylised but believable, like a high-end mobile game item render: clean shapes, rich shading, gloss and glow.
+  [SEMI] = stylised but believable, like a high-end mobile game item render: clean shapes, rich shading, gloss (no glow effects).
   [TOON] = full cartoon / meme: exaggerated shapes, bold outline, and where it is funny give the object its own comic face or attitude (angry eyebrows, smug grin, crying eyes, rage veins, sweat drops). Example: a national-flag headband can be wildly exaggerated and flapping dramatically; a flaming head can have an angry face in the fire.
 - Humour first: funny items must be laugh-out-loud funny and over the top; realistic items must be genuinely convincing. Pick the details that make each item recognisable and memorable — variety across items is wanted.
 - What keeps the set together: every item cleanly cut out, centred, same scale logic, consistent light from the top-left, a subtle soft contact shadow under the object only, no background.
 - CLEAN BASE ART ONLY: draw just the plain item itself. NO glow, NO sparkles, NO light rays, NO lens flares, NO auras, NO rainbow effects, NO motion lines or particle effects (I add all effects myself afterwards). Gold items are simply gold-coloured material with normal reflections. Tier numbers only tell you how cheap or fancy the item itself looks (tier 0 cheap and scruffy → tier 4 luxurious), never add effects for them.
-
-HATS (items 1–20) and ACCESSORIES (items 21–42) below as a series of sprite-sheet images, all in exactly the same style. Make ONE image now with items 1–10; when I reply "next", make the next image with the next 10–11 items (11–20, then 21–31, then 32–42).
-
-LAYOUT OF EACH IMAGE (very important)
-- 4 columns × 3 rows = 12 equal square cells, thin light-grey grid lines between cells. Fill cells in item order, left-to-right, top-to-bottom; leave unused cells empty.
-- Transparent background (PNG) if you can; otherwise flat pure white (#FFFFFF).
-- ONE item per cell, centred, filling about 75% of the cell, never touching or crossing the grid lines. Nothing overlaps between cells.
-- No background shadows, no scenery, no faces, no heads, no people, no hands (unless the item itself is a hand-held object). Draw ONLY the object.
-- NO text, numbers, labels or watermarks anywhere in the image, except text that is part of an item and explicitly requested below.
-
-STYLE (keep identical across every image)
-- Premium mobile-game item icon meets Korean internet meme sticker: bold clean dark outline (about 3–4 px at 1024 px), saturated colours, soft cel shading with one highlight and one shadow tone, a little gloss on metal/plastic. Funny, cheeky, slightly crude, exaggerated — but cleanly rendered, not sloppy.
-- Front-facing or 3/4 front view, consistent light from top-left, same line weight and scale logic in every cell.
-- Rarity feel by tier (do not draw frames or badges, just quality of detail): tier 0 junk = cheap, scruffy materials; tier 1 common = clean everyday; tier 2 concept = bolder, more character; tier 3 legend = rich gold/glow accents, sparkle highlights; tier 4 mythic = most spectacular, rainbow or divine glow.
 
 HATS (items 1–20): drawn as if worn on top of an invisible round head seen from the front; the bottom edge of each hat is where the head would be (a gentle upward curve). Hats must be WIDE and LOW so they read on a small circle.
 1. [REAL] (tier 0) Korean military winter field cap, olive drab quilted "kkalkkali" liner style, slightly crumpled.
