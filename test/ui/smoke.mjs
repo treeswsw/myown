@@ -1155,6 +1155,7 @@ async function coinCheck(browser) {
       await page.waitForFunction(() => !document.querySelector('.sh-root'), null, { timeout: T });
     });
     await step('wardrobe (옷장): opens from the shop, tab, unequip/equip, close', async () => {
+      await page.waitForSelector('.lk-w-page', { timeout: 3000 }).catch(() => {}); // the shop step's [옷장] loads it lazily
       if (!(await page.locator('.lk-w-page').count())) { // the shop step may already have opened it via [옷장]
         await page.click('.lb-coin-btn:has-text("상점")');
         await page.click('button:has-text("옷장")');
