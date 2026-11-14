@@ -271,10 +271,10 @@ return {
 ### 4-4. 채팅 규칙 훅 (화면 `ui/chat.js` 에 `setRule(rule|null)` 추가. C1: chat.setRule 은 maxLen 만 받고 lock·route·bubble·own 은 frame 이 부른다. own 이면 `setMode('own')`(입력 숨김·기록 계속), 대기실은 `setMode('wait')` + `chat.waitEl`, 시스템 줄 `chat.system(text)`)
 | 게임 | rule | 근거 |
 |---|---|---|
-| 라이어 | `maxLen 80`, `lock` = chatLockFor, `route` = chatMsgFor(say/chat), `bubble` = kind 가 say·plea 면 false | liar/index.js:179·213, main.js:85·556 |
+| 라이어 | `maxLen 80`, `lock` = chatLockFor, `route` = chatMsgFor(say/chat), `bubble` = kind 가 say·plea 면 false (chat.push 가 모든 모드에서 따른다: 큰 글로 따로 보이는 말은 기록에만) | liar/index.js:179·213, main.js:85·556 |
 | 갱식마인드 | `maxLen 40`, `own(state)` = 대기·최종이 아니면 true(그동안 사이트 입력칸 숨김, 기록은 계속 받음) | B10·B12, D8 |
 | 나머지 | 없음(120자, 말풍선) | |
-- (X 추가) `chatRule.input?(state) → bool`: 참인 동안 게임 중 입력 줄을 열어 둔다. 참이 되면 틀이 `chat.open()`, 거짓이 되면 틀이 연 것만 `chat.close()`. 라이어 = 내 입력 차례(첫 설명·최후 변론, `chatLockFor(s).hot`).
+- (X 추가) `chatRule.layout?: 'inline'`: 게임 중 입력칸이 아래 가운데에 늘 보이고 최근 기록이 오른쪽 위에 늘 보인다(채팅 버튼 없음, 기록 버튼으로 펼침). 틀이 `chat.setMode('inline')`. 라이어만 쓴다. 안 주면 공용 버튼 방식.
 
 ### 4-5. main.js 에서 없어지는 것 / 남는 것
 | 없어짐 (→ 어디로) | 줄 |

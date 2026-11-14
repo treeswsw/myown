@@ -4,7 +4,7 @@ import { chatSize, madLetters, MAD_FONTS } from './chatSize.js';
 
 // createChat({ onSend(text), getAnchor(playerId) -> {x, y} | null, onEmote?() })
 //   -> { el, button, waitEl, push(msg, {mine, bubble}), system(text), setLog(items, myId?), open(), close(), toggle(),
-//        setMode('game'|'lobby'|'liar'|'wait'|'own'), setLock(locked, note, hot), setRule(rule|null), setEnabled(bool), update() }
+//        setMode('game'|'lobby'|'inline'|'wait'|'own'), setLock(locked, note, hot), setRule(rule|null), setEnabled(bool), update() }
 // Pure DOM: the host mounts `el` and `button` (both position:fixed) and wires the network.
 // 'wait' (공통 대기실, COMMON-CONTRACT 4-3): 기록과 입력 줄이 waitEl 안에 들어간다. 대기실이 waitEl 을 자기 오른쪽 칸에 붙인다.
 //   입력 줄 왼쪽에 이모티콘 버튼(onEmote). 'own': 게임이 자기 입력칸을 쓰는 동안 사이트 채팅을 숨기고 기록만 받는다.
@@ -83,7 +83,7 @@ export function createChat({ onSend, getAnchor, onEmote }) {
   const col = h('div', 'chat-col', bar, sheet, toasts);
   const msgs = h('div', 'chat-msgs');
   const dock = h('div', 'chat-dock', msgs);
-  const feed = h('div', 'chat-feed'); // liar room: last few lines, top right, not clickable
+  const feed = h('div', 'chat-feed'); // inline layout (chatRule.layout): last few lines, top right, not clickable
   feed.hidden = true;
   el.append(layer, col, dock, feed);
   const wlog = h('div', 'chat-wlog');
@@ -183,8 +183,8 @@ export function createChat({ onSend, getAnchor, onEmote }) {
   const said = () => log.filter((m) => !m.sys);
   const renderDock = () => msgs.replaceChildren(...said().slice(-3).map((m) => h('div', `chat-msg ${m.mine ? 'mine' : ''} ${m.big ? 'big' : ''}`, h('b', '', m.name), m.text)));
   const renderFeed = () => feed.replaceChildren(...said().slice(-FEED_MAX).map((m) => h('div', `chat-fr ${m.mine ? 'mine' : ''}`, h('b', '', m.name), m.text)));
-  const syncFeed = () => { feed.hidden = mode !== 'liar' || !enabled || sheetOpen; };
-  const renderLogs = () => { if (sheetOpen) renderSheet(); if (mode === 'lobby') renderDock(); if (mode === 'liar') renderFeed(); if (mode === 'wait') renderWait(); };
+  const syncFeed = () => { feed.hidden = mode !== 'inline' || !enabled || sheetOpen; };
+  const renderLogs = () => { if (sheetOpen) renderSheet(); if (mode === 'lobby') renderDock(); if (mode === 'inline') renderFeed(); if (mode === 'wait') renderWait(); };
 
   function setSheet(v) {
     sheetOpen = v;
@@ -197,7 +197,7 @@ export function createChat({ onSend, getAnchor, onEmote }) {
   // Soft keyboard (iPad): lift the docked bar by the height the keyboard hides.
   const vv = window.visualViewport;
   function syncKb() {
-    const docked = (mode === 'lobby' || mode === 'liar') && enabled;
+    const docked = (mode === 'lobby' || mode === 'inline') && enabled;
     const kb = docked && vv ? Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) : 0;
     document.documentElement.style.setProperty('--chat-kb', `${kb}px`);
   }
@@ -206,22 +206,22 @@ export function createChat({ onSend, getAnchor, onEmote }) {
   // Open / close
   function layout() {
     const lobby = mode === 'lobby';
-    const liar = mode === 'liar';
+    const inline = mode === 'inline';
     const wait = mode === 'wait';
     const own = mode === 'own';
-    const docked = lobby || liar;
+    const docked = lobby || inline;
     const root = document.documentElement.classList;
     el.hidden = !enabled || wait || own;
     waitEl.hidden = !wait || !enabled;
     emoBtn.hidden = !wait;
-    el.classList.toggle('chat-liar', liar);
+    el.classList.toggle('chat-inline', inline);
     root.toggle('chat-docked', docked && enabled);
-    root.toggle('chat-liar', liar && enabled);
+    root.toggle('chat-inline', inline && enabled);
     toasts.replaceChildren();
     if (docked || wait || own) { isOpen = false; setSheet(false); }
     if (lobby || wait || own) { layer.replaceChildren(); slots.clear(); }
     dock.hidden = !docked;
-    msgs.hidden = liar;
+    msgs.hidden = inline;
     col.hidden = lobby;
     button.hidden = docked || wait || own || !enabled;
     // Only move the bar when it is not already in place: re-inserting a focused input drops focus and breaks IME composition.
@@ -233,7 +233,7 @@ export function createChat({ onSend, getAnchor, onEmote }) {
     bar.hidden = fixed ? false : !isOpen;
     if (lobby) renderDock();
     if (wait) renderWait();
-    if (liar) renderFeed();
+    if (inline) renderFeed();
     syncFeed();
     syncKb();
   }
@@ -249,7 +249,7 @@ export function createChat({ onSend, getAnchor, onEmote }) {
     input.focus({ preventScroll: true });
   }
   function close() {
-    if (mode !== 'game') { if (mode === 'liar') setSheet(false); input.blur(); return; }
+    if (mode !== 'game') { if (mode === 'inline') setSheet(false); input.blur(); return; }
     isOpen = false;
     bar.hidden = true;
     setSheet(false);
@@ -264,7 +264,7 @@ export function createChat({ onSend, getAnchor, onEmote }) {
     onSend(text);
     input.value = '';
     sync();
-    if (touch.matches && mode !== 'liar' && mode !== 'wait') close();
+    if (touch.matches && mode !== 'inline' && mode !== 'wait') close();
   }
   function sync() {
     const n = [...input.value].length;
@@ -283,7 +283,7 @@ export function createChat({ onSend, getAnchor, onEmote }) {
     if (e.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter') { e.preventDefault(); submit(); } else if (e.key === 'Escape') close();
   });
-  send.addEventListener('click', () => { submit(); if (!touch.matches || mode === 'liar' || mode === 'wait') input.focus({ preventScroll: true }); });
+  send.addEventListener('click', () => { submit(); if (!touch.matches || mode === 'inline' || mode === 'wait') input.focus({ preventScroll: true }); });
   logBtn.addEventListener('click', () => setSheet(!sheetOpen));
   button.addEventListener('click', toggle);
   document.addEventListener('keydown', (e) => {
@@ -296,7 +296,7 @@ export function createChat({ onSend, getAnchor, onEmote }) {
   });
   document.addEventListener('pointerdown', (e) => {
     if (isOpen && !col.contains(e.target) && !button.contains(e.target)) close();
-    else if (mode === 'liar' && sheetOpen && !col.contains(e.target) && !bar.contains(e.target)) setSheet(false);
+    else if (mode === 'inline' && sheetOpen && !col.contains(e.target) && !bar.contains(e.target)) setSheet(false);
   }, true);
 
   addEventListener('resize', () => { for (const s of slots.values()) measure(s); });
@@ -316,15 +316,11 @@ export function createChat({ onSend, getAnchor, onEmote }) {
       if (log.length > LOG_MAX) log.shift();
       renderLogs();
       if (mode === 'lobby' || mode === 'wait' || mode === 'own') return;
-      if (mode === 'liar') {
-        const m = log[log.length - 1];
-        if (showBubble !== false && getAnchor(m.id)) bubble(m);
-        return;
-      }
-      if (!isOpen && !mine) unread(true);
+      if (mode !== 'inline' && !isOpen && !mine) unread(true);
+      if (showBubble === false) return; // 게임이 큰 글로 따로 보이는 말(chatRule.bubble): 기록에만 남긴다
       const m = log[log.length - 1];
       if (getAnchor(m.id)) bubble(m);
-      else toast(m);
+      else if (mode !== 'inline') toast(m);
     },
     // 시스템 줄("○○ 님이 들어왔어요"): 기록·대기실 칸에만, 말풍선 없음
     system(text) {

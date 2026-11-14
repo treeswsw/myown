@@ -51,8 +51,6 @@ export function createRoomFrame(deps) {
   let state = null;
   let toWait = false;
   let showingWait = false;
-  let inputWas = false; // chatRule.input(state) 가 지난번에 참이었나
-  let inputByUs = false; // 그때 틀이 채팅 입력 줄을 열었나(닫을 때 그것만 닫는다)
 
   const rule = () => cur?.game?.chatRule ?? null;
   const safe = (fn, fb = null) => { try { return fn(); } catch (e) { console.error(e); return fb; } };
@@ -101,17 +99,12 @@ export function createRoomFrame(deps) {
       cur.wait.update(s, cur.schema, (name) => safe(() => g?.waitPart?.(name) ?? null));
     } else {
       bar.update(s, cur.entry);
-      chat.setMode(r?.own && safe(() => r.own(s), false) ? 'own' : 'game');
+      chat.setMode(r?.own && safe(() => r.own(s), false) ? 'own' : r?.layout === 'inline' ? 'inline' : 'game');
     }
     // 채팅을 게임이 맡는 게임(등록표 chat: null, 갱식마인드)은 게임 중 관전자 채팅을 서버가 막는다: 화면도 잠근다
     const specMute = watching && !s.wait && cur.schema?.chat === null;
     const lk = specMute ? { locked: true, hint: '게임 중에는 관전자가 채팅할 수 없어요' } : r?.lock ? safe(() => r.lock(s), null) : null;
     chat.setLock(Boolean(lk?.locked), lk?.hint, lk?.hot);
-    // 게임 중 입력 줄 열어 두기(4-4 input): 켜지면 열고, 꺼지면 틀이 연 것만 닫는다
-    const want = !watching && !showingWait && Boolean(r?.input) && safe(() => Boolean(r.input(s)), false);
-    if (want && !inputWas) inputByUs = chat.button.getAttribute('aria-expanded') !== 'true' && (chat.open(), true);
-    else if (!want && inputWas && inputByUs) { chat.close(); inputByUs = false; }
-    inputWas = want;
   }
 
   function ctxFor(r) {
@@ -160,8 +153,6 @@ export function createRoomFrame(deps) {
     state = null;
     showingWait = false;
     toWait = false;
-    inputWas = false;
-    inputByUs = false;
     r.wait.dispose();
     bar.el.hidden = true;
     specBadge.hidden = true;

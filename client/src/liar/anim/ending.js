@@ -78,13 +78,6 @@ export function endingPlan(state, liarName) {
   };
 }
 
-/** part 의 글자가 e(초)까지 몇 개 찍혔나. */
-export function typedCount(plan, part, e) {
-  let n = 0;
-  for (const s of plan.steps) if (s.part === part && s.at <= e) n++;
-  return n;
-}
-
 /** 지금 단계 이름. guess: 'ask' / answer: 'word' → 'answer' → 'verdict' → 'hold' → 'end'. */
 export function stageAt(plan, e) {
   if (!plan) return null;
@@ -130,11 +123,9 @@ export function createEnding(ctx, opts = {}) {
   const face = h('div', 'lg-ed-face');
   const cname = h('div', 'lg-ed-name');
   card.append(face, cname);
-  const bubble = h('div', 'lg-ed-bubble', 'ed-bubble');
-  bubble.hidden = true;
   mid.append(card);
   const sr = h('p', 'lg-ed-sr'); sr.setAttribute('role', 'status');
-  el.append(beam, col, mid, bubble, sr);
+  el.append(beam, col, mid, sr);
   ctx.root.appendChild(el);
 
   let state = null, active = false, key = null, plan = null;
@@ -142,9 +133,9 @@ export function createEnding(ctx, opts = {}) {
 
   const stop = () => {
     active = false; key = null; plan = null; spans = {};
-    for (const p of [title, answerEl, verdictEl, wordEl, misEl, secs, wait, cname, bubble, sr]) p.textContent = '';
+    for (const p of [title, answerEl, verdictEl, wordEl, misEl, secs, wait, cname, sr]) p.textContent = '';
     face.replaceChildren();
-    bubble.hidden = true; el.hidden = true;
+    el.hidden = true;
     el.dataset.stage = 'ask'; el.dataset.phase = '';
     delete verdictEl.dataset.ok;
   };
@@ -166,21 +157,6 @@ export function createEnding(ctx, opts = {}) {
     if (typeof end !== 'number' || plan.total == null) return (ctx.now() - seenAt) / 1000;
     const remain = Math.max(0, (end - ctx.now()) / 1000);
     return Math.min(plan.total, Math.max(0, plan.total - remain));
-  };
-
-  const placeBubble = () => {
-    if (bubble.hidden) return;
-    const pos = liarId != null && ctx.anchor ? ctx.anchor(liarId) : null;
-    if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
-      bubble.classList.add('lg-ed-float');
-      bubble.style.left = pos.x + 'px';
-      bubble.style.top = pos.y + 'px';
-      if (bubble.parentNode !== el) el.appendChild(bubble);
-    } else {
-      bubble.classList.remove('lg-ed-float');
-      bubble.style.left = ''; bubble.style.top = '';
-      if (bubble.parentNode !== mid) mid.insertBefore(bubble, card);
-    }
   };
 
   const fire = (name, info) => {
@@ -223,18 +199,12 @@ export function createEnding(ctx, opts = {}) {
     if (e >= m.answerAt) fire('answer', info);
     if (e >= m.verdictEnd) fire('verdict', { id: liarId, correct: !!(state.guess && state.guess.correct) });
     if (e >= m.endAt) fire('end', info);
-    const hasAnswer = e >= m.answerAt;
     const empty = !(state.guess && typeof state.guess.text === 'string' && state.guess.text.trim());
     answerEl.dataset.empty = empty ? '1' : '0';
-    const len = [...answerText(state.guess)].length;
+    const full = answerText(state.guess);
+    const len = [...full].length;
     answerEl.dataset.len = len <= 8 ? 's' : len <= 14 ? 'm' : 'l';
     verdictEl.dataset.ok = state.guess && state.guess.correct ? '1' : '0';
-    const full = answerText(state.guess);
-    bubble.hidden = !hasAnswer;
-    if (hasAnswer) {
-      bubble.textContent = empty ? '…' : [...full].slice(0, typedCount(plan, 'answer', e)).join('');
-      placeBubble();
-    }
     if ((stage === 'hold' || stage === 'end') && !sr.textContent) {
       sr.textContent = [wordEl.textContent, misEl.textContent, full, verdictEl.textContent].filter(Boolean).join(' ');
     }

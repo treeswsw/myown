@@ -191,11 +191,10 @@ export function mount(ctx, opts = {}) {
     },
 
     // 채팅 칸 규칙(COMMON-CONTRACT 4-4): 80자, 단계별 잠금, 내 설명 차례면 say, 설명·변론은 말풍선 없이 큰 글로만.
-    // 내 입력 차례(첫 설명·최후 변론)에는 입력 줄을 열어 둔다(input, 차례가 끝나면 틀이 닫는다)
     chatRule: {
       maxLen: LIMITS.chat,
       lock: (s) => chatLockFor(s),
-      input: (s) => Boolean(s) && Boolean(chatLockFor(s).hot),
+      layout: 'inline', // 입력칸은 아래 가운데에 늘 보이고 기록은 오른쪽 위에 늘 보인다(채팅 버튼 없음)
       route: (text) => chatMsgFor(state, text),
       bubble: (e) => e.kind !== 'say' && e.kind !== 'plea',
     },

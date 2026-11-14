@@ -455,17 +455,15 @@ async function runContext(browser, server, name, cfg) {
       if (!sawLock) throw new Error('chat was never locked with the 첫 설명 note');
       if (!said) throw new Error('my speaking turn never came');
     });
-    await step('liar: 사이트 채팅 버튼으로 채팅 칸을 열면 "기록" 버튼이 기록 창을 열고 닫는다', async () => {
+    await step('liar: 채팅 칸이 늘 보이고 "기록" 버튼이 기록 창을 열고 닫는다', async () => {
       const btnShown = await page.evaluate(() => { const b = document.querySelector('.chat-btn'); return Boolean(b && !b.hidden && b.getClientRects().length); });
-      check('liar in-game: site .chat-btn shown', btnShown);
-      if (!(await page.locator('.chat-in').isVisible())) await press('.chat-btn');
+      check('liar in-game: no site .chat-btn (input always shown)', !btnShown);
       await visible('.chat-in');
       await press('.chat-log');
       await visible('.chat-sheet');
       // 이름표는 토론·재투표에서만 눌린다(.lg-vt-can). 그 밖에는 pointer-events:none 이라 캔버스가 맨 위로 잡히는 것이 정상
       await occlusion('liar in-game, 기록 open', '.lg-vt-tag:not(.lg-vt-can)');
       await press('.chat-log');
-      if (await page.locator('.chat-btn[aria-expanded="true"]').count()) await press('.chat-btn'); // 채팅 칸 닫기
     });
     await step('liar: emote panel → emote reaches a bot', async () => {
       const p = lgBots[1].waitMsg((m) => m.t === 'event' && m.e.k === 'emote', T, 'emote event');

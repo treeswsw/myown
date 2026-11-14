@@ -76,7 +76,7 @@ export function mount(ctx) { // ctx: root, ui, stage(등록표 stage 일 때), s
 
 | 게임 | 예외 | 근거 |
 |---|---|---|
-| 라이어 | 단계별 채팅 잠금, 첫 설명 차례(입력 줄 열어 둠 `chatRule.input`), 80자, 정체 공개 중 이모티콘·매체 금지 | docs/liar/GDD.md |
+| 라이어 | 단계별 채팅 잠금, 입력칸 늘 보임(`chatRule.layout`), 80자, 정체 공개 중 이모티콘·매체 금지 | docs/liar/GDD.md |
 | 갱식마인드 | 정답 판정, 정답자끼리 글 가리기, 그리는 사람 채팅·이모티콘 금지, 40자·도배 제한 값(엔진 `chatOwn`), 게임 중 자기 입력칸, 그리는 사람 끊김 15초 | docs/draw/GDD.md 10절 |
 | 요트 | 끊긴 사람 차례는 기다리고 60초에 기권 | docs/yacht/GDD.md |
 | (새 게임) | | |

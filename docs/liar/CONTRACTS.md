@@ -290,7 +290,7 @@ roundStats(result, playerIds) → { [id]: { games, wins, liarGames, liarWins } }
 - **엔딩 모듈** `client/src/liar/anim/ending.js` (`.lg-ed-`, 과제 E): `createEnding(ctx, { onStage, onTick }) → { el, update(state), event(), frame(dt), dispose(), get busy }`, 순수 함수 `endingPlan(state, liarName) → { total, steps, marks }`.
   보이는 때: `phase` 가 `guess`·`answer` 이고 `unmask.liarId` 가 있을 때. 읽는 값: `unmask.liarId`, `players`, `you`, `guess`, `words`, `phaseEndsAt`(`my`·`result` 는 읽지 않는다). 규칙은 0절 그대로.
   `answer` 의 총 길이는 `FIXED_TIMES.answer`(10, notice 도 10).
-- **`data-lg`**: `ending`(+ `data-stage`: `ask` → `hush` → `word` → `mismatch` → `answer` → `verdict` → `hold`; 0절 사용자 결정으로 `hush` 정적은 길이 0, `word`·`mismatch` 는 시작과 동시), `ed-title`, `ed-secs`, `ed-wait`, `ed-word`, `ed-mismatch`, `ed-answer`, `ed-verdict`(+ `data-ok="1|0"`), `ed-bubble`.
+- **`data-lg`**: `ending`(+ `data-stage`: `ask` → `hush` → `word` → `mismatch` → `answer` → `verdict` → `hold`; 0절 사용자 결정으로 `hush` 정적은 길이 0, `word`·`mismatch` 는 시작과 동시), `ed-title`, `ed-secs`, `ed-wait`, `ed-word`, `ed-mismatch`, `ed-answer`, `ed-verdict`(+ `data-ok="1|0"`).
   `onStage(stage, info)`: `'ask'`, `'hush'`, `'answer'`(`info.id` = 라이어), `'verdict'`(`info.correct`), `'end'`. `onTick(big)`: 글자 하나가 찍힐 때.
 - **z-index**: 엔딩 28 (이름표 10 · 상단 표시 20 < 엔딩 28 < 조작 줄 30). 라이어의 입력 칸을 가리지 않는다. 뿌리는 `pointer-events: none`.
 - **장면**: `cameraFor`: `guess`·`answer` 이고 `unmask.liarId` 가 있으면 `{mode:'spot', id}`. `spot` = `liar` 와 같은 구도(이미 `liar` 였으면 다시 밀고 들어가지 않음) + 하얀 조명·빛기둥 `reveal.look(id, 'white')`. `tagPos` 는 `liar`·`spot` 에서도 얼굴 아래(`below:true`). `stats()` 에 조명 색 표시.

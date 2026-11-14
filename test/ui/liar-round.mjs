@@ -144,10 +144,9 @@ const noErrors = (state) => {
   for (const w of wins) if (w.errors.length) throw new Error(`콘솔 오류(${w.who}, ${state}): ${w.errors.join(' | ')}`);
 };
 
-// 게임 중 채팅은 사이트 채팅 버튼 뒤에 있다. 내 입력 차례(첫 설명·최후 변론)가 오면 채팅 칸이 저절로 열린다.
+// 게임 중 채팅 입력칸은 아래 가운데에 늘 보인다(버튼을 누를 필요 없음).
 async function say(w, text) {
   const box = w.page.locator('.chat-in');
-  if (!(await box.isVisible())) await w.page.locator('.chat-btn').click();
   await box.waitFor({ state: 'visible' });
   await box.fill(text);
   await box.press('Enter');
@@ -157,11 +156,12 @@ async function say(w, text) {
 }
 const chatBarOk = async (w, state) => {
   const r = await w.page.evaluate(() => {
-    const b = document.querySelector('.chat-btn');
     const vis = (e) => e && !e.hidden && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
-    return { btn: vis(b) };
+    return { input: vis(document.querySelector('.chat-in')), feed: vis(document.querySelector('.chat-feed')), btn: vis(document.querySelector('.chat-btn')) };
   });
-  if (!r.btn) throw new Error(`${w.who} ${state}: 게임 중인데 사이트 채팅 버튼(.chat-btn)이 안 보임`);
+  if (!r.input) throw new Error(`${w.who} ${state}: 채팅 버튼을 누르지 않아도 입력칸이 보여야 함`);
+  if (!r.feed) throw new Error(`${w.who} ${state}: 오른쪽 위 채팅 기록(.chat-feed)이 안 보임`);
+  if (r.btn) throw new Error(`${w.who} ${state}: 라이어 방에는 채팅 버튼이 없어야 함`);
 };
 const title = (w) => w.page.locator('[data-lg="hud-title"]');
 const waitTitle = async (w, text, timeout = T) => {
@@ -279,6 +279,8 @@ try {
       for (const w of wins) {
         await w.page.locator('[data-lg="hud-said"]', { hasText: text }).waitFor({ state: 'visible', timeout: 2500 });
         await waitTitle(w, '첫 설명', 2500);
+        const bub = await w.page.locator('.chat-w').count();
+        check(w.who, `첫 설명 ${n}번째 중 작은 말풍선 없음`, bub === 0, `.chat-w ${bub}개`);
         const secsShown = await w.page.locator('[data-lg="hud-secs"]').isVisible().catch(() => false);
         if (secsShown) check(w.who, `첫 설명 ${n}번째 뒤 머무는 동안 남은 시간 숨김`, false, '남은 시간 숫자가 보임');
       }
@@ -305,12 +307,10 @@ try {
     await occAll('discuss');
     for (const w of wins) await chatBarOk(w, 'discuss');
     // 화면 입력 한도 = 서버 한도 80자: 81자를 붙여 넣으면 80자에서 멈춘다(보낸 글이 사라지지 않는다)
-    if (!(await B.page.locator('.chat-in').isVisible())) await B.page.locator('.chat-btn').click();
     await B.page.locator('.chat-in').fill('가'.repeat(81));
     const len = await B.page.locator('.chat-in').evaluate((e) => [...e.value].length);
     if (len !== 80) throw new Error(`입력 한도가 80자가 아님: ${len}`);
     await B.page.locator('.chat-in').fill('');
-    await B.page.locator('.chat-btn').click();
     const idOf = async (w, name) => w.page.locator('[data-lg="tag"]', { hasText: name }).first().getAttribute('data-id');
     for (const [w, target] of [[B, 'A'], [C, 'A'], [A, 'B']]) {
       await w.page.locator('[data-lg="tag"]', { hasText: names[target] }).first().click();
