@@ -290,11 +290,11 @@ test('판 끝: 결과도 대기 상태(바로 시작), finish -> award 한 번(�
   // 방 전원에게 같은 결과: 순위 순서, 이름, 점수, 모든 사람의 코인(지급 결과 그대로)
   const want = {
     rows: [{ id: 'bob1', name: 'bob1', rank: 1, score: 10 }, { id: 'ann1', name: 'ann1', rank: 2, score: 3 }],
-    gain: { bob1: 2, ann1: 1 }, unit: 'coin',
+    gain: { bob1: 12, ann1: 8 }, unit: 'coin',
   };
   assert.deepEqual(a.state.wait.result, want);
   assert.deepEqual(b.state.wait.result, want);
-  assert.equal(r.hub.sessions.get('bob1').user.coins, 2);
+  assert.equal(r.hub.sessions.get('bob1').user.coins, 12);
   assert.ok(!a.sock.msgs.some((m) => m.t === 'coin'), '판 끝 코인 알림은 따로 없다(결과 화면이 보인다)');
   await a.send({ t: 'start' });
   assert.equal(a.state.phase, 'play', '결과에서 바로 다시 시작');

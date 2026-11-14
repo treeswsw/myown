@@ -1,9 +1,9 @@
-// 미니게임 코인(이긴 사람만 1코인, 기권·나가기·무승부는 없음). 공용 방 틀(Shell) 위에서 ctx.finish 한 번.
+// 미니게임 코인(매치 끝까지 가면 이김 3 / 짐 1, 기권·나가기·무승부는 없음). 공용 방 틀(Shell) 위에서 ctx.finish 한 번.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHub } from '../../server/rooms.js';
 import { createStore } from '../../server/store.js';
-import { coinsFor } from '../../shared/coin/rules.js';
+import { payouts } from '../../shared/coin/rules.js';
 import { FakeClock, client, seeded } from '../helpers.js';
 
 async function setup() {
@@ -33,18 +33,17 @@ async function winRound({ a, by }) {
   return a.state.seats[0];
 }
 
-test('mini: board win pays the winner 1 coin, once; the next round pays again', async () => {
+test('mini: board win pays the winner 3 and the loser 1, once; the next round pays again', async () => {
   const r = await setup();
   const winner = await winRound(r);
-  assert.equal(r.coins(winner), 1);
-  assert.equal(r.coins(winner === 'ann1' ? 'bob1' : 'ann1'), 0);
-  assert.equal(coinsFor('mini', { won: true, opp: 1 }), 1);
-  assert.equal(coinsFor('mini', { won: false, opp: 1 }), 0);
+  assert.equal(r.coins(winner), 3);
+  assert.equal(r.coins(winner === 'ann1' ? 'bob1' : 'ann1'), 1);
+  assert.deepEqual(payouts('mini', [{ id: 'w', rank: 1, won: true, opp: 1 }, { id: 'l', rank: 2, won: false, opp: 1 }]), { w: 3, l: 1 });
   r.clock.advance(3_600_000); // 같은 사람에게 연달아 주지 않는 간격(gapMs)
   await r.a.send({ t: 'start' }); // 결과 화면에서 바로 다음 판
   assert.equal(r.a.state.phase, 'play');
   await winRound(r);
-  assert.equal(r.coins('ann1') + r.coins('bob1'), 2, '두 번째 판도 한 번 지급');
+  assert.equal(r.coins('ann1') + r.coins('bob1'), 8, '두 번째 판도 한 번 지급 (3 + 1 씩)');
 });
 
 test('mini: resign, leave and draw pay nothing', async () => {

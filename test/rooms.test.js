@@ -437,11 +437,11 @@ test('poker in the common room (G-poker): wait only in the lobby, result -> lobb
   assert.equal(a.state.phase, 'result');
   assert.equal(a.state.wait, null, 'the result stays on the table');
   const paid = hub.sessions.get('bob1').user.coins;
-  assert.equal(paid, 1 + 1, 'the winner is paid once (ctx.finish)');
+  assert.equal(paid, 8 + 4, 'the winner is paid once (ctx.finish)');
   clock.advance(6000);
   assert.equal(a.state.phase, 'lobby');
   assert.equal(a.state.wait.can, true);
-  assert.deepEqual(a.state.wait.result.gain, { ann1: 1, bob1: 2 }, 'common result after the win display');
+  assert.deepEqual(a.state.wait.result.gain, { ann1: 8, bob1: 12 }, 'common result after the win display');
   assert.deepEqual(a.state.wait.result.rows.map((r) => [r.id, r.rank]), [['bob1', 1], ['ann1', 2]]);
   await a.send({ t: 'start' });
   assert.equal(a.state.phase, 'playing', 'started again from the waiting room');

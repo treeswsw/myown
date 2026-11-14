@@ -72,21 +72,21 @@ test('bet: start takes the bet from both and holds it; win -> the winner gets th
   const loser = r.a.state.seats[1];
   await c4Win(r);
   assert.equal(r.a.state.phase, 'end');
-  assert.equal(r.coinsOf(winner), 70 + 60 + 1, '판돈 전부 + 원래 승리 코인 1');
-  assert.equal(r.coinsOf(loser), 70);
+  assert.equal(r.coinsOf(winner), 70 + 60 + 3, '판돈 전부 + 원래 승리 코인 3');
+  assert.equal(r.coinsOf(loser), 71, '진 사람도 완주 1');
   assert.equal(escrow(r, winner), undefined);
   assert.equal(escrow(r, loser), undefined);
   assert.equal(r.hub.stakes.size, 0);
-  // 공통 결과: 코인 칸 = 승리 코인 + 베팅, 베팅은 따로 add 로(화면이 "판 코인 +1 · 베팅 +30")
+  // 공통 결과: 코인 칸 = 승리 코인 + 베팅, 베팅은 따로 add 로(화면이 "판 코인 +3 · 베팅 +30")
   const res = r.a.state.wait.result;
-  assert.deepEqual(res.gain, { [winner]: 31, [loser]: -30 });
+  assert.deepEqual(res.gain, { [winner]: 33, [loser]: -29 });
   assert.deepEqual(res.add, { label: '베팅', by: { [winner]: 30, [loser]: -30 } });
   assert.deepEqual(res.rows.map((x) => [x.id, x.rank, x.note]), [[winner, 1, '1승'], [loser, 2, '0승']]);
   // 베팅은 매치마다 새로: 결과 화면에서는 0 으로 비어 있다
   assert.deepEqual(r.a.state.wait.own, { ann1: { bet: 0 }, bob1: { bet: 0 } });
   await r.a.send({ t: 'start' });
   assert.equal(r.a.state.phase, 'play');
-  assert.equal(total(r), 70 + 60 + 1 + 70, '다음 판은 내기 없이 시작');
+  assert.equal(total(r), 70 + 60 + 3 + 1 + 70, '다음 판은 내기 없이 시작');
 });
 
 test('bet: a best-of-3 match pays only when the match ends', async () => {
@@ -103,8 +103,8 @@ test('bet: a best-of-3 match pays only when the match ends', async () => {
   r.clock.advance(5000);
   await c4Win(r); // 처음 이긴 사람이 2승
   assert.equal(r.a.state.phase, 'end');
-  assert.equal(r.coinsOf(first), 90 + 20 + 1);
-  assert.equal(r.coinsOf(first === 'ann1' ? 'bob1' : 'ann1'), 90);
+  assert.equal(r.coinsOf(first), 90 + 20 + 3);
+  assert.equal(r.coinsOf(first === 'ann1' ? 'bob1' : 'ann1'), 91);
 });
 
 test('bet: resign loses the bet; the resigner can not get it back by leaving afterwards', async () => {

@@ -28,11 +28,11 @@ test('award: amounts, ledger, me, returns the gain map', async () => {
   await login(hub, 'bbb');
   await a.send({ t: 'create', mode: 'bluff' });
   const room = [...hub.rooms.values()][0];
-  const gain = hub.award(room, 'yacht', [{ id: 'aaa', won: true, opp: 3 }, { id: 'bbb', won: false, opp: 3 }]);
-  assert.deepEqual(gain, { aaa: 15, bbb: 3 });
+  const gain = hub.award(room, 'yacht', [{ id: 'aaa', rank: 1, won: true, opp: 1 }, { id: 'bbb', rank: 2, won: false, opp: 1 }]);
+  assert.deepEqual(gain, { aaa: 15, bbb: 10 });
   assert.equal(sess(hub, 'aaa').user.coins, 15);
   assert.equal(sess(hub, 'aaa').user.coinsTotal, 15);
-  assert.equal(sess(hub, 'bbb').user.coins, 3);
+  assert.equal(sess(hub, 'bbb').user.coins, 10);
   assert.equal(msgs(a, 'me').at(-1).wallet.coins, 15);
   const l = store.ledger().filter((x) => x.kind === 'earn');
   assert.equal(l.length, 2);
@@ -45,16 +45,16 @@ test('award: min gap per user per mode', async () => {
   const a = await login(hub, 'aaa');
   await a.send({ t: 'create', mode: 'bluff' });
   const room = [...hub.rooms.values()][0];
-  const row = [{ id: 'aaa', won: false, opp: 3 }];
+  const row = [{ id: 'aaa', rank: 2, won: false, opp: 3 }];
   hub.award(room, 'bluff', row);
   clock.advance(29_000);
   assert.deepEqual(hub.award(room, 'bluff', row), { aaa: 0 }, '간격 안에 막힌 판은 0');
-  assert.equal(sess(hub, 'aaa').user.coins, 1);
-  hub.award(room, 'draw', row); // other mode has its own gap
-  assert.equal(sess(hub, 'aaa').user.coins, 3);
+  assert.equal(sess(hub, 'aaa').user.coins, 8);
+  hub.award(room, 'gsk', row); // other mode has its own gap
+  assert.equal(sess(hub, 'aaa').user.coins, 18);
   clock.advance(2_000);
   hub.award(room, 'bluff', row);
-  assert.equal(sess(hub, 'aaa').user.coins, 4);
+  assert.equal(sess(hub, 'aaa').user.coins, 26);
 });
 
 test('award: holdem, unknown mode, not logged in give nothing', async () => {
@@ -294,15 +294,15 @@ test('rank: by total earned, kept after spending, zero excluded', async () => {
   await login(hub, 'bbb');
   const z = await login(hub, 'zzz');
   const room = { members: [] };
-  hub.award(room, 'draw', [{ id: 'bbb', won: true, opp: 3 }]); // 8
-  hub.award(room, 'yacht', [{ id: 'aaa', won: false, opp: 3 }]); // 3
+  hub.award(room, 'gsk', [{ id: 'bbb', rank: 1, won: true, opp: 3 }]); // 22
+  hub.award(room, 'bluff', [{ id: 'aaa', rank: 2, won: false, opp: 3 }]); // 8
   sess(hub, 'aaa').user.coins = 0; // spent
   await z.send({ t: 'coin', a: 'rank' });
   const r = msgs(z, 'coin', 'rank').at(-1);
-  assert.deepEqual(r.top, [{ name: 'bbb', total: 8 }, { name: 'aaa', total: 3 }]);
+  assert.deepEqual(r.top, [{ name: 'bbb', total: 22 }, { name: 'aaa', total: 8 }]);
   assert.deepEqual(r.mine, { rank: null, total: 0 });
   await a.send({ t: 'coin', a: 'rank' });
-  assert.deepEqual(msgs(a, 'coin', 'rank').at(-1).mine, { rank: 2, total: 3 });
+  assert.deepEqual(msgs(a, 'coin', 'rank').at(-1).mine, { rank: 2, total: 8 });
 });
 
 test('bad coin requests: coin_bad with code', async () => {
@@ -324,7 +324,7 @@ test('me.wallet shape; no pin or hash in any message', async () => {
   hub.sendMe(s);
   const me = msgs(a, 'me').at(-1);
   const { stock, ...rest } = me.wallet;
-  assert.deepEqual(rest, { coins: 3, total: 0, pity: 0, shard: 0, cpity: 0, pos: {}, owned: [], equip: {}, hasPin: true, chipsPerCoin: 100, free: { n: 2, next: null }, pool: 10000 });
+  assert.deepEqual(rest, { coins: 3, total: 0, pity: 0, shard: 0, cpity: 0, pos: {}, owned: [], equip: {}, hasPin: true, chipsPerCoin: 100, chipsPerCoinBack: 1000, keepChips: 10000, free: { n: 2, next: null }, pool: 10000 });
   assert.equal(stock.row.length, 6);
   assert.equal(stock.feat.ids.length, 2);
   assert.ok(stock.next > 0 && stock.next <= 120000);
@@ -333,4 +333,52 @@ test('me.wallet shape; no pin or hash in any message', async () => {
   await a.send({ t: 'coin', a: 'rank' });
   const all = a.sock.raw.join('\n');
   for (const secret of ['SALTSECRET', 'HASHSECRET', 'TOKSECRET']) assert.ok(!all.includes(secret));
+});
+
+// ---------- 칩 -> 코인 (SPEC 22-3) ----------
+test('back: 1,000칩 = 1코인, 시작 칩 10,000 은 남긴다, 장부 back', async () => {
+  const { hub, store } = await setup({ coinSeed: 2 });
+  const a = await login(hub, 'aaa');
+  const u = sess(hub, 'aaa').user;
+  assert.equal(u.bank, 10_000);
+  await a.send({ t: 'coin', a: 'back', n: 1 });
+  assert.equal(lastErr(a).code, 'coin_floor', '10,000 이하면 환전 불가');
+  assert.equal(u.bank, 10_000);
+  assert.equal(u.coins, 2);
+  u.bank = 15_500;
+  await a.send({ t: 'coin', a: 'back', n: 6 }); // 남는 칩 9,500 < 10,000
+  assert.equal(lastErr(a).code, 'coin_floor');
+  assert.equal(u.bank, 15_500);
+  await a.send({ t: 'coin', a: 'back', n: 5 }); // 남는 칩 10,500
+  assert.deepEqual(msgs(a, 'coin', 'back').at(-1), { t: 'coin', a: 'back', n: 5, chips: 5000 });
+  assert.equal(u.bank, 10_500);
+  assert.equal(u.coins, 7);
+  assert.equal(u.coinsTotal ?? 0, 0, '번 코인 합에는 넣지 않는다');
+  const row = store.ledger().find((x) => x.kind === 'back');
+  assert.deepEqual([row.delta, row.bal, row.chips], [5, 7, -5000]);
+  u.bank = 11_000;
+  await a.send({ t: 'coin', a: 'back', n: 1 }); // 정확히 10,000 이 남는 경계
+  assert.equal(u.bank, 10_000);
+  assert.equal(u.coins, 8);
+  assert.equal(msgs(a, 'me').at(-1).wallet.keepChips, 10_000);
+});
+
+test('back: 방 안, 잘못된 입력은 거절하고 아무것도 바뀌지 않는다', async () => {
+  const { hub } = await setup({ coinSeed: 0 });
+  const a = await login(hub, 'aaa');
+  const u = sess(hub, 'aaa').user;
+  u.bank = 50_000;
+  for (const n of [0, -1, 1.5, '3', null, undefined, NaN, Infinity, 2_000_000_001]) {
+    await a.send({ t: 'coin', a: 'back', n });
+    assert.equal(lastErr(a).code, 'coin_bad', String(n));
+  }
+  await a.send({ t: 'coin', a: 'back', n: 41 }); // 칩 41,000 > 가진 50,000 - 10,000
+  assert.equal(lastErr(a).code, 'coin_floor');
+  await a.send({ t: 'coin', a: 'back', n: 9_999_999 }); // 아주 큰 수
+  assert.equal(lastErr(a).code, 'coin_floor');
+  await a.send({ t: 'create', mode: 'bluff' });
+  await a.send({ t: 'coin', a: 'back', n: 1 });
+  assert.equal(lastErr(a).code, 'coin_room');
+  assert.equal(u.bank, 50_000);
+  assert.equal(u.coins, 0);
 });

@@ -6,6 +6,7 @@ import { createStore } from '../../server/store.js';
 import { FakeClock, client, seeded } from '../helpers.js';
 import * as L from '../liar/e2e/helpers.js';
 import { CATS } from '../../shared/yacht/constants.js';
+import { payouts } from '../../shared/coin/rules.js';
 
 // ---------- hub + fake clock ----------
 
@@ -33,7 +34,7 @@ const coins = (hub, id) => hub.sessions.get(id)?.user.coins ?? 0;
 
 // ---------- bluff ----------
 
-test('bluff: winner 1+1*opp, eliminated-in-game finisher 1, leaver 0, spectator 0', async () => {
+test('bluff: winner 8+4*opp, eliminated-in-game finisher 8, leaver 0, spectator 0', async () => {
   const { hub, clock } = await setup(8);
   const cs = await lobby(hub, 'bluff', ['ann1', 'bob1', 'cat1']);
   const spec = await login(hub, 'dan1');
@@ -51,12 +52,12 @@ test('bluff: winner 1+1*opp, eliminated-in-game finisher 1, leaver 0, spectator 
   await cs[1].send({ t: 'liar' });
   assert.equal(cs[0].state.phase, 'result');
   assert.equal(cs[0].state.winnerId, 'bob1');
-  assert.equal(coins(hub, 'bob1'), 1 + 1 * 2, 'winner: opp = starters - 1 = 2');
-  assert.equal(coins(hub, 'ann1'), 1, 'shot in game still finished');
+  assert.equal(coins(hub, 'bob1'), 8 + 4 * 2, 'winner: opp = starters - 1 = 2');
+  assert.equal(coins(hub, 'ann1'), 8, 'shot in game still finished');
   assert.equal(coins(hub, 'cat1'), 0, 'leaver');
   assert.equal(coins(hub, 'dan1'), 0, 'spectator');
   clock.advance(6000); // 우승 표시 뒤 대기실: 공통 결과(wait.result)에 모든 사람의 코인
-  assert.deepEqual(cs[1].state.wait.result.gain, { ann1: 1, bob1: 3 });
+  assert.deepEqual(cs[1].state.wait.result.gain, { ann1: 8, bob1: 16 });
 });
 
 // ---------- yacht ----------
@@ -75,7 +76,7 @@ async function playYacht(clock, cs, room, { stop = () => false } = {}) {
   }
 }
 
-test('yacht: 3 players finish: 3 each, winner +4 per opponent; spectator 0', async () => {
+test('yacht: 3 players finish: graded by rank (25/17/12 pattern); spectator 0', async () => {
   const { hub, clock } = await setup(3);
   const cs = await lobby(hub, 'yacht', ['ann1', 'bob1', 'cat1']);
   await cs[0].send({ t: 'start' });
@@ -86,9 +87,10 @@ test('yacht: 3 players finish: 3 each, winner +4 per opponent; spectator 0', asy
   assert.equal(room.game.phase, 'result');
   const r = room.game.result;
   assert.equal(r.reason, 'done');
-  for (const id of ['ann1', 'bob1', 'cat1']) {
-    assert.equal(coins(hub, id), 3 + (r.winners.includes(id) ? 4 * 2 : 0), id);
-  }
+  const want = payouts('yacht', r.ranks.map((x) => ({ id: x.id, rank: x.rank, opp: 2 })));
+  assert.equal(Math.max(...Object.values(want)), 20, '1등 = 10 + 5 × 2');
+  assert.equal(Math.min(...Object.values(want)) >= 10, true);
+  for (const id of ['ann1', 'bob1', 'cat1']) assert.equal(coins(hub, id), want[id], id);
   assert.equal(coins(hub, 'dan1'), 0);
   assert.ok(!('dan1' in spec.state.wait.result.gain), '관전자는 결과를 보지만 gain 이 없다');
 });
@@ -106,7 +108,8 @@ test('yacht: a forfeiter gets 0, opponents still count the leaver', async () => 
   const r = room.game.result;
   assert.ok(!r.ranks.some((x) => x.id === leaver));
   assert.equal(coins(hub, leaver), 0);
-  for (const row of r.ranks) assert.equal(coins(hub, row.id), 3 + (r.winners.includes(row.id) ? 4 * 2 : 0), row.id);
+  const want = payouts('yacht', r.ranks.map((x) => ({ id: x.id, rank: x.rank, opp: 2 })));
+  for (const row of r.ranks) assert.equal(coins(hub, row.id), want[row.id], row.id);
 });
 
 test('yacht: a room with a bot pays nobody', async () => {
@@ -138,7 +141,7 @@ export async function playDraw(clock, cs, { guesser = 'bob1', stop = () => false
   }
 }
 
-test('draw: final ranking pays 2, rank 1 +2 per opponent; leaver and late joiner 0', async () => {
+test('draw: final ranking pays graded, finish scaled by question count; leaver and late joiner 0', async () => {
   const { hub, clock } = await setup(9);
   const cs = await lobby(hub, 'draw', ['ann1', 'bob1', 'cat1']);
   await cs[0].send({ t: 'set', patch: { rounds: 1, time: 60 } });
@@ -153,8 +156,10 @@ test('draw: final ranking pays 2, rank 1 +2 per opponent; leaver and late joiner
   const rk = st.ranking;
   assert.ok(rk.find((r) => r.id === 'cat1').left);
   assert.ok(rk.some((r) => r.id === 'dan1'), 'late joiner is ranked but not paid');
-  for (const r of rk.filter((x) => x.id !== 'dan1' && !x.left)) {
-    assert.equal(coins(hub, r.id), 2 + (r.rank === 1 ? 2 * 2 : 0), r.id); // opp = 3 starters - 1
+  const paid = rk.filter((x) => x.id !== 'dan1' && !x.left);
+  const want = payouts('draw', paid.map((x) => ({ id: x.id, rank: x.rank, opp: 2 })), undefined, st.q / 8);
+  for (const r of paid) {
+    assert.equal(coins(hub, r.id), want[r.id], r.id); // opp = 3 starters - 1
   }
   assert.equal(coins(hub, 'cat1'), 0);
   assert.equal(coins(hub, 'dan1'), 0);
@@ -186,7 +191,7 @@ async function liarExecute(r, liar, guess) {
   await L.waitResult(r);
 }
 
-test('liar: citizens win -> citizens 2, liar 1; spectator 0', async (t) => {
+test('liar: citizens win -> citizens 6, liar 4; spectator 0', async (t) => {
   const { r, liar, hub } = await liarRound(t, 4);
   const spec = await L.client(r.fast.app, 'zulu1');
   spec.send({ t: 'join', code: r.code });
@@ -194,18 +199,18 @@ test('liar: citizens win -> citizens 2, liar 1; spectator 0', async (t) => {
   await liarExecute(r, liar, '틀린답');
   assert.equal(r.host.state.result.winner, 'citizens');
   await L.until(() => r.cs.every((c) => bal(hub, c.id) > 0), 'paid');
-  for (const c of r.cs) assert.equal(bal(hub, c.id), c === liar ? 1 : 2, c.id);
+  for (const c of r.cs) assert.equal(bal(hub, c.id), c === liar ? 4 : 6, c.id);
   assert.equal(bal(hub, 'zulu1'), 0);
   assert.ok(!spec.msgs.some((m) => m.t === 'coin'));
   spec.close();
 });
 
-test('liar: liar wins -> liar 1 + 3 = 4, citizens 1', async (t) => {
+test('liar: liar wins -> liar 4 + 2*3 = 10, citizens 4', async (t) => {
   const { r, liar, word, hub } = await liarRound(t, 4);
   await liarExecute(r, liar, word);
   assert.equal(r.host.state.result.winner, 'liar');
   await L.until(() => r.cs.every((c) => bal(hub, c.id) > 0), 'paid');
-  for (const c of r.cs) assert.equal(bal(hub, c.id), c === liar ? 4 : 1, c.id);
+  for (const c of r.cs) assert.equal(bal(hub, c.id), c === liar ? 10 : 4, c.id);
 });
 
 test('liar: a citizen who leaves gets 0; the rest are paid', async (t) => {
@@ -216,7 +221,7 @@ test('liar: a citizen who leaves gets 0; the rest are paid', async (t) => {
   const rest = { ...r, cs: r.cs.filter((c) => c !== leaver) };
   await liarExecute(rest, liar, '틀린답');
   await L.until(() => rest.cs.every((c) => bal(hub, c.id) > 0), 'paid');
-  for (const c of rest.cs) assert.equal(bal(hub, c.id), c === liar ? 1 : 2, c.id);
+  for (const c of rest.cs) assert.equal(bal(hub, c.id), c === liar ? 4 : 6, c.id);
   assert.equal(bal(hub, leaver.id), 0);
 });
 

@@ -530,7 +530,7 @@ design/   시안
 ### 21-7. 세부 설정 (경제 설정, 2026-11-13 사용자 요청)
 - 관리자 패널의 [세부 설정] 버튼 → 전체 화면 덮개(.adm-detail). 방 안·밖 어디서나 된다. 일반 사용자에게는 이 요청이 `adm_no` 로 거절된다.
 - 조절하는 것: 게임별 코인(`finish` 완주, `win` 승리 = 상대 1명당, `gapMs` 지급 간격 — 화면은 초 단위) 과 코인 교환 시세(`chipsPerCoin`, 1코인 = 몇 칩). 게임 목록은 `COIN_RULES` 의 키(bluff·liar·draw·yacht·mini·gsk). 상점 가격은 상점 개편 뒤 추가(화면에 자리 글만).
-- 모양: `econ = { rules: { <코인키>: {finish, win, gapMs}, ... }, chipsPerCoin }`. 기본값 = `shared/coin/rules.js` 의 `COIN_RULES`·`CHIPS_PER_COIN`(=지금까지 쓰던 값).
+- 모양: `econ = { v: 2, rules: { <코인키>: {finish, win, gapMs, graded?}, ... }, chipsPerCoin, chipsPerCoinBack }`. `v` 가 다른(없는) 옛 저장값은 읽을 때 버리고 새 기본값으로 시작한다. `graded` 는 규칙 표시(관리자가 못 바꿈). `chipsPerCoinBack` = 칩 → 코인 시세(기본 1,000, 범위 1~1,000,000). 기본값 = `shared/coin/rules.js` 의 `COIN_RULES`·`CHIPS_PER_COIN`(=지금까지 쓰던 값).
 - 범위(정수): finish 0~100, win 0~100, gapMs 0~3,600,000, chipsPerCoin 1~10,000 (`ECON_LIMITS`). 모든 코인키와 모든 칸이 있어야 하고, 모르는 키·소수·문자는 거절.
 - 요청(관리자만): `{t:'adm', a:'econ'}` 현재값 보기 / `{t:'adm', a:'econSet', econ}` 저장 / `{t:'adm', a:'econReset'}` 기본값으로 되돌리기(저장도 함).
   세 요청 모두 답은 `{t:'admOk', a:'econ', saved, econ, defaults, limits}` (`saved` = 저장이 일어났나, `limits` = 위 범위 `{finish:[0,100], ...}`). 범위 밖이면 `error` `adm_bad` "값이 범위를 벗어났습니다."(저장 안 함), 관리자가 아니면 `adm_no`.
@@ -568,16 +568,18 @@ design/   시안
 - **동점 1등**: 전원이 보너스를 온전히 받는다(나누지 않는다).
 - **무효**: 라이어의 무효 라운드(`void`)는 아무도 못 받는다. 요트·갱식마인드에서 다른 사람이 모두 나가 혼자 남아 끝난 판(`reason==='alone'`)도 아무도 못 받는다(부계정으로 시작했다 나가는 꼼수 방지). 블러핑도 같은 경우(남은 한 명이 나머지가 나가서 이긴 판)는 끝까지 한 사람이 2명 이상일 때만 준다. 방에 봇이 한 명이라도 있으면(관리자 시험 방) 아무도 못 받는다.
 - **최소 간격**: 같은 사람이 같은 게임에서 코인을 받은 지 표의 시간이 안 지났으면 이번 것은 0. 서버 메모리에만 기억한다(`hub.now`). 0 이어도 판을 끝까지 한 사람은 공통 결과 화면(`wait.result.gain`)에 흐린 "0" 으로 보인다. 중간에 나간 사람·관전자는 줄이 없고, 봇 방은 모두 0.
+- **2026-11-14 시세 변경**: 기본값 — 블러핑 완주 8·승 4, 라이어 4·2(판마다), 갱식마인드 10·2(8문제 기준), 요트 10·5, 미니 1·2(매치당, 이김 3·짐 1), 갱스껄 10·4. 간격은 그대로. **차등 지급**(`graded`: 요트·갱식마인드): 꼴찌 = 완주, 1등 = 완주 + 승리 × 상대 수, 중간 = 완주 + round((1등 − 완주) × (아래 사람 수 / (인원 − 1))²), 동점은 같은 값, 중간에 나간 사람은 0(나간 사람은 아래로 센다). 갱식마인드 완주 코인은 `ctx.finish(rows, {scale})` 의 `scale = 진행한 문제 수 / 8` 을 곱해 반올림(4문제 5 / 8문제 10 / 12문제 15 / 16문제 20). 지급 계산은 `shared/coin/rules.js` `payouts`.
 - 표의 값은 관리자 세부 설정(21-7)으로 바뀐다. `shared/coin/rules.js` 의 `COIN_RULES` 는 기본값이다. 갱스껄(`gsk`) 줄: 완주 2, 승리 2(상대 1명당), 간격 120초(갱식마인드와 비슷한 길이로 정함). 혼자 남은 판(`alone`)은 지급 없음.
 - **라이어 시점**: 라운드가 `result` 단계에 들어간 순간(정체 공개·정답 판정이 끝난 뒤)에만 준다. 그 전에는 코인 잔액도 알림도 바뀌지 않는다. 갱식마인드는 최종 순위가 나올 때, 요트는 결과 화면, 블러핑은 승자가 정해질 때.
 - 서버 함수 하나: `hub.award(room, mode, rows)`, `rows = [{id, won, opp}]`(끝까지 한 사람만, `opp` = 그 사람의 상대 수). 하는 일: 봇 방·최소 간격·봇 아이디 거르기 → `coins`·`coinsTotal` 더하기 → 저장 → 장부 `earn` → `me` 다시 보내기. 돌려주는 값 `{[id]: 받은 코인}` 을 Shell 이 `wait.result.gain` 에 싣는다(7-3).
 - 부르는 곳: 블러핑은 `server/rooms.js` `afterBluff`의 `done`에서 직접. (2026-11-13 묶음 2 이후) 모든 게임은 판 끝에 공용 방 틀의 `ctx.finish(rows)` 를 판마다 한 번 부르고, 틀이 등록표 `coin` 키로 `hub.award` 를 부른다(COMMON-CONTRACT 1-3, D4. 옛 `server/coin/hooks.js` 감싸기는 지웠다): 라이어 결과(`winner`, `liarId`, `players − dropped`), 요트 결과(`ranks`, `winners`), 갱식마인드 순위(`rank===1`, `left`).
 
 ### 22-3. 교환
-- 1코인 = 100칩(기본값; 관리자 세부 설정으로 바뀐다, 21-7). 한도 없음. 칩 → 코인은 없다.
+- 1코인 = 100칩(기본값; 관리자 세부 설정으로 바뀐다, 21-7). 한도 없음.
+- **칩 → 코인 (2026-11-14)**: `{t:'coin', a:'back', n}` n코인을 얻는다. 칩 `n × chipsPerCoinBack`(기본 1,000)을 낸다. 시작 칩 10,000(`START_BANK`)은 남겨야 하므로 `칩 − 낸 칩 ≥ 10,000` 이 아니면 `coin_floor` "시작 칩 10,000개는 남겨야 해요.". 방 밖에서만(`coin_room`), n 은 1 이상 정수(`coin_bad`). 답 `{t:'coin', a:'back', n, chips}`. 장부 `back`(delta +n, chips −낸 칩). 번 코인 합(`coinsTotal`)에는 넣지 않는다(번 것이 아니라 바꾼 것, 코인→칩 교환도 빼지 않는다). `me.wallet` 에 `chipsPerCoinBack`, `keepChips`(=10,000) 가 실린다.
 - **방 밖에서만** 된다(홀덤은 계정 칩이 곧 테이블 스택이라서). 방 안이면 `coin_room`.
 - `n`은 1 이상 잔액 이하의 정수. 바꾼 뒤 칩이 2,000,000,000을 넘으면 `coin_max`.
-- 장부 `swap`(delta −n, chips +n×100).
+- 장부 `swap`(delta −n, chips +n×100). 장부 종류는 `earn`·`swap`·`back`·`draw`·`buy`.
 
 ### 22-4. 뽑기
 - 1회 10코인, 10연 100코인. 방 밖에서만. 결과는 서버가 `hub.rng`(crypto)로 정하고 바로 계정 칩에 더한다. 화면은 받은 결과를 연출만 한다.
@@ -639,6 +641,7 @@ design/   시안
 | 요청 | 설명 | 실패 코드 |
 |---|---|---|
 | `{t:'coin', a:'swap', n}` | n코인을 칩으로 | `coin_room` `coin_low` `coin_bad` `coin_max` |
+| `{t:'coin', a:'back', n}` | 칩을 n코인으로 (22-3) | `coin_room` `coin_floor` `coin_bad` |
 | `{t:'coin', a:'draw', n:1\|10}` | 뽑기 | `coin_room` `coin_low` `coin_bad` |
 | `{t:'coin', a:'buy', id}` | 상점 사기 | `coin_room` `coin_low` `shop_no` `shop_own` |
 | `{t:'coin', a:'equip', slot, id\|null}` | 끼기·빼기 | `shop_no` `shop_not` |
@@ -655,6 +658,7 @@ design/   시안
 |---|---|
 | `{t:'me', user, ..., wallet:{coins, total, pity, owned:[], equip:{}, hasPin}}` | `me`에 `wallet` 칸 추가. 바뀔 때마다 `me`를 다시 보낸다 |
 | `{t:'coin', a:'swap', n, chips}` | 교환 결과 |
+| `{t:'coin', a:'back', n, chips}` | 칩 → 코인 결과 |
 | `{t:'coin', a:'draw', pulls:[{chips, tier}], chips, pity}` | 뽑기 결과(순서 = 뽑은 순서, `chips` = 합) |
 | `{t:'coin', a:'buy', id}` / `{t:'coin', a:'equip', slot, id}` | 상점 결과 |
 | `{t:'coin', a:'rank', top:[{name, total}], mine:{rank\|null, total}}` | 랭킹 |

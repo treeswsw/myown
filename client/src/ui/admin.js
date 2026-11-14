@@ -62,7 +62,7 @@ export function createAdmin({ send, getRoom }) {
     if (!detailBox) return;
     econ = msg.econ;
     const lim = msg.limits;
-    fields = { rules: {}, cpc: null, lim };
+    fields = { rules: {}, cpc: null, back: null, lim };
     detailBox.replaceChildren();
     const sec = (t) => detailBox.append(el('h4', 'adm-sub', t));
     sec('코인 교환 시세');
@@ -70,15 +70,19 @@ export function createAdmin({ send, getRoom }) {
     fields.cpc = numInput(econ.chipsPerCoin, '1코인당 칩');
     cpcRow.append(el('span', 'adm-flabel', '1코인 = 칩'), fields.cpc, el('span', 'adm-fhint', `(${lim.chipsPerCoin[0]}~${lim.chipsPerCoin[1]}, 기본 ${msg.defaults.chipsPerCoin})`));
     detailBox.append(cpcRow);
+    const backRow = el('label', 'adm-field');
+    fields.back = numInput(econ.chipsPerCoinBack, '코인 1개를 얻는 칩');
+    backRow.append(el('span', 'adm-flabel', '칩 → 코인: 칩'), fields.back, el('span', 'adm-fhint', `= 1코인 (${lim.chipsPerCoinBack[0]}~${lim.chipsPerCoinBack[1]}, 기본 ${msg.defaults.chipsPerCoinBack}, 시작 칩 10,000은 남김)`));
+    detailBox.append(backRow);
     sec('게임별 코인 (받는 코인 = 완주 + 승리 × 상대 수)');
     for (const key of Object.keys(econ.rules)) {
       const r = econ.rules[key], d = msg.defaults.rules[key];
       const box = el('div', 'adm-game');
-      box.append(el('b', 'adm-gname', gameName(key)));
+      box.append(el('b', 'adm-gname', gameName(key) + (r.graded ? ' (등수별 차등: 꼴찌 완주, 1등 완주 + 승리 × 상대 수)' : '')));
       const f = { finish: numInput(r.finish, `${gameName(key)} 완주 코인`), win: numInput(r.win, `${gameName(key)} 승리 코인`), gap: numInput(Math.round(r.gapMs / 1000), `${gameName(key)} 지급 간격(초)`) };
       fields.rules[key] = f;
       const row = (label, input, hint) => { const l = el('label', 'adm-field'); l.append(el('span', 'adm-flabel', label), input, el('span', 'adm-fhint', hint)); box.append(l); };
-      row('완주', f.finish, `기본 ${d.finish}`);
+      row(key === 'draw' ? '완주 (8문제 기준)' : '완주', f.finish, `기본 ${d.finish}`);
       row('승리(상대 1명당)', f.win, `기본 ${d.win}`);
       row('지급 간격(초)', f.gap, `기본 ${Math.round(d.gapMs / 1000)}`);
       detailBox.append(box);
@@ -90,6 +94,8 @@ export function createAdmin({ send, getRoom }) {
     const lim = fields.lim;
     const rules = {};
     const cpc = Number(fields.cpc.value);
+    const back = Number(fields.back.value);
+    if (!fields.back.value || back < lim.chipsPerCoinBack[0] || back > lim.chipsPerCoinBack[1]) { setDetailStatus(`칩 → 코인 시세는 ${lim.chipsPerCoinBack[0]}~${lim.chipsPerCoinBack[1]} 사이로 적으세요.`); return; }
     if (!fields.cpc.value || cpc < lim.chipsPerCoin[0] || cpc > lim.chipsPerCoin[1]) { setDetailStatus(`교환 시세는 ${lim.chipsPerCoin[0]}~${lim.chipsPerCoin[1]} 사이로 적으세요.`); return; }
     for (const [key, f] of Object.entries(fields.rules)) {
       const cols = [['finish', f.finish, 1, '완주 코인'], ['win', f.win, 1, '승리 코인'], ['gapMs', f.gap, 1000, '지급 간격(초)']];
@@ -102,7 +108,7 @@ export function createAdmin({ send, getRoom }) {
       rules[key] = v;
     }
     lastReq = Date.now(); setDetailStatus('');
-    send({ t: 'adm', a: 'econSet', econ: { rules, chipsPerCoin: cpc } });
+    send({ t: 'adm', a: 'econSet', econ: { rules, chipsPerCoin: cpc, chipsPerCoinBack: back } });
   }
   function openDetail() {
     if (!detail) {

@@ -1,11 +1,12 @@
 // Coin wallet on the hub (SPEC 22): award (22-2), swap / draw / buy / equip / rank (22-3..22-6).
 // Nothing here knows a game; games call hub.award(room, mode, rows) once per finished round.
 import { secureRng } from '../../shared/cards.js';
-import { defaultEcon, normalizeEcon, coinsFor } from '../../shared/coin/rules.js';
+import { defaultEcon, normalizeEcon, payouts } from '../../shared/coin/rules.js';
 import { draw as gachaDraw, COST, TEN, POOL_START, freeNow, freeNext } from '../../shared/coin/gacha.js';
 import { item } from '../../shared/coin/shop.js';
 import { capsule, COST as CAP_COST, TEN as CAP_TEN, CRAFT, trashKingDue } from '../../shared/coin/capsule.js';
 import { ROW_N, FEAT_N, priceOf, tickOf, featOf, nextTickIn, featLeft, slotLeft, rollSlot, rollRow, rollFeat } from '../../shared/coin/stock.js';
+import { START_BANK } from '../store.js';
 import { parseCoin } from '../../shared/coin/protocol.js';
 
 const MAX_CHIPS = 2_000_000_000;
@@ -17,6 +18,7 @@ const ERR = {
   coin_low: '코인이 모자랍니다.',
   coin_bad: '잘못된 요청입니다.',
   coin_max: '칩이 너무 많습니다.',
+  coin_floor: `시작 칩 ${START_BANK.toLocaleString('en-US')}개는 남겨야 해요.`,
   coin_free: '무료 뽑기가 없습니다.',
   shop_no: '없는 물건입니다.',
   shop_gone: '진열이 바뀌었습니다.',
@@ -88,7 +90,9 @@ export function walletOf(user, hub) {
     owned: [...(g.owned ?? [])],
     equip: { ...(g.equip ?? {}) },
     hasPin: !!user.pin,
-    chipsPerCoin: hub?.econ ? hub.econ().chipsPerCoin : defaultEcon().chipsPerCoin,
+    chipsPerCoin: (hub?.econ ? hub.econ() : defaultEcon()).chipsPerCoin,
+    chipsPerCoinBack: (hub?.econ ? hub.econ() : defaultEcon()).chipsPerCoinBack,
+    keepChips: START_BANK,
     stock: stockOf(user, hub),
   };
 }
@@ -150,16 +154,17 @@ export function installWallet(hub) {
   }
 
   // 판 끝 지급. 돌려주는 값 {[id]: 받은 코인} (못 받은 사람은 0) = 공통 결과 화면의 gain(server/room/shell.js).
-  hub.award = (room, mode, rows) => {
+  hub.award = (room, mode, rows, scale = 1) => {
     const gain = {};
     const rules = econ.rules;
     if (!Object.hasOwn(rules, mode) || !room || hasBot(room)) return gain;
+    const pay = payouts(mode, rows, rules, scale);
     const t = hub.now();
     for (const row of rows ?? []) {
       const session = hub.sessions.get(row.id);
       if (!session || session.bot || String(row.id).startsWith('~bot')) continue;
       gain[row.id] = 0;
-      const n = coinsFor(mode, { won: !!row.won, opp: row.opp }, rules);
+      const n = pay[row.id] ?? 0;
       const key = `${row.id}|${mode}`;
       const last = lastEarn.get(key);
       if (n <= 0 || (last !== undefined && t - last < rules[mode].gapMs)) continue; // 같은 게임을 너무 빨리 또 함 = 0
@@ -290,6 +295,17 @@ export function installWallet(hub) {
         u.bank += chips;
         changed(session, { kind: 'swap', delta: -m.n, bal: u.coins, chips });
         hub.send(session, { t: 'coin', a: 'swap', n: m.n, chips });
+        return null;
+      }
+      case 'back': { // 칩 -> 코인. 시작 칩(START_BANK)은 남겨야 한다
+        const e = needOut();
+        if (e) return e;
+        const chips = m.n * econ.chipsPerCoinBack;
+        if (!Number.isSafeInteger(chips) || u.bank - chips < START_BANK) return coinErr('coin_floor');
+        u.bank -= chips;
+        u.coins += m.n;
+        changed(session, { kind: 'back', delta: m.n, bal: u.coins, chips: -chips });
+        hub.send(session, { t: 'coin', a: 'back', n: m.n, chips });
         return null;
       }
       case 'draw': {

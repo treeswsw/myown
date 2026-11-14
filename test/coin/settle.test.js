@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeHub } from '../lib/hub.js';
 import { GAMES } from '../../shared/games.js';
-import { COIN_RULES } from '../../shared/coin/rules.js';
+import { COIN_RULES, payouts } from '../../shared/coin/rules.js';
 
 const withCoin = Object.entries(GAMES).filter(([, g]) => g.coin);
 
@@ -29,18 +29,21 @@ test('등록표의 coin 키는 모두 COIN_RULES 에 있고 홀덤만 코인이 
 for (const [id, g] of withCoin) {
   const r = COIN_RULES[g.coin];
 
-  test(`${id}: 끝까지 한 사람 finish, 이긴 사람 + win × 상대 수, 지급은 사람마다 한 번`, async () => {
+  test(`${id}: 끝까지 한 사람 finish, 이긴 사람(차등이면 등수별) 더 받고, 지급은 사람마다 한 번`, async () => {
     const t = await table(id);
-    const gain = t.hub.award(t.room, g.coin, [{ id: 'ann1', won: true, opp: 2 }, { id: 'bob1', won: false, opp: 2 }, { id: 'cat1', won: false, opp: 2 }]);
-    assert.equal(t.coins('ann1'), r.finish + r.win * 2);
-    assert.equal(t.coins('bob1'), r.finish);
-    assert.equal(t.hub.sessions.get('ann1').user.coinsTotal, r.finish + r.win * 2);
-    assert.deepEqual(gain, { ann1: r.finish + r.win * 2, bob1: r.finish, cat1: r.finish }, '못 이긴 사람도 gain 에 있다');
+    const rows = [{ id: 'ann1', rank: 1, won: true, opp: 2 }, { id: 'bob1', rank: 2, won: false, opp: 2 }, { id: 'cat1', rank: 3, won: false, opp: 2 }];
+    const gain = t.hub.award(t.room, g.coin, rows);
+    const top = r.finish + r.win * 2;
+    const mid = r.graded ? payouts(g.coin, rows).bob1 : r.finish;
+    assert.equal(t.coins('ann1'), top);
+    assert.equal(t.coins('bob1'), mid);
+    assert.equal(t.hub.sessions.get('ann1').user.coinsTotal, top);
+    assert.deepEqual(gain, { ann1: top, bob1: mid, cat1: r.finish }, '못 이긴 사람도 gain 에 있다');
   });
 
   test(`${id}: 동점 1등은 둘 다 보너스를 온전히 받는다`, async () => {
     const t = await table(id);
-    t.hub.award(t.room, g.coin, [{ id: 'ann1', won: true, opp: 2 }, { id: 'bob1', won: true, opp: 2 }, { id: 'cat1', won: false, opp: 2 }]);
+    t.hub.award(t.room, g.coin, [{ id: 'ann1', rank: 1, won: true, opp: 2 }, { id: 'bob1', rank: 1, won: true, opp: 2 }, { id: 'cat1', rank: 3, won: false, opp: 2 }]);
     assert.equal(t.coins('ann1'), r.finish + r.win * 2);
     assert.equal(t.coins('bob1'), r.finish + r.win * 2);
     assert.equal(t.coins('cat1'), r.finish);
@@ -48,7 +51,7 @@ for (const [id, g] of withCoin) {
 
   test(`${id}: 지급 간격 gapMs(${r.gapMs}ms) 안에는 못 받고(gain 0), 간격이 지나면 다시 받는다`, async () => {
     const t = await table(id);
-    const rows = [{ id: 'ann1', won: true, opp: 1 }];
+    const rows = [{ id: 'ann1', rank: 1, won: true, opp: 1 }];
     const pay = r.finish + r.win;
     t.hub.award(t.room, g.coin, rows);
     assert.equal(t.coins('ann1'), pay);
@@ -81,10 +84,15 @@ function coinsOf(mode, won, opp) {
   return r.finish + (won ? r.win * opp : 0);
 }
 
-test('코인 0 인 판도 gain 에 0 으로: 미니 진 사람', async () => {
+test('코인 0 인 판도 gain 에 0 으로: 미니 기권·무승부(opp 없음)', async () => {
   const t = await table('mini');
-  assert.deepEqual(t.hub.award(t.room, 'mini', [{ id: 'ann1', won: false, opp: 1 }]), { ann1: 0 });
+  assert.deepEqual(t.hub.award(t.room, 'mini', [{ id: 'ann1', won: false }]), { ann1: 0 });
   assert.equal(t.coins('ann1'), 0);
+});
+
+test('미니 진 사람도 완주 1코인, 이긴 사람 3코인', async () => {
+  const t = await table('mini');
+  assert.deepEqual(t.hub.award(t.room, 'mini', [{ id: 'ann1', rank: 1, won: true, opp: 1 }, { id: 'bob1', rank: 2, won: false, opp: 1 }]), { ann1: 3, bob1: 1 });
 });
 
 test('홀덤(코인 없음)은 지급이 없다', async () => {

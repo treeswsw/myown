@@ -1082,6 +1082,10 @@ async function coinCheck(browser) {
       await page.fill('.cn-field', '3');
       await page.click('.cn-btn.cn-primary:has-text("바꾸기")');
       await page.waitForSelector('.cn-msg.cn-ok', { timeout: T });
+      // 칩 → 코인: 시작 칩 10,000 은 남겨야 해서 지금은 남는 칩이 없어 [바꾸기] 가 꺼져 있다
+      await page.click('.cn-dir');
+      await page.waitForFunction(() => /10,000칩은 남겨야/.test(document.querySelector('.cn-sub')?.textContent || ''), null, { timeout: T });
+      if (!(await page.locator('.cn-btn.cn-primary:has-text("바꾸기")').isDisabled())) throw new Error('back button should be disabled with no spare chips');
       await page.click('.cn-sheet .cn-btns button');
       await page.click('.sh-close');
       await waitCoins('(n) => n === 497', 'balance not 497');

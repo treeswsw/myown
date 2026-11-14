@@ -62,8 +62,8 @@ test('liar: no coin message and no wallet change before the result; liar sees th
   const tail = (c) => c.msgs.slice(coinCut(c.msgs)).map(kind);
   for (const c of citizens) assert.deepEqual(tail(liar), tail(c), `liar vs ${c.id} after the result`);
   const gain = r.host.msgs.find(hasResult).state.wait.result.gain; // everyone sees everyone's coins
-  assert.equal(gain[liar.id], 1);
-  assert.equal(gain[citizens[0].id], 2);
+  assert.equal(gain[liar.id], 4);
+  assert.equal(gain[citizens[0].id], 6);
 });
 
 test('draw: no coin message and no wallet change before the final ranking', async () => {

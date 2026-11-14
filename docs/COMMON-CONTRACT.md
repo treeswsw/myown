@@ -59,8 +59,8 @@ ctx = {
 ```
 
 - **`ctx.finish(rows, info = {})`** (공통 결과, 2026-11-14): `rows = [{id, rank, won?, opp?, score?, note?}]` 이 판을 끝까지 한 사람.
-  `opp` 가 있는 줄만 코인(`entry.coin` 이 있으면 `hub.award` 한 번, 돌려받은 `{id: n}`). `info = {unit?: 'coin'|'chip', add?: {label?, by: {id: n}}}`:
-  `add.by` = 지급 밖 증감(홀덤 칩, 미니 베팅)을 gain 에 더한다. `label` 이 있으면 화면이 나눠 보인다.
+  `opp` 가 있는 줄만 코인(`entry.coin` 이 있으면 `hub.award` 한 번, 돌려받은 `{id: n}`). `info = {unit?: 'coin'|'chip', scale?: number, add?: {label?, by: {id: n}}}`:
+  `scale` = 완주 코인에 곱할 비율(갱식마인드: 진행한 문제 수 / 8, 없으면 1). `add.by` = 지급 밖 증감(홀덤 칩, 미니 베팅)을 gain 에 더한다. `label` 이 있으면 화면이 나눠 보인다.
   Shell 은 결과를 `wait.result = {rows:[{id, name, rank, score?, note?}], gain, unit, add?}`(7-3) 로 방 전원(관전자 포함)에게 싣고, 다음 `start` 때 지운다.
   혼자 남아 끝난 판·무효 판도 부른다(`opp` 없이 → 결과만, 코인 0). 게임별: 홀덤 = 테이블이 대기실로 돌아갈 때 칩 증감(`unit:'chip'`), 미니 = 매치 끝 한 번(`add` 베팅), 그 밖 = 판 끝.
 

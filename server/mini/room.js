@@ -74,13 +74,13 @@ export function makeMiniGame(ctx, opt = {}) {
     nextAt = null;
     const wSeat = winnerId === null ? -1 : seats.indexOf(winnerId);
     result = winnerId === null ? { winner: 'draw', reason: 'draw' } : { winner: wSeat, reason };
-    // 공통 결과는 매치마다 한 번. 승리 코인은 판 승수로 이긴 때만(기권·나감·무승부 제외), 베팅 증감은 add 로 합친다.
+    // 공통 결과는 매치마다 한 번. 완주·승리 코인은 판 승수로 끝난 매치만(기권·나감·무승부 제외, 진 사람도 완주 코인), 베팅 증감은 add 로 합친다.
     const bet = settle(winnerId);
     const out = reason === 'resign' ? '기권' : reason === 'leave' ? '나감' : '';
     ctx.finish(mt.players.map((id) => ({
       id, rank: winnerId === null || id === winnerId ? 1 : 2,
       note: [`${mt.wins[id] ?? 0}승`, id === winnerId ? '' : out].filter(Boolean).join(' · '),
-      won: id === winnerId, opp: reason === 'win' && id === winnerId ? 1 : undefined,
+      won: id === winnerId, opp: reason === 'win' ? 1 : undefined,
     })), { add: { label: '베팅', by: bet } });
     bets.clear();
   }

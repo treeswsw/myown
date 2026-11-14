@@ -10,6 +10,11 @@ test('PIN_RE', () => {
   for (const s of ['123', '12345', 'abcd', '12 3', '１２３４', '123\n', '']) assert.ok(!PIN_RE.test(s), s);
 });
 
+test('back (칩 -> 코인)', () => {
+  assert.deepEqual(parseCoin({ t: 'coin', a: 'back', n: 3 }), { ok: true, msg: { t: 'coin', a: 'back', n: 3 } });
+  for (const n of [0, -1, 1.5, '3', null, undefined, NaN, Infinity, 2000000001]) badc({ t: 'coin', a: 'back', n });
+});
+
 test('swap', () => {
   assert.deepEqual(parseCoin({ t: 'coin', a: 'swap', n: 3 }), { ok: true, msg: { t: 'coin', a: 'swap', n: 3 } });
   for (const n of [0, -1, 1.5, '3', null, undefined, NaN, Infinity, 2000000001]) badc({ t: 'coin', a: 'swap', n });

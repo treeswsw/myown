@@ -116,8 +116,8 @@ test('best of 5 needs three wins; coin win reward is paid once per match, to the
   await win(); // p0:3 -> 끝
   assert.equal(r.a.state.phase, 'end');
   assert.equal(r.a.state.seats[r.a.state.result.winner], winner);
-  assert.equal(r.coinsOf(winner), 1);
-  assert.equal(r.coinsOf(winner === 'ann1' ? 'bob1' : 'ann1'), 0);
+  assert.equal(r.coinsOf(winner), 3);
+  assert.equal(r.coinsOf(winner === 'ann1' ? 'bob1' : 'ann1'), 1);
 });
 
 test('a drawn game is not counted and is played again; a single game ends in a draw', async () => {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHub } from '../../server/rooms.js';
 import { makeHub, drain } from '../lib/hub.js';
 import { FakeClock, client, seeded } from '../helpers.js';
-import { COIN_RULES, ECON_LIMITS, defaultEcon, normalizeEcon, checkEcon, coinsFor } from '../../shared/coin/rules.js';
+import { COIN_RULES, ECON_LIMITS, defaultEcon, normalizeEcon, checkEcon, payouts, ECON_VERSION } from '../../shared/coin/rules.js';
 import { GAMES } from '../../shared/games.js';
 
 const lastErr = (c) => c.sock.msgs.filter((m) => m.t === 'error').at(-1);
@@ -17,15 +17,25 @@ async function loginAdmin(h) {
 }
 
 test('규칙: 갱스껄 줄이 있고 등록표 coin 과 맞는다', () => {
-  assert.deepEqual(COIN_RULES.gsk, { finish: 2, win: 2, gapMs: 120000 });
+  assert.deepEqual(COIN_RULES.gsk, { finish: 10, win: 4, gapMs: 120000 });
   assert.equal(GAMES.gsk.coin, 'gsk');
-  assert.equal(coinsFor('gsk', { won: true, opp: 3 }), 8);
-  assert.equal(coinsFor('gsk', { won: false, opp: 3 }), 2);
+  assert.equal(payouts('gsk', [{ id: 'a', rank: 1, won: true, opp: 3 }]).a, 22);
+  assert.equal(payouts('gsk', [{ id: 'a', rank: 2, won: false, opp: 3 }]).a, 10);
 });
 
 test('normalizeEcon / checkEcon: 기본값, 손상된 값, 범위', () => {
   assert.deepEqual(normalizeEcon(null), defaultEcon());
-  assert.deepEqual(normalizeEcon({ rules: { yacht: { finish: -1, win: 1.5, gapMs: 'x' }, nope: { finish: 3 } }, chipsPerCoin: 0 }), defaultEcon());
+  assert.deepEqual(normalizeEcon({ v: ECON_VERSION, rules: { yacht: { finish: -1, win: 1.5, gapMs: 'x' }, nope: { finish: 3 } }, chipsPerCoin: 0, chipsPerCoinBack: 0 }), defaultEcon());
+  // 버전이 없거나 다른 옛 저장값은 통째로 버리고 새 기본값
+  const old = defaultEcon();
+  old.rules.yacht.finish = 99;
+  delete old.v;
+  assert.deepEqual(normalizeEcon(old), defaultEcon());
+  assert.deepEqual(normalizeEcon({ ...old, v: 1 }), defaultEcon());
+  assert.equal(defaultEcon().chipsPerCoinBack, 1000);
+  assert.equal(defaultEcon().rules.yacht.graded, true);
+  assert.equal(defaultEcon().rules.draw.graded, true);
+  assert.equal(defaultEcon().rules.gsk.graded, undefined);
   const e = defaultEcon();
   e.rules.yacht.win = 7;
   assert.equal(normalizeEcon(e).rules.yacht.win, 7);
@@ -36,11 +46,16 @@ test('normalizeEcon / checkEcon: 기본값, 손상된 값, 범위', () => {
   assert.equal(mut((x) => { x.rules.bluff.win = 1.5; }), false);
   assert.equal(mut((x) => { x.rules.bluff.gapMs = '100'; }), false);
   assert.equal(mut((x) => { x.chipsPerCoin = 0; }), false);
+  assert.equal(mut((x) => { x.chipsPerCoinBack = 0; }), false);
+  assert.equal(mut((x) => { x.chipsPerCoinBack = 1.5; }), false);
+  assert.equal(mut((x) => { x.chipsPerCoinBack = ECON_LIMITS.chipsPerCoinBack[1] + 1; }), false);
+  assert.equal(mut((x) => { x.chipsPerCoinBack = 2000; }), true);
+  assert.equal(mut((x) => { delete x.chipsPerCoinBack; }), false);
   assert.equal(mut((x) => { delete x.rules.mini; }), false);
   assert.equal(mut((x) => { x.rules.holdem = { finish: 1, win: 1, gapMs: 1 }; }), false);
   assert.equal(mut((x) => { x.rules.bluff.finish = 0; x.rules.bluff.win = 0; x.rules.bluff.gapMs = 0; }), true);
   assert.equal(checkEcon('x').ok, false);
-  assert.equal(checkEcon({ rules: [], chipsPerCoin: 100 }).ok, false);
+  assert.equal(checkEcon({ rules: [], chipsPerCoin: 100, chipsPerCoinBack: 1000 }).ok, false);
 });
 
 test('관리자만: 일반 사용자는 adm_no, 관리자는 현재값·기본값·범위를 받는다', async () => {
@@ -68,18 +83,18 @@ test('바꾸면 서버 재시작 없이 바로: 정산 · 지급 간격 · 교�
   await a.send({ t: 'create', mode: 'yacht' });
   const room = [...h.hub.rooms.values()][0];
   const e = defaultEcon();
-  e.rules.yacht = { finish: 10, win: 20, gapMs: 1000 };
+  e.rules.liar = { finish: 10, win: 20, gapMs: 1000 };
   e.chipsPerCoin = 50;
   await adm.send({ t: 'adm', a: 'econSet', econ: e });
   assert.equal(econMsg(adm).saved, true);
-  assert.equal(h.hub.econ().rules.yacht.finish, 10);
-  assert.deepEqual(h.hub.award(room, 'yacht', [{ id: 'ann1', won: true, opp: 2 }]), { ann1: 50 });
+  assert.equal(h.hub.econ().rules.liar.finish, 10);
+  assert.deepEqual(h.hub.award(room, 'liar', [{ id: 'ann1', rank: 1, won: true, opp: 2 }]), { ann1: 50 });
   assert.equal(h.hub.sessions.get('ann1').user.coins, 50);
   await h.tick(999);
-  h.hub.award(room, 'yacht', [{ id: 'ann1', won: true, opp: 2 }]); // 간격 1초 안: 못 받음
+  h.hub.award(room, 'liar', [{ id: 'ann1', rank: 1, won: true, opp: 2 }]); // 간격 1초 안: 못 받음
   assert.equal(h.hub.sessions.get('ann1').user.coins, 50);
   await h.tick(1);
-  h.hub.award(room, 'yacht', [{ id: 'ann1', won: false, opp: 2 }]);
+  h.hub.award(room, 'liar', [{ id: 'ann1', rank: 3, won: false, opp: 2 }]); // 꼴찌 = 완주
   assert.equal(h.hub.sessions.get('ann1').user.coins, 60);
   // 교환 시세
   await a.send({ t: 'leave' });
@@ -96,7 +111,7 @@ test('잘못된 값은 adm_bad 로 거절되고 설정은 그대로', async () =
   e.rules.bluff.finish = -3;
   await adm.send({ t: 'adm', a: 'econSet', econ: e });
   assert.equal(lastErr(adm).code, 'adm_bad');
-  await adm.send({ t: 'adm', a: 'econSet', econ: { rules: {}, chipsPerCoin: 100 } });
+  await adm.send({ t: 'adm', a: 'econSet', econ: { rules: {}, chipsPerCoin: 100, chipsPerCoinBack: 1000 } });
   assert.equal(lastErr(adm).code, 'adm_bad');
   assert.deepEqual(h.hub.econ(), defaultEcon());
 });
@@ -131,7 +146,7 @@ test('저장: 같은 저장소로 새 서버를 띄우면 바꾼 값을 읽는�
 
 test('저장소에 손상된 값이 있어도 서버는 기본값으로 뜬다', async () => {
   const h = makeHub();
-  await h.store.setMeta('econ', { rules: { yacht: { finish: 'a' } }, chipsPerCoin: -5 });
+  await h.store.setMeta('econ', { v: ECON_VERSION, rules: { yacht: { finish: 'a' } }, chipsPerCoin: -5 });
   const clock = new FakeClock();
   const hub2 = createHub({ store: h.store, rng: seeded(2), now: clock.now, timers: clock });
   await drain();
@@ -154,4 +169,36 @@ test('시작 때 읽기가 끝나기 전에 setEcon 이 불렸으면, 늦게 온
   release();
   await drain();
   assert.equal(hub2.econ().rules.liar.finish, 3);
+});
+
+test('옛 저장값(버전 없음)은 새 기본값에 가려지지 않는다', async () => {
+  const h = makeHub();
+  await h.store.setMeta('econ', { rules: { yacht: { finish: 3, win: 4, gapMs: 240000 } }, chipsPerCoin: 100 });
+  const clock = new FakeClock();
+  const hub2 = createHub({ store: h.store, rng: seeded(2), now: clock.now, timers: clock });
+  await drain();
+  await drain();
+  assert.deepEqual(hub2.econ(), defaultEcon());
+  assert.equal(hub2.coinRules().yacht.finish, 10);
+});
+
+test('관리자가 칩 → 코인 시세를 바꾸면 바로 적용된다', async () => {
+  const h = makeHub();
+  const adm = await loginAdmin(h);
+  const e = defaultEcon();
+  e.chipsPerCoinBack = 2500;
+  await adm.send({ t: 'adm', a: 'econSet', econ: e });
+  assert.equal(h.hub.econ().chipsPerCoinBack, 2500);
+  assert.equal(h.hub.econ().v, ECON_VERSION);
+});
+
+test('graded 는 규칙 표시: 관리자가 보내도 서버가 기본 표시로 되돌린다', async () => {
+  const h = makeHub();
+  const adm = await loginAdmin(h);
+  const e = defaultEcon();
+  e.rules.yacht.graded = false;
+  e.rules.gsk.graded = true;
+  await adm.send({ t: 'adm', a: 'econSet', econ: e });
+  assert.equal(h.hub.econ().rules.yacht.graded, true);
+  assert.equal(h.hub.econ().rules.gsk.graded, undefined);
 });

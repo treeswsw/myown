@@ -18,6 +18,9 @@ export function parseCoin(msg) {
     case 'swap':
       if (!Number.isInteger(msg.n) || msg.n < 1 || msg.n > MAX_SWAP) return fail;
       return { ok: true, msg: { t: 'coin', a: 'swap', n: msg.n } };
+    case 'back':
+      if (!Number.isInteger(msg.n) || msg.n < 1 || msg.n > MAX_SWAP) return fail;
+      return { ok: true, msg: { t: 'coin', a: 'back', n: msg.n } };
     case 'draw':
       if (msg.n !== 1 && msg.n !== 10) return fail;
       if (msg.free !== undefined && msg.free !== true && msg.free !== false) return fail;

@@ -1,5 +1,7 @@
 // 교환 창과 코인 랭킹 창 (SPEC 22-3, 22-6). 사용자 글자는 textContent 로만.
 const DEFAULT_CPC = 100; // 서버가 준 wallet.chipsPerCoin 이 없을 때만
+const DEFAULT_CPB = 1000; // wallet.chipsPerCoinBack (칩 -> 코인)
+const DEFAULT_KEEP = 10000; // wallet.keepChips (남겨야 하는 시작 칩)
 const fmt = (n) => Number(n).toLocaleString('ko-KR');
 
 export function h(tag, cls, ...kids) {
@@ -44,50 +46,73 @@ export function sheet(ctx, label, content, extraCls = '') {
 }
 
 export function openSwap(ctx) {
+  let back = false; // false = 코인 -> 칩, true = 칩 -> 코인
   const input = h('input', 'cn-field');
   input.type = 'text';
   input.inputMode = 'numeric';
   input.autocomplete = 'off';
-  input.placeholder = '바꿀 코인';
-  input.setAttribute('aria-label', '바꿀 코인 수');
   const have = h('p', 'cn-sub');
   const preview = h('p', 'cn-preview');
   const msg = h('p', 'cn-msg');
   msg.setAttribute('role', 'status');
+  const dirBtn = btn('', 'cn-btn cn-small cn-dir', () => { back = !back; input.value = ''; msg.textContent = ''; msg.className = 'cn-msg'; refresh(); });
+  // 서버가 준 시세·남길 칩. 바꿀 수 있는 최대 코인 수(칩 -> 코인)는 남길 칩을 뺀 칩으로 센다.
+  const rate = () => {
+    const w = ctx.wallet();
+    const u = ctx.me();
+    const bank = Number(u?.chips ?? u?.bank) || 0;
+    const cpb = Number(w.chipsPerCoinBack) > 0 ? Number(w.chipsPerCoinBack) : DEFAULT_CPB;
+    const keep = Number(w.keepChips) >= 0 ? Number(w.keepChips) : DEFAULT_KEEP;
+    return { w, cpc: Number(w.chipsPerCoin) > 0 ? Number(w.chipsPerCoin) : DEFAULT_CPC, cpb, keep, max: back ? Math.max(0, Math.floor((bank - keep) / cpb)) : w.coins, bank };
+  };
   const num = () => {
     const s = input.value.trim();
     if (!/^\d+$/.test(s)) return 0;
     const n = Number(s);
-    return n >= 1 && n <= ctx.wallet().coins ? n : 0;
+    return n >= 1 && n <= rate().max ? n : 0;
   };
-  const allBtn = btn('전부', 'cn-btn cn-small', () => { input.value = String(ctx.wallet().coins || ''); refresh(); });
+  const allBtn = btn('전부', 'cn-btn cn-small', () => { input.value = String(rate().max || ''); refresh(); });
   const go = btn('바꾸기', 'cn-btn cn-primary', () => {
     const n = num();
     if (!n) return;
     go.disabled = true;
     msg.className = 'cn-msg';
     msg.textContent = '';
-    ctx.send({ t: 'coin', a: 'swap', n });
+    ctx.send({ t: 'coin', a: back ? 'back' : 'swap', n });
   });
   function refresh() {
     input.value = input.value.replace(/[^\d]/g, '');
-    const w = ctx.wallet();
-    const cpc = Number(w.chipsPerCoin) > 0 ? Number(w.chipsPerCoin) : DEFAULT_CPC;
-    have.textContent = `가진 코인 ${fmt(w.coins)}개 · 1코인 = ${fmt(cpc)}칩`;
-    preview.textContent = `= ${fmt((Number(input.value) || 0) * cpc)}칩`;
+    const r = rate();
+    const n = Number(input.value) || 0;
+    input.placeholder = back ? '바꿀 코인 (칩에서)' : '바꿀 코인';
+    input.setAttribute('aria-label', back ? '칩으로 얻을 코인 수' : '바꿀 코인 수');
+    dirBtn.textContent = back ? '칩 → 코인 (눌러서 코인 → 칩)' : '코인 → 칩 (눌러서 칩 → 코인)';
+    if (back) {
+      have.textContent = `가진 칩 ${fmt(r.bank)}개 · ${fmt(r.cpb)}칩 = 1코인 · 바꿀 수 있는 코인 ${fmt(r.max)}개 · ${fmt(r.keep)}칩은 남겨야 해요`;
+      preview.textContent = `= ${fmt(n * r.cpb)}칩 → ${fmt(n)}코인`;
+    } else {
+      have.textContent = `가진 코인 ${fmt(r.w.coins)}개 · 1코인 = ${fmt(r.cpc)}칩`;
+      preview.textContent = `= ${fmt(n * r.cpc)}칩`;
+    }
     go.disabled = !num();
-    allBtn.disabled = w.coins < 1;
+    allBtn.disabled = r.max < 1;
   }
   input.addEventListener('input', refresh);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go.click(); });
 
   const s = sheet(ctx, '코인 교환', [
-    h('div', 'cn-body', have, h('div', 'cn-inline', input, allBtn), preview, msg, go),
+    h('div', 'cn-body', dirBtn, have, h('div', 'cn-inline', input, allBtn), preview, msg, go),
   ]);
   s.track(ctx.on('me', refresh));
   s.track(ctx.on('coin:swap', (m) => {
     msg.className = 'cn-msg cn-ok';
     msg.textContent = `${fmt(m.n)}코인을 ${fmt(m.chips)}칩으로 바꿨습니다.`;
+    input.value = '';
+    refresh();
+  }));
+  s.track(ctx.on('coin:back', (m) => {
+    msg.className = 'cn-msg cn-ok';
+    msg.textContent = `${fmt(m.chips)}칩을 ${fmt(m.n)}코인으로 바꿨습니다.`;
     input.value = '';
     refresh();
   }));

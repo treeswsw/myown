@@ -11,6 +11,7 @@ import { createRoom, join as gJoin, back as gBack, away as gAway, leave as gLeav
 import * as ops from '../../shared/draw/ops.js';
 import { checkDr } from '../../shared/draw/protocol.js';
 import { MAX_PLAYERS, MIN_PLAYERS } from '../../shared/draw/constants.js';
+import { DRAW_BASE_Q } from '../../shared/coin/rules.js';
 import { createWordPicker, listTopics, defaultTopics } from './words.js';
 
 export { MAX_PLAYERS };
@@ -150,8 +151,9 @@ export function makeDrawGame(ctx, opt = {}) {
     }
     const who = starters ?? new Set(ranking.map((r) => r.id));
     const opp = reason === 'alone' ? undefined : who.size - 1; // 혼자 남아 끝난 판: 결과만, 코인 없음
+    const scale = (g.q || g.qTotal || DRAW_BASE_Q) / DRAW_BASE_Q; // 완주 코인은 실제 진행한 문제 수에 비례
     ctx.finish(ranking.filter((r) => !r.left && who.has(r.id))
-      .map((r) => ({ id: r.id, rank: r.rank, score: r.score, note: `맞힘 ${r.correct}`, won: r.rank === 1, opp })));
+      .map((r) => ({ id: r.id, rank: r.rank, score: r.score, note: `맞힘 ${r.correct}`, won: r.rank === 1, opp })), { scale });
   }
 
   // ---- 그림 요청 ----
