@@ -3,7 +3,7 @@
 import './admin.css';
 import { listFx } from '../admin/fx.js';
 import { GAMES } from '../../../shared/games.js';
-import { NAMES } from '../../../shared/solo/index.js';
+import { NAMES } from '../../../shared/solo/meta.js';
 
 const MODE_NAMES = { holdem: '홀덤', bluff: '블러핑', liar: '라이어', yacht: '요트', draw: '갱식마인드' };
 const RECENT_MS = 2000; // 관리자 요청 직후 도착한 오류는 이 패널의 것으로 본다

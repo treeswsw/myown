@@ -3,7 +3,7 @@
 import { GAME_NAME as DRAW_NAME } from './draw/name.js';
 import { GAME_NAME as GSK_NAME } from './gsk/name.js';
 import { GAME_NAME as SOLO_NAME } from './solo/name.js';
-import { IDS as SOLO_IDS } from './solo/index.js';
+import { IDS as SOLO_IDS } from './solo/meta.js';
 import { parse as soloParse } from './solo/protocol.js';
 import { SETTINGS as SOLO_SET, OWN as SOLO_OWN } from './solo/settings.js';
 import { SETTINGS as LIAR_SET } from './liar/settings.js';

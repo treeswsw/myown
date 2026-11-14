@@ -83,6 +83,8 @@ export function mount(ctx) { // ctx: root, ui, stage(등록표 stage 일 때), s
 | 미니게임 봇전 | 정원 예외: 사람 1명 + 봇 자리(`~bot`)로 시작(min 1, `canStart`). 봇 수는 사람 기기가 계산해 `{t:'mn',a:'bot'}` 로 낸다(그 방 사람만·봇 차례만·합법 수만) | docs/mini/PLAN.md 5절 |
 | 미니게임 봇전 | 코인 예외: `ctx.finish(rows, {coin:'minibot_<난이도>'})` 로 난이도별 적립 줄(사람 한 줄). 봇 자리는 방 멤버가 아니라 "봇 있는 방 지급 없음"에 걸리지 않음 | SPEC 22-2 |
 | 미니게임 체스 퍼즐 | 판 결과: 문제마다 공용 결과 화면을 띄우지 않고 판 아래 짧은 줄(레이팅 ±·코인)과 "다음 문제" 버튼. 정원 예외: 사람 1명(`vs:'puzzle'`). 코인은 `ctx.finish` 대신 `hub.grant`(문제마다 양이 다르고 하루 상한이 있음). 나가기는 "기권 처리" 문구 없이 공용 확인만 | docs/mini/PLAN.md 6절 |
+| 혼자 놀기 | 정원 예외: 사람 1명이 하고 나머지는 구경(min 1). 대기실 없이 만들자마자 시작(`autoStart`), 로비 방 목록에서 제외(`listed:false`) | docs/solo/PLAN.md 2절 |
+| 혼자 놀기 | 코인 예외: `ctx.finish` 대신 `hub.grant`(점수 문턱마다 1코인, 판당 최대·혼자 놀기 전체 하루 상한 60은 coin_log 합) | docs/solo/PLAN.md 3절, SPEC 22-2 |
 | (새 게임) | | |
 
 새 예외는 사용자 확인을 받은 뒤 적는다.

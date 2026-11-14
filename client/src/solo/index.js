@@ -93,6 +93,7 @@ export function mount(ctx) {
   let fallbackAt = 0;    // 제한 시간이 지났는데 서버가 안 끝냈을 때 end 를 보낼 시각
   let lastCount = -1;
   let warned = false;
+  let boardWarns = false; // 판이 api.timeLeft 를 읽는다 = 10초 경고 소리는 판이 낸다
   let goUntil = 0;
   let spScore = 0;       // 구경: soProg 로 온 점수
   let shownScore = null;
@@ -111,6 +112,13 @@ export function mount(ctx) {
     input: (v) => doInput(v),
     sfx: (name, n) => sfx.play(name, n),
     reduced,
+    // 남은 시간 비율 0~1 (제한 시간이 없으면 null). 이걸 읽는 판은 10초 경고 소리를 직접 낸다(틀은 또 내지 않는다).
+    timeLeft: () => {
+      boardWarns = true;
+      const so = room?.so;
+      if (!so || !Number.isFinite(so.endsAt)) return null;
+      return Math.max(0, Math.min(1, clock.left(so.endsAt) / Math.max(1, so.endsAt - so.startAt)));
+    },
   };
 
   function doInput(v) {
@@ -151,6 +159,7 @@ export function mount(ctx) {
     fallbackAt = 0;
     runKey = null;
     warned = false;
+    boardWarns = false;
     spScore = 0;
     shownScore = null;
   }
@@ -299,7 +308,7 @@ export function mount(ctx) {
       timeBar.hidden = false;
       const low = rm.phase === 'play' && left <= 10000;
       timeBox.classList.toggle('so-low', low);
-      if (low && !warned && isPlayer(rm)) { warned = true; sfx.play('warn'); }
+      if (low && !warned && !boardWarns && isPlayer(rm)) { warned = true; sfx.play('warn'); }
     } else {
       const el0 = rm.phase === 'play' ? Math.max(0, clock.now() - so.startAt) : 0;
       const text = mmss(el0 + 999);

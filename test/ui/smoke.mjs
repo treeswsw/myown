@@ -163,14 +163,16 @@ async function runContext(browser, server, name, cfg) {
       await visible('button:has-text("방 만들기")');
     });
     await occlusion('home lobby');
-    await step('놀이터: 열기 → 블록소즈 → Ruffle 캔버스가 뜬다 → 나가기 → 로비로', async () => {
-      await press('.lb-flash-btn');
-      await press('.fl-card[data-flash="bloxorz"]');
+    await step('놀이터(혼자 놀기 → 추억의 플래시): 블록소즈 → Ruffle 캔버스가 뜬다 → 나가기 → 로비로', async () => {
+      await press('.lb-seg-item:has-text("혼자 놀기")');
+      await press('.lb-flash-btn[data-flash="bloxorz"]');
       await page.waitForFunction(() => { const r = document.querySelector('.fl-player')?.shadowRoot; return r && r.querySelector('canvas'); }, null, { timeout: 30000 });
       await press('.fl-btn:has-text("나가기")');
       await visible('.fl-card');
       await press('.fl-btn:has-text("로비로")');
       await gone('.fl-root');
+      await press('.lb-seg-item:has-text("텍사스 홀덤")');
+      await visible('button:has-text("방 만들기")');
     });
 
     /* ---------- hold'em ---------- */
@@ -905,6 +907,76 @@ async function runContext(browser, server, name, cfg) {
       await press('.ui-mbtn.ui-danger');
       await visible('button:has-text("방 만들기")');
       await page.waitForFunction(() => !document.querySelector('.mn-root'));
+    });
+    /* ---------- 혼자 놀기 solo (server SOLO default on): 종목마다 한 판 → 그만하기 → 공용 결과(점수·순위 칸) → 로비 ---------- */
+    await step('solo: pick 혼자 놀기 in the game grid (right after 미니게임) → three cards and a rank box replace 방 만들기', async () => {
+      const names = await page.locator('.lb-seg-item').allTextContents();
+      if (names.indexOf('혼자 놀기') !== names.indexOf('미니게임') + 1 || names.at(-1) !== '혼자 놀기') throw new Error(`grid order ${names.join(',')}`);
+      await press('.lb-seg-item:has-text("혼자 놀기")');
+      await visible('[data-so="lobby"]');
+      for (const g of ['g2048', 'apple', 'suika']) await visible(`[data-so="pick-${g}"]`);
+      await visible('[data-so="lobby"] [data-so="rank"]');
+      await visible('[data-so="lobby"] [data-so="rank-tab-wk"]');
+    });
+    const soloRun = async (game, play) => {
+      await press(`[data-so="pick-${game}"]`);
+      await press('[data-so="start"]');
+      await visible('.so-root');
+      await page.waitForFunction(() => document.querySelector('[data-so="board"]')?.children.length > 0, null, { timeout: 15000 });
+      await page.waitForFunction(() => !document.querySelector('.so-count:not([hidden])'), null, { timeout: 15000 });
+      await play();
+      await press('[data-so="quit"]');
+      await visible('.ui-confirm');
+      await press('.ui-mbtn.ui-danger');
+      await visible('[data-rm="result"]');
+      await visible('[data-rm="result"] [data-so="rank"]');
+      const title = await page.locator('[data-rm="result"] .rm-rs-title').first().textContent();
+      if (!/점/.test(title || '')) throw new Error(`result title "${title}"`);
+      await press('[data-rm="result-leave"]');
+      await visible('[data-so="lobby"]');
+      await page.waitForFunction(() => !document.querySelector('.so-root:not([hidden])'));
+    };
+    const soloScore = () => page.evaluate(() => Number((document.querySelector('[data-so="score"]')?.textContent || '0').replace(/[^\d]/g, '')));
+    await step('solo: 2048 — arrow keys move tiles (score > 0) → 그만하기 → common result with rank box → lobby', async () => {
+      await soloRun('g2048', async () => {
+        for (let i = 0; i < 60 && (await soloScore()) === 0; i++) {
+          await page.keyboard.press(['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'][i % 4]);
+          await page.waitForTimeout(120);
+        }
+        if ((await soloScore()) === 0) throw new Error('2048 score stayed 0');
+      });
+    });
+    await step('solo: 사과 게임 — drag a pair that sums to 10 → score rises → 그만하기 → result → lobby', async () => {
+      await soloRun('apple', async () => {
+        const pair = await page.evaluate(() => {
+          const cs = [...document.querySelectorAll('.so-ap-c')];
+          const val = (c) => Number(c.textContent) || 0;
+          for (let i = 0; i + 1 < cs.length; i++) {
+            if (i % 17 !== 16 && val(cs[i]) && val(cs[i]) + val(cs[i + 1]) === 10) {
+              const a = cs[i].getBoundingClientRect(), b = cs[i + 1].getBoundingClientRect();
+              return { x0: a.left + a.width / 2, y0: a.top + a.height / 2, x1: b.left + b.width / 2, y1: b.top + b.height / 2 };
+            }
+          }
+          return null;
+        });
+        if (!pair) throw new Error('no adjacent pair summing to 10');
+        await page.mouse.move(pair.x0, pair.y0);
+        await page.mouse.down();
+        await page.mouse.move(pair.x1, pair.y1, { steps: 4 });
+        await page.mouse.up();
+        await page.waitForFunction(() => Number((document.querySelector('[data-so="score"]')?.textContent || '0').replace(/[^\d]/g, '')) > 0, null, { timeout: 5000 });
+      });
+    });
+    await step('solo: 수박 게임 — click drops one fruit → 그만하기 → result → lobby', async () => {
+      await soloRun('suika', async () => {
+        const box = await page.locator('[data-so="board"] canvas').first().boundingBox();
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        await page.waitForTimeout(400);
+      });
+    });
+    await step('solo: back to 텍사스 홀덤 → 방 만들기 is back', async () => {
+      await press('.lb-seg-item:has-text("텍사스 홀덤")');
+      await visible('button:has-text("방 만들기")');
     });
     mBot.close();
   } catch (e) {

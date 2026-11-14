@@ -133,6 +133,7 @@ for (const [k, g] of Object.entries(GAMES)) {
     await cs[0].send({ t: 'create', mode: k });
     for (const c of cs.slice(1)) await c.send({ t: 'join', code: cs[0].state.code });
     const [a] = cs;
+    if (SERVER_GAMES[k].autoStart && !a.state.wait) return; // 대기실 없이 바로 시작하는 게임(혼자 놀기): 만들 때 설정할 대기실이 없다
     assert.ok(a.state.wait, `${k}: 대기 상태에 wait 가 있다`);
     for (const row of g.settings) {
       if (row.type === 'info' || row.type === 'custom') continue;

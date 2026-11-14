@@ -19,5 +19,7 @@ services:
         value: on # off(갱스껄 흔적 없음) | test(주소에 ?gsk=1 일 때만 보임) | on(모두에게 보임)
       - key: MINI
         value: "on" # off(미니게임 흔적 없음) | test(주소에 ?mini=1 일 때만 보임) | on(모두에게 보임)
+      - key: SOLO
+        value: "on" # off(혼자 놀기 흔적 없음) | test(주소에 ?solo=1 일 때만 보임) | on(모두에게 보임)
       - key: DATABASE_URL
         sync: false # Neon 연결 문자열을 대시보드에서 입력

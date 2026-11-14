@@ -21,6 +21,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 갱식마인드: shared/draw/, server/draw/, client/src/draw/, test/draw/, docs/draw/, design/draw/ (한 과제는 그 안의 한 모듈만. CSS 는 전부 .dr-, 모듈 접두사 GDD 11-1)
 - 코인(SPEC 22절, 모든 게임 공용): shared/coin/, server/coin/, client/src/coin/, test/coin/ (CSS 지갑·랭킹 .cn-, 뽑기 .gc-, 상점 .sh-, 비밀번호 .pn-, 꾸미기 .lk-, 칭호 효과 .tfx-, 캡슐 .cp-). 판 끝 정산은 게임이 공용 방 틀의 ctx.finish(rows) 를 판마다 한 번 부른다(docs/COMMON-CONTRACT.md 1-3). 코인 규칙은 shared/coin/rules.js + 등록표 coin 키. 무작위는 hub.rng(crypto)만.
 - 미니게임: shared/mini/, server/mini/, client/src/mini/, test/mini/, docs/mini/ (CSS 는 전부 .mn-)
+- 혼자 놀기: shared/solo/, server/solo/, client/src/solo/, test/solo/, docs/solo/ (CSS 틀 .so-, 종목 .so-g2- .so-ap- .so-sk-. 한 과제는 종목 하나 또는 틀)
 - 3D·연출: client/src/scene/, client/src/anim/ (anim/special 은 Fable)
 - 놀이터(플래시): client/src/flash/, client/public/flash/, client/public/ruffle/ (CSS 는 전부 .fl-)
 - UI 시험: test/ui/
@@ -87,8 +88,17 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - 체스 퍼즐(혼자 퀴즈 풀기, `vs:'puzzle'`): server/mini/puzzleRun.js·puzzles.js, 코인 `puzzle_*`(하루 상한 100은 coin_log 합), 레이팅 `users.puzzle`. 정답 수순은 실패·정답 보기 뒤에만 보낸다(test/mini/puzzle.test.js). 규칙 docs/mini/PLAN.md 6절.
 - test/ui/smoke.mjs 에 미니게임 한 판(커넥트포) 클릭이 있다. 판 모양·소리·터치 느낌은 "미확인(실기기 확인 필요)".
 
+## 혼자 놀기 (같은 사이트 안의 일곱 번째 모드: 2048·사과 게임·수박 게임, 점수 겨루기)
+- 스위치 환경 변수 `SOLO`: `off` / `test`(주소에 `?solo=1` 일 때만 보임) / `on`(기본 on, 2026-11-14 사용자 요청으로 공개). render.yaml 도 `on`. 약속·규칙·통신·코인·순위는 docs/solo/PLAN.md, 사이트 쪽 요약은 SPEC 25절(통신 7-5).
+- 구역: shared/solo(엔진·진행기·표), server/solo(방·순위), client/src/solo(틀 index.js·flow.js·rank.js·lobby.js, 종목 판은 폴더마다 board.js), test/solo. CSS 는 `.so-`(틀·로비 칸), 종목은 `.so-g2-`(2048) `.so-ap-`(사과) `.so-sk-`(수박). 이름은 shared/solo/name.js 한 곳.
+- 요청은 전부 `{t:'so', a: 종류, ...}`, 오류 코드 `so_`. 방 만들기는 `{t:'create', mode:'solo', game}`(대기실 없이 바로 시작, 방 목록 제외). 방 상태에 프로필 사진을 넣지 않는다(`faces` 알림).
+- 반드시 지킬 약속: 점수는 서버가 같은 엔진을 같은 입력으로 돌려 센다(화면이 보낸 점수는 믿지 않음). 무작위는 엔진 seed(서버 crypto)뿐. 코인은 `hub.grant`(점수 문턱, 혼자 놀기 전체 하루 60), 기록은 `users.solo`.
+- 화면 연결: 공용 방 틀이 `import('./solo/index.js')` 의 `mount(ctx)` 를 부르고, 종목 판은 `client/src/solo/games.js` 표로 따로 불러온다. 로비 칸은 `client/src/solo/lobby.js` 를 스위치가 켜졌을 때만 불러온다. 이름·설명 표 `shared/solo/meta.js` 는 가벼워야 하고 엔진을 import 하지 않는다(shared/games.js 가 읽음).
+- 종목 추가: 엔진 `shared/solo/<id>.js` + 시험 + 판 `client/src/solo/<id>/board.js` + 표 세 줄(`meta.js`, `index.js`, `games.js`) + 코인 줄 `solo_<id>` + smoke.mjs 한 판 (PLAN 10절).
+- smoke.mjs 에 종목마다 한 판(그만하기 → 공용 결과 → 로비)이 있다. 판 모양·소리·터치·수박 물리 느낌은 "미확인(실기기 확인 필요)".
+
 ## 놀이터 (플래시 게임, 코인·랭킹·서버 없음)
-- 로비 "놀이터" 버튼 → client/src/flash/index.js(처음 누를 때만 불러옴) → 게임 카드 → Ruffle 로 전체 화면 실행. 서버 방·코인·채팅과 섞이지 않는다.
+- 입구는 로비 "혼자 놀기" 안의 "추억의 플래시" 구역(혼자 놀기 스위치가 꺼져도 보임; 놀이터 버튼은 따로 없음) → 카드를 누르면 client/src/flash/index.js(처음 누를 때만 불러옴) → 게임 카드 → Ruffle 로 전체 화면 실행. 서버 방·코인·채팅과 섞이지 않는다.
 - 게임 추가 = client/src/flash/games.js 한 줄(id·name·file·players·keys·desc) + client/public/flash/<file>.swf. keys 에 방향키·스페이스·엔터가 들어 있으면 휴대폰에 화면 버튼이 뜬다.
 - Ruffle 0.7.1 은 npm pack 으로 받아 필요한 파일만 client/public/ruffle/ 에 복사해 커밋했다(package.json 에 넣지 않음). 올릴 때도 같은 방법.
 - 소리 끄기(sound/core.js)를 Ruffle 볼륨에 연결. 지금은 혼자 하는 게임만(players:1).

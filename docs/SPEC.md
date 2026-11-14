@@ -224,7 +224,7 @@ design/   시안
 - 방 안 요청은 전부 `{t:'so', a}`. 등록표 `parse(m)` 가 모양을 거른다: `in` `{n: 0 이상 정수, ops: 정수 1~512개, 각 −600 ~ 1048575}`, `end` `{score: 0 이상 정수}`, `rank` `{game: 1~20자 글자}`, 그 밖의 `a` 는 `잘못된 메시지 형식입니다.`. 방 만들기·시작·설정·나가기는 공용 `create/start/set/leave`.
 - 오류 `so_now so_spec so_game so_off so_sync so_fast so_need1 so_bad`(문구는 `server/games.js` `errors`). `so_sync`·`so_fast` 는 화면 틀이 알림 없이 처리(`so_sync` = 서버 `so.n` 부터 다시 보냄).
 - 방 상태 칸(공통 칸 위에): `{game, pid, so: null | {startAt, endsAt, n, score, seed?}, last: null | {game, score, reason, desync?, best, fresh, rank:{all,wk}, coin:{want,gain,capped}, today, cap}}`. `seed` 는 `play` 부터 하는 사람(`pid`)에게만. 이벤트 `soProg {score, n}`(구경꾼에게만). 순위 답 `{t:'soRank', game, week, all:{top,mine}, wk:{top,mine}}`(방 밖·안 어디서나, 허브가 답함).
-- `me` 에 스위치 값 `solo: 'on'|'test'|'off'`(서버 환경 변수 `SOLO`, 기본 `test` = 주소에 `?solo=1`)와, `me.user.solo` = 내 기록 칸 `{[종목]: {best, at, n, wk, wbest, wat}}`.
+- `me` 에 스위치 값 `solo: 'on'|'test'|'off'`(서버 환경 변수 `SOLO`, 기본 `on`(2026-11-14 사용자 요청으로 모두에게 공개), 끄려면 `off`, `test` = 주소에 `?solo=1`)와, `me.user.solo` = 내 기록 칸 `{[종목]: {best, at, n, wk, wbest, wat}}`.
 
 ## 8. 화면
 
@@ -849,3 +849,11 @@ design/   시안
 - 그리는 함수 하나(화면, `client/src/coin/look.js` 를 공용 부품 `client/src/ui/kit/avatar.js` 가 감쌈): 프사 = `playerAvatar({id,name,face,look,size})`, 이름 = `nameTag({name,look})`(칭호 배지는 이름 위, 이름 색). 3D 장면(라이어 마네킹 머리)·그림 합성(갱스껄 해골 원판)에는 합성하지 않고, 같은 `playerAvatar` 를 **판때기처럼 위에 겹쳐** 붙인다(3D 는 머리 위치를 화면 좌표로 옮겨 매 프레임 따라감). 그래서 효과까지 똑같이 보인다.
 - 적용: 로비 내 프로필, 대기실·결과(이미 공용), 포커 자리, 라이어(이름 칭호 + 3D 마네킹 머리 텍스처), 요트 점수표 이름, 갱식마인드(이미 공용), 갱스껄 이름표 + 해골 원판 속 사진, 미니게임 이름, 대기실 관전자 줄.
 - 제외: 채팅 이름, 랭킹 목록, 한 줄짜리 좁은 글("○○ 차례", 투표 요약, 발언자 줄, 승리 연출 글자). 작은 프사(24~32px)도 치장을 전부 그린다.
+
+## 25. 혼자 놀기 (2026-11-14 사용자 요청)
+
+혼자 점수를 겨루는 게임을 한 모드(`solo`)로 묶었다. 이번 3종: 2048(`g2048`), 사과 게임(`apple`), 수박 게임(`suika`). 규칙·통신·화면·코인·순위는 전부 `docs/solo/PLAN.md` 를 따른다(통신 요약은 7-5절). 이름은 `shared/solo/name.js` 한 곳.
+- 로비에 "혼자 놀기" 칸: 종목 카드 3개(이름·한 줄 설명·내 최고) → 고르면 그 종목 순위(전체/이번 주)와 "시작". 방 목록에는 안 나온다(`listed: false`). 다른 사람은 방 코드로 들어와 점수를 구경한다.
+- 점수는 서버가 같은 엔진을 같은 입력으로 돌려 센다(화면 점수는 믿지 않음). 끝나면 공용 결과 화면에 점수·순위·오늘 코인. 코인은 점수 문턱마다 1코인, 혼자 놀기 전체 하루 60 상한(22-2 `solo_*` 줄).
+- 스위치 `SOLO`: `off`/`test`(`?solo=1`)/`on`. 서버 기본값 `on`, `render.yaml` 도 `on`(Render 가 기존 서비스에 환경 변수를 반영하지 않으므로 기본값 자체를 on).
+- 화면은 `import('./solo/index.js')` 의 `mount(ctx)`, 판은 종목마다 따로 불러온다. 요청은 전부 `{t:'so', a}`. 3D·소리·터치 느낌은 실기기 확인이 필요하다.

@@ -4,6 +4,7 @@ import { h, svg, avatar, fmt } from './dom.js';
 import { GAMES as MODES, visibleModes } from '../games.js';
 import { NAMES as MINI_NAMES, GAME_IDS as MINI_IDS } from '../../../shared/mini/index.js';
 import { playerAvatar, nameTag } from './kit/avatar.js';
+import { FLASH_GAMES } from '../flash/games.js';
 
 // createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code), onLogout()})
 // -> { el, setUser(user|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setFlags(me), showRank({top, mine}) }
@@ -18,6 +19,10 @@ import { playerAvatar, nameTag } from './kit/avatar.js';
 //    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
 
 const BASE_KEYS = ['holdem', 'bluff'];
+// 'solo'(혼자 놀기)는 격자 항목이지만 방을 만들지 않는다: 아래 칸이 "랭킹 게임"(스위치가 켜졌을 때) + "추억의 플래시"(항상)로 바뀐다.
+// 스위치가 꺼져 있어도 플래시가 있으면 항목은 보인다. 둘 다 없으면 숨는다.
+const ENTRIES = MODES;
+const withSolo = (keys) => { const k = keys.filter((x) => x !== 'solo'); return keys.includes('solo') || FLASH_GAMES.length ? [...k, 'solo'] : k; };
 const ID_RE = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9_]{2,12}$/;
 const LAST_ID_KEY = 'gs.lastId';
 const SPADE = '<path d="M12 2C8 7 3 9.5 3 14a4.5 4.5 0 0 0 7.6 3.2L9.5 22h5l-1.1-4.8A4.5 4.5 0 0 0 21 14c0-4.5-5-7-9-12z"/>';
@@ -48,7 +53,7 @@ function segmented(onPick, initKeys = BASE_KEYS) {
   function build(next) {
     keys = next;
     btns = keys.map((k) => {
-      const b = h('button', 'lb-seg-item', MODES[k].name);
+      const b = h('button', 'lb-seg-item', ENTRIES[k].name);
       b.type = 'button';
       b.setAttribute('role', 'radio');
       b.addEventListener('click', () => onPick(k));
@@ -70,12 +75,12 @@ function segmented(onPick, initKeys = BASE_KEYS) {
     setKeys(next) { build(next); },
     set(mode, enabled = true) {
       btns.forEach((b, i) => { b.setAttribute('aria-checked', String(keys[i] === mode)); b.disabled = !enabled; });
-      caption.textContent = MODES[mode].desc;
+      caption.textContent = ENTRIES[mode].desc;
     },
   };
 }
 
-export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onResetConfirm, onRank, onCoin, onFlash }) {
+export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onResetConfirm, onRank, onCoin, onFlash, onSoloStart, onSoloAsk }) {
   const el = h('div', 'lb-root lobby');
   let user = null, pendingAvatar = null, shownModes = BASE_KEYS;
 
@@ -226,8 +231,37 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
     rankBtn, h('div', 'lb-grow'), button('로그아웃', 'lb-text', () => onLogout()));
 
   const play = h('section', 'lb-panel panel');
+  // 혼자 놀기 칸: 스위치가 켜졌을 때만 따로 불러온다(client/src/solo/lobby.js). 모드 고르기 줄에는 넣지 않는다.
+  const soloBox = h('div', 'lb-solo');
+  soloBox.hidden = true;
+  // 추억의 플래시 구역: 게임 카드(누르면 바로 그 게임, Ruffle 전체 화면). 서버 방·코인·랭킹 없음.
+  const rankSec = h('div', 'lb-solo-sec');
+  rankSec.hidden = true;
+  const flashSec = h('div', 'lb-solo-sec lb-flash');
+  flashSec.hidden = !FLASH_GAMES.length;
+  flashSec.append(h('h3', null, '추억의 플래시'),...FLASH_GAMES.map((g) => {
+    const b = h('button', 'lb-btn lb-flash-btn', h('b', null, g.name), h('span', 'lb-sub', g.desc));
+    b.type = 'button';
+    b.dataset.flash = g.id;
+    b.addEventListener('click', () => onFlash?.(g.id));
+    return b;
+  }), h('p', 'lb-cap', '플레이만 가능해요. 코인·랭킹에는 반영되지 않아요.'));
+  soloBox.append(rankSec, flashSec);
+  let soloPanel = null;
+  let soloOn = false; // 혼자 놀기 스위치(랭킹 게임 구역)
+  let soloLoading = false;
+  function loadSolo() {
+    if (soloPanel || soloLoading) return;
+    soloLoading = true;
+    import('../solo/lobby.js').then(({ createSoloLobby }) => {
+      soloPanel = createSoloLobby({ send: (m) => onSoloAsk?.(m), onStart: (g) => { homeErr.textContent = ''; onSoloStart?.(g); } });
+      soloPanel.setUser(user);
+      rankSec.append(h('h3', null, '랭킹 게임'), soloPanel.el);
+      if (pickedMode === 'solo') soloPanel.show();
+    }).catch((e) => { soloLoading = false; console.error(e); });
+  }
   let pickedMode = 'holdem';
-  const homeSeg = segmented((m) => { pickedMode = m; homeSeg.set(m); syncMini(); updateCreate(); });
+  const homeSeg = segmented((m) => { pickedMode = m; homeSeg.set(m); syncMini(); updateCreate(); }, withSolo(BASE_KEYS));
   homeSeg.set(pickedMode);
   let pickedMini = 'gomoku';
   const miniBox = h('div', 'lb-mini-pick');
@@ -270,6 +304,11 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   miniBox.hidden = true;
   function syncMini() {
     miniBox.hidden = pickedMode !== 'mini';
+    // 아래 영역: 방 만들기 / 혼자 놀기 종목 카드 / 놀이터 게임 카드
+    createBox.hidden = pickedMode === 'solo';
+    soloBox.hidden = pickedMode !== 'solo';
+    rankSec.hidden = !soloOn;
+    if (pickedMode === 'solo' && soloOn) { loadSolo(); soloPanel?.show(); }
     const m = pickedMode === 'mini';
     if (pickedVs === 'puzzle' && pickedMini !== 'chess') pickedVs = 'friend'; // 퀴즈 풀기는 체스만
     vsSeg.row.querySelector('[data-v="puzzle"]').hidden = pickedMini !== 'chess';
@@ -279,9 +318,10 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
     vsSeg.sync(); levelSeg.sync(); sideSeg.sync();
     miniBtns.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mini === pickedMini)));
   }
-  syncMini();
   const createBtn = button('방 만들기', 'lb-primary', () => { homeErr.textContent = ''; onCreate(pickedMode, pickedMode === 'mini' ? pickedMini : undefined, pickedMode === 'mini' && pickedVs === 'bot' ? { vs: 'bot', level: pickedLevel, side: pickedSide } : pickedMode === 'mini' && pickedVs === 'puzzle' ? { vs: 'puzzle' } : undefined); });
   const createNote = h('p', 'lb-cap');
+  const createBox = h('div', 'lb-create', createBtn, createNote);
+  syncMini();
   const isBroke = () => user != null && (user.chips ?? user.bank) === 0;
   function updateCreate() {
     const blocked = isBroke() && pickedMode === 'holdem';
@@ -294,8 +334,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   const rows = new Map();
   let lastRooms = [];
   play.append(h('h2', null, '새 게임'), h('div', 'lb-stack lb-seg-box', homeSeg.el, homeSeg.caption, miniBox, vsSeg.row, levelSeg.row, sideSeg.row),
-    createBtn, createNote, button('놀이터', 'lb-flash-btn', () => onFlash?.()),
-    h('hr'), h('h2', null, '열린 방'), roomList, emptyNote, homeErr);
+    createBox, soloBox, h('hr'), h('h2', null, '열린 방'), roomList, emptyNote, homeErr);
 
   function roomRow(code) {
     const b = h('button', 'lb-row lb-room-row');
@@ -432,8 +471,10 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
     if (next.join() === shownModes.join()) return;
     shownModes = next;
     rankBtn.hidden = !next.includes('liar');
-    homeSeg.setKeys(next);
-    if (!next.includes(pickedMode)) pickedMode = 'holdem';
+    soloOn = next.includes('solo');
+    const keys = withSolo(next);
+    homeSeg.setKeys(keys);
+    if (!keys.includes(pickedMode)) pickedMode = 'holdem';
     homeSeg.set(pickedMode);
     syncMini();
     updateCreate();
@@ -466,7 +507,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
 
   return {
     el,
-    setUser(u) { if (u !== user) closeReset?.(); user = u; resetPinFields(); render(); },
+    setUser(u) { if (u !== user) closeReset?.(); user = u; resetPinFields(); soloPanel?.setUser(u); render(); },
     setRooms(list) { renderRooms(list); },
     setError(msg) { (!user ? outErr : homeErr).textContent = msg || ''; },
     showNotice(text) { outInfo.textContent = text || ''; },
@@ -490,6 +531,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
     closeReset() { closeReset?.(); },
     setFlags,
     showRank,
+    feedSoloRank: (msg) => soloPanel?.feed(msg),
     show() { el.hidden = false; },
     hide() { el.hidden = true; },
   };

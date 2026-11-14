@@ -101,7 +101,9 @@ const lobby = createLobby({
     setTimeout(() => location.reload(), 150); // let the message leave before the socket closes
   },
   onRank: () => send({ t: 'lg', a: 'rank' }),
-  onFlash: () => import('./flash/index.js').then((m) => m.open()), // 놀이터(플래시): 서버 없이 화면만
+  onSoloStart: (game) => send({ t: 'create', mode: 'solo', game }),
+  onSoloAsk: (m) => send(m),
+  onFlash: (id) => import('./flash/index.js').then((m) => m.open(id)), // 놀이터(플래시): 서버 없이 화면만
 });
 document.body.append(lobby.el);
 /* coin module (SPEC 22): loaded right after login; messages are buffered until it is ready */
@@ -221,6 +223,10 @@ function handle(msg) {
     case 'lgRank':
       if (inFrame() && frame.current()) frame.event({ k: 'lgRank', top: msg.top, mine: msg.mine });
       else lobby.showRank({ top: msg.top, mine: msg.mine });
+      break;
+    case 'soRank': // 혼자 놀기 순위 답: 방 안이면 결과 칸으로, 아니면 로비 순위 칸으로
+      if (inFrame() && frame.current()) frame.event({ ...msg, k: 'soRank' });
+      else lobby.feedSoloRank?.(msg);
       break;
     case 'event':
       if (inFrame()) frame.event(msg.e); // the frame handles media / chat / faces and passes the rest to the game

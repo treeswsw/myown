@@ -14,7 +14,7 @@
 4. **수박 물리는 직접 만든 원(圓) 전용 고정 간격 엔진**(1/60초, `+ − × ÷ Math.sqrt` 만). matter.js 는 쓰지 않는다(삼각함수 때문에 Safari 와 서버 결과가 달라질 수 있고 무겁다).
 5. **코인**: 점수 문턱을 넘을 때마다 1코인(종목마다 문턱 표), 판당 최대는 관리자 설정, **혼자 놀기 전체 하루 60코인 상한**(coin_log 합, 한국 시간). 최소 간격 없음.
 6. **기록·순위**: `users.solo jsonb` 한 칸(종목별 최고·날짜·판 수·이번 주 최고). 순위는 종목별 상위 20 + 내 순위, **전체 / 이번 주** 두 탭. 로비에서 종목을 고르면 바로 보이고, 결과 화면에 "새 기록 · n위".
-7. 봉투 `{t:'so', a}`, 오류 `so_`, CSS `.so-`(틀) / `.so-g2-` `.so-ap-` `.so-sk-`(종목), 스위치 `SOLO`(개발 중 서버 기본값 `test` = `?solo=1`, 사용자 확인 뒤 `on`).
+7. 봉투 `{t:'so', a}`, 오류 `so_`, CSS `.so-`(틀) / `.so-g2-` `.so-ap-` `.so-sk-`(종목), 스위치 `SOLO`(서버 기본값 `on` — 2026-11-14 사용자 요청으로 공개, render.yaml 도 `on`; 끄려면 `off`/`test`).
 
 ## 1. 구조와 경계
 
@@ -276,7 +276,7 @@ NEW-GAME 4절 예외 표에 적을 것(사용자 확인 필요 — 11절):
 ## 10. 새 종목을 붙이는 법 (이번 3종 뒤)
 1. `shared/solo/<id>.js`(1-3 약속) + `test/solo/<id>.test.js` + golden.
 2. `client/src/solo/<id>/board.js`(1-5 약속) + CSS(`.so-<두 글자>-`).
-3. 표 두 줄: `shared/solo/index.js`, `client/src/solo/games.js`. 코인 한 줄: `COIN_RULES.solo_<id>`(+ 관리자 이름).
+3. 표 세 줄: `shared/solo/meta.js`(이름·설명, 가벼운 표 — 첫 번들용), `shared/solo/index.js`(엔진), `client/src/solo/games.js`(판 화면). 코인 한 줄: `COIN_RULES.solo_<id>`(+ 관리자 이름).
 4. smoke.mjs 한 판. 끝 — 틀·저장·순위·로비는 고치지 않는다(로비 카드·순위는 표에서 나온다).
 
 ## 11. 사용자에게 확인할 것

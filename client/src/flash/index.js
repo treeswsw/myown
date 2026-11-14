@@ -38,7 +38,8 @@ let root = null;
 
 export function close() { root?.destroy(); }
 
-export function open() {
+// startId 가 있으면 목록을 건너뛰고 그 게임으로 바로 간다(로비 놀이터 카드)
+export function open(startId) {
   if (root) return;
   const ov = el('div', 'fl-root');
   ov.setAttribute('role', 'dialog');
@@ -122,5 +123,6 @@ export function open() {
     }
   }
 
-  showList();
+  const first = startId && FLASH_GAMES.find((g) => g.id === startId);
+  if (first) play(first); else showList();
 }

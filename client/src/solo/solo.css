@@ -94,3 +94,13 @@
   .so-pop, .so-count.so-tick, .so-count.so-go, .so-tray.so-wait .so-felt::after { animation: none; }
   .so-bar-fill, .so-tray { transition: none; }
 }
+
+/* ---------- 로비 "혼자 놀기" 칸 (lobby.js) ---------- */
+.so-pk { display: flex; flex-direction: column; gap: 10px; }
+.so-pk-list { display: flex; flex-direction: column; gap: 6px; }
+.so-pk-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; text-align: left; min-height: 52px; padding: 8px 14px; border-radius: 12px; border: 2px solid transparent; background: rgba(128, 128, 128, .15); color: inherit; touch-action: manipulation; }
+.so-pk-card[aria-checked=true] { border-color: #f3d36a; background: rgba(243, 211, 106, .16); }
+.so-pk-name { font-size: 16px; }
+.so-pk-desc { grid-column: 1; font-size: 12px; opacity: .7; }
+.so-pk-best { grid-row: 1 / span 2; grid-column: 2; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; opacity: .85; }
+.so-pk-start { align-self: stretch; }

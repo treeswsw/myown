@@ -139,6 +139,7 @@ export const GAMES = {
   mini:   { name:'미니게임',   …, min:2, max:8, flag:'mini',  msgs:['mn'], err:'mn_', css:'mn-', coin:'mini',  chat:{maxLen:120, log:30}, settings:MINI_SET, own:[] },
 };
 ```
+- 선택 칸(2026-11-14 혼자 놀기에서 추가, 없으면 기본값): `listed`(false = 로비 방 목록에 안 나옴, 기본 true), `create(m)`(`{t:'create'}` 요청에서 방에 넘길 추가 칸만 골라 돌려줌), `parse(m)`(그 게임 요청 모양 검사, null = 거절). 서버 등록표(`server/games.js`)의 `autoStart(opt)`(true 면 방을 만들자마자 `start` 를 부름 — 대기실 없는 게임).
 - `desc`·`max` 는 lobby.js:23-31 의 MODES 값 그대로. `about` 은 대기실 왼쪽 설명(시안의 desc 글).
 - 설정 스키마는 `shared/<모드>/settings.js` 가 내보낸다(포커·요트는 빈 배열). 모양은 4-3.
 
