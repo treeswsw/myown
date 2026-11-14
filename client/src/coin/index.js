@@ -15,6 +15,7 @@ const WINDOWS = {
   shop: () => import('./shop.js').then((m) => m.openShop),
   pin: () => import('./pin.js').then((m) => m.openPin),
   cap: () => import('./capsule.js').then((m) => m.openCapsule),
+  look: () => import('./lookwin.js').then((m) => m.openLook),
 };
 
 const EMPTY = { coins: 0, total: 0, pity: 0, owned: [], equip: {}, hasPin: false };
