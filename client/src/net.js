@@ -3,7 +3,6 @@ import { saved, tokens } from './state.js';
 let transport = { send() {} };
 
 export const send = (msg) => transport.send(msg);
-export const useTransport = (t) => { transport = t; };
 
 // Reconnects forever; every (re)open logs in again with the remembered id so the server restores the seat.
 export function connect(onMessage, onStatus) {

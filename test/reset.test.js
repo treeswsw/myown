@@ -157,3 +157,10 @@ test('reset needs the admin password; wrong ones never wipe, 5 wrong lock it (sh
   assert.equal(kinds(c, 'resetDone').length, 1);
   assert.equal(hub.sessions.size, 0);
 });
+
+test('reset: 걸려 있던 베팅(stakes)도 비운다', async () => {
+  const { hub } = setup();
+  hub.stakes.set({}, { rows: [], mode: 'mini', code: 'ABCD' });
+  await hub.reset();
+  assert.equal(hub.stakes.size, 0);
+});

@@ -3,6 +3,7 @@
 // ctx.on(type, fn) -> 끄기. type: 't' 값('coin' | 'pin' | 'error' | 'me') 또는 'coin:<a>'(예 'coin:draw'), 'pin:<a>'.
 //   'error' 는 code 가 coin_ / shop_ / pin_ 로 시작하는 것만 온다. 'me' 는 wallet 이 바뀔 때마다(fn(wallet)).
 import { item } from '../../../shared/coin/shop.js';
+import { toast } from '../ui/kit/toast.js';
 import './coin.css';
 import './look.css';
 import './titlefx.css';
@@ -14,7 +15,6 @@ const WINDOWS = {
   shop: () => import('./shop.js').then((m) => m.openShop),
   pin: () => import('./pin.js').then((m) => m.openPin),
   cap: () => import('./capsule.js').then((m) => m.openCapsule),
-  look: () => import('./lookwin.js').then((m) => m.openLook),
 };
 
 const EMPTY = { coins: 0, total: 0, pity: 0, owned: [], equip: {}, hasPin: false };
@@ -41,18 +41,19 @@ export function createCoin({ send, root }) {
   // ctx.me() -> 최근 사용자|null, ctx.open(kind) -> 다른 코인 창 열기
   const ctx = { send, root, wallet: () => wallet, on, me: () => meUser, open: (kind) => open(kind) };
 
-  // ---------- 알림 (위쪽, 조작을 막지 않음) ----------
-  let toastEl = null, toastTimer = 0;
+  // ---------- 알림 ----------
+  // 코인 글('+N 코인', '이번 판 코인 +1')은 공용 알림(ui/kit/toast.js)에 쌓는다: 다른 글은 함께 보이고 같은 글은 한 번만.
+  // 소식(뽑기 당첨)은 위쪽 한 줄.
   let newsEl = null, newsTimer = 0;
   function flash(kind, text, ms) {
-    const isNews = kind === 'news';
-    let el = isNews ? newsEl : toastEl;
+    if (kind !== 'news') { toast(text, { kind: 'coin', ms }); return; }
+    let el = newsEl;
     if (!el) {
       el = document.createElement('div');
-      el.className = isNews ? 'cn-news' : 'cn-toast';
+      el.className = 'cn-news';
       el.setAttribute('role', 'status');
       el.setAttribute('aria-live', 'polite');
-      if (isNews) newsEl = el; else toastEl = el;
+      newsEl = el;
     }
     el.textContent = text;
     el.classList.remove('cn-show');
@@ -60,8 +61,8 @@ export function createCoin({ send, root }) {
     root.append(el);
     void el.offsetWidth; // 애니메이션 다시 시작
     el.classList.add('cn-show');
-    if (isNews) { clearTimeout(newsTimer); newsTimer = setTimeout(() => el.remove(), ms); }
-    else { clearTimeout(toastTimer); toastTimer = setTimeout(() => el.remove(), ms); }
+    clearTimeout(newsTimer);
+    newsTimer = setTimeout(() => el.remove(), ms);
   }
 
   function onMe(me) {

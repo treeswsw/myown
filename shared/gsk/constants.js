@@ -7,7 +7,6 @@ export const COLORS = Object.freeze(['초록', '보라', '노랑', '빨강', '�
 export const COLOR_HEX = Object.freeze(['#74b940', '#8e4fa4', '#e4930d', '#d61b18', '#3da0bc', '#e8640c']);
 // 원판 구성: 꽃(F) 3 + 해골(S) 1
 export const DISCS = Object.freeze({ F: 3, S: 1 });
-export const DISC_TOTAL = 4;
 export const WIN_POINTS = 2;
 // 연출 시간(서버가 잼)
 export const REVEAL_MS = 3500; // 판정 뒤 피날레(해골 패배·성공)가 보일 시간

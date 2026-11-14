@@ -140,3 +140,20 @@ test('저장소에 손상된 값이 있어도 서버는 기본값으로 뜬다',
   await drain();
   assert.deepEqual(hub2.econ(), defaultEcon());
 });
+
+test('시작 때 읽기가 끝나기 전에 setEcon 이 불렸으면, 늦게 온 옛 값은 버린다', async () => {
+  const h = makeHub();
+  const old = defaultEcon();
+  old.rules.liar.finish = 7;
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const store = Object.create(h.store);
+  store.getMeta = async () => { await gate; return old; };
+  const hub2 = createHub({ store, rng: seeded(3), now: new FakeClock().now, timers: new FakeClock() });
+  const fresh = defaultEcon();
+  fresh.rules.liar.finish = 3;
+  await hub2.setEcon(fresh);
+  release();
+  await drain();
+  assert.equal(hub2.econ().rules.liar.finish, 3);
+});

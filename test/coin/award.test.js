@@ -142,7 +142,7 @@ export async function playDraw(clock, cs, { guesser = 'bob1', stop = () => false
 test('draw: final ranking pays 2, rank 1 +2 per opponent; leaver and late joiner 0', async () => {
   const { hub, clock } = await setup(9);
   const cs = await lobby(hub, 'draw', ['ann1', 'bob1', 'cat1']);
-  await cs[0].send({ t: 'dr', a: 'settings', rounds: 1, time: 60 });
+  await cs[0].send({ t: 'set', patch: { rounds: 1, time: 60 } });
   await cs[0].send({ t: 'start' });
   const late = await login(hub, 'dan1');
   await late.send({ t: 'join', code: cs[0].state.code });
@@ -260,7 +260,7 @@ test('yacht: everyone else left (reason alone) pays nobody', async () => {
 test('draw: everyone else left (finished.reason alone) pays nobody', async () => {
   const { hub } = await setup(9);
   const cs = await lobby(hub, 'draw', ['ann1', 'bob1']);
-  await cs[0].send({ t: 'dr', a: 'settings', rounds: 1, time: 60 });
+  await cs[0].send({ t: 'set', patch: { rounds: 1, time: 60 } });
   await cs[0].send({ t: 'start' });
   await cs[1].send({ t: 'leave' });
   assert.equal(coins(hub, 'ann1'), 0);

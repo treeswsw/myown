@@ -95,15 +95,17 @@ export function installWallet(hub) {
 
   // 관리자 경제 설정 (SPEC 21-7): 시작 때 저장소에서 읽고, 바뀌면 바로 이 변수만 바꾼다(재시작 없음).
   let econ = defaultEcon();
+  let econSet = false; // 읽기가 끝나기 전에 setEcon 이 불렸으면, 늦게 온 옛 값은 버린다
   hub.econ = () => econ;
   hub.coinRules = () => econ.rules;
   Promise.resolve()
     .then(() => hub.store.getMeta('econ'))
-    .then((v) => { if (v) econ = normalizeEcon(v); })
+    .then((v) => { if (v && !econSet) econ = normalizeEcon(v); })
     .catch((err) => console.error('econ load failed:', err.message));
   // 새 설정(검사를 마친 것)을 적용하고 저장한다. 저장이 실패해도 지금 서버에서는 적용된다.
   hub.setEcon = async (next) => {
     econ = normalizeEcon(next);
+    econSet = true;
     try { await hub.store.setMeta('econ', econ); } catch (err) { console.error('econ save failed:', err.message); }
     return econ;
   };

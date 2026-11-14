@@ -36,16 +36,14 @@ export async function shrinkImage(file) {
 }
 
 // ---- audio engine: sound/core.js 하나 위에서 (COMMON-CONTRACT 4-1)
-let muted = false;
 let active = 0;
-export const setMediaMuted = (v) => { muted = v; };
 const audio = () => context();
 
 // iOS only starts audio from inside a gesture: sound/core.js unlocks on the first one.
 export function unlockAudio() { unlock(); }
 
 function playBuffer(buf) {
-  if (muted || isMuted() || active >= 3) return;
+  if (isMuted() || active >= 3) return;
   const src = corePlay(buf, { gain: 0.9, maxSec: MAX_SECONDS });
   if (!src) return;
   active++;

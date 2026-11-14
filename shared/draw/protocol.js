@@ -3,7 +3,7 @@
 // 결과: 통과하면 { ok:true, msg: 정리된 객체 }, 아니면 { ok:false, error } (shared/liar/protocol.js 와 같은 방식).
 import {
   COLOR_COUNT, WIDTH_MIN, WIDTH_MAX, CANVAS_W, CANVAS_H, DELTA_MAX, MAX_NUMS_PER_MSG, MAX_RM_IDS, MAX_OPS,
-  TIME_CHOICES, ROUND_CHOICES, ORDER_CHOICES, ACT_MAX, ID_MAX, TOPIC_NAME_MAX, TOPICS_MAX, WORD_CHOICES,
+  ACT_MAX, WORD_CHOICES,
 } from './constants.js';
 
 const BAD = '알 수 없는 요청입니다.'; // dr_bad 와 같은 글
@@ -14,14 +14,6 @@ const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isInt = (v) => Number.isInteger(v);
 const inRange = (v, lo, hi) => isInt(v) && v >= lo && v <= hi;
-
-function idOk(v) {
-  return typeof v === 'string' && v.length >= 1 && v.length <= ID_MAX;
-}
-
-function topicName(v) {
-  return typeof v === 'string' && v.length >= 1 && [...v].length <= TOPIC_NAME_MAX;
-}
 
 // 점 배열. first=true 면 [x0,y0,dx1,dy1,...], 아니면 [dx,dy,...]. 길이는 짝수, 최대 128개. 틀리면 null.
 function checkPoints(p, first, allowEmpty) {
@@ -37,44 +29,9 @@ function checkPoints(p, first, allowEmpty) {
   return p.slice();
 }
 
-function checkSettings(m) {
-  const out = {};
-  if (has(m, 'order')) {
-    if (!ORDER_CHOICES.includes(m.order)) return bad();
-    out.order = m.order;
-  }
-  if (has(m, 'rounds')) {
-    if (!ROUND_CHOICES.includes(m.rounds)) return bad();
-    out.rounds = m.rounds;
-  }
-  if (has(m, 'time')) {
-    if (!TIME_CHOICES.includes(m.time)) return bad();
-    out.time = m.time;
-  }
-  if (has(m, 'len')) {
-    if (typeof m.len !== 'boolean') return bad();
-    out.len = m.len;
-  }
-  if (has(m, 'topics')) {
-    const t = m.topics;
-    if (!Array.isArray(t) || t.length < 1 || t.length > TOPICS_MAX) return bad();
-    const topics = [];
-    for (const name of t) {
-      if (!topicName(name)) return bad();
-      if (!topics.includes(name)) topics.push(name);
-    }
-    out.topics = topics;
-  }
-  return Object.keys(out).length ? good({ a: 'settings', ...out }) : bad();
-}
-
 export function checkDr(msg) {
   if (!isObj(msg) || typeof msg.a !== 'string' || msg.a.length < 1 || msg.a.length > ACT_MAX) return bad();
   switch (msg.a) {
-    case 'settings':
-      return checkSettings(msg);
-    case 'kick':
-      return idOk(msg.id) ? good({ a: 'kick', id: msg.id }) : bad();
     case 'pick':
       return inRange(msg.i, 0, WORD_CHOICES - 1) ? good({ a: 'pick', i: msg.i }) : bad();
     case 'st': {
@@ -105,7 +62,6 @@ export function checkDr(msg) {
     case 'give':
     case 'skip':
     case 'end':
-    case 'lobby':
       return good({ a: msg.a });
     default:
       return bad();

@@ -5,9 +5,6 @@ import { GAMES as MODES, visibleModes } from '../games.js';
 import { NAMES as MINI_NAMES, GAME_IDS as MINI_IDS } from '../../../shared/mini/index.js';
 import { item as shopItem, GRADES } from '../../../shared/coin/shop.js';
 
-// 뽑기 버튼은 나중에 공개. true 로 바꾸면 다시 보인다.
-const SHOW_DRAW = true;
-
 // createLobby({onLogin(id, avatarDataUrl|null, pw|undefined), onAvatar(dataUrl), onCreate(mode), onJoin(code), onLogout()})
 // -> { el, setUser(user|null), setRooms(list), setError(msg|null), showNotice(text), showResetConfirm(), show(), hide(), setFlags(me), showRank({top, mine}) }
 // 방 안(대기실 포함)은 공통 방 틀(room/frame.js, room/wait.js)이 그린다. 로비는 방에 들어가면 숨는다(main.js).
@@ -15,7 +12,7 @@ const SHOW_DRAW = true;
 // onRank() -> ask the server for the liar ranking, then call showRank.
 // onResetConfirm(adminPw) is called when the user confirms 전체 초기화 (adminPw: string|undefined).
 // onLogin(id, avatar, adminPw, {pin, newPin}) - 4th arg fields are undefined when empty.
-// onCoin('shop'|'draw'|'cap'|'look'|'swap'|'rank'|'pin'): coin buttons in the profile (shown only when user.wallet exists).
+// onCoin('shop'|'draw'|'cap'|'swap'|'rank'|'pin'): coin buttons in the profile (shown only when user.wallet exists).
 // askPin(msg) shows the PIN field (server pin_need); loginError(code,msg) shows pin_bad/pin_lock/pin_exists/pin_fmt/adm_*;
 // resetError(msg) shows an error inside the reset confirm sheet (adm_pw/adm_lock).
 //    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
@@ -219,7 +216,6 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   const coinBtns = h('div', 'lb-coin-btns');
   for (const [a, label] of [['shop', '상점'], ['rank', '코인 랭킹']] /* 교환·카드 뽑기·칭호 뽑기는 상점 안에서 (2026-11-13) */) {
     const b = button(label, 'lb-tint lb-coin-btn', () => onCoin?.(a));
-    if (a === 'draw' && !SHOW_DRAW) b.hidden = true;
     coinBtns.append(b);
   }
   const pinBtn = button('비밀번호', 'lb-tint lb-coin-btn lb-pin-btn', () => onCoin?.('pin'));

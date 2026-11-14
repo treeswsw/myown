@@ -278,24 +278,6 @@ export function makeLiarGame(ctx) {
     const msg = c.msg;
     const id = session.id;
     switch (msg.a) {
-      // Old dedicated requests (kept until the cleanup step; the screen now uses the common set/kick).
-      case 'settings': {
-        if (id !== ctx.hostId()) return err('host', '방장만 바꿀 수 있습니다.');
-        if (!waiting()) return err('now', '판이 끝난 뒤에 바꿀 수 있습니다.');
-        const bad = setSettings(id, msg);
-        if (bad) return bad;
-        ctx.push();
-        return null;
-      }
-      case 'kick': {
-        if (id !== ctx.hostId()) return err('host', '방장만 내보낼 수 있습니다.');
-        if (phase !== 'lobby') return err('now', '방 대기 중에만 내보낼 수 있습니다.');
-        if (msg.id === id) return err('bad', '자기 자신은 내보낼 수 없습니다.');
-        if (!ctx.member(msg.id)) return err('bad', '방에 없는 사람입니다.');
-        ctx.sendTo(msg.id, { t: 'error', ...err('kicked') });
-        ctx.drop(msg.id, 'kick');
-        return null;
-      }
       case 'say': return play({ type: 'say', by: id, text: stripSizeMark(msg.text) });
       case 'vote': return play({ type: 'vote', by: id, target: msg.target });
       case 'judge': return play({ type: 'judge', by: id, v: msg.v });

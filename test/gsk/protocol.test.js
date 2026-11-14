@@ -12,7 +12,6 @@ const badOf = (m) => {
 };
 
 test('올바른 요청은 정리된 객체로 돌아온다(모르는 필드는 버림)', () => {
-  assert.deepEqual(okOf({ t: 'gk', a: 'color', c: 5, x: 1 }), { a: 'color', c: 5 });
   assert.deepEqual(okOf({ a: 'place', k: 'F' }), { a: 'place', k: 'F' });
   assert.deepEqual(okOf({ a: 'place', k: 'S' }), { a: 'place', k: 'S' });
   assert.deepEqual(okOf({ a: 'bid', n: 7 }), { a: 'bid', n: 7 });
@@ -30,27 +29,6 @@ test('봉투가 이상하면 거절', () => {
   for (const m of [null, undefined, 5, 'x', [], {}, { a: 1 }, { a: '' }, { a: 'x'.repeat(21) }, { a: 'nope' }]) badOf(m);
 });
 
-test('color: 0~5 정수만', () => {
-  for (const c of [-1, 6, 1.5, '1', null, undefined, NaN]) badOf({ a: 'color', c });
-});
-
-test('place: F 또는 S 만', () => {
-  for (const k of ['f', 'X', '', 1, null, undefined]) badOf({ a: 'place', k });
-});
-
-test('bid: 1 이상 정수만', () => {
-  for (const n of [0, -1, 1.2, '3', null, undefined, NaN, Infinity, 25]) badOf({ a: 'bid', n });
-});
-
-test('flip: 글자만', () => {
-  for (const p of ['', 5, null, undefined, {}, 'x'.repeat(101)]) badOf({ a: 'flip', p });
-});
-
-test('discard: k 만 받는다 (i 는 거절)', () => {
-  badOf({ a: 'discard' });
-  badOf({ a: 'discard', i: 0 });
-  badOf({ a: 'discard', i: 3 });
-  badOf({ a: 'discard', i: 0, k: 'F' });
-  badOf({ a: 'discard', i: '1' });
-  badOf({ a: 'discard', k: 'Z' });
+test('옛 color 요청은 없어졌다(공용 pick)', () => {
+  badOf({ a: 'color', c: 2 });
 });

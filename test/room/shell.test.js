@@ -397,7 +397,7 @@ test('허브 close: flush 한 번 + 타이머 해제, 초기화는 flush 안 함
 test('관전 계정: 이름 규칙은 한 곳(관전 + 숫자)', async () => {
   const { isSpectatorId, SPEC_MAX } = await import('../../shared/spectator.js');
   assert.equal(SPEC_MAX, 4);
-  for (const ok of ['관전1', '관전2', '관전10', '관전007']) assert.equal(isSpectatorId(ok), true, ok);
+  for (const ok of ['관전1', '관전2', '관전10', '관전007', '관전１']) assert.equal(isSpectatorId(ok), true, ok);
   for (const no of ['관전', '관전a', '관전1a', 'a관전1', '관전 1', '관전자1', '', null, 3]) assert.equal(isSpectatorId(no), false, String(no));
 });
 

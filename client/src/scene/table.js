@@ -356,11 +356,9 @@ export function createTable(stage) {
     highlight(codes) { hl = codes ? new Set(codes) : null; applyHighlight(); }, release, addToPile, clearPile,
     reset: () => setMode('holdem'),
     releaseAll: () => holds.clear(),
-    slot: slotOf,
     head: (id) => { const s = slotOf(id); return s ? pose.head(s) : null; },
     betPos: (id) => { const s = slotOf(id); return s ? pose.bet(s) : null; },
     stackPos: (id) => { const s = slotOf(id); return s ? pose.stack(s) : null; },
     potPos: () => POT.clone().setY(TY + 0.12),
-    boardPos: () => new THREE.Vector3(0, TY, -0.02),
   };
 }

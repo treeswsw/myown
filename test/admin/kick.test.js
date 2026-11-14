@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { setupAdmin } from './helpers.js';
 
 for (const [mode, kick] of [
-  ['liar', { t: 'lg', a: 'kick', id: '~bot1' }],
-  ['draw', { t: 'dr', a: 'kick', id: '~bot1' }],
+  ['liar', { t: 'kick', id: '~bot1' }],
+  ['draw', { t: 'kick', id: '~bot1' }],
 ]) {
   test(`${mode}: a bot kicked by the game is fully retired`, async () => {
     const env = await setupAdmin({ mode, bots: 1 });

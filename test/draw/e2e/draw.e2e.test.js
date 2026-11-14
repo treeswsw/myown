@@ -31,6 +31,7 @@ async function boot({ k = 20, draw = 'test', liar = 'on' } = {}) {
       const ws = new WebSocket(`ws://127.0.0.1:${app.port}/ws`);
       const c = { id, ws, state: null, me: null, rooms: null, errors: [], events: [] };
       c.send = (obj) => ws.send(JSON.stringify(obj));
+      c.set = (patch) => ws.send(JSON.stringify({ t: 'set', patch }));
       c.dr = (a, extra = {}) => ws.send(JSON.stringify({ t: 'dr', a, ...extra }));
       ws.on('message', (d) => {
         const m = JSON.parse(d.toString());
@@ -91,7 +92,7 @@ test('DRAW=test: 한 판 — 만들기·입장·시작·pick·그림 전달·정
   assert.equal(row.max, 8);
   assert.equal(row.phase, 'lobby');
 
-  a.dr('settings', { rounds: 1, time: 60 });
+  a.set({ rounds: 1, time: 60 });
   await until(() => cs.every((x) => x.state.settings.rounds === 1 && x.state.settings.time === 60), 'settings');
   a.send({ t: 'start' });
 
@@ -144,7 +145,7 @@ test('다른 방·다른 요청: 포커·라이어 방의 dr, draw 방의 act/mo
   // 포커 방
   a.send({ t: 'create', mode: 'holdem' });
   await until(() => a.state?.code, 'holdem room');
-  a.dr('settings', { rounds: 1 });
+  a.dr('give');
   a.send({ t: 'mode', mode: 'draw' });
   await until(() => a.errors.length >= 2, 'holdem errors');
   assert.equal(a.errors[0].msg, '알 수 없는 요청입니다.');
@@ -153,7 +154,7 @@ test('다른 방·다른 요청: 포커·라이어 방의 dr, draw 방의 act/mo
   // 라이어 방
   b.send({ t: 'create', mode: 'liar' });
   await until(() => b.state?.code, 'liar room');
-  b.dr('settings', { rounds: 1 });
+  b.dr('give');
   await until(() => b.errors.length >= 1, 'liar error');
   assert.equal(b.errors[0].msg, '알 수 없는 요청입니다.');
 
@@ -182,7 +183,7 @@ test('다른 방·다른 요청: 포커·라이어 방의 dr, draw 방의 act/mo
   await until(() => c.errors.length >= 2, 'envelope errors');
   assert.ok(c.errors.every((e) => e.msg === '잘못된 메시지 형식입니다.'));
   // 방 안의 일반 오류(코드 있음): 방장이 아닌 사람의 settings
-  d.dr('settings', { rounds: 2 });
+  d.set({ rounds: 2 });
   await until(() => d.errors.length, 'host only');
   assert.equal(d.errors[0].code, 'dr_host');
 });

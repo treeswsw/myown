@@ -65,7 +65,7 @@ function setup(n = 3, { saveDraw } = {}) {
 const LINE = { c: 1, w: 10, e: 0, p: [100, 100, 5, 5, 5, 5] };
 
 function startPick(x, rounds = 1) {
-  assert.equal(x.dr(x.ss[0], { a: 'settings', rounds }), null);
+  assert.equal(x.req(x.ss[0], { t: 'set', patch: { rounds } }), null);
   assert.equal(x.room.start('u0'), null);
   assert.equal(x.lastState('u0').phase, 'pick');
 }
@@ -129,10 +129,6 @@ test('한 판 전체: 시작 → 고르기 → 그리기 → 정답 → 단축 �
   assert.equal(x.ss[1].user.stats.draw.games, 1);
   assert.equal(x.ss[1].user.stats.draw.correct, 1);
   assert.ok(x.persisted.length >= 3);
-  // 방으로
-  assert.equal(x.dr(x.ss[1], { a: 'lobby' }).code, 'dr_host');
-  assert.equal(x.dr(x.ss[0], { a: 'lobby' }), null);
-  assert.equal(x.lastState('u0').phase, 'lobby');
 });
 
 test('saveDraw 콜백이 있으면 rows 를 넘기고 직접 더하지 않는다', () => {
@@ -324,8 +320,7 @@ test('도중 입장자도 그 문제를 바로 맞힌다', () => {
 
 test('타이머는 하나만 걸리고 시간이 끝나면 공개, 방장 요청 오류 코드', () => {
   const x = setup(3);
-  assert.equal(x.dr(x.ss[1], { a: 'settings', rounds: 1 }).code, 'dr_host');
-  assert.equal(x.dr(x.ss[0], { a: 'settings' }).code, 'dr_bad');
+  assert.equal(x.req(x.ss[1], { t: 'set', patch: { rounds: 1 } }).code, 'dr_host');
   assert.equal(x.room.start('u1').code, 'dr_host');
   startPick(x);
   assert.equal(x.pending.length, 1, '게임 타이머 하나');
@@ -344,8 +339,7 @@ test('나가기·내보내기·방 비면 정리', () => {
   assert.equal(x.ss[2].room, null);
   assert.equal(x.room.members.length, 2);
   assert.equal(x.lastState('u0').players.length, 2, '엔진에서도 빠졌다');
-  x.addUser(2);
-  assert.equal(x.dr(x.ss[0], { a: 'kick', id: 'u2' }), null, '옛 dr kick 도 같은 길');
+  assert.equal(x.dr(x.ss[0], { a: 'kick', id: 'u1' }).code, 'dr_bad', '옛 dr kick 은 없어졌다(공용 kick)');
   assert.equal(x.room.members.length, 2);
   x.room.leave('u1');
   x.room.leave('u0');

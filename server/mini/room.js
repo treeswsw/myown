@@ -130,14 +130,6 @@ export function makeMiniGame(ctx, opt = {}) {
   function onAction(session, msg) {
     const id = session.id;
     switch (msg.a) {
-      case 'game': { // 옛 요청(호환): {t:'set', patch:{game}} 와 같다
-        if (id !== ctx.hostId()) return err('host', '방장만 고를 수 있습니다.');
-        if (phase === 'play' || phase === 'between') return err('now');
-        const bad = setSettings(id, { game: msg.game });
-        if (bad) return bad;
-        ctx.push();
-        return null;
-      }
       case 'move': {
         if (phase !== 'play') return err('now');
         const seat = seats.indexOf(id);

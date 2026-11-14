@@ -216,7 +216,7 @@ function decideAccusation(g, now, events) {
   if (!leaders.length) return failAccusation(g, now, events, 'noVotes', log);
   if (leaders.length === 1) {
     log.accused = leaders[0];
-    g.voteLog.push(log);
+    pushLog(g, log);
     g.accused = leaders[0];
     g.tally = tally;
     events.push({ k: 'accused', id: leaders[0], tally });
@@ -228,10 +228,17 @@ function decideAccusation(g, now, events) {
   return failAccusation(g, now, events, 'tie', log);
 }
 
+// 투표 기록은 최근 30줄만 남긴다(연장 투표가 길어져도 끝없이 늘지 않게).
+const VOTE_LOG_MAX = 30;
+function pushLog(g, log) {
+  g.voteLog.push(log);
+  if (g.voteLog.length > VOTE_LOG_MAX) g.voteLog.splice(0, g.voteLog.length - VOTE_LOG_MAX);
+}
+
 // 투표 무산(동률·무투표): 판을 끝내지 않는다. 기록만 남기고 연장 투표(다시 토론·투표)로 이어 간다.
 // 판이 끝나는 것은 투표로 한 명을 처형했을 때(와 방장 끝내기·사람 빠짐)뿐이다.
 function failAccusation(g, now, events, reason, log) {
-  g.voteLog.push(log);
+  pushLog(g, log);
   g.failReason = reason;
   g.extendNo += 1;
   g.accused = null;

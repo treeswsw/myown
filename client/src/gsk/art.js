@@ -74,7 +74,7 @@ export const floorUrl = () => FLOOR;
 export const floorTileUrl = () => FLOOR_TILE;
 
 export const ALL_URLS = () => [
-  ...DISC_BACK, ...DISC_FLOWER, ...DISC_SKULL, ...MAT_FRONT, ...MAT_BACK, FLOOR, FLOOR_TILE,
+  ...DISC_BACK, ...DISC_FLOWER, ...DISC_SKULL, ...MAT_FRONT, ...MAT_BACK, FLOOR,
 ];
 
 function loadImage(url, cors) {

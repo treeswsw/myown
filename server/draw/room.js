@@ -6,7 +6,7 @@
 // 프로필 사진은 상태에 넣지 않고 faces 알림으로 보낸다(Shell).
 
 import { createRoom, join as gJoin, back as gBack, away as gAway, leave as gLeave, setSettings as gSetSettings, start as gStart,
-  toLobby, end as gEnd, pickWord, give, skip, chat as gChat, chatLogFor, mediaCheck, tick, nextDeadline, viewFor,
+  end as gEnd, pickWord, give, skip, chat as gChat, chatLogFor, mediaCheck, tick, nextDeadline, viewFor,
   canDraw, noteInk, setCanvasFlags, ERRORS } from '../../shared/draw/game.js';
 import * as ops from '../../shared/draw/ops.js';
 import { checkDr } from '../../shared/draw/protocol.js';
@@ -228,20 +228,10 @@ export function makeDrawGame(ctx, opt = {}) {
       if (DRAW_ACTS.has(msg.a)) return drawReq(session, msg, now);
       let fx;
       switch (msg.a) {
-        case 'settings': { const { a, ...patch } = msg; return changeSettings(id, patch); } // 옛 요청(새 화면은 {t:'set'})
-        case 'kick': { // 옛 요청(새 화면은 {t:'kick'}): Shell 의 강퇴와 같은 길
-          if (g.hostId !== id) return errOf('dr_host');
-          if (g.phase !== 'lobby' && g.phase !== 'final') return errOf('dr_now');
-          if (msg.id === id || !inG(msg.id)) return errOf('dr_bad');
-          ctx.sendTo(msg.id, { t: 'error', ...errOf('dr_kicked') });
-          ctx.drop(msg.id, 'kick');
-          return null;
-        }
         case 'pick': fx = pickWord(g, id, msg.i, env(now)); break;
         case 'give': fx = give(g, id, env(now)); break;
         case 'skip': fx = skip(g, id, env(now)); break;
         case 'end': fx = gEnd(g, id, env(now)); break;
-        case 'lobby': fx = toLobby(g, id, env(now)); break;
         default: return errOf('dr_bad');
       }
       if (!fx.ok) return errFx(fx);

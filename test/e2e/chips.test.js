@@ -72,7 +72,6 @@ test('chips: eliminated account stays at 0 after relogin, cannot create hold\'em
   await l2.connect();
   const me = await l2.login();
   assert.equal(me.bank, 0, 'relogin must not restore chips');
-  assert.equal(me.stats.refills, 0);
   l2.errors.length = 0;
   l2.send({ t: 'create', mode: 'holdem' });
   await l2.waitFor(() => l2.errors.length >= 1, 3000, 'create holdem rejected');
@@ -163,7 +162,6 @@ test('chips: bluff and unrelated rooms keep working while an eliminated account 
   await b.connect();
   const me = await b.login();
   assert.equal(me.bank, 10000);
-  assert.equal(me.stats.refills, 0);
   b.close();
 });
 

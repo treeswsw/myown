@@ -116,6 +116,7 @@ export function createHub({
       hub.roomsSig = '[]';
       hub.sessions.clear();
       hub.pinAuth.reset();
+      hub.stakes?.clear();
       hub.conns.forEach((c) => { if (c.session?.bot) hub.conns.delete(c); });
       for (const c of hub.conns) c.session = null;
       try {

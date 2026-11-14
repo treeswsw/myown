@@ -82,7 +82,7 @@ test('초기 주제: mine 11개 전부 켜짐, 단어 없음', () => {
 
 test('설정: 칸마다 성공', () => {
   const x = setup();
-  const r = (m) => x.room.lg(host(x), { a: 'settings', ...m });
+  const r = (m) => x.room.set(host(x), m);
   assert.equal(r({ liarMode: 'notice' }), null);
   assert.equal(x.room.settings.liarMode, 'notice');
   assert.equal(r({ topicMode: 'host' }), null);
@@ -105,7 +105,7 @@ test('설정: 칸마다 성공', () => {
 test('설정: 칸마다 거절하고 아무것도 바뀌지 않음', () => {
   const x = setup();
   const before = JSON.stringify(x.room.settings);
-  const r = (m) => x.room.lg(host(x), { a: 'settings', ...m });
+  const r = (m) => x.room.set(host(x), m);
   for (const bad of [
     { liarMode: 'x' }, { topicMode: 'x' }, { wordSet: 'zzz' }, { goal: 7 },
     { times: { speak: 31 } }, { times: { nope: 1 } }, { times: null },
@@ -119,11 +119,11 @@ test('설정: 칸마다 거절하고 아무것도 바뀌지 않음', () => {
 
 test('설정: 방장 아님·단계 아님 거절', () => {
   const x = game3();
-  assert.equal(typeof x.room.lg(x.ss[1], { a: 'settings', goal: 10 }), 'string');
+  assert.equal(typeof x.room.set(x.ss[1], { goal: 10 }), 'string');
   assert.equal(typeof x.room.set(x.ss[1], { goal: 10 }), 'string');
   assert.equal(x.room.settings.goal, 0);
   assert.equal(x.room.start('u0'), null); // 진행 중
-  assert.equal(typeof x.room.lg(host(x), { a: 'settings', goal: 10 }), 'string');
+  assert.equal(typeof x.room.set(host(x), { goal: 10 }), 'string');
   assert.equal(typeof x.room.set(host(x), { goal: 10 }), 'string');
   x.room.game.phase = 'result'; x.room.sync(); // 결과 화면도 대기 상태(D5)
   assert.equal(x.room.set(host(x), { goal: 10 }), null);
@@ -155,7 +155,7 @@ test('공통 set: 중첩 시간·고른 주제 이름 배열·옛 [{name,on}] �
 
 test('묶음을 바꾸면 주제 11개 <-> 10개, 전부 켜짐, nextTopic 비움', () => {
   const x = setup();
-  const r = (m) => x.room.lg(host(x), { a: 'settings', ...m });
+  const r = (m) => x.room.set(host(x), m);
   const first = x.room.settings.topics[0].name;
   r({ topics: [{ name: first, on: false }], nextTopic: first });
   assert.equal(r({ wordSet: 'star' }), null);
@@ -169,7 +169,7 @@ test('묶음을 바꾸면 주제 11개 <-> 10개, 전부 켜짐, nextTopic 비�
 
 test('주제: 마지막 하나 끄기 거절, 없는 이름은 무시', () => {
   const x = setup();
-  const r = (m) => x.room.lg(host(x), { a: 'settings', ...m });
+  const r = (m) => x.room.set(host(x), m);
   const names = x.room.settings.topics.map((t) => t.name);
   assert.equal(r({ topics: names.slice(1).map((name) => ({ name, on: false })) }), null);
   assert.equal(x.room.settings.topics.filter((t) => t.on).length, 1);
@@ -179,20 +179,16 @@ test('주제: 마지막 하나 끄기 거절, 없는 이름은 무시', () => {
   assert.equal(x.room.settings.topics.length, 11);
 });
 
-test('kick 4가지 (옛 lg kick 과 공통 kick)', () => {
+test('kick 4가지 (공통 kick)', () => {
   const x = game3();
-  assert.equal(typeof x.room.lg(x.ss[1], { a: 'kick', id: 'u2' }), 'string'); // 방장 아님
   assert.equal(typeof x.room.kick('u1', 'u2'), 'string');
-  assert.equal(typeof x.room.lg(host(x), { a: 'kick', id: 'u0' }), 'string'); // 자기 자신
   assert.equal(typeof x.room.kick('u0', 'u0'), 'string');
-  assert.equal(typeof x.room.lg(host(x), { a: 'kick', id: 'nobody' }), 'string'); // 없는 사람
   assert.equal(typeof x.room.kick('u0', 'nobody'), 'string');
   x.room.start('u0');
-  assert.equal(typeof x.room.lg(host(x), { a: 'kick', id: 'u2' }), 'string'); // 방 대기 아님
   assert.equal(typeof x.room.kick('u0', 'u2'), 'string');
   x.room.lg(host(x), { a: 'end' }); // 방 대기로
   x.out.length = 0;
-  assert.equal(x.room.lg(host(x), { a: 'kick', id: 'u2' }), null);
+  assert.equal(x.room.kick('u0', 'u2'), null);
   assert.equal(x.room.members.length, 2);
   const msgs = x.out.filter((o) => o.to === 'u2').map((o) => o.m);
   assert.deepEqual(msgs[0], { t: 'error', msg: '방장이 내보냈습니다.', code: 'lg_kicked' });
@@ -440,7 +436,7 @@ test('lg: 맨 앞에서 checkLg', () => {
   const x = game3();
   assert.equal(x.room.lg(x.ss[0], null), '잘못된 요청입니다.');
   assert.equal(x.room.lg(x.ss[0], { a: 'zzz' }), '잘못된 요청입니다.');
-  assert.equal(x.room.lg(x.ss[0], { a: 'settings', times: { speak: 99 } }), '고를 수 없는 시간입니다.');
+  assert.equal(typeof x.room.set(x.ss[0], { times: { speak: 99 } }), 'string');
   assert.equal(x.room.lg(x.ss[0], { a: 'vote', target: 5 }), '잘못된 요청입니다.');
   assert.equal(x.room.lg(x.ss[0], { a: 'say', text: 'hi' }), '진행 중인 판이 없습니다.');
 });
@@ -942,9 +938,9 @@ test('채팅 80자: 80자는 보내지고 81자는 막힌다(화면 입력 한�
 test('설정: 첫 설명 바퀴 수는 1~3 만 받고, 판에 전해지고, view 에 나간다', () => {
   const x = game3();
   assert.equal(x.room.settings.speakRounds, 1);
-  assert.equal(typeof x.lg('u0', { a: 'settings', speakRounds: 4 }), 'string');
+  assert.equal(typeof x.room.set(x.ss[0], { speakRounds: 4 }), 'string');
   assert.equal(x.room.settings.speakRounds, 1);
-  assert.equal(x.lg('u0', { a: 'settings', speakRounds: 2 }), null);
+  assert.equal(x.room.set(x.ss[0], { speakRounds: 2 }), null);
   assert.equal(x.room.settings.speakRounds, 2);
   x.room.start('u0');
   assert.equal(x.room.game.speakRounds, 2);

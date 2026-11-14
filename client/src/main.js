@@ -13,7 +13,7 @@ import { createAdmin } from './ui/admin.js';
 import { createEmotePanel } from './ui/emotePanel.js';
 import { h, updateScale, view } from './ui/dom.js';
 import { createSpecialFX } from './anim/special/index.js';
-import { connect, send, useTransport } from './net.js';
+import { connect, send } from './net.js';
 import { state, saved, tokens } from './state.js';
 import { sfx } from './audio.js';
 import { TY } from './scene/room.js';
@@ -263,21 +263,13 @@ function handle(msg) {
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { poker.flush(); applyRoom(state.room); } });
 stage.onFrame((dt) => { special.update(dt / 1000); pins.frame(); chat.update(); emotePanel.update(); frame.frame(dt / 1000); }); // onFrame is ms, the games take seconds
 
-const mock = new URLSearchParams(location.search).get('mock');
-if (mock) {
-  useTransport({ send: (m) => console.debug('mock send', m) });
-  const { startMock } = await import('./mock.js');
-  await stage.ready;
-  startMock(handle, { mode: mock, state: new URLSearchParams(location.search).get('state') ?? 'default' });
-} else {
-  applyRoom(null); // hides every in-game element until a room arrives
-  connect(handle, (up, code) => {
-    if (up) return;
-    authed = false;
-    if (code === 4001) {
-      const t = h('div', 'toast hit', '다른 곳에서 접속했어요. 눌러서 다시 접속');
-      t.onclick = () => location.reload();
-      ui.append(t);
-    } else toast('서버와 연결이 끊겼어요. 다시 연결 중…');
-  });
-}
+applyRoom(null); // hides every in-game element until a room arrives
+connect(handle, (up, code) => {
+  if (up) return;
+  authed = false;
+  if (code === 4001) {
+    const t = h('div', 'toast hit', '다른 곳에서 접속했어요. 눌러서 다시 접속');
+    t.onclick = () => location.reload();
+    ui.append(t);
+  } else toast('서버와 연결이 끊겼어요. 다시 연결 중…');
+});

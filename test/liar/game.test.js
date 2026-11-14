@@ -1343,3 +1343,10 @@ for (const N of [3, 8]) {
     assert.deepEqual(Object.keys(viewFor(g, 'p0')), Object.keys(viewFor(g, 'p1')));
   });
 }
+
+test('투표 기록(voteLog)은 연장 투표가 길어져도 최근 30줄만 남는다', () => {
+  const g = make(4); toDiscuss(g);
+  for (let i = 1; i <= 40; i++) tick(g, g.phaseEndsAt);
+  assert.equal(g.extendNo, 40);
+  assert.equal(g.voteLog.length, 30);
+});

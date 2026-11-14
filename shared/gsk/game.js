@@ -212,7 +212,6 @@ export function act(s, id, msg, now, rnd) {
   if (!p.ok) return fail('gk_bad');
   s.now = now;
   const m = p.msg;
-  if (m.a === 'color') return pickColor(s, id, m.c);
   if (s.phase !== 'playing') return fail('gk_now');
   const seat = seatOf(s, id);
   if (!seat || seat.out) return fail('gk_now');

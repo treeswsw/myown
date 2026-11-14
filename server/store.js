@@ -5,7 +5,7 @@ export const START_BANK = 10_000;
 export function newUser(id, name) {
   return {
     id, name, bank: START_BANK, avatar: null,
-    stats: { hands: 0, wins: 0, biggestWin: 0, refills: 0, bluffGames: 0, bluffWins: 0 },
+    stats: { hands: 0, wins: 0, biggestWin: 0, bluffGames: 0, bluffWins: 0 },
     coins: 0, coinsTotal: 0, gear: { pity: 0, owned: [], equip: {}, shard: 0, cpity: 0, pos: {} }, pin: null,
   };
 }

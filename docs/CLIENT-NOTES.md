@@ -1,11 +1,10 @@
 # 클라이언트 메모
 
-- 구조: `scene/`(three.js 장면: room, table 동기화, chips, art), `ui/`(DOM HUD), `anim/`(이벤트 큐, 승리, special/ = 몸 연출), `mock.js`(개발용).
+- 구조: `scene/`(three.js 장면: room, table 동기화, chips, art), `ui/`(DOM HUD), `anim/`(이벤트 큐, 승리, special/ = 몸 연출).
 - 데이터 흐름: `net` → `main.handle`. `event`는 `anim/events.js` 큐에서 순서대로 재생되고, 재생 중에는 `room`을 보류했다가 큐가 비면 `applyRoom`으로 한 번에 반영한다(연출이 상태보다 앞서지 않게). 이모티콘은 큐를 거치지 않는다. 탭이 숨겨져 있으면 이벤트를 버린다.
 - `street`/`showdown` 이벤트는 보류 중인 상태에 보드·공개 패를 부분 적용(`applyPartial`)해 차례로 보여 준다.
 - 내 자리는 항상 가까운 쪽 가운데(SPEC 8). 시안의 5인 화면은 내 자리가 왼쪽 앞이라 위치가 다르다.
 - 팟 칩 더미는 `room.pot` 그대로, 숫자 라벨도 같은 값이다.
-- 개발: `?mock=holdem|bluff&state=preflop|default|peek|board|raise|win|allin|bust|shot|shotsafe`.
 - 지연 방지: 이벤트가 큐에서 2.5초를 넘기거나 5개를 넘으면 남은 연출을 버리고(`special.skipAll`, 오버레이·보류 제거) 최신 room을 바로 반영한다. 프레임 시간이 3초 구간 평균 50ms를 넘으면 저사양 모드(몸 연출 없이 소리·글자·사진 뒤집기만, 블룸·그림자 끄고 픽셀비 1). `&fx=full`로 강제 해제.
 - 로비(대기방)가 보이는 동안 핀과 HUD는 숨긴다. 내 벌칙/탈락 연출 중에는 블러핑 손패가 아래로 내려간다.
 - 쇼다운(SPEC 15): `showdown` 이벤트에서 남은 사람들의 패가 프로필 위(위쪽 자리는 옆)에 0.6초 간격으로 뒤집힌다. `win` 이벤트(큐에서 한 항목, 예산 12초)는 승자 강조, 카메라 천천히 당김(`stage.pushIn`)과 장면 어둡게, `special.playStand`, 가운데 한 줄(승자 손패 2 | 공용 5, 유효 5장은 한 장씩 올라오며 금색 테두리, 나머지는 내려가며 어둡게), 족보 이름과 "이름 WINS +금액", 팟 이동 순서. 모두 폴드한 경우는 WINS 문구와 팟 이동만. 3D 테이블과 왼쪽 아래 공용 카드에도 같은 하이라이트가 걸린다.

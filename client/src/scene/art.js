@@ -39,7 +39,6 @@ export const chipGeo = new THREE.CylinderGeometry(CR, CR, CH - 0.0008, 32);
 
 /* cards */
 const SUIT = { s: '♠', h: '♥', d: '♦', c: '♣' };
-export const suitGlyph = (code) => SUIT[code[1]];
 export const rankLabel = (code) => (code[0] === 'T' ? '10' : code[0]);
 
 const backTex = canvasTex(256, 360, (g, w, h) => {

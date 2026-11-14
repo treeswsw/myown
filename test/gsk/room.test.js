@@ -76,7 +76,7 @@ test('접속·색(pick)·시작 조건·방 목록 정보', async () => {
   assert.equal(await sendErr(t.ps[1], { t: 'pick', patch: { color: 3 } }), null);
   assert.equal((await sendErr(t.ps[1], { t: 'pick', patch: { color: 9 } })).code, 'gk_bad');
   assert.equal((await sendErr(t.ps[1], { t: 'pick', patch: {} })).code, 'gk_bad');
-  assert.equal(await gk(t.ps[2], { a: 'color', c: 4 }), null); // 옛 요청(gk color)도 받는다
+  assert.equal(await sendErr(t.ps[2], { t: 'pick', patch: { color: 4 } }), null);
   const w = t.st('a1').wait;
   assert.deepEqual(w.own, { a1: { color: 2 }, b1: { color: 3 }, c1: { color: 4 } });
   assert.deepEqual(w.set, {});

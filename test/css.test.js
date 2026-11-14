@@ -159,3 +159,21 @@ for (const [mode, g] of Object.entries(GAMES)) {
     assert.deepEqual(bad, [], `classes must start with "${g.css}":\n  ${bad.join('\n  ')}`);
   });
 }
+
+// 게임이 아닌 공용 폴더: 코인·관리자·공용 방 틀·공용 부품의 클래스도 접두사를 지킨다.
+const SHARED_PREFIX = [
+  { dir: 'client/src/coin/', prefixes: ['cn-', 'gc-', 'sh-', 'pn-', 'lk-', 'tfx-', 'cp-'], allow: ['tfx'] },
+  { dir: 'client/src/room/', prefixes: ['rm-', 'wr-'] },
+  { dir: 'client/src/ui/kit/', prefixes: ['ui-'], allow: ['letter'] },
+  { file: 'client/src/ui/admin.css', prefixes: ['adm-'] },
+];
+for (const rule of SHARED_PREFIX) {
+  const label = rule.dir ?? rule.file;
+  test(`every class in ${label} starts with ${rule.prefixes.join(' / ')}`, () => {
+    const mine = files.filter((f) => (rule.dir ? f.rel.startsWith(rule.dir) : f.rel === rule.file));
+    assert.ok(mine.length > 0, `${label}: no css files`);
+    const bad = [];
+    for (const f of mine) for (const c of f.classes) if (!rule.prefixes.some((p) => c.startsWith(p)) && !rule.allow?.includes(c)) bad.push(`${f.rel}: ".${c}"`);
+    assert.deepEqual(bad, [], `classes must start with ${rule.prefixes.join(' / ')}:\n  ${bad.join('\n  ')}`);
+  });
+}

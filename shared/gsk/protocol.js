@@ -1,7 +1,7 @@
 // {t:'gk', a, ...} 요청의 속 모양 검사 (GDD 9-1). 모양·범위만 본다 — 차례인가·합계 이하인가는 엔진(game.js)이 본다.
 // 받은 객체는 고치지 않고 정리한 새 객체를 돌려준다. 모르는 필드는 버린다.
 // 통과: { ok:true, msg } / 아니면 { ok:false, code:'gk_bad', error }
-import { COLORS, ERRORS } from './constants.js';
+import { ERRORS } from './constants.js';
 
 const bad = () => ({ ok: false, code: 'gk_bad', error: ERRORS.gk_bad });
 const good = (msg) => ({ ok: true, msg });
@@ -12,8 +12,6 @@ const kind = (v) => v === 'F' || v === 'S';
 export function parseGk(msg) {
   if (!isObj(msg) || typeof msg.a !== 'string' || msg.a.length < 1 || msg.a.length > 20) return bad();
   switch (msg.a) {
-    case 'color':
-      return Number.isInteger(msg.c) && msg.c >= 0 && msg.c < COLORS.length ? good({ a: 'color', c: msg.c }) : bad();
     case 'place':
       return kind(msg.k) ? good({ a: 'place', k: msg.k }) : bad();
     case 'bid':
