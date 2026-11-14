@@ -110,7 +110,11 @@ export function mount(ctx) {
   pzBtns.hidden = true;
   bottom.append(pzNav, pzBtns);
 
-  root.append(top, pz, boardWrap, bottom);
+  // 퍼즐: 정보는 판 옆 패널 하나에 모은다(판 크기는 글자 줄 수와 무관). 패널은 퍼즐일 때만 보인다.
+  const pzPanel = el('div', 'mn-pz-panel');
+  pzPanel.hidden = true;
+  pzPanel.append(pz);
+  root.append(top, pzPanel, boardWrap, bottom);
 
   let room = null;
   let botKey = null; // 봇 수를 구하는 중인 판 모습 (같은 판 모습으로는 한 번만)
@@ -167,6 +171,8 @@ export function mount(ctx) {
     }
     stopNav(); nav = null;
     pz.hidden = true; pzBtns.hidden = true; pzNav.hidden = true; top.hidden = false; status.hidden = false;
+    pzPanel.hidden = true; root.classList.remove('mn-puz');
+    if (status.parentNode !== bottom) bottom.prepend(status);
 
     for (let i = 0; i < 2; i++) {
       const [col] = sideOf(rm.game, i);
@@ -253,6 +259,8 @@ export function mount(ctx) {
     const play = q.status === 'play';
     pz.hidden = false;
     top.hidden = true;
+    pzPanel.hidden = false; root.classList.add('mn-puz');
+    if (status.parentNode !== pzPanel) pzPanel.append(status, pzNav, pzBtns);
     if (q.wrong < seenWrong) seenWrong = 0;
     if (q.wrong > seenWrong) { seenWrong = q.wrong; wrongShown = true; }
     if (!play) wrongShown = false;
