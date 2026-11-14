@@ -1,0 +1,110 @@
+/* 사과 게임 판 — 클래스는 전부 .so-ap- . 칸 크기 --so-ap-s(px)는 board.js 가 el 크기에 맞춰 정한다(zoom 금지). */
+.so-ap-root {
+  position: relative; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center; gap: calc(var(--so-ap-s, 40px) * .32);
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+
+/* 쟁반: 나무 테두리 + 안쪽 펠트 */
+.so-ap-tray {
+  position: relative; flex: none; box-sizing: content-box;
+  padding: calc(var(--so-ap-s, 40px) * .24);
+  border-radius: calc(var(--so-ap-s, 40px) * .42);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 12%),
+    repeating-linear-gradient(92deg, rgba(0, 0, 0, .07) 0 2px, rgba(0, 0, 0, 0) 2px 9px),
+    linear-gradient(160deg, #a5744a, #7a4f2e 55%, #5e3c22);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 -2px 0 rgba(0, 0, 0, .3);
+}
+.so-ap-grid {
+  position: relative; display: grid; touch-action: none; cursor: crosshair;
+  pointer-events: auto;
+  grid-template-columns: repeat(17, var(--so-ap-s, 40px)); grid-template-rows: repeat(10, var(--so-ap-s, 40px));
+  border-radius: calc(var(--so-ap-s, 40px) * .22);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, .07), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, #25443a, #1b3a30);
+  box-shadow: inset 0 3px 10px rgba(0, 0, 0, .6), inset 0 0 0 1px rgba(0, 0, 0, .35);
+}
+.so-ap-lock .so-ap-grid { cursor: default; }
+.so-ap-lock .so-ap-tray { filter: saturate(.7) brightness(.8); }
+
+/* 칸과 사과 */
+.so-ap-c {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; font-size: calc(var(--so-ap-s, 40px) * .44); font-weight: 800; color: #fff;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; line-height: 1;
+}
+.so-ap-c::before { /* 몸통 */
+  content: ''; position: absolute; left: 9%; right: 9%; top: 16%; bottom: 6%;
+  border-radius: 50% 50% 46% 46% / 52% 52% 48% 48%;
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, .55) 0 7%, rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle at 50% 60%, #ee4b3d 0, #cf2a24 62%, #9f1717 100%);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, .4), inset 0 -3px 5px rgba(80, 0, 0, .35);
+  transition: filter .08s, transform .08s;
+}
+.so-ap-c::after { /* 잎과 꼭지 */
+  content: ''; position: absolute; left: 50%; top: 3%; width: 30%; height: 20%;
+  border-radius: 100% 0 100% 0; transform: rotate(-12deg);
+  background: linear-gradient(135deg, #8fd45a, #3f9a3c);
+  box-shadow: -1px 3px 0 -1px #5b3a1e;
+}
+.so-ap-c > b {
+  position: relative; z-index: 1; font-weight: 800; margin-top: 12%;
+  text-shadow: 0 1px 2px rgba(60, 0, 0, .7);
+}
+.so-ap-e { visibility: hidden; }
+.so-ap-sel::before { filter: brightness(1.2) saturate(1.1); transform: scale(1.08); box-shadow: 0 0 0 2px rgba(255, 233, 130, .85), 0 2px 5px rgba(0, 0, 0, .45); }
+.so-ap-ten .so-ap-sel::before { filter: brightness(1.28) saturate(1.2); box-shadow: 0 0 0 2px #fff6bf, 0 0 14px 3px rgba(255, 224, 90, .85); }
+
+/* 끄는 상자 */
+.so-ap-box {
+  position: absolute; left: 0; top: 0; pointer-events: none; display: none; box-sizing: border-box;
+  border: 2px solid rgba(255, 224, 90, .95); background: rgba(255, 224, 90, .16);
+  border-radius: 6px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25);
+}
+.so-ap-ten .so-ap-box { border-color: #fff6bf; background: rgba(255, 238, 120, .34); box-shadow: 0 0 16px 2px rgba(255, 226, 100, .7); }
+.so-ap-sum {
+  position: absolute; right: -2px; bottom: calc(100% + 3px); padding: 1px 7px; border-radius: 9px; white-space: nowrap;
+  background: rgba(20, 14, 6, .78); color: #ffe27a; font-size: calc(var(--so-ap-s, 40px) * .34); font-weight: 800; line-height: 1.3;
+}
+.so-ap-ten .so-ap-sum { background: #ffe27a; color: #3b2a05; }
+
+/* 사라질 때: 톡 튀었다가 떨어진다(이웃 사과 위로 안 번지게 transform 만) */
+.so-ap-fall { visibility: visible; z-index: 3; animation: so-ap-fall .62s cubic-bezier(.3, .6, .5, 1) forwards; animation-delay: var(--so-ap-d, 0ms); }
+.so-ap-fall::before { filter: brightness(1.15); }
+@keyframes so-ap-fall {
+  0% { transform: translateY(0) rotate(0) scale(1); opacity: 1; }
+  22% { transform: translateY(calc(var(--so-ap-s, 40px) * -.45)) rotate(calc(var(--so-ap-r, 8) * 1deg)) scale(1.12); opacity: 1; }
+  100% { transform: translateY(calc(var(--so-ap-s, 40px) * 2.6)) rotate(calc(var(--so-ap-r, 8) * 4deg)) scale(.7); opacity: 0; }
+}
+.so-ap-plus {
+  position: absolute; z-index: 5; pointer-events: none; transform: translate(-50%, -50%);
+  color: #fff6bf; font-weight: 900; font-size: calc(var(--so-ap-s, 40px) * .62);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .7); animation: so-ap-plus .8s ease-out forwards;
+}
+@keyframes so-ap-plus { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.7); } 20% { opacity: 1; transform: translate(-50%, -70%) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -190%) scale(1); } }
+
+/* 남은 시간 세로 막대 */
+.so-ap-bar {
+  position: relative; flex: none; width: calc(var(--so-ap-s, 40px) * .42); height: calc(var(--so-ap-s, 40px) * 10 + var(--so-ap-s, 40px) * .48);
+  border-radius: 99px; overflow: hidden; background: rgba(0, 0, 0, .45);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6), 0 0 0 2px rgba(165, 116, 74, .85);
+}
+.so-ap-bar > i {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #7fd05a, #4aa83f); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4);
+}
+.so-ap-bar.so-ap-low > i { background: linear-gradient(90deg, #ff7a5c, #d8352a); }
+.so-ap-bar.so-ap-low { animation: so-ap-blink .5s ease-in-out infinite alternate; }
+@keyframes so-ap-blink { to { box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6), 0 0 0 2px #ff7a5c; } }
+.so-ap-nobar .so-ap-bar { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .so-ap-fall { animation: so-ap-fade .25s linear forwards; animation-delay: 0ms; }
+  .so-ap-plus { animation: so-ap-fade .6s linear forwards; }
+  .so-ap-bar.so-ap-low { animation: none; }
+  .so-ap-c::before { transition: none; }
+}
+@keyframes so-ap-fade { to { opacity: 0; } }
