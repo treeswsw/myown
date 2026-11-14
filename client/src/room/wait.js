@@ -236,7 +236,7 @@ export function createWait({ send, sound, profile, faces, chat, toast, onLeave }
       const eye = svg(EYE);
       eye.setAttribute('class', 'wr-eye');
       const row = h('li', 'lb-row', profile.playerAvatar({ id: s.id, name: s.name, face: face.avatar, look: face.look, size: 26 }),
-        h('span', 'wr-who', h('span', 'lb-p-name', s.name)), eye, h('span', 'lb-tags', s.me ? '관전 · 나' : '관전'));
+        h('span', 'wr-who', profile.nameTag({ name: s.name, look: face.look })), eye, h('span', 'lb-tags', s.me ? '관전 · 나' : '관전'));
       if (s.kick) row.append(kickBtn(s));
       return row;
     }));

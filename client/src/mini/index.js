@@ -82,10 +82,11 @@ export function mount(ctx) {
     const id = rm.seats[i];
     const f = (id && ctx.faces.get(id)) || NONE;
     const color = sideOf(rm.game, i)[1];
-    const key = `${id}|${f.avatar ?? ''}|${JSON.stringify(f.look ?? null)}|${color}`;
+    const key = `${id}|${rm.names[i] || ''}|${f.avatar ?? ''}|${JSON.stringify(f.look ?? null)}|${color}`;
     if (key === ch.key) return;
     ch.key = key;
     ch.face.replaceChildren(id ? ctx.profile.playerAvatar({ id, name: rm.names[i] || '', face: f.avatar, look: f.look, color, size: 30 }) : '');
+    ch.name.replaceChildren(ctx.profile.nameTag({ name: rm.names[i] || '', look: id ? f.look : null })); // 칭호 + 이름 (SPEC 22-21)
   }
 
   function render() {
@@ -99,7 +100,6 @@ export function mount(ctx) {
     for (let i = 0; i < 2; i++) {
       const [col] = sideOf(rm.game, i);
       const ch = chips[i];
-      ch.name.textContent = rm.names[i] || '';
       let sub = col;
       if (rm.game === 'reversi' && rm.mn) sub += ` ${countOf(rm.mn.board, i)}`;
       if (rm.game === 'chess' && rm.mn?.check && play && rm.mn.turn === i) sub += ' · 체크!';
