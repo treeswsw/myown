@@ -1,0 +1,32 @@
+/* 수박 게임 판 (docs/solo/PLAN.md 6-4). 접두사 .so-sk- 만. 크기는 --sk(JS 가 정한 배율)로 transform scale. zoom 금지. */
+.so-sk-root {
+  position: absolute; left: 50%; top: 50%;
+  width: 518px; height: 532px; margin: -266px 0 0 -259px;
+  display: flex; gap: 14px; align-items: flex-start;
+  transform: scale(var(--sk, 1)); transform-origin: 50% 50%;
+  touch-action: none; pointer-events: auto;
+  -webkit-user-select: none; user-select: none;
+}
+.so-sk-board {
+  flex: none; display: block; touch-action: none; cursor: pointer;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .55));
+  transition: filter .3s;
+}
+.so-sk-lock .so-sk-board { filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .55)) saturate(.55) brightness(.75); }
+.so-sk-lock { pointer-events: none; }
+
+.so-sk-side { flex: none; width: 120px; display: flex; flex-direction: column; gap: 12px; }
+.so-sk-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 8px 6px 10px; border-radius: 14px;
+  background: linear-gradient(180deg, #5a3a20, #3b2412);
+  border: 2px solid #8a5d32;
+  box-shadow: inset 0 2px 0 rgba(255, 224, 170, .22), 0 6px 12px rgba(0, 0, 0, .45);
+}
+.so-sk-lbl { font-family: "Black Han Sans", "Noto Sans KR", sans-serif; font-size: 13px; letter-spacing: 1px; color: #ffe2a8; text-shadow: 0 1px 0 #1c0f05; }
+.so-sk-next, .so-sk-ring { display: block; }
+.so-sk-best { min-height: 15px; font-size: 12px; font-weight: 700; color: #ffd45e; text-shadow: 0 1px 0 #1c0f05; }
+
+@media (prefers-reduced-motion: reduce) {
+  .so-sk-board { transition: none; }
+}
