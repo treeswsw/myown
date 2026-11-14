@@ -42,6 +42,8 @@ export function mountBoard(el, api) {
 
   let locked = false;
   let s = 40; // 칸 한 변(px)
+  let pend = null; // 아직 반영 안 된 마지막 pointermove
+  let raf = 0;
   let drag = null; // { id, x0, y0, x, y } 격자 안 px
   let selSet = []; // 지금 선택된 칸 번호
   let selRect = null; // { cx0, cy0, cx1, cy1 }
@@ -51,6 +53,7 @@ export function mountBoard(el, api) {
   let warned = false;
   let lowOn = false;
   let lastFrac = -1;
+  let barHidden = true;
 
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); };
 
@@ -98,7 +101,7 @@ export function mountBoard(el, api) {
     const cx0 = Math.max(0, Math.ceil(x0 - 0.5)), cx1 = Math.min(COLS - 1, Math.floor(x1 - 0.5));
     const cy0 = Math.max(0, Math.ceil(y0 - 0.5)), cy1 = Math.min(ROWS - 1, Math.floor(y1 - 0.5));
     box.style.display = 'block';
-    box.style.left = x0 * s + 'px'; box.style.top = y0 * s + 'px';
+    box.style.transform = `translate(${x0 * s}px, ${y0 * s}px)`;
     box.style.width = (x1 - x0) * s + 'px'; box.style.height = (y1 - y0) * s + 'px';
     const next = [];
     let sum = 0;
@@ -129,12 +132,23 @@ export function mountBoard(el, api) {
   }
   function onMove(e) {
     if (!drag || e.pointerId !== drag.id) return;
+    // 움직임은 화면 갱신 한 번에 한 번만 반영한다(pointermove 는 프레임보다 자주 온다)
+    pend = e;
+    if (!raf) raf = requestAnimationFrame(flushMove);
+  }
+  function flushMove() {
+    raf = 0;
+    const e = pend; pend = null;
+    if (!drag || !e) return;
     const p = gridPoint(e);
     drag.x = p.x; drag.y = p.y;
     updateSel();
   }
   function end(e, commit) {
     if (!drag || (e && e.pointerId !== drag.id)) return;
+    if (e && pend && drag) flushMove(); // 마지막 움직임까지 반영한 뒤 확정
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    pend = null;
     const id = drag.id;
     const r = selRect;
     const ok = commit && r && ten;
@@ -183,9 +197,10 @@ export function mountBoard(el, api) {
   }
 
   function setBar(frac) {
+    frac = Math.round(frac * 500) / 500; // 1/500 보다 작은 변화는 그리지 않는다
     if (frac === lastFrac) return;
     lastFrac = frac;
-    fill.style.height = Math.max(0, Math.min(1, frac)) * 100 + '%';
+    fill.style.transform = `translateY(${(1 - Math.max(0, Math.min(1, frac))) * 100}%)`; // 레이아웃 없이 합성만
     const low = frac * apple.limitMs <= WARN_MS;
     if (low !== lowOn) { lowOn = low; bar.classList.toggle('so-ap-low', low); }
   }
@@ -208,7 +223,7 @@ export function mountBoard(el, api) {
       if (typeof api.timeLeft !== 'function') return;
       const f = api.timeLeft();
       if (typeof f !== 'number' || Number.isNaN(f)) return;
-      root.classList.remove('so-ap-nobar');
+      if (barHidden) { barHidden = false; root.classList.remove('so-ap-nobar'); }
       setBar(f);
       if (!warned && f > 0 && f * apple.limitMs <= WARN_MS) { warned = true; api.sfx('warn'); }
     },

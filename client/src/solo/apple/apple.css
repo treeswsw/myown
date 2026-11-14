@@ -32,7 +32,7 @@
 /* 칸과 사과 */
 .so-ap-c {
   position: relative; display: flex; align-items: center; justify-content: center;
-  pointer-events: none; font-size: calc(var(--so-ap-s, 40px) * .44); font-weight: 800; color: #fff;
+  pointer-events: none; contain: layout style; font-size: calc(var(--so-ap-s, 40px) * .44); font-weight: 800; color: #fff;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; line-height: 1;
 }
 .so-ap-c::before { /* 몸통 */
@@ -42,7 +42,6 @@
     radial-gradient(circle at 34% 28%, rgba(255, 255, 255, .55) 0 7%, rgba(255, 255, 255, 0) 24%),
     radial-gradient(circle at 50% 60%, #ee4b3d 0, #cf2a24 62%, #9f1717 100%);
   box-shadow: 0 2px 3px rgba(0, 0, 0, .4), inset 0 -3px 5px rgba(80, 0, 0, .35);
-  transition: filter .08s, transform .08s;
 }
 .so-ap-c::after { /* 잎과 꼭지 */
   content: ''; position: absolute; left: 50%; top: 3%; width: 30%; height: 20%;
@@ -60,7 +59,7 @@
 
 /* 끄는 상자 */
 .so-ap-box {
-  position: absolute; left: 0; top: 0; pointer-events: none; display: none; box-sizing: border-box;
+  position: absolute; left: 0; top: 0; pointer-events: none; display: none; box-sizing: border-box; will-change: transform;
   border: 2px solid rgba(255, 224, 90, .95); background: rgba(255, 224, 90, .16);
   border-radius: 6px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25);
 }
@@ -93,7 +92,7 @@
   box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6), 0 0 0 2px rgba(165, 116, 74, .85);
 }
 .so-ap-bar > i {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 100%; border-radius: 99px;
+  position: absolute; left: 0; right: 0; top: 0; height: 100%; border-radius: 99px; will-change: transform;
   background: linear-gradient(90deg, #7fd05a, #4aa83f); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4);
 }
 .so-ap-bar.so-ap-low > i { background: linear-gradient(90deg, #ff7a5c, #d8352a); }
@@ -105,6 +104,5 @@
   .so-ap-fall { animation: so-ap-fade .25s linear forwards; animation-delay: 0ms; }
   .so-ap-plus { animation: so-ap-fade .6s linear forwards; }
   .so-ap-bar.so-ap-low { animation: none; }
-  .so-ap-c::before { transition: none; }
 }
 @keyframes so-ap-fade { to { opacity: 0; } }

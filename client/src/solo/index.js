@@ -262,6 +262,8 @@ export function mount(ctx) {
   }
 
   // 카운트다운·남은 시간 (매 화면 갱신마다)
+  let lastFill = -1;
+  const setText = (e, t) => { if (e.textContent !== t) e.textContent = t; };
   function updateClock() {
     const rm = room;
     if (!rm?.so) { countEl.hidden = true; return; }
@@ -301,10 +303,12 @@ export function mount(ctx) {
       const left = clock.left(so.endsAt);
       const total = Math.max(1, so.endsAt - so.startAt);
       const text = mmss(left);
-      timeLabel.textContent = '남은 시간';
+      setText(timeLabel, '남은 시간');
       if (timeEl.textContent !== text) timeEl.textContent = text;
-      watchTime.textContent = `남은 시간 ${text}`;
-      timeFill.style.transform = `scaleX(${Math.max(0, Math.min(1, left / total))})`;
+      setText(watchTime, `남은 시간 ${text}`);
+      // 매 프레임 같은 값을 다시 쓰면 화면이 매번 다시 그려진다 → 눈에 안 띄는 변화(1/500)는 건너뛴다
+      const frac = Math.round(Math.max(0, Math.min(1, left / total)) * 500) / 500;
+      if (frac !== lastFill) { lastFill = frac; timeFill.style.transform = `scaleX(${frac})`; }
       timeBar.hidden = false;
       const low = rm.phase === 'play' && left <= 10000;
       timeBox.classList.toggle('so-low', low);
@@ -312,9 +316,9 @@ export function mount(ctx) {
     } else {
       const el0 = rm.phase === 'play' ? Math.max(0, clock.now() - so.startAt) : 0;
       const text = mmss(el0 + 999);
-      timeLabel.textContent = '지난 시간';
+      setText(timeLabel, '지난 시간');
       if (rm.phase === 'play' && timeEl.textContent !== text) timeEl.textContent = text;
-      watchTime.textContent = `지난 시간 ${rm.phase === 'play' ? text : ''}`;
+      setText(watchTime, `지난 시간 ${rm.phase === 'play' ? text : ''}`);
       timeBar.hidden = true;
       timeBox.classList.remove('so-low');
     }
