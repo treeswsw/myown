@@ -1066,7 +1066,7 @@ async function coinCheck(browser) {
     await step('swap window: 3 coins -> chips', async () => {
       await page.click('.lb-coin-btn:has-text("상점")'); // 교환·뽑기는 상점 안에서만 (2026-11-13)
       await visible2(page, '.sh-panel');
-      await page.click('.sh-swap:has-text("칩 교환")');
+      await page.click('.sh-ex:has-text("칩 교환")');
       await visible2(page, '.cn-field');
       await page.fill('.cn-field', '3');
       await page.click('.cn-btn.cn-primary:has-text("바꾸기")');
@@ -1078,7 +1078,7 @@ async function coinCheck(browser) {
     await step('card draw: free 1, 1장, 10장 with 다 뒤집기, chips go up', async () => {
       // 상점 → [카드 뽑기]. 상점 화면이 바뀌어도 되도록 버튼 글자로 찾는다.
       await page.click('.lb-coin-btn:has-text("상점")');
-      const openers = ['button:has-text("카드 뽑기")', ':has(> :text("카드 뽑기")) button:has-text("뽑기")', 'text=카드 뽑기'];
+      const openers = ['.sh-big-draw .sh-sb', 'button:has-text("카드 뽑기")', ':has(> :text("카드 뽑기")) button:has-text("뽑기")', 'text=카드 뽑기'];
       for (const sel of openers) {
         if (await page.locator('.gc-panel').count()) break;
         await page.click(`${sel} >> visible=true`, { timeout: 1500 }).catch(() => {});
@@ -1123,7 +1123,7 @@ async function coinCheck(browser) {
     });
     await step('capsule: title draw 1', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');
-      await page.locator('button:has-text("치장 뽑기"), button:has-text("칭호 뽑기")').first().click(); // 상점 안의 치장 뽑기 입구
+      await page.locator('.sh-big-cap .sh-sb, button:has-text("치장 뽑기")').first().click(); // 상점 안의 치장 뽑기 입구
       await visible2(page, '.cp-ov');
       await page.click('.cp-go >> nth=0'); // 1개
       await page.waitForSelector('.cp-ov[data-mode="done"] .cp-res', { timeout: T + 3000 });
@@ -1136,18 +1136,23 @@ async function coinCheck(browser) {
     await step('shop: buy then equip', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');
       await visible2(page, '.sh-panel');
-      await visible2(page, '.sh-row[data-row="a"] .sh-timer'); // SPEC 22-18: two stock rows with a countdown
-      await page.click('.sh-card >> nth=0 >> .sh-act.sh-buy'); // first card of the stock: price button, pressed twice to buy
-      await page.click('.sh-card >> nth=0 >> .sh-act.sh-sure');
+      await visible2(page, '.sh-tm'); // SPEC 22-20: "다음 교체까지 m:ss"
+      if ((await page.locator('.sh-ti > .sh-cd').count()) !== 6) throw new Error('the shelf does not have 6 cards');
+      if (!(await page.locator('.sh-feat').count())) throw new Error('no 이 시간의 명품 panel');
+      await page.click('.sh-ti > .sh-cd >> nth=0'); // face-down card: tap to reveal
+      await visible2(page, '.sh-ti > .sh-cd >> nth=0 >> .sh-pb.sh-buy');
+      await page.click('.sh-ti > .sh-cd >> nth=0 >> .sh-pb.sh-buy'); // price button, pressed twice to buy
+      await page.click('.sh-ti > .sh-cd >> nth=0 >> .sh-pb.sh-cf');
       await page.waitForFunction(() => /샀습니다/.test(document.querySelector('.sh-msg')?.textContent || ''), null, { timeout: T });
-      await page.click('.sh-card >> nth=0 >> .sh-act:has-text("끼기")');
-      await page.waitForFunction(() => /꼈습니다/.test(document.querySelector('.sh-msg')?.textContent || ''), null, { timeout: T });
-      if (!(await page.locator('.sh-card.sh-worn .sh-stamp').count())) throw new Error('no 착용 중 stamp');
-      if (await page.evaluate(() => document.documentElement.scrollHeight > innerHeight + 1 || document.querySelector('.sh-rows').getBoundingClientRect().bottom > innerHeight)) throw new Error('shop overflows the phone screen');
-      await page.click('.sh-swap'); // [칩 교환] opens the swap window over the shop
+      await page.click('.sh-ti > .sh-cd >> nth=0 >> .sh-pb:has-text("장착")');
+      await page.waitForFunction(() => /장착했습니다/.test(document.querySelector('.sh-msg')?.textContent || ''), null, { timeout: T });
+      if (!(await page.locator('.sh-cd.sh-worn .sh-st').count())) throw new Error('no 착용 중 stamp');
+      if (await page.evaluate(() => document.documentElement.scrollHeight > innerHeight + 1 || document.documentElement.scrollWidth > innerWidth + 1 || document.querySelector('.sh-tray').getBoundingClientRect().bottom > innerHeight)) throw new Error('shop overflows the phone screen');
+      await page.click('.sh-ex'); // [칩 교환] opens the swap window over the shop
       await visible2(page, '.cn-field');
       await page.click('.cn-sheet .cn-btns button');
-      await page.click('.sh-close');
+      await page.click('.sh-wd'); // [옷장] closes the shop and opens the wardrobe page
+      await page.waitForFunction(() => !document.querySelector('.sh-root'), null, { timeout: T });
     });
     await step('wardrobe (옷장): opens from the shop, tab, unequip/equip, close', async () => {
       await page.click('.lb-coin-btn:has-text("상점")');
