@@ -72,7 +72,7 @@ export function createRoomShell(hub, code, entry, opt = {}) {
       emit([{ k: 'chat', ...item }]);
     },
     // 판 끝(D4, 판마다 한 번, 두 번째는 무시): 코인 지급 + 공통 결과 화면 wait.result (COMMON-CONTRACT 1-3).
-    // rows [{id, rank, won?, opp?, score?, note?}]: 코인은 opp 가 있는 줄만. info {unit?: 'coin'|'chip', scale?: finish 비율(갱식마인드 문제 수/8), add?: {label?, by: {id: n}}}
+    // rows [{id, rank, won?, opp?, score?, note?}]: 코인은 opp 가 있는 줄만. info {unit?: 'coin'|'chip', scale?: finish 비율(갱식마인드 문제 수/8), add?: {label?, by: {id: n}}, coin?: 적립표 mode 덮어쓰기}
     // add = 지급 말고 더할 증감(홀덤 칩, 미니 베팅). label 이 있으면 화면이 "판 코인 +a · <label> +b" 로 나눠 보인다.
     finish(rows, info = {}) {
       if (finished) {
@@ -82,7 +82,8 @@ export function createRoomShell(hub, code, entry, opt = {}) {
       finished = true;
       const here = rows.filter((r) => member(r.id)); // 관전자·나간 사람은 판 코인 없음
       const pay = here.filter((r) => r.opp !== undefined);
-      const paid = entry.coin && pay.length ? hub.award(shell, entry.coin, pay, info.scale) ?? {} : {};
+      const coinMode = info.coin ?? entry.coin; // info.coin: 같은 게임 안의 다른 적립 줄(미니게임 봇전)
+      const paid = coinMode && pay.length ? hub.award(shell, coinMode, pay, info.scale) ?? {} : {};
       const by = info.add?.by ?? {};
       const gain = {};
       for (const r of here) gain[r.id] = (paid[r.id] ?? 0) + (by[r.id] ?? 0);

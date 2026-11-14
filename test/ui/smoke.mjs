@@ -837,6 +837,41 @@ async function runContext(browser, server, name, cfg) {
       await gone('.rm-bar:not([hidden])');
       await page.waitForFunction(() => !document.querySelector('.mn-root'));
     });
+    await step('mini: 봇과 하기 → 초급 → 방 만들기 = 바로 시작, 내가 한 수 → 봇이 한 수 (서버 상태) → 나가기', async () => {
+      await press('.lb-seg-item:has-text("미니게임")');
+      await press('.lb-mini-item:has-text("커넥트포")');
+      await press('[data-lb="mini-vs"] [data-v="bot"]');
+      await press('[data-lb="mini-level"] [data-v="easy"]');
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.mn-root');
+      const r = await openRoom('mini', mBot.state?.code); // mBot 이 아직 들어 있는 친구 방은 제외
+      const watcher = new Bot(server.url, uid('mw'), { autoplay: false });
+      await watcher.connect();
+      await watcher.login();
+      await watcher.join(r.code);
+      const count = (st) => st.mn.board.reduce((n, row) => n + row.filter((v) => v != null).length, 0);
+      await watcher.waitFor((b) => b.state?.phase === 'play' && b.state.bot?.level === 'easy', T, 'bot room playing');
+      await press('.mn-board .mn-hit[data-x="0"]');
+      await watcher.waitFor((b) => count(b.state) >= 2, T, 'bot answered with a move');
+      watcher.close();
+      await press('[data-rm="bar-leave"]');
+      await visible('.ui-confirm:has-text("나가면 기권 처리돼요")');
+      await press('.ui-mbtn.ui-danger');
+      await visible('button:has-text("방 만들기")');
+      await page.waitForFunction(() => !document.querySelector('.mn-root'));
+    });
+    await step('mini: 체스 봇 한 수 (초급, 최대 15초)', async () => {
+      await press('.lb-mini-item:has-text("체스")');
+      await press('[data-lb="mini-vs"] [data-v="bot"]');
+      await press('[data-lb="mini-side"] [data-v="1"]');
+      await press('button.lb-primary:has-text("방 만들기")');
+      await visible('.mn-root');
+      // 봇이 백(선)이라 먼저 둔다: 내 기기의 Stockfish 가 15초 안에 수를 내면 서버가 받아 "내 차례 (흑)" 이 된다
+      await page.waitForFunction(() => /내 차례 \(흑\)/.test(document.querySelector('[data-mn="status"]')?.textContent || ''), null, { timeout: 15000 });
+      await press('[data-rm="bar-leave"]');
+      await press('.ui-mbtn.ui-danger');
+      await visible('button:has-text("방 만들기")');
+    });
     mBot.close();
   } catch (e) {
     if (!(e instanceof StepFailed)) check('unexpected error', false, String(e.stack || e).split('\n').slice(0, 3).join(' | '));

@@ -9,7 +9,7 @@ import { pair, c4Win, c4Draw, gomokuWin, mnMsg, lastErr, GRACE } from './lib.js'
 test('settings: kind/game/games/rule/len are validated, host only, and shown in wait.set', async () => {
   const r = await pair();
   const set = r.a.state.wait.set;
-  assert.deepEqual(set, { game: 'gomoku', kind: 'fixed', games: GAME_IDS, rule: 'free', len: 1 });
+  assert.deepEqual(set, { game: 'gomoku', kind: 'fixed', games: GAME_IDS, rule: 'free', len: 1, vs: 'friend', level: 'mid', side: 0 });
   assert.deepEqual(r.a.state.wait.own, { ann1: { bet: 0 }, bob1: { bet: 0 } });
   await r.b.send({ t: 'set', patch: { len: 3 } });
   assert.equal(lastErr(r.b).code, 'mn_host');
@@ -23,7 +23,7 @@ test('settings: kind/game/games/rule/len are validated, host only, and shown in 
   }
   assert.equal(r.a.state.wait.set.len, 1, '거절된 묶음은 하나도 적용되지 않는다 (len 3 + 나쁜 kind)');
   await r.a.send({ t: 'set', patch: { len: 5, kind: 'order', games: ['connect4', 'gomoku'], rule: 'renju' } });
-  assert.deepEqual(r.b.state.wait.set, { game: 'gomoku', kind: 'order', games: ['gomoku', 'connect4'], rule: 'renju', len: 5 });
+  assert.deepEqual(r.b.state.wait.set, { game: 'gomoku', kind: 'order', games: ['gomoku', 'connect4'], rule: 'renju', len: 5, vs: 'friend', level: 'mid', side: 0 });
 });
 
 test('settings schema: fields show/hide by kind and by whether gomoku is played', () => {

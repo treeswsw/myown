@@ -80,6 +80,8 @@ export function mount(ctx) { // ctx: root, ui, stage(등록표 stage 일 때), s
 | 라이어 | 단계별 채팅 잠금, 입력칸 늘 보임(`chatRule.layout`), 80자, 정체 공개 중 이모티콘·매체 금지 | docs/liar/GDD.md |
 | 갱식마인드 | 정답 판정, 정답자끼리 글 가리기, 그리는 사람 채팅·이모티콘 금지, 40자·도배 제한 값(엔진 `chatOwn`), 게임 중 자기 입력칸, 그리는 사람 끊김 15초 | docs/draw/GDD.md 10절 |
 | 요트 | 끊긴 사람 차례는 기다리고 60초에 기권 | docs/yacht/GDD.md |
+| 미니게임 봇전 | 정원 예외: 사람 1명 + 봇 자리(`~bot`)로 시작(min 1, `canStart`). 봇 수는 사람 기기가 계산해 `{t:'mn',a:'bot'}` 로 낸다(그 방 사람만·봇 차례만·합법 수만) | docs/mini/PLAN.md 5절 |
+| 미니게임 봇전 | 코인 예외: `ctx.finish(rows, {coin:'minibot_<난이도>'})` 로 난이도별 적립 줄(사람 한 줄). 봇 자리는 방 멤버가 아니라 "봇 있는 방 지급 없음"에 걸리지 않음 | SPEC 22-2 |
 | (새 게임) | | |
 
 새 예외는 사용자 확인을 받은 뒤 적는다.

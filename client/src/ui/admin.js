@@ -48,7 +48,7 @@ export function createAdmin({ send, getRoom }) {
   }
 
   // ---- 세부 설정 (SPEC 21-7): 게임별 코인, 교환 시세 ----
-  const gameName = (key) => Object.values(GAMES).find((g) => g.coin === key)?.name ?? key;
+  const gameName = (key) => Object.values(GAMES).find((g) => g.coin === key)?.name ?? (key.startsWith('minibot_') ? `미니게임 봇전 (${{ easy: '초급', mid: '중급', hard: '고급' }[key.slice(8)] ?? key})` : key);
   const numInput = (value, label) => {
     const i = el('input', 'adm-input adm-num');
     i.type = 'text'; i.inputMode = 'numeric'; i.maxLength = 8; i.autocomplete = 'off';

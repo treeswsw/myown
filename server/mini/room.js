@@ -4,9 +4,10 @@
 // 승부(매치): 한 판 한 판(game) 이 모여 len(1/3/5) 판의 과반을 먼저 이기면 끝. 무승부 판은 승수에 넣지 않고 다시(최대 MAX_DRAWS 번,
 // 단판은 무승부면 그대로 끝). 매치가 끝나야 결과(end) -> 대기실. 코인 베팅은 매치 단위(hub.stake / hub.settleStake, server/coin/wallet.js).
 import { GAMES, GAME_IDS } from '../../shared/mini/index.js';
-import { KINDS, LENS, DEFAULTS } from '../../shared/mini/settings.js';
+import { KINDS, LENS, VSS, LEVELS, DEFAULTS, botName } from '../../shared/mini/settings.js';
 
 export const BETWEEN_MS = 5000; // 판 사이 쉬는 시간
+export const BOT = '~bot'; // 봇 자리의 id. 사람 아이디에는 ~ 를 쓸 수 없어 겹치지 않는다(wallet 도 ~bot 은 봇으로 본다)
 export const MAX_DRAWS = 3; // 한 매치에서 무승부 판이 이만큼 나오면 매치도 무승부
 const RULES = ['free', 'renju'];
 
@@ -18,6 +19,10 @@ export function makeMiniGame(ctx, opt = {}) {
   let games = [...GAME_IDS]; // kind=random/order 일 때 고른 종목들(목록 순서)
   let rule = DEFAULTS.rule;
   let len = DEFAULTS.len;
+  // 봇과 하기(docs/mini/PLAN.md 5절): 사람 1명 + 봇 자리. 봇 수는 사람 기기가 계산해 {a:'bot'} 으로 보낸다
+  let vs = opt.vs === 'bot' ? 'bot' : DEFAULTS.vs;
+  let level = LEVELS.includes(opt.level) ? opt.level : DEFAULTS.level;
+  let side = opt.side === 1 ? 1 : 0;
   let played = setting; // 지금 판(또는 방금 끝난 판)의 종목
   let seats = [null, null];
   let names = [null, null];
@@ -32,6 +37,7 @@ export function makeMiniGame(ctx, opt = {}) {
   const coinsOf = (id) => ctx.member(id)?.session.user.coins ?? 0;
   const nameOf = (id) => ctx.member(id)?.session.user.name ?? '';
   const betOf = (id) => bets.get(id) ?? 0;
+  const humanId = () => { const h = ctx.hostId?.() ?? null; return ctx.member(h)?.connected ? h : ready()[0]?.id ?? h; }; // 봇전의 사람 = 방장
 
   // ---- 코인 (맡기기·정산은 한 번씩만: hub.stake / hub.settleStake 가 이중 처리를 막는다) ----
   // 돌려주는 값 {id: 베팅 증감}
@@ -52,7 +58,7 @@ export function makeMiniGame(ctx, opt = {}) {
   function beginGame(first) {
     played = pickGame();
     if (!first) seats = [seats[1], seats[0]]; // 선(먼저 두는 사람)은 판마다 번갈아
-    names = seats.map(nameOf);
+    names = seats.map((id) => (id === BOT ? botName(mt.cfg.level) : nameOf(id)));
     mn = GAMES[played].init({ rule: mt.cfg.rule });
     result = null;
     mt.last = null;
@@ -75,6 +81,16 @@ export function makeMiniGame(ctx, opt = {}) {
     const wSeat = winnerId === null ? -1 : seats.indexOf(winnerId);
     result = winnerId === null ? { winner: 'draw', reason: 'draw' } : { winner: wSeat, reason };
     // 공통 결과는 매치마다 한 번. 완주·승리 코인은 판 승수로 끝난 매치만(기권·나감·무승부 제외, 진 사람도 완주 코인), 베팅 증감은 add 로 합친다.
+    if (mt.cfg.vs === 'bot') {
+      // 봇전: 사람 한 줄만. 코인은 난이도별 줄(minibot_*): 끝까지 두면 완주 코인(진 사람도), 이기면 승리 코인 더. 기권·나감·무승부 0. 베팅 없음.
+      const hid = mt.players.find((x) => x !== BOT);
+      const won = winnerId === hid;
+      const bn = botName(mt.cfg.level).replace(' ', '');
+      const note = reason === 'resign' ? '기권' : reason === 'leave' ? '나감' : won ? `${bn}에게 승리` : winnerId === null ? `${bn}와 무승부` : `${bn}에게 패배`;
+      ctx.finish([{ id: hid, rank: winnerId === null || won ? 1 : 2, note, won, opp: reason === 'win' ? 1 : undefined }], { coin: `minibot_${mt.cfg.level}` });
+      bets.clear();
+      return;
+    }
     const bet = settle(winnerId);
     const out = reason === 'resign' ? '기권' : reason === 'leave' ? '나감' : '';
     ctx.finish(mt.players.map((id) => ({
@@ -107,7 +123,7 @@ export function makeMiniGame(ctx, opt = {}) {
   function setSettings(byId, patch) {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return err('bad');
     const keys = Object.keys(patch);
-    if (!keys.length || !keys.every((k) => ['game', 'kind', 'games', 'rule', 'len'].includes(k))) return err('bad');
+    if (!keys.length || !keys.every((k) => ['game', 'kind', 'games', 'rule', 'len', 'vs', 'level', 'side'].includes(k))) return err('bad');
     const next = {};
     for (const k of keys) {
       const v = patch[k];
@@ -121,6 +137,12 @@ export function makeMiniGame(ctx, opt = {}) {
         continue;
       } else if (k === 'rule') {
         if (!RULES.includes(v)) return err('rule', '알 수 없는 오목 규칙입니다.');
+      } else if (k === 'vs') {
+        if (!VSS.includes(v)) return err('vs', '알 수 없는 상대입니다.');
+      } else if (k === 'level') {
+        if (!LEVELS.includes(v)) return err('level', '알 수 없는 난이도입니다.');
+      } else if (k === 'side') {
+        if (v !== 0 && v !== 1) return err('side', '내 순서를 다시 골라 주세요.');
       } else if (!LENS.includes(v)) return err('len', '알 수 없는 승부 방식입니다.');
       next[k] = v;
     }
@@ -129,6 +151,20 @@ export function makeMiniGame(ctx, opt = {}) {
     if (next.games !== undefined) games = next.games;
     if (next.rule !== undefined) rule = next.rule;
     if (next.len !== undefined) len = next.len;
+    if (next.vs !== undefined) vs = next.vs;
+    if (next.level !== undefined) level = next.level;
+    if (next.side !== undefined) side = next.side;
+    if (vs === 'bot') bets.clear();
+    return null;
+  }
+
+  // 지금 차례의 수를 둔다 (사람의 move 와 봇의 bot 이 같이 쓴다)
+  function play(move) {
+    const next = GAMES[played].apply(mn, move);
+    if (!next) return GAMES[played].reject?.(mn, move) ? err('forbid', GAMES[played].reject(mn, move)) : err('move', '둘 수 없는 곳입니다.');
+    mn = next;
+    if (next.winner !== null) gameEnded(next.winner);
+    ctx.push();
     return null;
   }
 
@@ -141,12 +177,15 @@ export function makeMiniGame(ctx, opt = {}) {
         const seat = seats.indexOf(id);
         if (seat < 0) return err('seat', '관전 중입니다.');
         if (seat !== mn.turn) return err('turn', '당신 차례가 아닙니다.');
-        const next = GAMES[played].apply(mn, msg.move);
-        if (!next) return GAMES[played].reject?.(mn, msg.move) ? err('forbid', GAMES[played].reject(mn, msg.move)) : err('move', '둘 수 없는 곳입니다.');
-        mn = next;
-        if (next.winner !== null) gameEnded(next.winner);
-        ctx.push();
-        return null;
+        return play(msg.move);
+      }
+      case 'bot': {
+        // 봇의 수: 그 방의 사람(방장)만, 봇 차례에만, 규칙상 합법인 수만
+        if (!mt || mt.cfg.vs !== 'bot') return err('bot', '봇과 하는 방이 아닙니다.');
+        if (phase !== 'play') return err('now');
+        if (id !== mt.players.find((x) => x !== BOT)) return err('bot', '봇의 수는 이 방의 사람만 보낼 수 있어요.');
+        if (seats[mn.turn] !== BOT) return err('turn', '봇 차례가 아닙니다.');
+        return play(msg.move);
       }
       case 'resign': {
         if ((phase !== 'play' && phase !== 'between') || !mt.players.includes(id)) return err('now');
@@ -170,6 +209,7 @@ export function makeMiniGame(ctx, opt = {}) {
         seats: [...seats],
         names: [...names],
         mySeat: seats.indexOf(viewerId), // -1 = 관전
+        bot: mt?.cfg.vs === 'bot' ? { level: mt.cfg.level, seat: seats.indexOf(BOT) } : null, // 봇 자리(봇전일 때)
         players: ctx.members().map((m) => ({ id: m.id, spectating: phase !== 'lobby' && !seats.includes(m.id) })),
         turn: turnId,
         waiting: turnMember && !turnMember.connected ? turnMember.id : null,
@@ -188,6 +228,11 @@ export function makeMiniGame(ctx, opt = {}) {
     isWaiting: () => phase === 'lobby' || phase === 'end',
 
     canStart() {
+      if (vs === 'bot') {
+        if (!humanId()) return err('need1', '방장이 필요합니다.');
+        if (kind !== 'fixed' && games.length < 2) return err('games', '종목을 2개 이상 골라 주세요.');
+        return null; // 정원 예외: 봇전은 사람 1명으로 시작 (docs/NEW-GAME.md 4절)
+      }
       const two = ready();
       if (two.length < 2) return err('need2', '2명이 필요합니다.');
       if (kind !== 'fixed' && games.length < 2) return err('games', '종목을 2개 이상 골라 주세요.');
@@ -205,6 +250,16 @@ export function makeMiniGame(ctx, opt = {}) {
     onStart() {
       const bad = this.canStart(); // 시작 직전 잔액 재확인
       if (bad) return bad;
+      if (vs === 'bot') {
+        const h = humanId();
+        seats = side === 0 ? [h, BOT] : [BOT, h]; // 첫 판 자리는 고른 순서대로 (판마다 번갈아 바뀌는 것은 같다)
+        mt = {
+          cfg: { kind, game: setting, games: [...games], rule, len, vs, level },
+          players: [...seats], wins: {}, round: 1, draws: 0, orderIdx: 0, bet: 0, last: null,
+        };
+        beginGame(true);
+        return null;
+      }
       const two = ready();
       const n = betOf(two[0].id);
       if (n > 0) {
@@ -227,6 +282,7 @@ export function makeMiniGame(ctx, opt = {}) {
     pick(id, patch) {
       if (!patch || typeof patch !== 'object' || Array.isArray(patch) || Object.keys(patch).some((k) => k !== 'bet')) return err('bad');
       const n = patch.bet;
+      if (vs === 'bot') return err('bot', '봇과는 코인을 걸 수 없어요.');
       if (!Number.isInteger(n) || n < 0) return err('betval', '건 코인은 0 이상의 정수예요.');
       if (n > 0 && !ready().some((m) => m.id === id)) return err('betspec', '구경하는 사람은 코인을 걸 수 없어요.');
       if (n > coinsOf(id)) return err('coin', '가진 코인보다 많이 걸 수 없어요.');
@@ -234,7 +290,7 @@ export function makeMiniGame(ctx, opt = {}) {
       return null;
     },
     waitInfo: () => ({
-      set: { game: setting, kind, games: [...games], rule, len },
+      set: { game: setting, kind, games: [...games], rule, len, vs, level, side },
       own: Object.fromEntries(ctx.members().map((m) => [m.id, { bet: betOf(m.id) }])),
     }),
     listExtra: () => ({ game: setting }),

@@ -241,14 +241,44 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
     b.addEventListener('click', () => { pickedMini = g; syncMini(); });
     return b;
   });
+  // 친구와 하기 / 봇과 하기 (봇이면 난이도·순서 고르고 방 만들기 = 바로 시작)
+  let pickedVs = 'friend';
+  let pickedLevel = 'easy';
+  let pickedSide = 0;
+  const seg = (label, items, get, set) => {
+    const row = h('div', 'lb-mini-pick lb-mini-sub');
+    row.setAttribute('role', 'radiogroup');
+    row.setAttribute('aria-label', label);
+    const bs = items.map(([v, t]) => {
+      const b = h('button', 'lb-seg-item', t);
+      b.type = 'button';
+      b.dataset.v = String(v);
+      b.setAttribute('role', 'radio');
+      b.addEventListener('click', () => { set(v); syncMini(); });
+      return [v, b];
+    });
+    row.append(...bs.map((x) => x[1]));
+    return { row, sync: () => bs.forEach(([v, b]) => b.setAttribute('aria-checked', String(v === get()))) };
+  };
+  const vsSeg = seg('상대', [['friend', '친구와 하기'], ['bot', '봇과 하기']], () => pickedVs, (v) => { pickedVs = v; });
+  const levelSeg = seg('봇 난이도', [['easy', '초급'], ['mid', '중급'], ['hard', '고급']], () => pickedLevel, (v) => { pickedLevel = v; });
+  const sideSeg = seg('내 순서', [[0, '선(먼저)'], [1, '후']], () => pickedSide, (v) => { pickedSide = v; });
+  vsSeg.row.dataset.lb = 'mini-vs';
+  levelSeg.row.dataset.lb = 'mini-level';
+  sideSeg.row.dataset.lb = 'mini-side';
   miniBox.append(...miniBtns);
   miniBox.hidden = true;
   function syncMini() {
     miniBox.hidden = pickedMode !== 'mini';
+    const m = pickedMode === 'mini';
+    vsSeg.row.hidden = !m;
+    levelSeg.row.hidden = !m || pickedVs !== 'bot';
+    sideSeg.row.hidden = levelSeg.row.hidden;
+    vsSeg.sync(); levelSeg.sync(); sideSeg.sync();
     miniBtns.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mini === pickedMini)));
   }
   syncMini();
-  const createBtn = button('방 만들기', 'lb-primary', () => { homeErr.textContent = ''; onCreate(pickedMode, pickedMode === 'mini' ? pickedMini : undefined); });
+  const createBtn = button('방 만들기', 'lb-primary', () => { homeErr.textContent = ''; onCreate(pickedMode, pickedMode === 'mini' ? pickedMini : undefined, pickedMode === 'mini' && pickedVs === 'bot' ? { vs: 'bot', level: pickedLevel, side: pickedSide } : undefined); });
   const createNote = h('p', 'lb-cap');
   const isBroke = () => user != null && (user.chips ?? user.bank) === 0;
   function updateCreate() {
@@ -261,7 +291,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   const emptyNote = h('p', 'lb-empty', '열린 방이 없습니다. 새 게임을 만들어 보세요.');
   const rows = new Map();
   let lastRooms = [];
-  play.append(h('h2', null, '새 게임'), h('div', 'lb-stack lb-seg-box', homeSeg.el, homeSeg.caption, miniBox),
+  play.append(h('h2', null, '새 게임'), h('div', 'lb-stack lb-seg-box', homeSeg.el, homeSeg.caption, miniBox, vsSeg.row, levelSeg.row, sideSeg.row),
     createBtn, createNote,
     h('hr'), h('h2', null, '열린 방'), roomList, emptyNote, homeErr);
 
