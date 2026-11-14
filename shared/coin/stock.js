@@ -1,10 +1,12 @@
-// Shop stock (SPEC 22-18): two personal rows that change on wall-clock periods.
+// Shop stock (SPEC 22-20): a 6-slot conveyor row (one new slot every 2 minutes) plus 2 hourly featured legends.
 import { item, ITEMS } from './shop.js';
 
-export const ROWS = {
-  a: { n: 5, ms: 300000, w: [[0, 85], [1, 15]] },
-  b: { n: 5, ms: 3600000, w: [[1, 77], [2, 20], [3, 3]] },
-};
+export const ROW_N = 6;
+export const TICK_MS = 120000;
+export const FEAT_N = 2;
+export const FEAT_MS = 3600000;
+// [grade, weight] for each newly entering slot (percent).
+export const WEIGHTS = [[0, 70], [1, 25], [2, 4.5], [3, 0.5]];
 export const GRADE_PRICE = { 2: 400, 3: 1500 };
 export const NEVER = ['title.jackpot', 'title.trashking'];
 
@@ -16,45 +18,69 @@ export function priceOf(itOrId) {
   return GRADE_PRICE[it.g] ?? null;
 }
 
-// Which period of this row `now` falls in.
-export const periodOf = (row, now) => Math.floor(now / row.ms);
+export const tickOf = (now) => Math.floor(now / TICK_MS);
+export const featOf = (now) => Math.floor(now / FEAT_MS);
+// ms until the next row tick / featured change.
+export const nextTickIn = (now) => (tickOf(now) + 1) * TICK_MS - now;
+export const featLeft = (now) => (featOf(now) + 1) * FEAT_MS - now;
+// ms until the slot that entered at tick `t` leaves the row.
+export const slotLeft = (t, now) => Math.max(0, (t + ROW_N) * TICK_MS - now);
 
-// ms until this row changes.
-export const leftOf = (row, p, now) => Math.max(0, (p + 1) * row.ms - now);
+const POOL = ITEMS.filter((i) => i.cap === true && i.g < 4 && !NEVER.includes(i.id));
+const cands = (g, skip) => POOL.filter((i) => i.g === g && !skip.has(i.id));
+const pick = (rng, list) => list[Math.min(list.length - 1, Math.floor(rng() * list.length))].id;
 
-// Pick a grade by weight from row.w ([[grade, weight], ...]) using rng() in [0,1).
-function pickGrade(rng, row) {
-  const total = row.w.reduce((s, [, w]) => s + w, 0);
+function pickGrade(rng) {
+  const total = WEIGHTS.reduce((s, [, w]) => s + w, 0);
   let r = rng() * total;
-  for (const [g, w] of row.w) {
+  for (const [g, w] of WEIGHTS) {
     if (r < w) return g;
     r -= w;
   }
-  return row.w[row.w.length - 1][0];
+  return WEIGHTS[WEIGHTS.length - 1][0];
 }
 
-// Roll one row: ids[row.n], null for an empty slot. Pure; the only randomness is `rng`.
-// owned / exclude: arrays (or Sets) of ids that must not appear. No duplicates inside the row.
-export function rollRow(rng, row, owned = [], exclude = []) {
-  const skip = new Set([...owned, ...exclude, ...NEVER].filter((x) => typeof x === 'string'));
-  const pool = ITEMS.filter((i) => i.cap === true && i.g < 4);
+const skipSet = (owned, exclude) => new Set([...owned, ...exclude, ...NEVER].filter((x) => typeof x === 'string'));
+
+// One new slot: id or null (no candidate in any grade). Not owned, not in `exclude`. Pure; randomness only `rng`.
+export function rollSlot(rng, owned = [], exclude = []) {
+  const skip = skipSet(owned, exclude);
+  const g0 = pickGrade(rng);
+  const order = [];
+  for (let g = g0; g >= 0; g--) order.push(g); // nearest lower grades first, then higher
+  for (let g = g0 + 1; g <= 3; g++) order.push(g);
+  for (const g of order) {
+    const c = cands(g, skip);
+    if (c.length) return pick(rng, c);
+  }
+  return null;
+}
+
+// n slots at once (no duplicates inside), e.g. for the first fill.
+export function rollRow(rng, n = ROW_N, owned = [], exclude = []) {
   const out = [];
-  for (let k = 0; k < row.n; k++) {
-    const g0 = pickGrade(rng, row);
-    // nearest lower grades first, then higher
-    const order = [];
-    for (let g = g0; g >= 0; g--) order.push(g);
-    for (let g = g0 + 1; g <= 3; g++) order.push(g);
-    let id = null;
-    for (const g of order) {
-      const cand = pool.filter((i) => i.g === g && !skip.has(i.id));
-      if (cand.length) {
-        id = cand[Math.min(cand.length - 1, Math.floor(rng() * cand.length))].id;
-        break;
-      }
-    }
-    if (id) skip.add(id);
+  const ex = [...exclude];
+  for (let k = 0; k < n; k++) {
+    const id = rollSlot(rng, owned, ex);
+    if (id) ex.push(id);
     out.push(id);
   }
+  return out;
+}
+
+// The hourly featured items: FEAT_N legends (g=3); short on legends -> concept (g=2); else null.
+export function rollFeat(rng, owned = [], exclude = []) {
+  const skip = skipSet(owned, exclude);
+  const out = [];
+  for (const g of [3, 2]) {
+    while (out.length < FEAT_N) {
+      const c = cands(g, skip);
+      if (!c.length) break;
+      const id = pick(rng, c);
+      skip.add(id);
+      out.push(id);
+    }
+  }
+  while (out.length < FEAT_N) out.push(null);
   return out;
 }
