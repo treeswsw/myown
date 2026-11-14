@@ -190,9 +190,6 @@
 .lb-mini-item{flex:1 1 auto;padding:0 10px;border-radius:8px;background:rgba(128,128,128,.15)}
 .lb-mini-item[aria-checked=true]{background:var(--accent,#ea3a3d);color:var(--on-accent,#fff)}
 .lb-btn.lb-flash-btn{background:var(--fill);color:var(--ink2)}
-.lb-create[hidden],.lb-solo[hidden],.lb-solo-sec[hidden]{display:none}
-.lb-solo{display:flex;flex-direction:column;gap:14px}
-.lb-solo-sec{display:flex;flex-direction:column;gap:8px}
-.lb-solo-sec h3{margin:0;font-size:15px}
+.lb-create[hidden],.lb-solo[hidden],.lb-flash[hidden]{display:none}
 .lb-flash{display:flex;flex-direction:column;gap:8px}
 .lb-btn.lb-flash-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:52px;padding:8px 14px;text-align:left}

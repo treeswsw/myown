@@ -98,7 +98,7 @@ Render 무료 요금제 + Neon Postgres. 기획 문서는 docs/SPEC.md (뒤 절�
 - smoke.mjs 에 종목마다 한 판(그만하기 → 공용 결과 → 로비)이 있다. 판 모양·소리·터치·수박 물리 느낌은 "미확인(실기기 확인 필요)".
 
 ## 놀이터 (플래시 게임, 코인·랭킹·서버 없음)
-- 입구는 로비 "혼자 놀기" 안의 "추억의 플래시" 구역(혼자 놀기 스위치가 꺼져도 보임; 놀이터 버튼은 따로 없음) → 카드를 누르면 client/src/flash/index.js(처음 누를 때만 불러옴) → 게임 카드 → Ruffle 로 전체 화면 실행. 서버 방·코인·채팅과 섞이지 않는다.
+- 입구는 로비 게임 고르기 격자의 "놀이터" 항목(미니게임 · 혼자 놀기 · 놀이터 순서, 방 만들기 쪽 버튼은 없음) → 고르면 아래에 플래시 게임 카드 → 카드를 누르면 client/src/flash/index.js(처음 누를 때만 불러옴) → 게임 카드 → Ruffle 로 전체 화면 실행. 서버 방·코인·채팅과 섞이지 않는다.
 - 게임 추가 = client/src/flash/games.js 한 줄(id·name·file·players·keys·desc) + client/public/flash/<file>.swf. keys 에 방향키·스페이스·엔터가 들어 있으면 휴대폰에 화면 버튼이 뜬다.
 - Ruffle 0.7.1 은 npm pack 으로 받아 필요한 파일만 client/public/ruffle/ 에 복사해 커밋했다(package.json 에 넣지 않음). 올릴 때도 같은 방법.
 - 소리 끄기(sound/core.js)를 Ruffle 볼륨에 연결. 지금은 혼자 하는 게임만(players:1).

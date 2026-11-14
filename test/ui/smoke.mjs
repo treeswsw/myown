@@ -163,8 +163,8 @@ async function runContext(browser, server, name, cfg) {
       await visible('button:has-text("방 만들기")');
     });
     await occlusion('home lobby');
-    await step('놀이터(혼자 놀기 → 추억의 플래시): 블록소즈 → Ruffle 캔버스가 뜬다 → 나가기 → 로비로', async () => {
-      await press('.lb-seg-item:has-text("혼자 놀기")');
+    await step('놀이터(격자의 놀이터 → 블록소즈 → Ruffle 캔버스가 뜬다 → 나가기 → 로비로', async () => {
+      await press('.lb-seg-item:has-text("놀이터")');
       await press('.lb-flash-btn[data-flash="bloxorz"]');
       await page.waitForFunction(() => { const r = document.querySelector('.fl-player')?.shadowRoot; return r && r.querySelector('canvas'); }, null, { timeout: 30000 });
       await press('.fl-btn:has-text("나가기")');
@@ -911,7 +911,7 @@ async function runContext(browser, server, name, cfg) {
     /* ---------- 혼자 놀기 solo (server SOLO default on): 종목마다 한 판 → 그만하기 → 공용 결과(점수·순위 칸) → 로비 ---------- */
     await step('solo: pick 혼자 놀기 in the game grid (right after 미니게임) → three cards and a rank box replace 방 만들기', async () => {
       const names = await page.locator('.lb-seg > .lb-seg-item').allTextContents();
-      if (names.indexOf('혼자 놀기') !== names.indexOf('미니게임') + 1 || names.at(-1) !== '혼자 놀기') throw new Error(`grid order ${names.join(',')}`);
+      if (names.indexOf('혼자 놀기') !== names.indexOf('미니게임') + 1 || names.at(-1) !== '놀이터') throw new Error(`grid order ${names.join(',')}`);
       await press('.lb-seg-item:has-text("혼자 놀기")');
       await visible('[data-so="lobby"]');
       for (const g of ['g2048', 'apple', 'suika']) await visible(`[data-so="pick-${g}"]`);

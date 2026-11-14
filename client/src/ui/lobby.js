@@ -19,10 +19,11 @@ import { FLASH_GAMES } from '../flash/games.js';
 //    list = [{code, mode, hostName, count, max, phase}]  (open rooms; tapping one calls onJoin(code))
 
 const BASE_KEYS = ['holdem', 'bluff'];
-// 'solo'(혼자 놀기)는 격자 항목이지만 방을 만들지 않는다: 아래 칸이 "랭킹 게임"(스위치가 켜졌을 때) + "추억의 플래시"(항상)로 바뀐다.
-// 스위치가 꺼져 있어도 플래시가 있으면 항목은 보인다. 둘 다 없으면 숨는다.
-const ENTRIES = MODES;
-const withSolo = (keys) => { const k = keys.filter((x) => x !== 'solo'); return keys.includes('solo') || FLASH_GAMES.length ? [...k, 'solo'] : k; };
+// 격자 항목: 방을 만드는 게임(등록표) + 방이 없는 '혼자 놀기'(solo, 스위치가 켜졌을 때)와 '놀이터'(flash, 항상 마지막).
+// 둘을 고르면 아래 칸이 방 만들기 대신 각각 "랭킹 게임" 카드 / 플래시 게임 카드로 바뀐다. 놀이터는 플래시 목록이 비면 숨는다.
+const FLASH_KEY = 'flash';
+const ENTRIES = { ...MODES, [FLASH_KEY]: { name: '놀이터', desc: '플래시 게임 · 코인·랭킹 없음' } };
+const withFlash = (keys) => (FLASH_GAMES.length ? [...keys, FLASH_KEY] : keys);
 const ID_RE = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9_]{2,12}$/;
 const LAST_ID_KEY = 'gs.lastId';
 const SPADE = '<path d="M12 2C8 7 3 9.5 3 14a4.5 4.5 0 0 0 7.6 3.2L9.5 22h5l-1.1-4.8A4.5 4.5 0 0 0 21 14c0-4.5-5-7-9-12z"/>';
@@ -234,21 +235,17 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   // 혼자 놀기 칸: 스위치가 켜졌을 때만 따로 불러온다(client/src/solo/lobby.js). 모드 고르기 줄에는 넣지 않는다.
   const soloBox = h('div', 'lb-solo');
   soloBox.hidden = true;
-  // 추억의 플래시 구역: 게임 카드(누르면 바로 그 게임, Ruffle 전체 화면). 서버 방·코인·랭킹 없음.
-  const rankSec = h('div', 'lb-solo-sec');
-  rankSec.hidden = true;
-  const flashSec = h('div', 'lb-solo-sec lb-flash');
-  flashSec.hidden = !FLASH_GAMES.length;
-  flashSec.append(h('h3', null, '추억의 플래시'),...FLASH_GAMES.map((g) => {
+  // 놀이터: 플래시 게임 카드(누르면 바로 그 게임, Ruffle 전체 화면). 서버 방·코인·랭킹 없음.
+  const flashBox = h('div', 'lb-flash');
+  flashBox.hidden = true;
+  flashBox.append(...FLASH_GAMES.map((g) => {
     const b = h('button', 'lb-btn lb-flash-btn', h('b', null, g.name), h('span', 'lb-sub', g.desc));
     b.type = 'button';
     b.dataset.flash = g.id;
     b.addEventListener('click', () => onFlash?.(g.id));
     return b;
   }), h('p', 'lb-cap', '플레이만 가능해요. 코인·랭킹에는 반영되지 않아요.'));
-  soloBox.append(rankSec, flashSec);
   let soloPanel = null;
-  let soloOn = false; // 혼자 놀기 스위치(랭킹 게임 구역)
   let soloLoading = false;
   function loadSolo() {
     if (soloPanel || soloLoading) return;
@@ -256,12 +253,12 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
     import('../solo/lobby.js').then(({ createSoloLobby }) => {
       soloPanel = createSoloLobby({ send: (m) => onSoloAsk?.(m), onStart: (g) => { homeErr.textContent = ''; onSoloStart?.(g); } });
       soloPanel.setUser(user);
-      rankSec.append(h('h3', null, '랭킹 게임'), soloPanel.el);
+      soloBox.append(soloPanel.el);
       if (pickedMode === 'solo') soloPanel.show();
     }).catch((e) => { soloLoading = false; console.error(e); });
   }
   let pickedMode = 'holdem';
-  const homeSeg = segmented((m) => { pickedMode = m; homeSeg.set(m); syncMini(); updateCreate(); }, withSolo(BASE_KEYS));
+  const homeSeg = segmented((m) => { pickedMode = m; homeSeg.set(m); syncMini(); updateCreate(); }, withFlash(BASE_KEYS));
   homeSeg.set(pickedMode);
   let pickedMini = 'gomoku';
   const miniBox = h('div', 'lb-mini-pick');
@@ -305,10 +302,10 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   function syncMini() {
     miniBox.hidden = pickedMode !== 'mini';
     // 아래 영역: 방 만들기 / 혼자 놀기 종목 카드 / 놀이터 게임 카드
-    createBox.hidden = pickedMode === 'solo';
+    createBox.hidden = pickedMode === 'solo' || pickedMode === FLASH_KEY;
     soloBox.hidden = pickedMode !== 'solo';
-    rankSec.hidden = !soloOn;
-    if (pickedMode === 'solo' && soloOn) { loadSolo(); soloPanel?.show(); }
+    flashBox.hidden = pickedMode !== FLASH_KEY;
+    if (pickedMode === 'solo') { loadSolo(); soloPanel?.show(); }
     const m = pickedMode === 'mini';
     if (pickedVs === 'puzzle' && pickedMini !== 'chess') pickedVs = 'friend'; // 퀴즈 풀기는 체스만
     vsSeg.row.querySelector('[data-v="puzzle"]').hidden = pickedMini !== 'chess';
@@ -334,7 +331,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
   const rows = new Map();
   let lastRooms = [];
   play.append(h('h2', null, '새 게임'), h('div', 'lb-stack lb-seg-box', homeSeg.el, homeSeg.caption, miniBox, vsSeg.row, levelSeg.row, sideSeg.row),
-    createBox, soloBox, h('hr'), h('h2', null, '열린 방'), roomList, emptyNote, homeErr);
+    createBox, soloBox, flashBox, h('hr'), h('h2', null, '열린 방'), roomList, emptyNote, homeErr);
 
   function roomRow(code) {
     const b = h('button', 'lb-row lb-room-row');
@@ -471,8 +468,7 @@ export function createLobby({ onLogin, onAvatar, onCreate, onJoin, onLogout, onR
     if (next.join() === shownModes.join()) return;
     shownModes = next;
     rankBtn.hidden = !next.includes('liar');
-    soloOn = next.includes('solo');
-    const keys = withSolo(next);
+    const keys = withFlash(next);
     homeSeg.setKeys(keys);
     if (!keys.includes(pickedMode)) pickedMode = 'holdem';
     homeSeg.set(pickedMode);
