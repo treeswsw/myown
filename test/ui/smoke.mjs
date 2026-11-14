@@ -455,17 +455,15 @@ async function runContext(browser, server, name, cfg) {
       if (!sawLock) throw new Error('chat was never locked with the 첫 설명 note');
       if (!said) throw new Error('my speaking turn never came');
     });
-    await step('liar: 사이트 채팅 버튼으로 채팅 칸을 열면 "기록" 버튼이 기록 창을 열고 닫는다', async () => {
+    await step('liar: 채팅 칸이 늘 보이고 "기록" 버튼이 기록 창을 열고 닫는다', async () => {
       const btnShown = await page.evaluate(() => { const b = document.querySelector('.chat-btn'); return Boolean(b && !b.hidden && b.getClientRects().length); });
-      check('liar in-game: site .chat-btn shown', btnShown);
-      if (!(await page.locator('.chat-in').isVisible())) await press('.chat-btn');
+      check('liar in-game: no site .chat-btn (input always shown)', !btnShown);
       await visible('.chat-in');
       await press('.chat-log');
       await visible('.chat-sheet');
       // 이름표는 토론·재투표에서만 눌린다(.lg-vt-can). 그 밖에는 pointer-events:none 이라 캔버스가 맨 위로 잡히는 것이 정상
       await occlusion('liar in-game, 기록 open', '.lg-vt-tag:not(.lg-vt-can)');
       await press('.chat-log');
-      if (await page.locator('.chat-btn[aria-expanded="true"]').count()) await press('.chat-btn'); // 채팅 칸 닫기
     });
     await step('liar: emote panel → emote reaches a bot', async () => {
       const p = lgBots[1].waitMsg((m) => m.t === 'event' && m.e.k === 'emote', T, 'emote event');
@@ -809,14 +807,27 @@ async function runContext(browser, server, name, cfg) {
         await mBot.waitFor((b) => count(b.state) === n + 1 || b.state.phase === 'end', T, `stone ${i + 1}`);
       }
       await mBot.waitFor((b) => b.state?.phase === 'end', T, 'end phase');
-      await page.waitForFunction(() => /승리/.test(document.querySelector('[data-mn="status"]')?.textContent || ''), null, { timeout: T });
+      await visible('[data-rm="result"]');
+      await page.waitForFunction(() => /승리/.test(document.querySelector('.rm-rs-title')?.textContent || ''), null, { timeout: T });
     });
-    await step('mini: result → 대기실로 → 게임 시작 again (host)', async () => {
-      await press('[data-mn="to-wait"]');
+    await step('mini: common result shows both players and their coins, 대기실로 → wait room → 게임 시작 again (host)', async () => {
+      const rows = await page.locator('[data-rm="result"] .rm-rs-row').count();
+      if (rows !== 2) throw new Error(`result rows ${rows}`);
+      await visible('[data-rm="result"] .rm-rs-top .rm-rs-gain');
+      await press('[data-rm="result-wait"]');
       await visible('[data-rm="wait-start"]');
       await press('[data-rm="wait-start"]');
       await mBot.waitFor((b) => b.state?.phase === 'play', T, 'second play phase');
       await visible('.mn-board');
+    });
+    await step('mini: 다시 시작 from the common result starts a new match at once', async () => {
+      await press('[data-mn="resign"]');
+      await press('.ui-mbtn.ui-danger');
+      await mBot.waitFor((b) => b.state?.phase === 'end', T, 'end by resign');
+      await visible('[data-rm="result-again"]');
+      await press('[data-rm="result-again"]');
+      await mBot.waitFor((b) => b.state?.phase === 'play', T, 'third play phase');
+      await gone('[data-rm="result"]');
     });
     await step('mini: 나가기 mid-game asks ("나가면 기권 처리돼요"), then returns to the lobby', async () => {
       await press('[data-rm="bar-leave"]');

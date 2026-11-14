@@ -537,6 +537,7 @@ test('혼자 남아 끝난 판은 코인이 없다', () => {
   x.room.leave('u1');
   assert.equal(x.lastState('u0').phase, 'lobby');
   assert.equal(x.awards.length, 0);
+  assert.deepEqual(x.lastState('u0').wait.result.gain, { u0: 0 }, '결과는 보인다(코인 0)');
 });
 
 test('전원 나갔다 다시 들어오면 새 방으로 시작', () => {

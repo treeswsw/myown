@@ -48,10 +48,11 @@ export function makeGskGame(ctx, opt = {}) {
     const fin = fx.finished;
     if (fin) {
       for (const id of fin.players) book(id, id === fin.winner);
-      if (fin.reason !== 'alone') {
-        const opp = fin.players.length - 1;
-        ctx.finish(fin.players.filter((id) => ctx.member(id)).map((id) => ({ id, won: id === fin.winner, opp })));
-      }
+      const opp = fin.reason === 'alone' ? undefined : fin.players.length - 1; // 혼자 남은 판: 결과만, 코인 없음
+      ctx.finish(fin.ranks.map((r) => ({
+        id: r.id, rank: r.rank, score: r.points, note: s.seats.find((x) => x.id === r.id)?.out ? '탈락' : `원판 ${r.discs}`,
+        won: r.id === fin.winner, opp,
+      })));
     }
   }
 

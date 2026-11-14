@@ -26,6 +26,7 @@ function createPoker(ctx, mode) {
   let game = null; // bluff: { g, users }
   let result = null;
   let lastDealer = null;
+  let banks = null; // 홀덤: 이번 게임 시작 때 칩 {id -> bank}
   let leaving = null; // onLeave 중인 사람(멤버 목록에는 아직 있다)
   const inHand = new Set(); // 이번 판에 앉은 사람
 
@@ -166,21 +167,32 @@ function createPoker(ctx, mode) {
       for (const id of users.keys()) {
         const session = hub.sessions.get(id);
         const user = session?.user; // always the live account (the one captured at start may be stale)
-        if (here.has(id)) rows.push({ id, won: id === g.winner, opp: users.size - 1 });
+        if (here.has(id)) rows.push({ id, rank: id === g.winner ? 1 : 2, won: id === g.winner, opp: users.size - 1 });
         if (!user) continue;
         user.stats.bluffGames++;
         if (id === g.winner) user.stats.bluffWins++;
         hub.persist(user);
         hub.sendMe(session);
       }
-      if (rows.length >= 2) ctx.finish(rows); // a lone survivor of leavers gets nothing
+      if (rows.length < 2) for (const r of rows) delete r.opp; // a lone survivor of leavers: result only, no coins
+      ctx.finish(rows);
       phase = 'result';
       ctx.timer('next', hub.timing.bluffResult, () => ctx.push(toLobby()));
     }
     return events;
   }
 
+  // 홀덤 한 게임(시작 ~ 대기실로 돌아옴)의 칩 증감이 공통 결과(칩)다. banks = 시작 때 칩.
+  function finishHoldem() {
+    const rows = present().filter((m) => banks.has(m.id)).map((m) => ({ id: m.id, d: m.session.user.bank - banks.get(m.id), bank: m.session.user.bank }));
+    banks = null;
+    rows.sort((a, b) => b.bank - a.bank);
+    ctx.finish(rows.map((r) => ({ id: r.id, rank: rows.findIndex((x) => x.bank === r.bank) + 1, score: r.bank })),
+      { unit: 'chip', add: { by: Object.fromEntries(rows.map((r) => [r.id, r.d])) } });
+  }
+
   function toLobby(events = []) {
+    if (banks) finishHoldem();
     ctx.clear('next');
     phase = 'lobby';
     hand = null;
@@ -299,6 +311,7 @@ function createPoker(ctx, mode) {
 
     // Shell 이 방장·대기·canStart 를 먼저 보고, 성공하면 push 한다. 시작 이벤트는 여기서 보낸다.
     onStart() {
+      if (mode === 'holdem') banks = new Map(ctx.members().map((m) => [m.id, m.session.user.bank]));
       const events = mode === 'holdem' ? startHoldem() : startBluff();
       ctx.emit(events);
       return null;

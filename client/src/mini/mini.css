@@ -111,9 +111,7 @@
 .mn-boardbox { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .mn-bottom { display: flex; align-items: center; justify-content: center; gap: 10px; flex: none; min-height: 44px; }
 .mn-status { font-weight: 700; text-align: center; min-width: 0; }
-.mn-status.mn-end { font-size: 18px; color: #f3d36a; }
 .mn-act { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: rgba(255, 255, 255, .16); color: inherit; font-weight: 700; touch-action: manipulation; }
-.mn-act.mn-main { background: #ea3a3d; }
 .mn-act[hidden] { display: none; }
 .mn-act:disabled { opacity: .5; }
 

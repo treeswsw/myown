@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { endingPlan, wordLines, answerText, verdictText, secsText, typedCount, stageAt, ED } from '../../client/src/liar/anim/ending.js';
+import { endingPlan, wordLines, answerText, verdictText, secsText, stageAt, ED } from '../../client/src/liar/anim/ending.js';
 
 const base = { unmask: { liarId: 'u2' }, settings: { times: { guess: 15 } } };
 const G = { ...base, phase: 'guess' };
@@ -33,9 +33,6 @@ test('answer: 시작 1.0초에 답, 3.5초에 판정, 10초에 끝', () => {
   assert.equal(p.steps.find((s) => s.part === 'verdict').at, 3.5);
   assert.equal(text(p, 'verdict'), '라이어가 답을 맞히지 못했습니다');
   assert.ok(p.marks.verdictEnd < p.marks.endAt - 2, '끝에 머무는 시간');
-  assert.equal(typedCount(p, 'answer', 0.9), 0);
-  assert.equal(typedCount(p, 'answer', 1), 1);
-  assert.equal(typedCount(p, 'answer', 5), 4);
 });
 
 test('맞힘 문구와 단계 이름', () => {

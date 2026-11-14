@@ -205,11 +205,11 @@ endingPlan(state, liarName) → { total, steps:[{at, part, text, big}], marks:{.
 - 시각 계산: `guess` 는 "단계 시작부터 흐른 시간" 을 알 수 없으므로 **화면이 처음 `guess` 를 본 순간**부터 제목을 타자한다(다시 붙은 사람은 다 써진 채로). 초는 `phaseEndsAt - ctx.now()`.
   `answer` 는 정체 공개처럼 `총 길이 − 남은 시간` 으로 지점을 구한다(총 길이 = `words.liar` 가 있으면 15, 없으면 12 — 값은 opts 로 받거나 모듈 상수).
 - 읽는 값: `unmask.liarId`, `players`(이름·색), `you`, `guess`, `words`, `phaseEndsAt`. `my`·`result` 는 읽지 않는다.
-- `data-lg`: `ending`(+ `data-stage`: `ask` → `hush` → `word` → `mismatch` → `answer` → `verdict` → `hold`), `ed-title`, `ed-secs`, `ed-wait`, `ed-word`, `ed-mismatch`, `ed-answer`, `ed-verdict`(+ `data-ok="1|0"`), `ed-bubble`.
+- `data-lg`: `ending`(+ `data-stage`: `ask` → `hush` → `word` → `mismatch` → `answer` → `verdict` → `hold`), `ed-title`, `ed-secs`, `ed-wait`, `ed-word`, `ed-mismatch`, `ed-answer`, `ed-verdict`(+ `data-ok="1|0"`).
 - `onStage(stage, info)`: `'ask'`, `'hush'`, `'answer'`(`info.id` = 라이어), `'verdict'`(`info.correct`), `'end'`. `onTick(big)`: 글자 하나가 찍힐 때.
 - 층: `z-index: 28`(이름표 10·상단 표시 20 위, **조작 줄 30 아래** — 라이어의 입력 칸을 가리지 않는다). 뿌리는 `pointer-events: none`(누를 것이 없다).
   3D 에서는 배경이 옅은 테두리 어둠뿐, `ctx.nogl` 이면 어두운 배경 + 흰 빛기둥 + 가운데 라이어 카드(프로필은 `ctx.faceOf`).
-- 말풍선(`ed-bubble`): `answer` 지점부터 `ctx.anchor(liarId)` 자리에 띄우고 `frame` 에서 따라간다. 좌표가 `null` 이면 nogl 카드 위에 붙인다. 채팅 기록에는 넣지 않는다.
+- 라이어의 답은 큰 글(`ed-answer`)로만 보인다(작은 말풍선 없음, 큰 글과 겹쳐 중복이었다).
 - 문구(확정 전): 제목 "라이어는 제시어를 제출하세요", 기다림 "라이어가 답을 쓰고 있습니다", "제시어 : ", "미스매치 : ", "시간 초과", "라이어가 답을 맞혔습니다" / "라이어가 답을 맞히지 못했습니다".
 - 글꼴·색은 정체 공개와 같은 변수(`--lg-serif`, `--lg-ink`, `--lg-red`, `--lg-gold`), 크기는 `calc(px * var(--lg-k, 1))`. zoom 금지.
 

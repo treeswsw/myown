@@ -6,8 +6,10 @@
 //   불러오기 실패: 게임 파일을 못 받으면(보통 새 버전 배포) "새 버전" 안내, mount 안의 오류는 일반 오류 알림.
 //   anchorOf: 대기실이면 참가자 줄 사진 위, 게임 판이면 게임의 anchorOf. chatMsg: 채팅 글 → 보낼 메시지(게임 chatRule.route).
 //   (G-poker 덧붙임) CLIENT_GAMES[mode].bar === false 면 게임 중 상단 줄을 그리지 않는다(게임이 자기 줄을 가짐, 포커 HUD).
-//   게임 훅 holdWait?(state) -> bool: true 인 동안은 대기 상태여도 게임 판을 보여 준다(포커: 챔피언·우승 연출이 끝날 때까지).
-//   끝나면 게임이 ctx.toWait() 를 불러 다시 고르게 한다.
+//   게임 훅 holdWait?(state) -> bool: true 인 동안은 대기 상태여도 게임 판만 보여 준다(결과 연출이 끝날 때까지).
+//   끝나면 게임이 ctx.ready() 를 불러 다시 고르게 한다.
+//   대기 상태(state.wait)면: 결과(wait.result)가 있고 "대기실로"를 아직 안 눌렀으면 게임 판 위에 공통 결과(room/result.js),
+//   아니면 대기실. 들어왔을 때 이미 있던 결과는 그 판을 한 사람(rows)에게만 보인다.
 // deps = { ui, stage, send, chat, emotePanel, emote(createEmoteToggle), sound, getMe, toast, onEnter?(), onExit?() }
 import './room.css';
 import { h } from '../ui/dom.js';
@@ -16,6 +18,7 @@ import { createFaces } from './faces.js';
 import { createFloat } from './float.js';
 import { createRoomBar } from './bar.js';
 import { createWait } from './wait.js';
+import { createResult } from './result.js';
 import { openModal, confirmBox } from '../ui/kit/modal.js';
 import { profile } from '../ui/kit/avatar.js';
 import { isSpectatorId } from '../../../shared/spectator.js';
@@ -51,8 +54,7 @@ export function createRoomFrame(deps) {
   let state = null;
   let toWait = false;
   let showingWait = false;
-  let inputWas = false; // chatRule.input(state) 가 지난번에 참이었나
-  let inputByUs = false; // 그때 틀이 채팅 입력 줄을 열었나(닫을 때 그것만 닫는다)
+  let showingResult = false;
 
   const rule = () => cur?.game?.chatRule ?? null;
   const safe = (fn, fb = null) => { try { return fn(); } catch (e) { console.error(e); return fb; } };
@@ -61,13 +63,14 @@ export function createRoomFrame(deps) {
   function anchorOf(id) {
     if (!cur) return null;
     if (showingWait) return cur.wait.anchorOf(id);
+    if (showingResult) return cur.result.anchorOf(id);
     return safe(() => cur.game?.anchorOf?.(id) ?? null);
   }
   const float = createFloat(ui, anchorOf);
 
   function leave() {
     if (!cur) return;
-    if (showingWait || !state) { send({ t: 'leave' }); return; }
+    if (showingWait || showingResult || !state) { send({ t: 'leave' }); return; }
     const note = safe(() => cur.game?.leaveNote?.(state) ?? null);
     if (note === null && state.wait) { send({ t: 'leave' }); return; } // 결과 화면(대기 상태)에서 나가기는 확인 없이
     confirmBox({ title: '방에서 나갈까요?', text: note ?? '', ok: '나가기', danger: true }).then((ok) => { if (ok) send({ t: 'leave' }); });
@@ -86,12 +89,14 @@ export function createRoomFrame(deps) {
     const s = state;
     if (!s.wait) toWait = false; // 새 판이 시작됐다
     const hold = Boolean(s.wait) && safe(() => Boolean(cur.game?.holdWait?.(s)), false);
-    showingWait = Boolean(s.wait) && (s.phase === 'lobby' || toWait) && !hold;
+    showingResult = Boolean(s.wait?.result) && !toWait && !hold;
+    showingWait = Boolean(s.wait) && !hold && !showingResult;
     cur.wait.el.hidden = !showingWait;
+    cur.result.update(showingResult ? s : null, cur.game);
     root.hidden = showingWait;
-    bar.el.hidden = showingWait || cur.entry.bar === false;
+    bar.el.hidden = showingWait || showingResult || cur.entry.bar === false;
     const watching = isSpectatorId(s.you);
-    specBadge.hidden = showingWait || !watching;
+    specBadge.hidden = showingWait || showingResult || !watching;
     const r = rule();
     chat.setEnabled(true);
     chat.setRule(r);
@@ -101,17 +106,12 @@ export function createRoomFrame(deps) {
       cur.wait.update(s, cur.schema, (name) => safe(() => g?.waitPart?.(name) ?? null));
     } else {
       bar.update(s, cur.entry);
-      chat.setMode(r?.own && safe(() => r.own(s), false) ? 'own' : 'game');
+      chat.setMode(r?.own && safe(() => r.own(s), false) ? 'own' : r?.layout === 'inline' && !showingResult ? 'inline' : 'game'); // 결과 화면에서는 가운데 입력 줄이 버튼을 가리지 않게 채팅 버튼으로
     }
     // 채팅을 게임이 맡는 게임(등록표 chat: null, 갱식마인드)은 게임 중 관전자 채팅을 서버가 막는다: 화면도 잠근다
     const specMute = watching && !s.wait && cur.schema?.chat === null;
     const lk = specMute ? { locked: true, hint: '게임 중에는 관전자가 채팅할 수 없어요' } : r?.lock ? safe(() => r.lock(s), null) : null;
     chat.setLock(Boolean(lk?.locked), lk?.hint, lk?.hot);
-    // 게임 중 입력 줄 열어 두기(4-4 input): 켜지면 열고, 꺼지면 틀이 연 것만 닫는다
-    const want = !watching && !showingWait && Boolean(r?.input) && safe(() => Boolean(r.input(s)), false);
-    if (want && !inputWas) inputByUs = chat.button.getAttribute('aria-expanded') !== 'true' && (chat.open(), true);
-    else if (!want && inputWas && inputByUs) { chat.close(); inputByUs = false; }
-    inputWas = want;
   }
 
   function ctxFor(r) {
@@ -121,7 +121,8 @@ export function createRoomFrame(deps) {
       toast, confirm: confirmBox, modal: openModal, profile,
       openEmote: () => emote.open(),
       leave,
-      toWait: () => { if (cur === r) { toWait = true; render(); } },
+      ready: () => { if (cur === r) render(); },
+      peekResult: () => r.result.peek(),
     };
   }
 
@@ -130,10 +131,15 @@ export function createRoomFrame(deps) {
     const r = {
       mode: s.mode, code: s.code, entry, schema: GAMES[s.mode], game: null, alive: true,
       wait: createWait({ send, sound, profile, faces, chat, toast, onLeave: () => send({ t: 'leave' }) }),
+      result: createResult({
+        send, profile, faces, onLeave: () => send({ t: 'leave' }),
+        onWait: () => { if (cur === r) { toWait = true; render(); } },
+      }),
     };
-    ui.append(r.wait.el);
+    ui.append(r.wait.el, r.result.el);
     cur = r;
-    toWait = false;
+    // 들어왔을 때 이미 있던 결과는 그 판을 한 사람(다시 붙은 사람)에게만. 아니면 바로 대기실
+    toWait = Boolean(s.wait?.result) && !s.wait.result.rows.some((x) => x.id === s.you);
     deps.onEnter?.();
     enqueue(async () => {
       if (!r.alive) return;
@@ -159,10 +165,10 @@ export function createRoomFrame(deps) {
     cur = null;
     state = null;
     showingWait = false;
+    showingResult = false;
     toWait = false;
-    inputWas = false;
-    inputByUs = false;
     r.wait.dispose();
+    r.result.dispose();
     bar.el.hidden = true;
     specBadge.hidden = true;
     root.hidden = true;

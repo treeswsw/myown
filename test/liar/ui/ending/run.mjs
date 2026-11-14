@@ -36,7 +36,7 @@ try {
   const shot = async (name) => { if (shots) await page.waitForTimeout(450); if (shots) await page.screenshot({ path: path.join(shots, name + '.png') }); };
   // 보이는 글 상자끼리, 그리고 카드·조작 줄과 겹치지 않는지
   const overlaps = () => page.evaluate(() => {
-    const sel = ['ed-title', 'ed-secs', 'ed-wait', 'ed-word', 'ed-mismatch', 'ed-answer', 'ed-verdict', 'ed-bubble'];
+    const sel = ['ed-title', 'ed-secs', 'ed-wait', 'ed-word', 'ed-mismatch', 'ed-answer', 'ed-verdict'];
     const boxes = [];
     for (const lg of sel) {
       const e = document.querySelector(`[data-lg="${lg}"]`);
@@ -102,15 +102,13 @@ try {
     ok((await txt('ed-word')) === '제시어 : 도서관', `[${tag}] 제시어 바로 보임: ${await txt('ed-word')}`);
     if (o.liarWord === null) ok(!(await vis('ed-mismatch')), `[${tag}] notice: 미스매치 없음`);
     else ok((await txt('ed-mismatch')) === '미스매치 : 놀이공원', `[${tag}] 미스매치 바로 보임`);
-    ok((await txt('ed-answer')) === '' && !(await vis('ed-bubble')), `[${tag}] 답은 아직`);
+    ok((await txt('ed-answer')) === '', `[${tag}] 답은 아직`);
     await tick(900);
     ok((await txt('ed-answer')) === '', `[${tag}] 0.9초엔 아직`);
     await tick(150);
     ok((await txt('ed-answer')).length === 1, `[${tag}] 1초에 첫 글자: ${await txt('ed-answer')}`);
-    ok(await vis('ed-bubble'), `[${tag}] 말풍선`);
     await tick(2000);
     ok((await txt('ed-answer')) === expectAnswer, `[${tag}] 답 완성: ${await txt('ed-answer')}`);
-    ok((await txt('ed-bubble')) === (o.text === null ? '…' : expectAnswer), `[${tag}] 말풍선 같은 글: ${await txt('ed-bubble')}`);
     ok((await txt('ed-verdict')) === '', `[${tag}] 3.15초엔 판정 아직`);
     await tick(450);
     ok((await txt('ed-verdict')).length >= 1, `[${tag}] 3.5초 판정 시작`);

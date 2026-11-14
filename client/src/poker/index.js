@@ -3,7 +3,7 @@
 // 연출 줄(animator)은 여기서 이어 붙인다: 연출이 도는 동안 새 방 상태는 미뤘다가 끝나면 그린다(옛 main.js applyRoom 그대로).
 // 대기실·채팅·사진·사운드 표시·나가기 확인은 틀이 한다. 머리 위 기본 이모티콘은 핀이 그린다(showEmote).
 // 방 상태에는 사진이 없다: ctx.faces 의 사진을 players[].avatar 로 붙여 핀·결과 연출에 넘긴다.
-// 대기 상태(phase lobby)가 와도 연출(챔피언·우승 배너 등)이 도는 동안은 테이블을 보여 주고(holdWait), 끝나면 ctx.toWait() 로 대기실을 다시 고르게 한다.
+// 대기 상태(phase lobby)가 와도 연출(챔피언·우승 배너 등)이 도는 동안은 테이블을 보여 주고(holdWait), 끝나면 ctx.ready() 로 틀이 결과·대기실을 다시 고르게 한다.
 import { createAnimator } from '../anim/events.js';
 import { sfx } from '../audio.js';
 
@@ -68,7 +68,7 @@ export function createPoker(parts) {
     onIdle: () => {
       if (!active || !latest) return;
       paint(latest);
-      if (latest.wait) active.toWait(); // 연출이 끝났다: 틀이 다시 고른다(이제 holdWait 가 false 라 대기실)
+      if (latest.wait) active.ready(); // 연출이 끝났다: 틀이 다시 고른다(이제 holdWait 가 false 라 결과·대기실)
     },
   });
 

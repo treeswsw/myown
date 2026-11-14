@@ -149,30 +149,28 @@ export function installWallet(hub) {
     hub.sendMe(session);
   }
 
+  // 판 끝 지급. 돌려주는 값 {[id]: 받은 코인} (못 받은 사람은 0) = 공통 결과 화면의 gain(server/room/shell.js).
   hub.award = (room, mode, rows) => {
+    const gain = {};
     const rules = econ.rules;
-    if (!Object.hasOwn(rules, mode) || !room || hasBot(room)) return;
+    if (!Object.hasOwn(rules, mode) || !room || hasBot(room)) return gain;
     const t = hub.now();
     for (const row of rows ?? []) {
       const session = hub.sessions.get(row.id);
       if (!session || session.bot || String(row.id).startsWith('~bot')) continue;
-      const won = !!row.won;
-      const n = coinsFor(mode, { won, opp: row.opp }, rules);
+      gain[row.id] = 0;
+      const n = coinsFor(mode, { won: !!row.won, opp: row.opp }, rules);
       const key = `${row.id}|${mode}`;
       const last = lastEarn.get(key);
-      const gap = last !== undefined && t - last < rules[mode].gapMs;
-      if (n <= 0 || gap) {
-        // 판이 끝났는데 못 받은 사람에게도 짧게 알린다(0 코인). why: 'gap' = 같은 게임을 너무 빨리 또 함.
-        hub.send(session, { t: 'coin', a: 'got', n: 0, mode, win: won, ...(n > 0 ? { why: 'gap' } : {}) });
-        continue;
-      }
+      if (n <= 0 || (last !== undefined && t - last < rules[mode].gapMs)) continue; // 같은 게임을 너무 빨리 또 함 = 0
       lastEarn.set(key, t);
       const u = session.user;
       u.coins = (u.coins ?? 0) + n;
       u.coinsTotal = (u.coinsTotal ?? 0) + n;
-      changed(session, { kind: 'earn', delta: n, bal: u.coins, note: { mode, win: won } });
-      hub.send(session, { t: 'coin', a: 'got', n, mode, win: won });
+      changed(session, { kind: 'earn', delta: n, bal: u.coins, note: { mode, win: !!row.won } });
+      gain[row.id] = n;
     }
+    return gain;
   };
 
   // ---- Escrow for a two-sided bet (mini match, SPEC 22-20). ----
@@ -233,10 +231,7 @@ export function installWallet(hub) {
       hub.persist(u);
       ledger({ uid: r.id, kind, delta: back, bal: u.coins, note: { mode: st.mode, code: st.code, net } });
       const session = hub.sessions.get(r.id);
-      if (session) {
-        hub.sendMe(session);
-        if (net !== 0) hub.send(session, { t: 'coin', a: 'stake', n: net, mode: st.mode });
-      }
+      if (session) hub.sendMe(session);
       result.push({ id: r.id, net });
     }
     return result;

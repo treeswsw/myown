@@ -1,4 +1,4 @@
-// 갱스껄 벌칙·결과·대기 화면의 DOM 없는 계산. view = model.js 의 toView 결과.
+// 갱스껄 벌칙·결과 제목·대기 칸의 DOM 없는 계산. view = model.js 의 toView 결과.
 
 // 내 원판 종류별 장수(손 + 내 더미). 자기 해골 고르기용.
 export function ownCounts(view) {
@@ -26,32 +26,12 @@ export function penaltyPlan(view) {
   return { mode: 'watch', name: who ? who.name : '' };
 }
 
-// 순위 줄. pips = 점수 칸 두 개의 채움.
-export function rankRows(view) {
-  const r = view && view.result;
-  if (!r || !Array.isArray(r.ranks)) return [];
-  return r.ranks.map((x) => {
-    const seat = (view.seats || []).find((s) => s.id === x.id) || null;
-    const pts = Math.max(0, Math.min(2, x.points | 0));
-    return {
-      rank: x.rank, id: x.id, name: x.name, color: seat && seat.color != null ? seat.color : null,
-      points: pts, discs: x.discs | 0, pips: [pts >= 1, pts >= 2],
-      out: !!(seat && seat.out), isMe: !!(seat && seat.isMe), isWinner: r.winner === x.id,
-    };
-  });
-}
-
+// 판 끝 승자(공통 결과 화면 제목)
 export function winnerInfo(view) {
   const r = view && view.result;
   if (!r) return null;
-  const seat = r.winner ? (view.seats || []).find((s) => s.id === r.winner) : null;
   const row = r.winner ? (r.ranks || []).find((x) => x.id === r.winner) : null;
-  return {
-    id: r.winner || null,
-    name: row ? row.name : seat ? seat.name : '',
-    color: seat && seat.color != null ? seat.color : 0,
-    reason: r.reason || null,
-  };
+  return { id: r.winner || null, name: row ? row.name : '', reason: r.reason || null };
 }
 
 // 결과 한 줄 설명

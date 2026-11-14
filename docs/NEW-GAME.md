@@ -28,7 +28,8 @@
 | 오류 | `{msg, code}`, 알림은 틀이 한 번 | 접두사(`err`), 문구는 `ctx.err(code, msg)` 또는 등록표 `errors` |
 | 타이머·시간 | `ctx.timer/clear`(예외 안전, 방이 비면 정리), 화면 `ctx.clock` | 마감 시각 |
 | 난수 | `ctx.rng` (= hub.rng, crypto) | 없음 (Math.random·crypto 직접 호출 금지) |
-| 코인 | `ctx.finish(rows)` → `hub.award` (판마다 한 번) | 등록표 `coin` 키 + `shared/coin/rules.js` 의 `COIN_RULES` 한 줄, 판 끝 `ctx.finish([{id, won, opp}])` |
+| 코인 | `ctx.finish(rows)` → `hub.award` (판마다 한 번) | 등록표 `coin` 키 + `shared/coin/rules.js` 의 `COIN_RULES` 한 줄, 판 끝 `ctx.finish([{id, rank, won, opp, score?, note?}])` |
+| 결과 화면(누가 이겼나·순위·점수·모든 사람의 코인·나가기/대기실로/다시 시작) | 서버 Shell `wait.result`, 화면 `client/src/room/result.js` | **결과 화면은 공용, 게임은 `rows`(ctx.finish)와 `resultPart`(+ `resultTitle`·`holdWait`)만** |
 | 관리자 봇 | `server/admin/bots.js` | `server/admin/games/<모드>.js`(`createBrain`, `skip`), 없으면 `bot: false` |
 | 스위치 | `off` / `test`(`?<flag>=1`) / `on` | 등록표 `flag`, server/index.js 의 환경 변수 한 줄 |
 
@@ -56,13 +57,13 @@ docs/<모드>/        GDD
 
 ### 3-4. 화면 계약 (`client/src/<모드>/index.js`, COMMON-CONTRACT 4-2)
 ```js
-export function mount(ctx) { // ctx: root, ui, stage(등록표 stage 일 때), send, me(), faces, clock, sound, toast, confirm, modal, profile, openEmote, leave, toWait
+export function mount(ctx) { // ctx: root, ui, stage(등록표 stage 일 때), send, me(), faces, clock, sound, toast, confirm, modal, profile, openEmote, leave, ready, peekResult
   return {
     room(state) {},        // 상태가 올 때마다(대기 중에도. 대기실은 틀이 그린다)
     event(e) {},           // 공용이 다 쓰지 않은 이벤트
     error(err) {},         // 이 게임 접두사 오류 (알림은 틀이 띄운다)
     anchorOf(id) {},       // 말풍선·이모티콘 자리
-    // 있을 때만: frame(dt), chatRule {maxLen, lock, route, bubble, own, input}, waitPart(name), leaveNote(state), showEmote, holdWait
+    // 있을 때만: frame(dt), chatRule {maxLen, lock, route, bubble, own, input}, waitPart(name), leaveNote(state), showEmote, holdWait, resultTitle(state), resultPart(state)
     unmount() {},          // 리스너·타이머·3D·소리 전부. 틀은 이것이 끝난 뒤 다음 mount
   };
 }
@@ -76,7 +77,7 @@ export function mount(ctx) { // ctx: root, ui, stage(등록표 stage 일 때), s
 
 | 게임 | 예외 | 근거 |
 |---|---|---|
-| 라이어 | 단계별 채팅 잠금, 첫 설명 차례(입력 줄 열어 둠 `chatRule.input`), 80자, 정체 공개 중 이모티콘·매체 금지 | docs/liar/GDD.md |
+| 라이어 | 단계별 채팅 잠금, 입력칸 늘 보임(`chatRule.layout`), 80자, 정체 공개 중 이모티콘·매체 금지 | docs/liar/GDD.md |
 | 갱식마인드 | 정답 판정, 정답자끼리 글 가리기, 그리는 사람 채팅·이모티콘 금지, 40자·도배 제한 값(엔진 `chatOwn`), 게임 중 자기 입력칸, 그리는 사람 끊김 15초 | docs/draw/GDD.md 10절 |
 | 요트 | 끊긴 사람 차례는 기다리고 60초에 기권 | docs/yacht/GDD.md |
 | (새 게임) | | |

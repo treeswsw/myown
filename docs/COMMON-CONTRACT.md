@@ -52,11 +52,17 @@ ctx = {
   pushTo(ids),                             // 그 사람들에게만 상태 (draw fx.room)
   sendTo(id, msg),                         // 원시 메시지 (dr_canvas_full 등)
   chatLine(item),                          // 기록 + 방송 (라이어 엔진 chat liar:347, "방장이 판을 끝냈습니다" liar:339)
-  finish(rows),                            // [{id, won, opp}] → entry.coin 이 있으면 hub.award(room, entry.coin, rows)
+  finish(rows, info?),                     // 판 끝, 판마다 한 번(아래)
   drop(id, reason),                        // 엔진이 사람을 지웠다 → Shell.leave(id, reason) (이미 없으면 무시)
   err(code, msg?) → {msg, code},           // msg 없으면 entry 오류표 → 공용 문구
 }
 ```
+
+- **`ctx.finish(rows, info = {})`** (공통 결과, 2026-11-14): `rows = [{id, rank, won?, opp?, score?, note?}]` 이 판을 끝까지 한 사람.
+  `opp` 가 있는 줄만 코인(`entry.coin` 이 있으면 `hub.award` 한 번, 돌려받은 `{id: n}`). `info = {unit?: 'coin'|'chip', add?: {label?, by: {id: n}}}`:
+  `add.by` = 지급 밖 증감(홀덤 칩, 미니 베팅)을 gain 에 더한다. `label` 이 있으면 화면이 나눠 보인다.
+  Shell 은 결과를 `wait.result = {rows:[{id, name, rank, score?, note?}], gain, unit, add?}`(7-3) 로 방 전원(관전자 포함)에게 싣고, 다음 `start` 때 지운다.
+  혼자 남아 끝난 판·무효 판도 부른다(`opp` 없이 → 결과만, 코인 0). 게임별: 홀덤 = 테이블이 대기실로 돌아갈 때 칩 증감(`unit:'chip'`), 미니 = 매치 끝 한 번(`add` 베팅), 그 밖 = 판 끝.
 
 ### 1-4. 게임 훅 (게임 객체 = `entry.make(ctx, opt)` 의 반환)
 | 훅 | 시그니처 → 반환 | 필수 | 실제 쓰는 곳 (지금 코드) |
@@ -197,12 +203,17 @@ export const SERVER_GAMES = {
 ```js
 { code, mode, hostId, you, now, phase,
   players: [{ id, name, connected, awayUntil, spectating, ...게임 칸 }],   // 사진 없음(포커는 이행 기간 avatar 유지, S3 때 뺌)
-  wait: null | { can, why: null | {msg, code}, set: {...방 설정}, own: { [id]: {...개인 칸} } },  // 대기·결과 동안만
+  wait: null | { can, why: null | {msg, code}, set: {...방 설정}, own: { [id]: {...개인 칸} },   // 대기·결과 동안만
+                 result: null | {                                // 공통 결과(2026-11-14): 지난 판 ctx.finish, 다음 판 시작 때 null
+                   rows: [{ id, name, rank, score?, note? }],     // 순위 순서. 이 판을 끝까지 한 사람(관전자·나간 사람 없음)
+                   gain: { [id]: 정수 },                         // 이번 판 증감(코인: 지급 + add, 칩: 이번 게임 동안). 방 전원(관전자 포함)이 같은 값
+                   unit: 'coin' | 'chip',                        // 홀덤만 'chip'
+                   add?: { label, by: { [id]: 정수 } } } },       // gain 안에 든 지급 밖 증감(미니 베팅). 화면은 "판 코인 +a · 베팅 +b"
   specs: [{ id, name, connected }] }            // 관전 계정 자리(SPEC 7-4)
 ```
 - 강퇴된 사람: `{t:'error', msg:'방장이 내보냈습니다.', code:'<p>kicked'}` 다음 `room:null`.
 - `event.e`: `joined{id,name}` `left{id,name}` `away{id}` `back{id}` 를 **모든 게임**이 보낸다(포커 새로). `faces.items[]` 에 `look`(장착 아이템 `{title?, frame?, color?, …}`, 상점의 `g.equip` 그대로) 추가.
-- 판 끝 코인 알림은 기존 `{t:'coin', a:'got', n, mode, win}`(22-10) 그대로. 이제 `ctx.finish` 한 길이라 코인 규칙이 있는 모든 게임에서 온다.
+- 판 끝 코인은 `wait.result`(공통 결과 화면)로만 알린다. 옛 `{t:'coin', a:'got'}`·`{t:'coin', a:'stake'}` 알림은 없어졌다(2026-11-14). 공개된 결과만 싣는다(비밀 없음).
 - `sndAdd` 로 방 소리가 넘쳐 지워지면 지워진 것마다 `sndDel{sid}` 가 뒤따른다.
 
 호환·이행
@@ -218,6 +229,7 @@ export const SERVER_GAMES = {
 | `client/src/games.js` | `CLIENT_GAMES[mode] = { load: () => import('./<m>/index.js'), stage: bool, mount: bool, bar?: {leftVar} }`, 포커 `{ builtin:'poker', stage:true, mount:false }`. **`mount: true` 인 게임만 새 길**(옮기는 과제가 자기 줄을 true 로). `isFramed(mode)`, `visibleModes(me, search)` | |
 | `room/frame.js` | `createRoomFrame(deps) → { apply(state\|null) → bool, event(e) → bool, error(err) → bool, frame(dt), current(), anchorOf(id), chatMsg(text) → msg, enqueue(fn) }` (C1 추가: anchorOf = 대기실이면 참가자 사진 위·게임이면 게임 anchorOf, chatMsg = chatRule.route, enqueue = 옛 liarQ). 불러오기 줄 하나(liarQ 대체), mount/unmount, 대기실↔게임 전환, 공용 이벤트 처리 | `.rm-` |
 | `room/wait.js` | 공통 대기실(시안 3칸). `createWait(deps) → { el, update(state, schema, parts), anchorOf(id), dispose() }` + 순수 함수 `waitModel(state, entry, meId)` (시험용) | `.wr-` (`.lb-panel/.lb-group/.lb-seg-item/.lb-btn` 은 쓰기만) |
+| `room/result.js` | 공통 결과 화면. `createResult({send, profile, faces, onWait, onLeave}) → { el, update(state\|null, game), peek(), anchorOf(id), dispose() }` + 순수 함수 `resultModel(state, meId, title)` (시험용). 누가 이겼나·순위·점수·모든 사람의 코인(칩) 증감, 게임 칸(`resultPart`), 버튼 나가기 / 대기실로 / 방장 다시 시작(`{t:'start'}`, 비방장은 기다림 글) | `.rm-rs-` |
 | `room/bar.js` | 게임 중 상단 줄: 방 코드·소리·이모티콘·나가기. 이모티콘 창 열고 닫기·바깥 누름 닫기 한 번(main.js:159-206 대체) | `.rm-bar` |
 | `room/faces.js` | `createFaces() → { apply(e), get(id) → {avatar, look}, drop(id), clear(), onChange(fn) → off }` | |
 | `room/float.js` | 머리 위 기본 이모티콘(요트 yt-em 방식 2초) — 사진·사운드 이름표는 emotePanel 그대로, 자리는 모두 `anchorOf` | `.rm-em` |
@@ -234,7 +246,8 @@ ctx = {
   send(msg), me() /* state.me */, faces, clock /* {sync(now), now(), left(endsAt)} */,
   sound,           // sound/core.js
   toast, confirm, modal, profile /* ui/kit/avatar.js */,
-  openEmote(), leave() /* 확인 창 포함 */, toWait() /* 결과 화면의 "대기실로" */,
+  openEmote(), leave() /* 확인 창 포함 */,
+  ready() /* holdWait 가 풀렸다: 틀이 결과·대기실을 다시 고른다 */, peekResult() /* 공통 결과 패널을 접어 판을 본다(요트 점수표 보기) */,
 }
 return {
   room(state),                 // 상태가 올 때마다(대기 중에도. 게임은 자기 대기 화면을 그리지 않는다)
@@ -244,13 +257,16 @@ return {
   frame?(dt),                  // 초 단위
   chatRule?: { maxLen, lock(state) → {locked, hint, hot}, route(text) → msg, bubble(e) → bool, own(state) → bool },
   waitPart?(name) → { el, update(state), dispose() },  // 대기실 커스텀 칸
+  holdWait?(state) → bool,                             // 참인 동안 대기 상태여도 게임 판만(결과 연출이 끝날 때까지). 끝나면 ctx.ready()
+  resultTitle?(state) → {title, sub?} | null,          // 공통 결과 제목(없으면 "<1등> 승리")
+  resultPart?(state) → HTMLElement | null,             // 공통 결과 안의 게임 칸(라이어 제시어·투표 내역, 요트 점수표 보기 등)
   leaveNote?(state) → string | null,                    // 게임 중 나가기 확인 창 글("나가면 기권이 됩니다" 등). null 이고 state.wait 가 있으면(결과 화면) 확인 없이 바로 나감, null 이고 게임 중이면(관전 등) 글 없는 기본 확인 [G-yacht 가 확정]
   showEmote?(id, i) → bool,    // 스스로 그리면 true (포커 pins.emote)
   unmount(),                   // 리스너·타이머·3D·소리 전부. 방을 나가면 반드시 불리고, 다시 들어오면 새 mount
 }
 ```
 - 틀이 먼저 처리하는 이벤트: `emote pemote snd sndAdd sndList sndDel sndRename`(게임에 안 넘김), `faces chat chatLog joined left away back`(처리하고 게임에도 넘김). `joined/left` 는 채팅에 시스템 줄("○○ 님이 들어왔어요").
-- 화면 전환: `state.wait && (state.phase === 'lobby' || toWait 를 눌렀음)` 이면 대기실, 아니면 게임 판 + 상단 줄. 새 판이 시작되면(phase 가 대기에서 벗어남) toWait 표시를 지운다.
+- 화면 전환: `state.wait` 가 없으면 게임 판 + 상단 줄. 있으면(`holdWait` 가 풀린 뒤) `wait.result` 가 있고 "대기실로"를 안 눌렀으면 게임 판 위에 공통 결과(판은 뒤에 흐리게), 아니면 대기실. 새 판이 시작되면(wait 가 null) "대기실로" 표시를 지운다. 결과 뒤에 들어온 사람(rows 에 없음)은 바로 대기실. 게임은 자기 결과 화면·결과 버튼을 그리지 않는다.
 - 불러오기 실패: 게임 파일을 못 받으면(동적 import 실패) 틀 안 `staleReload` 가 "새 버전" 안내(B15), `mount` 안의 오류는 일반 오류 알림. 게임이 바뀌면 `await current.unmount()` 뒤 새 mount(B16·S6).
 - 소리 버튼: 대기실 머리줄·상단 줄 모두 `sound.setMuted`. 게임 audio.js 는 core 위에서 소리 표만(B20).
 
@@ -271,10 +287,10 @@ return {
 ### 4-4. 채팅 규칙 훅 (화면 `ui/chat.js` 에 `setRule(rule|null)` 추가. C1: chat.setRule 은 maxLen 만 받고 lock·route·bubble·own 은 frame 이 부른다. own 이면 `setMode('own')`(입력 숨김·기록 계속), 대기실은 `setMode('wait')` + `chat.waitEl`, 시스템 줄 `chat.system(text)`)
 | 게임 | rule | 근거 |
 |---|---|---|
-| 라이어 | `maxLen 80`, `lock` = chatLockFor, `route` = chatMsgFor(say/chat), `bubble` = kind 가 say·plea 면 false | liar/index.js:179·213, main.js:85·556 |
+| 라이어 | `maxLen 80`, `lock` = chatLockFor, `route` = chatMsgFor(say/chat), `bubble` = kind 가 say·plea 면 false (chat.push 가 모든 모드에서 따른다: 큰 글로 따로 보이는 말은 기록에만) | liar/index.js:179·213, main.js:85·556 |
 | 갱식마인드 | `maxLen 40`, `own(state)` = 대기·최종이 아니면 true(그동안 사이트 입력칸 숨김, 기록은 계속 받음) | B10·B12, D8 |
 | 나머지 | 없음(120자, 말풍선) | |
-- (X 추가) `chatRule.input?(state) → bool`: 참인 동안 게임 중 입력 줄을 열어 둔다. 참이 되면 틀이 `chat.open()`, 거짓이 되면 틀이 연 것만 `chat.close()`. 라이어 = 내 입력 차례(첫 설명·최후 변론, `chatLockFor(s).hot`).
+- (X 추가) `chatRule.layout?: 'inline'`: 게임 중 입력칸이 아래 가운데에 늘 보이고 최근 기록이 오른쪽 위에 늘 보인다(채팅 버튼 없음, 기록 버튼으로 펼침). 틀이 `chat.setMode('inline')`. 라이어만 쓴다. 안 주면 공용 버튼 방식.
 
 ### 4-5. main.js 에서 없어지는 것 / 남는 것
 | 없어짐 (→ 어디로) | 줄 |

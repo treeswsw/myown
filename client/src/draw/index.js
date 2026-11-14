@@ -77,8 +77,6 @@ export function mount(ctx) {
     history: null,
     faces: ctx.faces,
     profile: ctx.profile,
-    leave: () => ctx.leave(),
-    toWait: () => ctx.toWait(),
     notice: (text) => ctx.toast(text, { key: 'dr-notice' }),
     onFull: () => {
       const t = Date.now();
@@ -156,11 +154,9 @@ export function mount(ctx) {
   vv?.addEventListener('resize', onResize);
   vv?.addEventListener('scroll', onResize);
 
-  // 사진·꾸미기가 새로 왔다: 자리와 최종 순위의 프로필만 다시 그린다
+  // 사진·꾸미기가 새로 왔다: 자리의 프로필만 다시 그린다
   const offFaces = ctx.faces.onChange(() => {
-    if (disposed || !state) return;
-    mods.players.update(state);
-    mods.result.redraw();
+    if (!disposed && state) mods.players.update(state);
   });
 
   // 10초 남음 소리(상태는 시간이 지나도 다시 오지 않으므로 직접 잰다)
@@ -195,10 +191,9 @@ export function mount(ctx) {
       if (err.code === 'dr_canvas_full') mods.board.stop();
     },
 
-    // 이모티콘·사진·말풍선이 뜰 자리: 최종 순위에서는 순위의 사진, 그 밖에는 플레이어 자리의 사진
+    // 이모티콘·사진·말풍선이 뜰 자리: 플레이어 자리의 사진(최종 순위는 공통 결과 화면이 맡는다)
     anchorOf(id) {
-      if (disposed) return null;
-      return (state?.phase === 'final' ? mods.result.anchor(id) : null) ?? mods.players.anchor(id);
+      return disposed ? null : mods.players.anchor(id);
     },
 
     // 게임 중 채팅은 정답 입력칸(own)이고, 대기실·최종 순위에서는 사이트 채팅. 글은 40자까지(입력칸에서 막고 서버도 거절).

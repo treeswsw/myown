@@ -1,6 +1,6 @@
 // 라이어게임 화면 모듈들을 하나로 묶는다. 공통 방 틀(client/src/room/frame.js)이 mount(ctx) 로 불러 쓴다. 약속: docs/COMMON-CONTRACT.md 4-2.
 // 대기실(설정·참가자·시작·강퇴)·상단 줄(방 코드/소리/이모티콘/나가기)·머리 위 이모티콘·채팅 칸·소리 끄기·나가기 확인은 틀이 한다.
-// 이 모듈은 게임 판(3D 장면, 역할·투표·결과·엔딩 화면)만 그린다. 방을 나가면(또는 다른 방으로 가면) 틀이 unmount 를 부르고,
+// 이 모듈은 게임 판(3D 장면, 역할·투표·엔딩 화면)과 공통 결과 화면의 라이어 칸만 그린다. 방을 나가면(또는 다른 방으로 가면) 틀이 unmount 를 부르고,
 // 그때 3D 장면·stage·리스너를 모두 정리한다(다른 게임 화면을 덮지 않게).
 import './liar.css';
 import './ui/hud.css';
@@ -16,7 +16,7 @@ import { LIMITS } from '../../../shared/liar/constants.js';
 import { cameraFor } from './scene/layout.js'; // three.js 를 가져오지 않는 순수 함수
 import { createHud, chatLockFor } from './ui/hud.js';
 import { createVote } from './ui/vote.js';
-import { createResult } from './ui/result.js';
+import { createResult, winnerText } from './ui/result.js';
 import { createRole } from './ui/role.js';
 import { createFirstSays } from './ui/firstsays.js';
 import { createRules } from './ui/rules.js';
@@ -73,7 +73,6 @@ export function mount(ctx, opts = {}) {
     tagAnchor: (id) => (scene ? (scene.tagPos?.(id) ?? scene.screenPos(id)) : null),
     avatar, avatarKey,
     toast: ctx.toast, nogl, limits: LIMITS,
-    toWait: () => ctx.toWait(),
   };
 
   const viewFor = (s) => cameraFor(s);
@@ -191,11 +190,10 @@ export function mount(ctx, opts = {}) {
     },
 
     // 채팅 칸 규칙(COMMON-CONTRACT 4-4): 80자, 단계별 잠금, 내 설명 차례면 say, 설명·변론은 말풍선 없이 큰 글로만.
-    // 내 입력 차례(첫 설명·최후 변론)에는 입력 줄을 열어 둔다(input, 차례가 끝나면 틀이 닫는다)
     chatRule: {
       maxLen: LIMITS.chat,
       lock: (s) => chatLockFor(s),
-      input: (s) => Boolean(s) && Boolean(chatLockFor(s).hot),
+      layout: 'inline', // 입력칸은 아래 가운데에 늘 보이고 기록은 오른쪽 위에 늘 보인다(채팅 버튼 없음)
       route: (text) => chatMsgFor(state, text),
       bubble: (e) => e.kind !== 'say' && e.kind !== 'plea',
     },
@@ -209,6 +207,10 @@ export function mount(ctx, opts = {}) {
       rankPart = part;
       return part;
     },
+
+    // 공통 결과 화면: 제목(이긴 쪽·이유)과 라이어 칸(라이어·제시어·투표 내역)
+    resultTitle: (s) => (s.result ? winnerText(s.result) : null),
+    resultPart: (s) => mods.result.part(s),
 
     // 판 도중(참가자)이면 안내. 대기·결과·구경은 null (결과는 틀이 확인 없이 나간다)
     leaveNote: (s) => leaveNoteFor(s),

@@ -1,4 +1,4 @@
-/* 갱식마인드 고르기·정답 공개·최종 순위 (접두사 .dr-rs- 만). 시안 design/draw/shots/pick-*, reveal-*, final-* */
+/* 갱식마인드 고르기·정답 공개 (접두사 .dr-rs- 만). 시안 design/draw/shots/pick-*, reveal-*. 최종 순위는 공통 결과 화면 */
 .dr-rs {
   --dr-rs-ink: #fff;
   --dr-rs-ink2: rgba(255, 255, 255, .62);
@@ -54,51 +54,8 @@
 .dr-rs-next { margin-top: 4px; font-size: calc(12px * var(--k, 1)); color: var(--dr-rs-ink2); }
 .dr-rs-next .dr-rs-gname { color: var(--dr-rs-ink); }
 
-/* ---- 최종 순위 ---- */
-.dr-rs-final { width: min(760px, 94%); max-height: 94%; overflow: auto; padding: calc(22px * var(--k, 1)); border-radius: 28px; text-align: left; background: var(--dr-rs-panel); box-shadow: 0 12px 40px rgba(0, 0, 0, .5), inset 0 0 0 1px var(--dr-rs-hair); }
-.dr-rs-final-body { display: grid; grid-template-columns: 1fr 1fr; gap: calc(22px * var(--k, 1)); align-items: end; margin-top: 6px; }
-.dr-rs-podium { display: flex; align-items: flex-end; justify-content: center; gap: 8px; min-height: 200px; }
-.dr-rs-pcol { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 96px; }
-.dr-rs-pname { font-size: calc(14px * var(--k, 1)); font-weight: 600; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dr-rs-step { width: 100%; box-sizing: border-box; padding-top: 10px; border-radius: 12px 12px 0 0; background: rgba(255, 255, 255, .16); text-align: center; }
-.dr-rs-p1 .dr-rs-step { height: 96px; background: var(--dr-rs-accent); color: #1c1c1e; }
-.dr-rs-p2 .dr-rs-step { height: 68px; }
-.dr-rs-p3 .dr-rs-step { height: 50px; }
-.dr-rs-prank { font-size: calc(22px * var(--k, 1)); font-weight: 800; }
-.dr-rs-pscore { font-size: calc(12px * var(--k, 1)); opacity: .8; }
-.dr-rs-p1 .dr-rs-av { box-shadow: 0 0 0 3px var(--dr-rs-accent), 0 0 18px rgba(242, 196, 68, .6); }
-.dr-rs-me .dr-rs-pname, .dr-rs-me .dr-rs-rname { color: var(--dr-rs-accent); }
-
-.dr-rs-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.dr-rs-list { list-style: none; margin: 0; padding: 0; border-radius: 14px; background: rgba(255, 255, 255, .07); overflow: hidden; }
-.dr-rs-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--dr-rs-hair); font-size: calc(14px * var(--k, 1)); }
-.dr-rs-row:last-child { border-bottom: 0; }
-.dr-rs-rk { width: 18px; color: var(--dr-rs-ink2); text-align: center; }
-.dr-rs-rname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dr-rs-rhit { font-size: calc(12px * var(--k, 1)); color: var(--dr-rs-ink2); }
-.dr-rs-rscore { color: var(--dr-rs-accent); font-weight: 700; min-width: 3.4em; text-align: right; }
-.dr-rs-btns { display: flex; gap: 10px; align-items: stretch; }
-.dr-rs-btn { flex: 1; height: calc(44px * var(--k, 1)); border-radius: 999px; font-size: calc(15px * var(--k, 1)); font-weight: 700; }
-.dr-rs-btn-sub { background: rgba(255, 255, 255, .12); color: #fff; }
-.dr-rs-btn-main { background: #fff; color: #1c1c1e; }
-.dr-rs-btn:disabled { opacity: .5; cursor: default; }
-.dr-rs-waitnote { flex: 2; display: flex; align-items: center; justify-content: center; font-size: calc(13px * var(--k, 1)); color: var(--dr-rs-ink2); }
-
-/* ---- 프로필 동그라미 (사진은 상태에 없으므로 글자) ---- */
-.dr-rs-av { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-weight: 700; flex: none; }
-.dr-rs-av-lg { width: 64px; height: 64px; font-size: 28px; }
-.dr-rs-av-sm { width: 30px; height: 30px; font-size: 14px; }
-
 /* 휴대폰 가로: 한 화면에 들어가게 압축 */
 @media (max-height: 480px) {
-  .dr-rs-final { padding: 12px 16px; }
-  .dr-rs-podium { min-height: 130px; }
-  .dr-rs-av-lg { width: 44px; height: 44px; font-size: 20px; }
-  .dr-rs-pcol { width: 72px; }
-  .dr-rs-p1 .dr-rs-step { height: 60px; }
-  .dr-rs-p2 .dr-rs-step { height: 44px; }
-  .dr-rs-p3 .dr-rs-step { height: 32px; }
-  .dr-rs-row { padding: 4px 10px; }
   .dr-rs-word { min-width: 110px; padding: 10px 12px; }
   .dr-rs-note { display: none; }
 }

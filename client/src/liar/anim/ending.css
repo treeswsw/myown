@@ -57,13 +57,6 @@
 }
 .lg-ed-face img { width: 100%; height: 100%; object-fit: cover; }
 .lg-ed-name { font-weight: 900; color: var(--c, #efe6d8); font-size: max(13px, calc(22px * var(--lg-k, 1))); text-shadow: 0 2px 8px #000; }
-.lg-ed-bubble {
-  box-sizing: border-box; max-width: min(70vw, 520px); padding: 6px 14px; border-radius: 14px; background: #fff; color: #111;
-  font-weight: 900; font-size: max(13px, calc(24px * var(--lg-k, 1))); line-height: 1.25; text-align: center; overflow-wrap: anywhere;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
-}
-.lg-ed-bubble[hidden] { display: none; }
-.lg-ed-bubble.lg-ed-float { position: absolute; transform: translate(-50%, -140%); z-index: 2; }
 .lg-ed-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
 @keyframes lg-ed-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .lg-ed-root, .lg-ed-root * { transition: none !important; animation: none !important; } }

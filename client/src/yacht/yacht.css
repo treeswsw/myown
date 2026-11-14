@@ -4,3 +4,8 @@
 .yt-pane { position: relative; flex: 1; min-width: 0; margin-top: calc(54px + env(safe-area-inset-top, 0px)); pointer-events: none; }
 /* 높은 화면: 채팅 버튼(오른쪽 위 고정)이 상단 줄 바로 아래라 판의 오른쪽 위(N left)를 가린다 → 그 폭만큼 판을 좁힌다 */
 @media (min-height: 720px) { .yt-pane { margin-right: calc(22px + 34px * var(--k, 1)); } }
+
+/* 공통 결과 화면의 요트 칸(room/result.js 의 게임 칸) */
+.yt-rs { display: flex; align-items: center; gap: 12px; }
+.yt-rs-stat { flex: 1; margin: 0; font-size: 13px; color: rgba(255, 255, 255, .6); }
+.yt-rs-peek.yt-rs-peek { height: 40px; padding: 0 18px; font-size: 15px; }

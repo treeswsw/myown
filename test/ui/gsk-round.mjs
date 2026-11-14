@@ -323,14 +323,17 @@ try {
     await waitS((x) => x.phase === 'result', '결과 단계', 15000);
     const winnerName = names[X.who];
     if (S().result.winner !== X.st.you) throw new Error(`승자 ${S().result.winner}`);
+    const panel = (w) => w.page.locator('[data-rm="result"]');
     for (const w of wins) {
-      await gk(w, 'result').waitFor({ state: 'visible' });
-      const t = await gk(w, 'result').innerText();
-      if (!t.includes(winnerName)) throw new Error(`${w.who} 결과에 승자 이름 없음: ${t.replace(/\s+/g, ' ')}`);
-      const lit = await w.page.locator('[data-gk=result] .gk-rs-top .gk-rs-lit').count();
-      if (lit !== 2) throw new Error(`결과 1등 줄의 점수 칸이 ${lit}개 켜짐(2개여야 함)`);
+      await panel(w).waitFor({ state: 'visible', timeout: 15000 }); // 공개·승리 연출이 끝난 뒤 공통 결과
+      const title = await w.page.locator('.rm-rs-title').innerText();
+      if (!title.includes(winnerName)) throw new Error(`${w.who} 결과 제목에 승자 이름 없음: ${title}`);
+      const top = await w.page.locator('[data-rm="result"] .rm-rs-top .rm-rs-score').innerText();
+      if (top !== '2') throw new Error(`결과 1등 줄 점수 ${top}(2여야 함)`);
+      const paid = await count(w, '[data-rm="result"] .rm-rs-gain:not(.rm-rs-zero)');
+      if (paid !== 3) throw new Error(`${w.who}: 코인 받은 줄 ${paid}`);
     }
-    const all = await gk(A, 'result').innerText();
+    const all = await panel(A).innerText();
     for (const n of Object.values(names)) if (!all.includes(n)) throw new Error(`결과 순위에 ${n} 없음`);
     for (const w of wins) if (await count(w, '[data-gk=start]')) throw new Error(`${w.who} 결과 창에 자체 시작 버튼이 남음`);
     noErrors('result');
@@ -338,7 +341,7 @@ try {
 
   await step('결과의 "대기실로" → 공통 대기실(색 다시 고르기) → A 가 시작 → 점수·원판이 처음으로 돌아가 다시 준비 단계', async () => {
     const gameNo = S().gameNo;
-    for (const w of wins) await press(w, 'to-wait');
+    for (const w of wins) await w.page.click('[data-rm="result-wait"]');
     for (const w of wins) await w.page.locator('.wr-root').waitFor({ state: 'visible' });
     await press(A, 'color-3'); // 결과 뒤 대기실에서도 색을 바꿀 수 있다
     await waitS((x) => x.wait?.own?.[A.st.you]?.color === 3, '결과 뒤 색 바꾸기');
@@ -346,7 +349,7 @@ try {
     await waitS((x) => x.phase === 'playing' && x.step === 'setup' && x.gameNo > gameNo, '새 판 준비 단계');
     for (const s of S().seats) if (s.points !== 0 || s.discs !== 4) throw new Error(`새 판인데 ${s.name} 점수 ${s.points} 원판 ${s.discs}`);
     for (const w of wins) await gk(w, 'place-F').waitFor({ state: 'visible' });
-    if (await count(A, '[data-gk=result]')) throw new Error('새 판인데 결과 창이 남음');
+    if (await A.page.locator('[data-rm="result"]').isVisible()) throw new Error('새 판인데 결과 창이 남음');
     if (S().seats.find((x) => x.id === A.st.you).color !== 3) throw new Error('고른 색이 새 판에 이어지지 않음');
     noErrors('restart');
   });
@@ -362,9 +365,9 @@ try {
 
   await step('나가기 → 판 중이라 기권 확인이 뜨고, 확인하면 로비로 돌아온다', async () => {
     for (const w of wins) {
-      await w.page.click('[data-rm="bar-leave"]');
-      // 앞 사람들이 나가 혼자 남으면 판이 끝나 결과 화면이다 → 확인 없이 바로 나간다
+      // 앞 사람들이 나가 혼자 남으면 판이 끝나 공통 결과 화면이다 → 그 안의 나가기로 확인 없이 바로 나간다
       const playing = w.st?.phase === 'playing';
+      await w.page.click(playing ? '[data-rm="bar-leave"]' : '[data-rm="result-leave"]');
       if (playing) {
         await w.page.locator('.ui-confirm:has-text("나가면 기권 처리돼요")').waitFor({ state: 'visible' });
         await w.page.click('.ui-mbtn.ui-danger');

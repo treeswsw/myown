@@ -35,20 +35,6 @@ const VP = (() => { const m = /^(\d+)x(\d+)$/.exec(process.env.LG_VP || ''); ret
 async function openPage(browser, url, who) {
   const ctx = await browser.newContext({ viewport: VP, hasTouch: false, deviceScaleFactor: 1 });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
-  // SPEC 22-12: remember the {t:'coin',a:'got'} message (the "+N 코인" toast only lasts 2.5 s)
-  await ctx.addInitScript(() => {
-    const WS = window.WebSocket;
-    window.__coinGot = 0;
-    window.WebSocket = class extends WS {
-      constructor(...a) {
-        super(...a);
-        this.addEventListener('message', (ev) => {
-          if (typeof ev.data !== 'string' || !ev.data.startsWith('{"t":"coin"')) return;
-          try { const m = JSON.parse(ev.data); if (m.a === 'got') window.__coinGot += Number(m.n) || 0; } catch { /* ignore */ }
-        });
-      }
-    };
-  });
   const page = await ctx.newPage();
   page.setDefaultTimeout(T);
   const errors = [];
@@ -144,10 +130,9 @@ const noErrors = (state) => {
   for (const w of wins) if (w.errors.length) throw new Error(`콘솔 오류(${w.who}, ${state}): ${w.errors.join(' | ')}`);
 };
 
-// 게임 중 채팅은 사이트 채팅 버튼 뒤에 있다. 내 입력 차례(첫 설명·최후 변론)가 오면 채팅 칸이 저절로 열린다.
+// 게임 중 채팅 입력칸은 아래 가운데에 늘 보인다(버튼을 누를 필요 없음).
 async function say(w, text) {
   const box = w.page.locator('.chat-in');
-  if (!(await box.isVisible())) await w.page.locator('.chat-btn').click();
   await box.waitFor({ state: 'visible' });
   await box.fill(text);
   await box.press('Enter');
@@ -157,11 +142,12 @@ async function say(w, text) {
 }
 const chatBarOk = async (w, state) => {
   const r = await w.page.evaluate(() => {
-    const b = document.querySelector('.chat-btn');
     const vis = (e) => e && !e.hidden && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
-    return { btn: vis(b) };
+    return { input: vis(document.querySelector('.chat-in')), feed: vis(document.querySelector('.chat-feed')), btn: vis(document.querySelector('.chat-btn')) };
   });
-  if (!r.btn) throw new Error(`${w.who} ${state}: 게임 중인데 사이트 채팅 버튼(.chat-btn)이 안 보임`);
+  if (!r.input) throw new Error(`${w.who} ${state}: 채팅 버튼을 누르지 않아도 입력칸이 보여야 함`);
+  if (!r.feed) throw new Error(`${w.who} ${state}: 오른쪽 위 채팅 기록(.chat-feed)이 안 보임`);
+  if (r.btn) throw new Error(`${w.who} ${state}: 라이어 방에는 채팅 버튼이 없어야 함`);
 };
 const title = (w) => w.page.locator('[data-lg="hud-title"]');
 const waitTitle = async (w, text, timeout = T) => {
@@ -220,7 +206,7 @@ try {
     await C.page.reload();
     await C.page.locator('.wr-players li', { hasText: names.C }).waitFor({ state: 'visible' });
     await C.page.waitForTimeout(500);
-    const n = await C.page.evaluate(() => ({ root: document.querySelectorAll('.lg-root').length, hud: document.querySelectorAll('.lg-hud-root').length, rs: document.querySelectorAll('.lg-rs-root').length }));
+    const n = await C.page.evaluate(() => ({ root: document.querySelectorAll('.lg-root').length, hud: document.querySelectorAll('.lg-hud-root').length, rs: document.querySelectorAll('.rm-rs-root').length }));
     if (n.root !== 1 || n.hud > 1 || n.rs > 1) throw new Error(`중복 마운트: ${JSON.stringify(n)}`);
   });
 
@@ -279,6 +265,8 @@ try {
       for (const w of wins) {
         await w.page.locator('[data-lg="hud-said"]', { hasText: text }).waitFor({ state: 'visible', timeout: 2500 });
         await waitTitle(w, '첫 설명', 2500);
+        const bub = await w.page.locator('.chat-w').count();
+        check(w.who, `첫 설명 ${n}번째 중 작은 말풍선 없음`, bub === 0, `.chat-w ${bub}개`);
         const secsShown = await w.page.locator('[data-lg="hud-secs"]').isVisible().catch(() => false);
         if (secsShown) check(w.who, `첫 설명 ${n}번째 뒤 머무는 동안 남은 시간 숨김`, false, '남은 시간 숫자가 보임');
       }
@@ -305,12 +293,10 @@ try {
     await occAll('discuss');
     for (const w of wins) await chatBarOk(w, 'discuss');
     // 화면 입력 한도 = 서버 한도 80자: 81자를 붙여 넣으면 80자에서 멈춘다(보낸 글이 사라지지 않는다)
-    if (!(await B.page.locator('.chat-in').isVisible())) await B.page.locator('.chat-btn').click();
     await B.page.locator('.chat-in').fill('가'.repeat(81));
     const len = await B.page.locator('.chat-in').evaluate((e) => [...e.value].length);
     if (len !== 80) throw new Error(`입력 한도가 80자가 아님: ${len}`);
     await B.page.locator('.chat-in').fill('');
-    await B.page.locator('.chat-btn').click();
     const idOf = async (w, name) => w.page.locator('[data-lg="tag"]', { hasText: name }).first().getAttribute('data-id');
     for (const [w, target] of [[B, 'A'], [C, 'A'], [A, 'B']]) {
       await w.page.locator('[data-lg="tag"]', { hasText: names[target] }).first().click();
@@ -414,29 +400,35 @@ try {
     noErrors('answer');
   });
 
-  await step('결과: 승자·점수·투표 내역', async () => {
+  await step('공통 결과: 승자·순위·점수·모든 사람의 코인, 라이어 칸(제시어·투표 내역)', async () => {
     for (const w of wins) {
-      await w.page.locator('[data-lg="result-winner"]').waitFor({ state: 'visible', timeout: 40000 });
+      await w.page.locator('[data-rm="result"]').waitFor({ state: 'visible', timeout: 40000 });
       await w.page.locator('[data-lg="result"]').waitFor({ state: 'visible' });
     }
-    const t = await A.page.locator('[data-lg="result-winner"]').innerText();
+    const t = await A.page.locator('.rm-rs-title').innerText();
     if (!/라이어 승리|시민 승리|무효/.test(t)) throw new Error(`승자 글자가 이상함: ${t}`);
-    const body = await A.page.locator('[data-lg="result"]').innerText();
-    if (!/[+\-]?\d+/.test(body)) throw new Error('점수 숫자가 없음');
-    if (!body.includes(names.A) || !body.includes(names.B)) throw new Error('투표 내역에 이름이 없음');
-    if (!t.includes('무효')) { // SPEC 22: a void round pays nothing; otherwise everyone who finished got coins (message + toast)
-      for (const w of wins) await w.page.waitForFunction(() => window.__coinGot > 0, null, { timeout: 5000 }).catch(() => { throw new Error(`${w.who}: 라운드 끝에 코인 알림이 오지 않음`); });
+    for (const w of wins) {
+      const rows = await w.page.locator('[data-rm="result"] .rm-rs-row').count();
+      if (rows !== 3) throw new Error(`${w.who}: 결과 줄 ${rows}`);
+      // SPEC 22: 무효 판은 코인이 없고, 아니면 끝까지 한 세 사람 모두 코인을 받는다(모두의 것이 보인다)
+      const paid = await w.page.locator('[data-rm="result"] .rm-rs-gain:not(.rm-rs-zero)').count();
+      if (paid !== (t.includes('무효') ? 0 : 3)) throw new Error(`${w.who}: 코인 받은 줄 ${paid}`);
     }
-    await occAll('result', '.lg-rule-btn, .lg-fs-btn'); // 결과 창이 위쪽 규칙·첫 발언 버튼을 덮는다(창을 닫을 수 없는 단계)
+    const body = await A.page.locator('[data-lg="result"]').innerText();
+    if (!body.includes('시민 제시어')) throw new Error('라이어 칸에 제시어가 없음');
+    if (!body.includes(names.A) || !body.includes(names.B)) throw new Error('투표 내역에 이름이 없음');
+    await occAll('result', ':not(.rm-rs-root *)'); // 결과 패널이 판 위를 덮는다: 패널 안 버튼만 본다
     noErrors('result');
   });
 
-  await step('결과 → B 는 "대기실로"(설정 화면 + 참가자 3명), A 는 "다음 판" → 세 창 역할 확인 화면', async () => {
-    await B.page.locator('[data-lg="to-wait"]').click();
+  await step('결과 → B 는 "대기실로"(설정 화면 + 참가자 3명), C 는 기다림 글, A(방장)는 "다시 시작" → 세 창 역할 확인 화면', async () => {
+    await B.page.locator('[data-rm="result-wait"]').click();
     await B.page.locator('[data-rm="wait-leave"]').waitFor({ state: 'visible' });
     await until(async () => (await B.page.locator('.wr-players li').count()) === 3, 'B 의 대기실에 참가자 3명');
     await B.page.locator('.wr-seg[aria-label="라이어 방식"]').waitFor({ state: 'visible' });
-    await A.page.locator('[data-lg="next"]').click();
+    await C.page.locator('.rm-rs-guest:has-text("방장이 다시 시작하기를 기다리는 중")').waitFor({ state: 'visible' });
+    if (await C.page.locator('[data-rm="result-again"]').isVisible()) throw new Error('방장이 아닌데 다시 시작 버튼');
+    await A.page.locator('[data-rm="result-again"]').click();
     for (const w of wins) await waitTitle(w, '역할 확인');
     await occAll('reveal (2nd)', '[data-lg="rule-open"], [data-lg="rank-open"]');
     noErrors('reveal 2nd');
