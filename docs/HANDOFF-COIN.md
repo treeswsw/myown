@@ -45,3 +45,8 @@
 - 진행 중이던 것(끝났는지 git log 로 확인): 카드 뽑기 화면(Fable, worktree-agent-aec3cce…), 캡슐 기계·내 꾸미기 화면(Fable, worktree-agent-a3ba2d08…). 끝나지 않았으면 client/src/coin/capsule.js·lookwin.js 는 "준비중" 자리 파일.
 - 남은 것: 위 두 화면 병합 → lobby.js SHOW_DRAW=true, 버튼 이름 '카드 뽑기' → 돈·서버 묶음(진열+캡슐) Opus 검토 → npm test → 배포(사용자에게 먼저 묻기). 치장템 그림, 방 안 looks, 무료 뽑기 주기 결정.
 - 카드 뽑기 화면: Fable 작업 중 멈춤. 만들다 만 것은 docs/coin/wip-card-gacha.patch (git apply 로 이어서). 로비 [카드 뽑기] 버튼은 켜져 있고 지금은 옛 화면이 열림(작동함). 서버 돈 묶음 Opus 검토는 시작 전에 멈춤 → 배포 전에 다시.
+
+## 2026-11-14 정한 것 (치장·칭호 다음 단계, 상점 시안 확정 뒤 시작)
+- 상점 시안 3안: https://claude.ai/artifact/4zTRgvkGTEBtx2G9oXUxZz (A 딜러 테이블 / B 네온 오락실 / C 거울 부티크). 사용자 선택 대기.
+- 치장·칭호 시안은 Opus 가 Claude 디자인 캔버스로: 치장템 견본·칭호 효과·꾸미기 화면·게임 안 모습을 종류별 1~2개씩. 그림체 방향이 다르면 비교할 수 있게 여러 안. 전부 그리지 않는다.
+- 스티커 조절: 끌기 + 크기·각도 슬라이더. 방 안 칭호: 이름 위 작은 배지.
