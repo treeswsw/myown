@@ -827,3 +827,11 @@ design/   시안
 - 카드 뒤집기: 진열 카드는 처음에 뒷면. 누르면 짧은 연출 뒤 앞면(상품). 연 상태는 화면이 이 기기에 기억(`localStorage`, 실패해도 동작). 서버는 상품을 이미 보냈다(뒤집기는 꾸밈).
 - 통신: `me.wallet.stock = { row:[{id|null, left}] (6칸, 왼쪽부터, left = 그 칸이 나갈 때까지 ms), next (다음 교체까지 ms), feat:{ ids:[2개], left } }`. 사기 `{t:'coin',a:'buy',id}` 는 지금 진열·명품에 있는 것만(아니면 `shop_gone`). 화면은 `next`·`feat.left` 가 0이 되면 `{t:'coin',a:'stock'}` (22-18 과 같음).
 - 상점 연출(Fable): 카드 뒤집기(빛 새어 나옴), 명품 칸 은은한 빛, 버튼 반응. `prefers-reduced-motion` 이면 바로 바뀜. 소리는 나중.
+
+### 22-21. 프로필 하나로 통일 (2026-11-14 사용자 요청. 22-16 B 단계·22-19 "게임 안 표시 준비중"을 대체)
+- 옷장에서 저장한 겉모습(낀 품목 + 스티커 자리 `pos`)이 **내 프로필이 나오는 모든 곳에 똑같이** 나온다. 다른 것은 크기뿐.
+- 데이터 길 하나: 방 안 사람들에게는 공용 `faces` 알림의 `look` 으로 간다(따로 `looks` 메시지는 만들지 않는다). 모양: `look = {title?,hat?,acc?,face?,frame?,color?, pos?:{품목id:{x,y,s,r}}}` (낀 품목 중 저장된 pos 만, 없으면 `pos` 키 생략). 로비의 내 것은 `me.wallet.equip` + `me.wallet.pos`.
+  방 안에서 장착·위치가 바뀌면 그 방에 `faces` 를 다시 보낸다.
+- 그리는 함수 하나(화면, `client/src/coin/look.js` 를 공용 부품 `client/src/ui/kit/avatar.js` 가 감쌈): 프사 = `playerAvatar({id,name,face,look,size})`, 이름 = `nameTag({name,look})`(칭호 배지는 이름 위, 이름 색). 3D 텍스처·그림 합성용으로 `lookToCanvas({face, name, look, size, inner=0.7}) -> Promise<HTMLCanvasElement>`(look.js): size×size 투명 캔버스 가운데에 지름 size×inner 의 동그란 프사 + 테두리·모자·악세·페이셜(pos 적용)을 그린다. 움직이는 효과는 없다.
+- 적용: 로비 내 프로필, 대기실·결과(이미 공용), 포커 자리, 라이어(이름 칭호 + 3D 마네킹 머리 텍스처), 요트 점수표 이름, 갱식마인드(이미 공용), 갱스껄 이름표 + 해골 원판 속 사진, 미니게임 이름, 대기실 관전자 줄.
+- 제외: 채팅 이름, 랭킹 목록, 한 줄짜리 좁은 글("○○ 차례", 투표 요약, 발언자 줄, 승리 연출 글자). 작은 프사(24~32px)도 치장을 전부 그린다.
