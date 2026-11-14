@@ -130,18 +130,18 @@
 .mn-bet-note { font-size: 12px; line-height: 1.35; opacity: .75; word-break: keep-all; }
 
 /* 체스 퍼즐 (혼자 퀴즈 풀기, docs/mini/PLAN.md 6절) */
-.mn-pz { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.mn-pz { flex: none; display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
 .mn-pz[hidden], .mn-pz-btns[hidden] { display: none; }
-.mn-pz-head { font-weight: 800; font-size: 1.05rem; text-align: center; }
-.mn-pz-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; font-size: .86rem; opacity: .92; }
+.mn-pz-head { font-weight: 800; font-size: 1.15rem; }
+.mn-pz-stats { display: flex; flex-direction: column; gap: 2px; font-size: .86rem; opacity: .92; }
 .mn-pz-stat { white-space: nowrap; }
 .mn-pz-up { color: #7fe3a2; }
 .mn-pz-down { color: #ff9a8f; }
-.mn-pz-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-.mn-pz-next { min-height: 48px; padding: 0 28px; font-size: 1.05rem; background: #3f8f5b; }
-.mn-pz-goal { font-weight: 700; font-size: .95rem; text-align: center; }
-.mn-pz-themes { font-size: .86rem; opacity: .9; text-align: center; }
-.mn-pz-small { min-height: 32px; padding: 0 12px; font-size: .85rem; }
+.mn-pz-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.mn-pz-next { min-height: 44px; padding: 0 20px; font-size: 1.05rem; background: #3f8f5b; }
+.mn-pz-goal { font-weight: 700; font-size: .95rem; }
+.mn-pz-themes { font-size: .86rem; opacity: .9; }
+.mn-pz-small { align-self: flex-start; min-height: 32px; padding: 0 12px; font-size: .85rem; }
 .mn-pz-note { display: flex; align-items: center; gap: 8px; color: #ff9a8f; font-weight: 800; }
 .mn-pz-note[hidden], .mn-pz-link[hidden], .mn-pz-small[hidden], .mn-pz-themes[hidden] { display: none; }
 .mn-pz-link { font-size: .85rem; opacity: .92; }
@@ -150,3 +150,14 @@
 .mn-pz-nav:disabled { opacity: .4; }
 .mn-pz-hint { fill: rgba(255, 214, 80, .55); stroke: #ffd650; stroke-width: .5; }
 .mn-status[hidden] { display: none; }
+
+/* 퍼즐 화면 배치: 판은 높이에서 정해진 고정 크기(정사각), 정보는 옆 어두운 패널 하나(높이 = 판, 넘치면 패널 안 스크롤). */
+.mn-pz-panel { flex: none; width: clamp(200px, 26vw, 340px); box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 14px; background: rgba(8, 10, 16, .72); overflow-y: auto; overscroll-behavior: contain; }
+.mn-pz-panel[hidden] { display: none; }
+.mn-pz-panel .mn-status { text-align: left; font-size: .9rem; }
+.mn-pz-panel .mn-status[hidden] { display: none; }
+.mn-puz { flex-direction: row; align-items: stretch; justify-content: center; gap: 16px; }
+.mn-puz .mn-boardwrap { flex: 0 1 auto; height: 100%; aspect-ratio: 1; min-width: 0; }
+.mn-puz .mn-bottom, .mn-puz .mn-top { display: none; }
+.mn-pz-panel .mn-pz-stats { font-size: .95rem; gap: 4px; }
+.mn-pz-panel .mn-pz-head { font-size: 1.3rem; }
