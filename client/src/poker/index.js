@@ -2,7 +2,7 @@
 // 3D 테이블·핀·HUD·휠·블러핑 손패·특수 연출은 main.js 가 한 번 만들어 createPoker(parts) 로 넘긴다(이 파일은 그것으로 그리기만).
 // 연출 줄(animator)은 여기서 이어 붙인다: 연출이 도는 동안 새 방 상태는 미뤘다가 끝나면 그린다(옛 main.js applyRoom 그대로).
 // 대기실·채팅·사진·사운드 표시·나가기 확인은 틀이 한다. 머리 위 기본 이모티콘은 핀이 그린다(showEmote).
-// 방 상태에는 사진이 없다: ctx.faces 의 사진을 players[].avatar 로 붙여 핀·결과 연출에 넘긴다.
+// 방 상태에는 사진이 없다: ctx.faces 의 사진·꾸미기를 players[].avatar·look 으로 붙여 핀·결과 연출에 넘긴다.
 // 대기 상태(phase lobby)가 와도 연출(챔피언·우승 배너 등)이 도는 동안은 테이블을 보여 주고(holdWait), 끝나면 ctx.ready() 로 틀이 결과·대기실을 다시 고르게 한다.
 import { createAnimator } from '../anim/events.js';
 import { sfx } from '../audio.js';
@@ -25,7 +25,7 @@ export function createPoker(parts) {
   let wasMyTurn = false;
   let emphasized = false; // showdown emphasis is on screen
 
-  const withFaces = (s) => ({ ...s, players: (s.players ?? []).map((p) => ({ ...p, avatar: active?.faces.get(p.id).avatar ?? p.avatar ?? null })) });
+  const withFaces = (s) => ({ ...s, players: (s.players ?? []).map((p) => ({ ...p, avatar: active?.faces.get(p.id).avatar ?? p.avatar ?? null, look: active?.faces.get(p.id).look ?? null })) });
 
   function clear() {
     table.reset(); pins.render({ players: [], mode: 'holdem' }); pins.clearDead(); pins.setVisible(false); hud.update(null);
